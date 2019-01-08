@@ -12,12 +12,14 @@ default: all
 
 all:
 	@$(MAKE) -C src
+	@$(MAKE) -C test
 
 install:
 	@$(MAKE) -C src install prefix=$(DESTDIR)$(prefix) includedir=$(DESTDIR)$(includedir) libdir=$(DESTDIR)$(libdir)
 
 clean:
 	@$(MAKE) -C src clean
+	@$(MAKE) -C test clean
 
 tag-archive:
 	@git tag $(TAG)
