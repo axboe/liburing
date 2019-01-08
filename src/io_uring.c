@@ -42,19 +42,19 @@ static int __io_uring_get_completion(int fd, struct io_uring_cq *cq,
 /*
  * Return an IO completion, if one is readily available
  */
-int io_uring_get_completion(int fd, struct io_uring *ring,
+int io_uring_get_completion(struct io_uring *ring,
 			    struct io_uring_event **ev_ptr)
 {
-	return __io_uring_get_completion(fd, &ring->cq, ev_ptr, 0);
+	return __io_uring_get_completion(ring->ring_fd, &ring->cq, ev_ptr, 0);
 }
 
 /*
  * Return an IO completion, waiting for it if necessary
  */
-int io_uring_wait_completion(int fd, struct io_uring *ring,
+int io_uring_wait_completion(struct io_uring *ring,
 			     struct io_uring_event **ev_ptr)
 {
-	return __io_uring_get_completion(fd, &ring->cq, ev_ptr, 1);
+	return __io_uring_get_completion(ring->ring_fd, &ring->cq, ev_ptr, 1);
 }
 
 /*
@@ -62,7 +62,7 @@ int io_uring_wait_completion(int fd, struct io_uring *ring,
  *
  * Returns number of iocbs submitted
  */
-int io_uring_submit(int fd, struct io_uring *ring)
+int io_uring_submit(struct io_uring *ring)
 {
 	struct io_uring_sq *sq = &ring->sq;
 	const unsigned mask = *sq->kring_mask;
@@ -108,7 +108,8 @@ int io_uring_submit(int fd, struct io_uring *ring)
 	}
 
 submit:
-	return io_uring_enter(fd, submitted, 0, IORING_ENTER_GETEVENTS);
+	return io_uring_enter(ring->ring_fd, submitted, 0,
+				IORING_ENTER_GETEVENTS);
 }
 
 /*
@@ -180,27 +181,30 @@ err:
 	cq->kring_entries = ptr + p->cq_off.ring_entries;
 	cq->koverflow = ptr + p->cq_off.overflow;
 	cq->events = ptr + p->cq_off.events;
-	return fd;
+	return 0;
 }
 
 /*
- * Returns -1 on error, or an 'fd' on success. On success, 'sq' and 'cq'
- * contain the necessary information to read/write to the rings.
+ * Returns -1 on error, or zero on success. On success, 'ring'
+ * contains the necessary information to read/write to the rings.
  */
 int io_uring_queue_init(unsigned entries, struct io_uring_params *p,
 			struct iovec *iovecs, struct io_uring *ring)
 {
-	int fd;
+	int fd, ret;
 
 	fd = io_uring_setup(entries, iovecs, p);
 	if (fd < 0)
 		return fd;
 
 	memset(ring, 0, sizeof(*ring));
-	return io_uring_mmap(fd, p, &ring->sq, &ring->cq);
+	ret = io_uring_mmap(fd, p, &ring->sq, &ring->cq);
+	if (!ret)
+		ring->ring_fd = fd;
+	return ret;
 }
 
-void io_uring_queue_exit(int fd, struct io_uring *ring)
+void io_uring_queue_exit(struct io_uring *ring)
 {
 	struct io_uring_sq *sq = &ring->sq;
 	struct io_uring_cq *cq = &ring->cq;
@@ -208,5 +212,5 @@ void io_uring_queue_exit(int fd, struct io_uring *ring)
 	munmap(sq->iocbs, *sq->kring_entries * sizeof(struct io_uring_iocb));
 	munmap(sq->khead, sq->ring_sz);
 	munmap(cq->khead, cq->ring_sz);
-	close(fd);
+	close(ring->ring_fd);
 }

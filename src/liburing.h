@@ -37,6 +37,7 @@ struct io_uring_cq {
 struct io_uring {
 	struct io_uring_sq sq;
 	struct io_uring_cq cq;
+	int ring_fd;
 };
 
 /*
@@ -52,12 +53,12 @@ extern int io_uring_enter(unsigned fd, unsigned to_submit,
  */
 extern int io_uring_queue_init(unsigned entries, struct io_uring_params *p,
 	struct iovec *iovecs, struct io_uring *ring);
-extern void io_uring_queue_exit(int fd, struct io_uring *ring);
-extern int io_uring_get_completion(int fd, struct io_uring *ring,
+extern void io_uring_queue_exit(struct io_uring *ring);
+extern int io_uring_get_completion(struct io_uring *ring,
 	struct io_uring_event **ev_ptr);
-extern int io_uring_wait_completion(int fd, struct io_uring *ring,
+extern int io_uring_wait_completion(struct io_uring *ring,
 	struct io_uring_event **ev_ptr);
-extern int io_uring_submit(int fd, struct io_uring *ring);
+extern int io_uring_submit(struct io_uring *ring);
 extern struct io_uring_iocb *io_uring_get_iocb(struct io_uring *ring);
 
 static inline struct io_uring_iocb *

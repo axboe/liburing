@@ -14,31 +14,25 @@
 #define QD	64
 #define BS	4096
 
-struct ring {
-	struct io_uring uring;
-	int fd;
-};
-
-static struct ring in_ring;
-static struct ring out_ring;
+static struct io_uring in_ring;
+static struct io_uring out_ring;
 static void *bufs[QD];
 
-static int setup_context(unsigned entries, struct ring *r, int offload)
+static int setup_context(unsigned entries, struct io_uring *ring, int offload)
 {
 	struct io_uring_params p;
-	int ring_fd;
+	int ret;
 
 	memset(&p, 0, sizeof(p));
 	if (offload)
 		p.flags = IORING_SETUP_SQWQ;
 
-	ring_fd = io_uring_queue_init(entries, &p, NULL, &r->uring);
-	if (ring_fd < 0) {
-		fprintf(stderr, "queue_init: %s\n", strerror(-ring_fd));
+	ret = io_uring_queue_init(entries, &p, NULL, ring);
+	if (ret < 0) {
+		fprintf(stderr, "queue_init: %s\n", strerror(-ret));
 		return -1;
 	}
 
-	r->fd = ring_fd;
 	return 0;
 }
 
@@ -58,14 +52,14 @@ static int get_file_size(int fd, off_t *size)
 
 static unsigned iocb_index(struct io_uring_iocb *iocb)
 {
-	return iocb - in_ring.uring.sq.iocbs;
+	return iocb - in_ring.sq.iocbs;
 }
 
 static int queue_read(int fd, off_t size, off_t offset)
 {
 	struct io_uring_iocb *iocb;
 
-	iocb = io_uring_get_iocb(&in_ring.uring);
+	iocb = io_uring_get_iocb(&in_ring);
 	if (!iocb)
 		return 1;
 
@@ -83,7 +77,7 @@ static int complete_writes(unsigned *writes)
 {
 	int ret, nr;
 
-	ret = io_uring_submit(out_ring.fd, &out_ring.uring);
+	ret = io_uring_submit(&out_ring);
 	if (ret < 0) {
 		fprintf(stderr, "io_uring_submit: %s\n", strerror(-ret));
 		return 1;
@@ -93,7 +87,7 @@ static int complete_writes(unsigned *writes)
 	while (nr) {
 		struct io_uring_event *ev = NULL;
 
-		ret = io_uring_wait_completion(out_ring.fd, &out_ring.uring, &ev);
+		ret = io_uring_wait_completion(&out_ring, &ev);
 		if (ret < 0) {
 			fprintf(stderr, "io_uring_wait_completion: %s\n",
 						strerror(-ret));
@@ -114,7 +108,7 @@ static void queue_write(int fd, off_t size, off_t offset, unsigned index)
 {
 	struct io_uring_iocb *iocb;
 
-	iocb = io_uring_get_iocb(&out_ring.uring);
+	iocb = io_uring_get_iocb(&out_ring);
 	iocb->opcode = IORING_OP_WRITE;
 	iocb->flags = 0;
 	iocb->ioprio = 0;
@@ -180,7 +174,7 @@ int main(int argc, char *argv[])
 		}
 
 skip_read:
-		ret = io_uring_submit(in_ring.fd, &in_ring.uring);
+		ret = io_uring_submit(&in_ring);
 		if (ret < 0) {
 			fprintf(stderr, "io_uring_submit: %s\n", strerror(-ret));
 			break;
@@ -192,11 +186,9 @@ skip_read:
 		 */
 		while (reads || write_left) {
 			if (reads)
-				ret = io_uring_wait_completion(in_ring.fd,
-						&in_ring.uring, &ev);
+				ret = io_uring_wait_completion(&in_ring, &ev);
 			else
-				ret = io_uring_get_completion(in_ring.fd,
-						&in_ring.uring, &ev);
+				ret = io_uring_get_completion(&in_ring, &ev);
 			if (ret < 0) {
 				fprintf(stderr, "io_uring_get_completion: %s\n",
 							strerror(-ret));
@@ -210,7 +202,7 @@ skip_read:
 						strerror(-ev->res));
 				return 1;
 			}
-			iocb = io_uring_iocb_from_ev(&in_ring.uring, ev);
+			iocb = io_uring_iocb_from_ev(&in_ring, ev);
 			queue_write(outfd, ev->res, iocb->off, ev->index);
 			write_left -= ev->res;
 			writes++;
@@ -221,7 +213,7 @@ skip_read:
 
 	close(infd);
 	close(outfd);
-	io_uring_queue_exit(in_ring.fd, &in_ring.uring);
-	io_uring_queue_exit(out_ring.fd, &out_ring.uring);
+	io_uring_queue_exit(&in_ring);
+	io_uring_queue_exit(&out_ring);
 	return 0;
 }
