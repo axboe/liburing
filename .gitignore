@@ -1,0 +1,10 @@
+*.rej
+*.orig
+*~
+/*.patch
+
+*.o
+*.o[ls]
+
+/src/liburing.a
+/src/liburing.so*
