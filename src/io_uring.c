@@ -9,36 +9,52 @@
 #include "liburing.h"
 #include "barrier.h"
 
-/*
- * Return an IO completion, waiting for it it necessary.
- */
-int io_uring_get_completion(int fd, struct io_uring_cq *cq,
-			    struct io_uring_event **ev_ptr)
+static int __io_uring_get_completion(int fd, struct io_uring_cq *cq,
+				     struct io_uring_event **ev_ptr, int wait)
 {
 	const unsigned mask = *cq->kring_mask;
-	struct io_uring_event *ev = NULL;
 	unsigned head;
 	int ret;
 
+	*ev_ptr = NULL;
 	head = *cq->khead;
 	do {
 		read_barrier();
 		if (head != *cq->ktail) {
-			ev = &cq->events[head & mask];
+			*ev_ptr = &cq->events[head & mask];
 			break;
 		}
+		if (!wait)
+			break;
 		ret = io_uring_enter(fd, 0, 1, IORING_ENTER_GETEVENTS);
 		if (ret < 0)
 			return -errno;
 	} while (1);
 
-	if (ev) {
+	if (*ev_ptr) {
 		*cq->khead = head + 1;
 		write_barrier();
 	}
 
-	*ev_ptr = ev;
 	return 0;
+}
+
+/*
+ * Return an IO completion, if one is readily available
+ */
+int io_uring_get_completion(int fd, struct io_uring_cq *cq,
+			    struct io_uring_event **ev_ptr)
+{
+	return __io_uring_get_completion(fd, cq, ev_ptr, 0);
+}
+
+/*
+ * Return an IO completion, waiting for it if necessary
+ */
+int io_uring_wait_completion(int fd, struct io_uring_cq *cq,
+			     struct io_uring_event **ev_ptr)
+{
+	return __io_uring_get_completion(fd, cq, ev_ptr, 1);
 }
 
 /*

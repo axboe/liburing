@@ -51,6 +51,8 @@ extern void io_uring_queue_exit(int fd, struct io_uring_sq *sq,
 	struct io_uring_cq *cq);
 extern int io_uring_get_completion(int fd, struct io_uring_cq *cq,
 	struct io_uring_event **ev_ptr);
+extern int io_uring_wait_completion(int fd, struct io_uring_cq *cq,
+	struct io_uring_event **ev_ptr);
 extern int io_uring_submit(int fd, struct io_uring_sq *sq);
 extern struct io_uring_iocb *io_uring_get_iocb(struct io_uring_sq *sq);
 
