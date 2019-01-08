@@ -14,8 +14,7 @@
 int main(int argc, char *argv[])
 {
 	struct io_uring_params p;
-	struct io_uring_sq sq;
-	struct io_uring_cq cq;
+	struct io_uring ring;
 	int i, fd, ring_fd, ret, pending, done;
 	struct io_uring_iocb *iocb;
 	struct io_uring_event *ev;
@@ -30,7 +29,7 @@ int main(int argc, char *argv[])
 	memset(&p, 0, sizeof(p));
 	p.flags = IORING_SETUP_IOPOLL;
 
-	ring_fd = io_uring_queue_init(4, &p, NULL, &sq, &cq);
+	ring_fd = io_uring_queue_init(4, &p, NULL, &ring);
 	if (ring_fd < 0) {
 		fprintf(stderr, "queue_init: %s\n", strerror(-ring_fd));
 		return 1;
@@ -47,7 +46,7 @@ int main(int argc, char *argv[])
 
 	offset = 0;
 	do {
-		iocb = io_uring_get_iocb(&sq);
+		iocb = io_uring_get_iocb(&ring);
 		if (!iocb)
 			break;
 		iocb->opcode = IORING_OP_READ;
@@ -60,7 +59,7 @@ int main(int argc, char *argv[])
 		offset += 4096;
 	} while (1);
 
-	ret = io_uring_submit(ring_fd, &sq);
+	ret = io_uring_submit(ring_fd, &ring);
 	if (ret < 0) {
 		fprintf(stderr, "io_uring_submit: %s\n", strerror(-ret));
 		return 1;
@@ -70,7 +69,7 @@ int main(int argc, char *argv[])
 	pending = ret;
 	for (i = 0; i < pending; i++) {
 		ev = NULL;
-		ret = io_uring_get_completion(ring_fd, &cq, &ev);
+		ret = io_uring_get_completion(ring_fd, &ring, &ev);
 		if (ret < 0) {
 			fprintf(stderr, "io_uring_get_completion: %s\n", strerror(-ret));
 			return 1;
@@ -85,6 +84,6 @@ int main(int argc, char *argv[])
 
 	printf("Submitted=%d, completed=%d\n", pending, done);
 	close(fd);
-	io_uring_queue_exit(ring_fd, &sq, &cq);
+	io_uring_queue_exit(ring_fd, &ring);
 	return 0;
 }

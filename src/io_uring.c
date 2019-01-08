@@ -42,19 +42,19 @@ static int __io_uring_get_completion(int fd, struct io_uring_cq *cq,
 /*
  * Return an IO completion, if one is readily available
  */
-int io_uring_get_completion(int fd, struct io_uring_cq *cq,
+int io_uring_get_completion(int fd, struct io_uring *ring,
 			    struct io_uring_event **ev_ptr)
 {
-	return __io_uring_get_completion(fd, cq, ev_ptr, 0);
+	return __io_uring_get_completion(fd, &ring->cq, ev_ptr, 0);
 }
 
 /*
  * Return an IO completion, waiting for it if necessary
  */
-int io_uring_wait_completion(int fd, struct io_uring_cq *cq,
+int io_uring_wait_completion(int fd, struct io_uring *ring,
 			     struct io_uring_event **ev_ptr)
 {
-	return __io_uring_get_completion(fd, cq, ev_ptr, 1);
+	return __io_uring_get_completion(fd, &ring->cq, ev_ptr, 1);
 }
 
 /*
@@ -62,8 +62,9 @@ int io_uring_wait_completion(int fd, struct io_uring_cq *cq,
  *
  * Returns number of iocbs submitted
  */
-int io_uring_submit(int fd, struct io_uring_sq *sq)
+int io_uring_submit(int fd, struct io_uring *ring)
 {
+	struct io_uring_sq *sq = &ring->sq;
 	const unsigned mask = *sq->kring_mask;
 	unsigned ktail, ktail_next, submitted;
 
@@ -117,8 +118,9 @@ submit:
  *
  * Returns a vacant iocb, or NULL if we're full.
  */
-struct io_uring_iocb *io_uring_get_iocb(struct io_uring_sq *sq)
+struct io_uring_iocb *io_uring_get_iocb(struct io_uring *ring)
 {
+	struct io_uring_sq *sq = &ring->sq;
 	unsigned next = sq->iocb_tail + 1;
 	struct io_uring_iocb *iocb;
 
@@ -186,8 +188,7 @@ err:
  * contain the necessary information to read/write to the rings.
  */
 int io_uring_queue_init(unsigned entries, struct io_uring_params *p,
-			struct iovec *iovecs, struct io_uring_sq *sq,
-			struct io_uring_cq *cq)
+			struct iovec *iovecs, struct io_uring *ring)
 {
 	int fd;
 
@@ -195,13 +196,15 @@ int io_uring_queue_init(unsigned entries, struct io_uring_params *p,
 	if (fd < 0)
 		return fd;
 
-	memset(sq, 0, sizeof(*sq));
-	memset(cq, 0, sizeof(*cq));
-	return io_uring_mmap(fd, p, sq, cq);
+	memset(ring, 0, sizeof(*ring));
+	return io_uring_mmap(fd, p, &ring->sq, &ring->cq);
 }
 
-void io_uring_queue_exit(int fd, struct io_uring_sq *sq, struct io_uring_cq *cq)
+void io_uring_queue_exit(int fd, struct io_uring *ring)
 {
+	struct io_uring_sq *sq = &ring->sq;
+	struct io_uring_cq *cq = &ring->cq;
+
 	munmap(sq->iocbs, *sq->kring_entries * sizeof(struct io_uring_iocb));
 	munmap(sq->khead, sq->ring_sz);
 	munmap(cq->khead, cq->ring_sz);

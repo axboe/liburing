@@ -34,6 +34,11 @@ struct io_uring_cq {
 	size_t ring_sz;
 };
 
+struct io_uring {
+	struct io_uring_sq sq;
+	struct io_uring_cq cq;
+};
+
 /*
  * System calls
  */
@@ -46,20 +51,19 @@ extern int io_uring_enter(unsigned fd, unsigned to_submit,
  * Library interface
  */
 extern int io_uring_queue_init(unsigned entries, struct io_uring_params *p,
-	struct iovec *iovecs, struct io_uring_sq *sq, struct io_uring_cq *cq);
-extern void io_uring_queue_exit(int fd, struct io_uring_sq *sq,
-	struct io_uring_cq *cq);
-extern int io_uring_get_completion(int fd, struct io_uring_cq *cq,
+	struct iovec *iovecs, struct io_uring *ring);
+extern void io_uring_queue_exit(int fd, struct io_uring *ring);
+extern int io_uring_get_completion(int fd, struct io_uring *ring,
 	struct io_uring_event **ev_ptr);
-extern int io_uring_wait_completion(int fd, struct io_uring_cq *cq,
+extern int io_uring_wait_completion(int fd, struct io_uring *ring,
 	struct io_uring_event **ev_ptr);
-extern int io_uring_submit(int fd, struct io_uring_sq *sq);
-extern struct io_uring_iocb *io_uring_get_iocb(struct io_uring_sq *sq);
+extern int io_uring_submit(int fd, struct io_uring *ring);
+extern struct io_uring_iocb *io_uring_get_iocb(struct io_uring *ring);
 
 static inline struct io_uring_iocb *
-io_uring_iocb_from_ev(struct io_uring_sq *sq, struct io_uring_event *ev)
+io_uring_iocb_from_ev(struct io_uring *ring, struct io_uring_event *ev)
 {
-	return &sq->iocbs[ev->index];
+	return &ring->sq.iocbs[ev->index];
 }
 
 #endif
