@@ -56,4 +56,10 @@ extern int io_uring_wait_completion(int fd, struct io_uring_cq *cq,
 extern int io_uring_submit(int fd, struct io_uring_sq *sq);
 extern struct io_uring_iocb *io_uring_get_iocb(struct io_uring_sq *sq);
 
+static inline struct io_uring_iocb *
+io_uring_iocb_from_ev(struct io_uring_sq *sq, struct io_uring_event *ev)
+{
+	return &sq->iocbs[ev->index];
+}
+
 #endif
