@@ -16,7 +16,7 @@
 
 static struct io_uring in_ring;
 static struct io_uring out_ring;
-static void *bufs[QD];
+static struct iovec iovecs[QD];
 
 static int setup_context(unsigned entries, struct io_uring *ring, int offload)
 {
@@ -50,26 +50,27 @@ static int get_file_size(int fd, off_t *size)
 	return -1;
 }
 
-static unsigned iocb_index(struct io_uring_iocb *iocb)
+static unsigned sqe_index(struct io_uring_sqe *sqe)
 {
-	return iocb - in_ring.sq.iocbs;
+	return sqe - in_ring.sq.sqes;
 }
 
 static int queue_read(int fd, off_t size, off_t offset)
 {
-	struct io_uring_iocb *iocb;
+	struct io_uring_sqe *sqe;
 
-	iocb = io_uring_get_iocb(&in_ring);
-	if (!iocb)
+	sqe = io_uring_get_sqe(&in_ring);
+	if (!sqe)
 		return 1;
 
-	iocb->opcode = IORING_OP_READ;
-	iocb->flags = 0;
-	iocb->ioprio = 0;
-	iocb->fd = fd;
-	iocb->off = offset;
-	iocb->addr = bufs[iocb_index(iocb)];
-	iocb->len = size;
+	sqe->opcode = IORING_OP_READV;
+	sqe->flags = 0;
+	sqe->ioprio = 0;
+	sqe->fd = fd;
+	sqe->off = offset;
+	sqe->addr = &iovecs[sqe_index(sqe)];
+	iovecs[sqe_index(sqe)].iov_len = size;
+	sqe->len = 1;
 	return 0;
 }
 
@@ -85,16 +86,16 @@ static int complete_writes(unsigned *writes)
 
 	nr = ret;
 	while (nr) {
-		struct io_uring_event *ev = NULL;
+		struct io_uring_cqe *cqe;
 
-		ret = io_uring_wait_completion(&out_ring, &ev);
+		ret = io_uring_wait_completion(&out_ring, &cqe);
 		if (ret < 0) {
 			fprintf(stderr, "io_uring_wait_completion: %s\n",
 						strerror(-ret));
 			return 1;
 		}
-		if (ev->res < 0) {
-			fprintf(stderr, "ev failed: %s\n", strerror(-ev->res));
+		if (cqe->res < 0) {
+			fprintf(stderr, "cqe failed: %s\n", strerror(-cqe->res));
 			return 1;
 		}
 		(*writes)--;
@@ -106,22 +107,23 @@ static int complete_writes(unsigned *writes)
 
 static void queue_write(int fd, off_t size, off_t offset, unsigned index)
 {
-	struct io_uring_iocb *iocb;
+	struct io_uring_sqe *sqe;
 
-	iocb = io_uring_get_iocb(&out_ring);
-	iocb->opcode = IORING_OP_WRITE;
-	iocb->flags = 0;
-	iocb->ioprio = 0;
-	iocb->fd = fd;
-	iocb->off = offset;
-	iocb->addr = bufs[index];
-	iocb->len = size;
+	sqe = io_uring_get_sqe(&out_ring);
+	sqe->opcode = IORING_OP_WRITEV;
+	sqe->flags = 0;
+	sqe->ioprio = 0;
+	sqe->fd = fd;
+	sqe->off = offset;
+	sqe->addr = &iovecs[index];
+	iovecs[index].iov_len = size;
+	sqe->len = 1;
 }
 
 int main(int argc, char *argv[])
 {
-	struct io_uring_event *ev;
 	off_t read_left, write_left, offset;
+	struct io_uring_cqe *cqe;
 	int i, infd, outfd, ret;
 	unsigned reads, writes;
 
@@ -141,9 +143,14 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-	for (i = 0; i < QD; i++)
-		if (posix_memalign(&bufs[i], BS, BS))
+	for (i = 0; i < QD; i++) {
+		void *buf;
+
+		if (posix_memalign(&buf, BS, BS))
 			return 1;
+		iovecs[i].iov_base = buf;
+		iovecs[i].iov_len = BS;
+	}
 
 	if (setup_context(QD, &in_ring, 1))
 		return 1;
@@ -157,7 +164,7 @@ int main(int argc, char *argv[])
 	write_left = read_left;
 	while (read_left || write_left) {
 		off_t this_size = read_left;
-		struct io_uring_iocb *iocb;
+		struct io_uring_sqe *sqe;
 
 		if (this_size > BS)
 			this_size = BS;
@@ -186,25 +193,25 @@ skip_read:
 		 */
 		while (reads || write_left) {
 			if (reads)
-				ret = io_uring_wait_completion(&in_ring, &ev);
+				ret = io_uring_wait_completion(&in_ring, &cqe);
 			else
-				ret = io_uring_get_completion(&in_ring, &ev);
+				ret = io_uring_get_completion(&in_ring, &cqe);
 			if (ret < 0) {
 				fprintf(stderr, "io_uring_get_completion: %s\n",
 							strerror(-ret));
 				return 1;
 			}
-			if (!ev)
+			if (!cqe)
 				break;
 			reads--;
-			if (ev->res < 0) {
-				fprintf(stderr, "ev failed: %s\n",
-						strerror(-ev->res));
+			if (cqe->res < 0) {
+				fprintf(stderr, "cqe failed: %s\n",
+						strerror(-cqe->res));
 				return 1;
 			}
-			iocb = io_uring_iocb_from_ev(&in_ring, ev);
-			queue_write(outfd, ev->res, iocb->off, ev->index);
-			write_left -= ev->res;
+			sqe = io_uring_sqe_from_cqe(&in_ring, cqe);
+			queue_write(outfd, cqe->res, sqe->off, cqe->index);
+			write_left -= cqe->res;
 			writes++;
 		};
 		if (complete_writes(&writes))

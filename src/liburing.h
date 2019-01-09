@@ -15,10 +15,10 @@ struct io_uring_sq {
 	unsigned *kflags;
 	unsigned *kdropped;
 	unsigned *array;
-	struct io_uring_iocb *iocbs;
+	struct io_uring_sqe *sqes;
 
-	unsigned iocb_head;
-	unsigned iocb_tail;
+	unsigned sqe_head;
+	unsigned sqe_tail;
 
 	size_t ring_sz;
 };
@@ -29,7 +29,7 @@ struct io_uring_cq {
 	unsigned *kring_mask;
 	unsigned *kring_entries;
 	unsigned *koverflow;
-	struct io_uring_event *events;
+	struct io_uring_cqe *cqes;
 
 	size_t ring_sz;
 };
@@ -55,16 +55,16 @@ extern int io_uring_queue_init(unsigned entries, struct io_uring_params *p,
 	struct iovec *iovecs, struct io_uring *ring);
 extern void io_uring_queue_exit(struct io_uring *ring);
 extern int io_uring_get_completion(struct io_uring *ring,
-	struct io_uring_event **ev_ptr);
+	struct io_uring_cqe **cqe_ptr);
 extern int io_uring_wait_completion(struct io_uring *ring,
-	struct io_uring_event **ev_ptr);
+	struct io_uring_cqe **cqe_ptr);
 extern int io_uring_submit(struct io_uring *ring);
-extern struct io_uring_iocb *io_uring_get_iocb(struct io_uring *ring);
+extern struct io_uring_sqe *io_uring_get_sqe(struct io_uring *ring);
 
-static inline struct io_uring_iocb *
-io_uring_iocb_from_ev(struct io_uring *ring, struct io_uring_event *ev)
+static inline struct io_uring_sqe *
+io_uring_sqe_from_cqe(struct io_uring *ring, struct io_uring_cqe *cqe)
 {
-	return &ring->sq.iocbs[ev->index];
+	return &ring->sq.sqes[cqe->index];
 }
 
 #endif

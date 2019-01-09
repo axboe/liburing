@@ -11,13 +11,16 @@
 #include <unistd.h>
 #include "../src/liburing.h"
 
+#define QD	4
+
 int main(int argc, char *argv[])
 {
 	struct io_uring_params p;
 	struct io_uring ring;
 	int i, fd, ret, pending, done;
-	struct io_uring_iocb *iocb;
-	struct io_uring_event *ev;
+	struct io_uring_sqe *sqe;
+	struct io_uring_cqe *cqe;
+	struct iovec *iovecs;
 	off_t offset;
 	void *buf;
 
@@ -29,7 +32,7 @@ int main(int argc, char *argv[])
 	memset(&p, 0, sizeof(p));
 	p.flags = IORING_SETUP_IOPOLL;
 
-	ret = io_uring_queue_init(4, &p, NULL, &ring);
+	ret = io_uring_queue_init(QD, &p, NULL, &ring);
 	if (ret < 0) {
 		fprintf(stderr, "queue_init: %s\n", strerror(-ret));
 		return 1;
@@ -41,22 +44,28 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-	if (posix_memalign(&buf, 4096, 4096))
-		return 1;
+	iovecs = calloc(QD, sizeof(struct iovec));
+	for (i = 0; i < QD; i++) {
+		if (posix_memalign(&buf, 4096, 4096))
+			return 1;
+		iovecs[i].iov_base = buf;
+		iovecs[i].iov_len = 4096;
+	}
 
 	offset = 0;
+	i = 0;
 	do {
-		iocb = io_uring_get_iocb(&ring);
-		if (!iocb)
+		sqe = io_uring_get_sqe(&ring);
+		if (!sqe)
 			break;
-		iocb->opcode = IORING_OP_READ;
-		iocb->flags = 0;
-		iocb->ioprio = 0;
-		iocb->fd = fd;
-		iocb->off = offset;
-		iocb->addr = buf;
-		iocb->len = 4096;
-		offset += 4096;
+		sqe->opcode = IORING_OP_READV;
+		sqe->flags = 0;
+		sqe->ioprio = 0;
+		sqe->fd = fd;
+		sqe->off = offset;
+		sqe->addr = &iovecs[i];
+		sqe->len = 1;
+		offset += iovecs[i].iov_len;
 	} while (1);
 
 	ret = io_uring_submit(&ring);
@@ -68,16 +77,15 @@ int main(int argc, char *argv[])
 	done = 0;
 	pending = ret;
 	for (i = 0; i < pending; i++) {
-		ev = NULL;
-		ret = io_uring_get_completion(&ring, &ev);
+		ret = io_uring_get_completion(&ring, &cqe);
 		if (ret < 0) {
 			fprintf(stderr, "io_uring_get_completion: %s\n", strerror(-ret));
 			return 1;
 		}
 
 		done++;
-		if (ev->res != 4096) {
-			fprintf(stderr, "ret=%d, wanted 4096\n", ev->res);
+		if (cqe->res != 4096) {
+			fprintf(stderr, "ret=%d, wanted 4096\n", cqe->res);
 			return 1;
 		}
 	}

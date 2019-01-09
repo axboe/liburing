@@ -10,18 +10,18 @@
 #include "barrier.h"
 
 static int __io_uring_get_completion(int fd, struct io_uring_cq *cq,
-				     struct io_uring_event **ev_ptr, int wait)
+				     struct io_uring_cqe **cqe_ptr, int wait)
 {
 	const unsigned mask = *cq->kring_mask;
 	unsigned head;
 	int ret;
 
-	*ev_ptr = NULL;
+	*cqe_ptr = NULL;
 	head = *cq->khead;
 	do {
 		read_barrier();
 		if (head != *cq->ktail) {
-			*ev_ptr = &cq->events[head & mask];
+			*cqe_ptr = &cq->cqes[head & mask];
 			break;
 		}
 		if (!wait)
@@ -31,7 +31,7 @@ static int __io_uring_get_completion(int fd, struct io_uring_cq *cq,
 			return -errno;
 	} while (1);
 
-	if (*ev_ptr) {
+	if (*cqe_ptr) {
 		*cq->khead = head + 1;
 		write_barrier();
 	}
@@ -43,24 +43,24 @@ static int __io_uring_get_completion(int fd, struct io_uring_cq *cq,
  * Return an IO completion, if one is readily available
  */
 int io_uring_get_completion(struct io_uring *ring,
-			    struct io_uring_event **ev_ptr)
+			    struct io_uring_cqe **cqe_ptr)
 {
-	return __io_uring_get_completion(ring->ring_fd, &ring->cq, ev_ptr, 0);
+	return __io_uring_get_completion(ring->ring_fd, &ring->cq, cqe_ptr, 0);
 }
 
 /*
  * Return an IO completion, waiting for it if necessary
  */
 int io_uring_wait_completion(struct io_uring *ring,
-			     struct io_uring_event **ev_ptr)
+			     struct io_uring_cqe **cqe_ptr)
 {
-	return __io_uring_get_completion(ring->ring_fd, &ring->cq, ev_ptr, 1);
+	return __io_uring_get_completion(ring->ring_fd, &ring->cq, cqe_ptr, 1);
 }
 
 /*
- * Submit iocbs acquired from io_uring_get_iocb() to the kernel.
+ * Submit sqes acquired from io_uring_get_sqe() to the kernel.
  *
- * Returns number of iocbs submitted
+ * Returns number of sqes submitted
  */
 int io_uring_submit(struct io_uring *ring)
 {
@@ -77,24 +77,24 @@ int io_uring_submit(struct io_uring *ring)
 		goto submit;
 	}
 
-	if (sq->iocb_head == sq->iocb_tail)
+	if (sq->sqe_head == sq->sqe_tail)
 		return 0;
 
 	/*
-	 * Fill in iocbs that we have queued up, adding them to the kernel ring
+	 * Fill in sqes that we have queued up, adding them to the kernel ring
 	 */
 	submitted = 0;
 	ktail = ktail_next = *sq->ktail;
-	while (sq->iocb_head < sq->iocb_tail) {
+	while (sq->sqe_head < sq->sqe_tail) {
 		ktail_next++;
 		read_barrier();
 		if (ktail_next == *sq->khead)
 			break;
 
-		sq->array[ktail & mask] = sq->iocb_head & mask;
+		sq->array[ktail & mask] = sq->sqe_head & mask;
 		ktail = ktail_next;
 
-		sq->iocb_head++;
+		sq->sqe_head++;
 		submitted++;
 	}
 
@@ -113,27 +113,27 @@ submit:
 }
 
 /*
- * Return an iocb to fill. Application must later call io_uring_submit()
+ * Return an sqe to fill. Application must later call io_uring_submit()
  * when it's ready to tell the kernel about it. The caller may call this
  * function multiple times before calling io_uring_submit().
  *
- * Returns a vacant iocb, or NULL if we're full.
+ * Returns a vacant sqe, or NULL if we're full.
  */
-struct io_uring_iocb *io_uring_get_iocb(struct io_uring *ring)
+struct io_uring_sqe *io_uring_get_sqe(struct io_uring *ring)
 {
 	struct io_uring_sq *sq = &ring->sq;
-	unsigned next = sq->iocb_tail + 1;
-	struct io_uring_iocb *iocb;
+	unsigned next = sq->sqe_tail + 1;
+	struct io_uring_sqe *sqe;
 
 	/*
-	 * All iocbs are used
+	 * All sqes are used
 	 */
-	if (next - sq->iocb_head > *sq->kring_entries)
+	if (next - sq->sqe_head > *sq->kring_entries)
 		return NULL;
 
-	iocb = &sq->iocbs[sq->iocb_tail & *sq->kring_mask];
-	sq->iocb_tail = next;
-	return iocb;
+	sqe = &sq->sqes[sq->sqe_tail & *sq->kring_mask];
+	sq->sqe_tail = next;
+	return sqe;
 }
 
 static int io_uring_mmap(int fd, struct io_uring_params *p,
@@ -156,23 +156,23 @@ static int io_uring_mmap(int fd, struct io_uring_params *p,
 	sq->kdropped = ptr + p->sq_off.dropped;
 	sq->array = ptr + p->sq_off.array;
 
-	size = p->sq_entries * sizeof(struct io_uring_iocb);
-	sq->iocbs = mmap(0, size, PROT_READ | PROT_WRITE,
+	size = p->sq_entries * sizeof(struct io_uring_sqe),
+	sq->sqes = mmap(0, size, PROT_READ | PROT_WRITE,
 				MAP_SHARED | MAP_POPULATE, fd,
-				IORING_OFF_IOCB);
-	if (sq->iocbs == MAP_FAILED) {
+				IORING_OFF_SQES);
+	if (sq->sqes == MAP_FAILED) {
 		ret = -errno;
 err:
 		munmap(sq->khead, sq->ring_sz);
 		return ret;
 	}
 
-	cq->ring_sz = p->cq_off.events + p->cq_entries * sizeof(struct io_uring_event);
+	cq->ring_sz = p->cq_off.cqes + p->cq_entries * sizeof(struct io_uring_cqe);
 	ptr = mmap(0, cq->ring_sz, PROT_READ | PROT_WRITE,
 			MAP_SHARED | MAP_POPULATE, fd, IORING_OFF_CQ_RING);
 	if (ptr == MAP_FAILED) {
 		ret = -errno;
-		munmap(sq->iocbs, p->sq_entries * sizeof(struct io_uring_iocb));
+		munmap(sq->sqes, p->sq_entries * sizeof(struct io_uring_sqe));
 		goto err;
 	}
 	cq->khead = ptr + p->cq_off.head;
@@ -180,7 +180,7 @@ err:
 	cq->kring_mask = ptr + p->cq_off.ring_mask;
 	cq->kring_entries = ptr + p->cq_off.ring_entries;
 	cq->koverflow = ptr + p->cq_off.overflow;
-	cq->events = ptr + p->cq_off.events;
+	cq->cqes = ptr + p->cq_off.cqes;
 	return 0;
 }
 
@@ -209,7 +209,7 @@ void io_uring_queue_exit(struct io_uring *ring)
 	struct io_uring_sq *sq = &ring->sq;
 	struct io_uring_cq *cq = &ring->cq;
 
-	munmap(sq->iocbs, *sq->kring_entries * sizeof(struct io_uring_iocb));
+	munmap(sq->sqes, *sq->kring_entries * sizeof(struct io_uring_sqe));
 	munmap(sq->khead, sq->ring_sz);
 	munmap(cq->khead, cq->ring_sz);
 	close(ring->ring_fd);
