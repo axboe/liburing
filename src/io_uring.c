@@ -189,12 +189,11 @@ err:
  * contains the necessary information to read/write to the rings.
  */
 int io_uring_queue_init(unsigned entries, struct io_uring_params *p,
-			struct iovec *iovecs, unsigned nr_iovecs,
 			struct io_uring *ring)
 {
 	int fd, ret;
 
-	fd = io_uring_setup(entries, iovecs, nr_iovecs, p);
+	fd = io_uring_setup(entries, p);
 	if (fd < 0)
 		return fd;
 

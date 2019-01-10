@@ -23,16 +23,14 @@ struct io_data {
 	struct iovec *iov;
 };
 
-static int setup_context(unsigned entries, struct io_uring *ring, int offload)
+static int setup_context(unsigned entries, struct io_uring *ring)
 {
 	struct io_uring_params p;
 	int ret;
 
 	memset(&p, 0, sizeof(p));
-	if (offload)
-		p.flags = IORING_SETUP_SQWQ;
 
-	ret = io_uring_queue_init(entries, &p, NULL, 0, ring);
+	ret = io_uring_queue_init(entries, &p, ring);
 	if (ret < 0) {
 		fprintf(stderr, "queue_init: %s\n", strerror(-ret));
 		return -1;
@@ -79,6 +77,7 @@ static int queue_read(int fd, off_t size, off_t offset)
 	sqe->fd = fd;
 	sqe->off = offset;
 	sqe->addr = data->iov;
+	sqe->buf_index = 0;
 	sqe->data = (unsigned long) data;
 	iovecs[sqe_index(sqe)].iov_len = size;
 	sqe->len = 1;
@@ -128,6 +127,7 @@ static void queue_write(int fd, struct io_uring_cqe *cqe)
 	sqe->fd = fd;
 	sqe->off = data->offset;
 	sqe->addr = data->iov;
+	sqe->buf_index = 0;
 	sqe->data = 0;
 	data->iov->iov_len = cqe->res;
 	sqe->len = 1;
@@ -166,9 +166,9 @@ int main(int argc, char *argv[])
 		iovecs[i].iov_len = BS;
 	}
 
-	if (setup_context(QD, &in_ring, 1))
+	if (setup_context(QD, &in_ring))
 		return 1;
-	if (setup_context(QD, &out_ring, 0))
+	if (setup_context(QD, &out_ring))
 		return 1;
 	if (get_file_size(infd, &read_left))
 		return 1;

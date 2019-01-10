@@ -32,7 +32,7 @@ int main(int argc, char *argv[])
 	memset(&p, 0, sizeof(p));
 	p.flags = IORING_SETUP_IOPOLL;
 
-	ret = io_uring_queue_init(QD, &p, NULL, 0, &ring);
+	ret = io_uring_queue_init(QD, &p, &ring);
 	if (ret < 0) {
 		fprintf(stderr, "queue_init: %s\n", strerror(-ret));
 		return 1;
@@ -65,6 +65,7 @@ int main(int argc, char *argv[])
 		sqe->off = offset;
 		sqe->addr = &iovecs[i];
 		sqe->len = 1;
+		sqe->buf_index = 0;
 		offset += iovecs[i].iov_len;
 	} while (1);
 
