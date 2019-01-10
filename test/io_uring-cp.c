@@ -25,12 +25,9 @@ struct io_data {
 
 static int setup_context(unsigned entries, struct io_uring *ring)
 {
-	struct io_uring_params p;
 	int ret;
 
-	memset(&p, 0, sizeof(p));
-
-	ret = io_uring_queue_init(entries, &p, ring);
+	ret = io_uring_queue_init(entries, ring, 0);
 	if (ret < 0) {
 		fprintf(stderr, "queue_init: %s\n", strerror(-ret));
 		return -1;

@@ -15,7 +15,6 @@
 
 int main(int argc, char *argv[])
 {
-	struct io_uring_params p;
 	struct io_uring ring;
 	int i, fd, ret, pending, done;
 	struct io_uring_sqe *sqe;
@@ -29,9 +28,7 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-	memset(&p, 0, sizeof(p));
-
-	ret = io_uring_queue_init(QD, &p, &ring);
+	ret = io_uring_queue_init(QD, &ring, 0);
 	if (ret < 0) {
 		fprintf(stderr, "queue_init: %s\n", strerror(-ret));
 		return 1;

@@ -188,17 +188,20 @@ err:
  * Returns -1 on error, or zero on success. On success, 'ring'
  * contains the necessary information to read/write to the rings.
  */
-int io_uring_queue_init(unsigned entries, struct io_uring_params *p,
-			struct io_uring *ring)
+int io_uring_queue_init(unsigned entries, struct io_uring *ring, unsigned flags)
 {
+	struct io_uring_params p;
 	int fd, ret;
 
-	fd = io_uring_setup(entries, p);
+	memset(&p, 0, sizeof(p));
+	p.flags = flags;
+
+	fd = io_uring_setup(entries, &p);
 	if (fd < 0)
 		return fd;
 
 	memset(ring, 0, sizeof(*ring));
-	ret = io_uring_mmap(fd, p, &ring->sq, &ring->cq);
+	ret = io_uring_mmap(fd, &p, &ring->sq, &ring->cq);
 	if (!ret)
 		ring->ring_fd = fd;
 	return ret;
