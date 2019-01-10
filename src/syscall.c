@@ -18,9 +18,9 @@
 #endif
 
 int io_uring_setup(unsigned int entries, struct iovec *iovecs,
-		   struct io_uring_params *p)
+		   unsigned nr_iovecs, struct io_uring_params *p)
 {
-	return syscall(__NR_sys_io_uring_setup, entries, iovecs, p);
+	return syscall(__NR_sys_io_uring_setup, entries, iovecs, nr_iovecs, p);
 }
 
 int io_uring_enter(int fd, unsigned int to_submit, unsigned int min_complete,

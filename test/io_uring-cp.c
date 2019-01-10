@@ -18,6 +18,11 @@ static struct io_uring in_ring;
 static struct io_uring out_ring;
 static struct iovec iovecs[QD];
 
+struct io_data {
+	off_t offset;
+	struct iovec *iov;
+};
+
 static int setup_context(unsigned entries, struct io_uring *ring, int offload)
 {
 	struct io_uring_params p;
@@ -27,7 +32,7 @@ static int setup_context(unsigned entries, struct io_uring *ring, int offload)
 	if (offload)
 		p.flags = IORING_SETUP_SQWQ;
 
-	ret = io_uring_queue_init(entries, &p, NULL, ring);
+	ret = io_uring_queue_init(entries, &p, NULL, 0, ring);
 	if (ret < 0) {
 		fprintf(stderr, "queue_init: %s\n", strerror(-ret));
 		return -1;
@@ -58,17 +63,23 @@ static unsigned sqe_index(struct io_uring_sqe *sqe)
 static int queue_read(int fd, off_t size, off_t offset)
 {
 	struct io_uring_sqe *sqe;
+	struct io_data *data;
 
 	sqe = io_uring_get_sqe(&in_ring);
 	if (!sqe)
 		return 1;
+
+	data = malloc(sizeof(*data));
+	data->offset = offset;
+	data->iov = &iovecs[sqe_index(sqe)];
 
 	sqe->opcode = IORING_OP_READV;
 	sqe->flags = 0;
 	sqe->ioprio = 0;
 	sqe->fd = fd;
 	sqe->off = offset;
-	sqe->addr = &iovecs[sqe_index(sqe)];
+	sqe->addr = data->iov;
+	sqe->data = (unsigned long) data;
 	iovecs[sqe_index(sqe)].iov_len = size;
 	sqe->len = 1;
 	return 0;
@@ -105,8 +116,9 @@ static int complete_writes(unsigned *writes)
 	return 0;
 }
 
-static void queue_write(int fd, off_t size, off_t offset, unsigned index)
+static void queue_write(int fd, struct io_uring_cqe *cqe)
 {
+	struct io_data *data = (struct io_data *) cqe->data;
 	struct io_uring_sqe *sqe;
 
 	sqe = io_uring_get_sqe(&out_ring);
@@ -114,10 +126,12 @@ static void queue_write(int fd, off_t size, off_t offset, unsigned index)
 	sqe->flags = 0;
 	sqe->ioprio = 0;
 	sqe->fd = fd;
-	sqe->off = offset;
-	sqe->addr = &iovecs[index];
-	iovecs[index].iov_len = size;
+	sqe->off = data->offset;
+	sqe->addr = data->iov;
+	sqe->data = 0;
+	data->iov->iov_len = cqe->res;
 	sqe->len = 1;
+	free(data);
 }
 
 int main(int argc, char *argv[])
@@ -164,7 +178,6 @@ int main(int argc, char *argv[])
 	write_left = read_left;
 	while (read_left || write_left) {
 		off_t this_size = read_left;
-		struct io_uring_sqe *sqe;
 
 		if (this_size > BS)
 			this_size = BS;
@@ -209,8 +222,7 @@ skip_read:
 						strerror(-cqe->res));
 				return 1;
 			}
-			sqe = io_uring_sqe_from_cqe(&in_ring, cqe);
-			queue_write(outfd, cqe->res, sqe->off, cqe->index);
+			queue_write(outfd, cqe);
 			write_left -= cqe->res;
 			writes++;
 		};

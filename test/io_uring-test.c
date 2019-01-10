@@ -32,7 +32,7 @@ int main(int argc, char *argv[])
 	memset(&p, 0, sizeof(p));
 	p.flags = IORING_SETUP_IOPOLL;
 
-	ret = io_uring_queue_init(QD, &p, NULL, &ring);
+	ret = io_uring_queue_init(QD, &p, NULL, 0, &ring);
 	if (ret < 0) {
 		fprintf(stderr, "queue_init: %s\n", strerror(-ret));
 		return 1;
