@@ -177,23 +177,26 @@ int main(int argc, char *argv[])
 	writes = reads = 0;
 	write_left = read_left;
 	while (read_left || write_left) {
-		off_t this_size = read_left;
-
-		if (this_size > BS)
-			this_size = BS;
-		else if (!this_size)
-			goto skip_read;
 	
 		/*
 		 * Queue up as many reads as we can
 		 */
-		while (read_left && !queue_read(infd, this_size, offset)) {
+		while (read_left) {
+			off_t this_size = read_left;
+
+			if (this_size > BS)
+				this_size = BS;
+			else if (!this_size)
+				break;
+
+			if (queue_read(infd, this_size, offset))
+				break;
+
 			read_left -= this_size;
 			offset += this_size;
 			reads++;
 		}
 
-skip_read:
 		ret = io_uring_submit(&in_ring);
 		if (ret < 0) {
 			fprintf(stderr, "io_uring_submit: %s\n", strerror(-ret));

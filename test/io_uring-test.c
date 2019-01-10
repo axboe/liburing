@@ -30,7 +30,6 @@ int main(int argc, char *argv[])
 	}
 
 	memset(&p, 0, sizeof(p));
-	p.flags = IORING_SETUP_IOPOLL;
 
 	ret = io_uring_queue_init(QD, &p, &ring);
 	if (ret < 0) {
@@ -78,7 +77,7 @@ int main(int argc, char *argv[])
 	done = 0;
 	pending = ret;
 	for (i = 0; i < pending; i++) {
-		ret = io_uring_get_completion(&ring, &cqe);
+		ret = io_uring_wait_completion(&ring, &cqe);
 		if (ret < 0) {
 			fprintf(stderr, "io_uring_get_completion: %s\n", strerror(-ret));
 			return 1;
