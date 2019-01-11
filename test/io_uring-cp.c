@@ -75,7 +75,7 @@ static int queue_read(int fd, off_t size, off_t offset)
 	sqe->off = offset;
 	sqe->addr = data->iov;
 	sqe->buf_index = 0;
-	sqe->data = (unsigned long) data;
+	sqe->user_data = (unsigned long) data;
 	iovecs[sqe_index(sqe)].iov_len = size;
 	sqe->len = 1;
 	return 0;
@@ -114,7 +114,7 @@ static int complete_writes(unsigned *writes)
 
 static void queue_write(int fd, struct io_uring_cqe *cqe)
 {
-	struct io_data *data = (struct io_data *) cqe->data;
+	struct io_data *data = (struct io_data *) cqe->user_data;
 	struct io_uring_sqe *sqe;
 
 	sqe = io_uring_get_sqe(&out_ring);
@@ -125,7 +125,7 @@ static void queue_write(int fd, struct io_uring_cqe *cqe)
 	sqe->off = data->offset;
 	sqe->addr = data->iov;
 	sqe->buf_index = 0;
-	sqe->data = 0;
+	sqe->user_data = 0;
 	data->iov->iov_len = cqe->res;
 	sqe->len = 1;
 	free(data);

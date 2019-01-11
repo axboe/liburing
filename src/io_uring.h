@@ -16,7 +16,7 @@
  */
 struct io_uring_sqe {
 	__u8	opcode;		/* type of operation for this sqe */
-	__u8	flags;		/* as of now unused */
+	__u8	flags;		/* IOSQE_ flags */
 	__u16	ioprio;		/* ioprio for the request */
 	__s32	fd;		/* file descriptor to do IO on */
 	__u64	off;		/* offset into file */
@@ -27,17 +27,18 @@ struct io_uring_sqe {
 	__u32	len;		/* buffer size or number of iovecs */
 	union {
 		__kernel_rwf_t	rw_flags;
-		__u32		__resv;
+		__u32		fsync_flags;
 	};
 	__u16	buf_index;	/* index into fixed buffers, if used */
-	__u16	__pad2[3];
-	__u64	data;		/* data to be passed back at completion time */
+	__u16	__pad2;
+	__u32	__pad3;
+	__u64	user_data;	/* data to be passed back at completion time */
 };
 
 /*
  * sqe->flags
  */
-#define IOSQE_FIXED_BUFFER	(1 << 0)	/* use fixed buffer */
+#define IOSQE_FIXED_FILE	(1 << 0)	/* use fixed fileset */
 
 /*
  * io_uring_setup() flags
@@ -49,13 +50,19 @@ struct io_uring_sqe {
 #define IORING_OP_READV		1
 #define IORING_OP_WRITEV	2
 #define IORING_OP_FSYNC		3
-#define IORING_OP_FDSYNC	4
+#define IORING_OP_READ_FIXED	4
+#define IORING_OP_WRITE_FIXED	5
+
+/*
+ * sqe->fsync_flags
+ */
+#define IORING_FSYNC_DATASYNC	(1 << 0)
 
 /*
  * IO completion data structure (Completion Queue Entry)
  */
 struct io_uring_cqe {
-	__u64	data;		/* sqe->data submission passed back */
+	__u64	user_data;	/* sqe->data submission passed back */
 	__s32	res;		/* result code for this event */
 	__u32	flags;
 };
@@ -86,6 +93,9 @@ struct io_sqring_offsets {
 	__u32 resv[3];
 };
 
+/*
+ * sq_ring->flags
+ */
 #define IORING_SQ_NEED_WAKEUP	(1 << 0) /* needs io_uring_enter wakeup */
 
 struct io_cqring_offsets {
@@ -121,10 +131,17 @@ struct io_uring_params {
  */
 #define IORING_REGISTER_BUFFERS		0
 #define IORING_UNREGISTER_BUFFERS	1
+#define IORING_REGISTER_FILES		2
+#define IORING_UNREGISTER_FILES		3
 
 struct io_uring_register_buffers {
 	struct iovec *iovecs;
-	unsigned nr_iovecs;
+	__u32 nr_iovecs;
+};
+
+struct io_uring_register_files {
+	__s32 *fds;
+	__u32 nr_fds;
 };
 
 #endif
