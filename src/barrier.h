@@ -4,6 +4,9 @@
 #if defined(__x86_64)
 #define read_barrier()	__asm__ __volatile__("lfence":::"memory")
 #define write_barrier()	__asm__ __volatile__("sfence":::"memory")
+#elif defined(__i386__)
+#define read_barrier()	__asm__ __volatile__("": : :"memory")
+#define write_barrier()	__asm__ __volatile__("": : :"memory")
 #else
 /*
  * Add arch appropriate definitions. Be safe and use full barriers for

@@ -16,6 +16,16 @@
 #ifndef __NR_sys_io_uring_register
 #define __NR_sys_io_uring_register	337
 #endif
+#elif defined(__i386__)
+#ifndef __NR_sys_io_uring_setup
+#define __NR_sys_io_uring_setup		387
+#endif
+#ifndef __NR_sys_io_uring_enter
+#define __NR_sys_io_uring_enter		388
+#endif
+#ifndef __NR_sys_io_uring_register
+#define __NR_sys_io_uring_register	389
+#endif
 #else
 #error "Arch not supported yet"
 #endif
