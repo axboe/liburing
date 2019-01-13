@@ -29,10 +29,11 @@ struct io_uring_sqe {
 		__kernel_rwf_t	rw_flags;
 		__u32		fsync_flags;
 	};
-	__u16	buf_index;	/* index into fixed buffers, if used */
-	__u16	__pad2;
-	__u32	__pad3;
 	__u64	user_data;	/* data to be passed back at completion time */
+	union {
+		__u16	buf_index;	/* index into fixed buffers, if used */
+		__u64	__pad2[3];
+	};
 };
 
 /*
@@ -47,6 +48,7 @@ struct io_uring_sqe {
 #define IORING_SETUP_SQPOLL	(1 << 1)	/* SQ poll thread */
 #define IORING_SETUP_SQ_AFF	(1 << 2)	/* sq_thread_cpu is valid */
 
+#define IORING_OP_NOP		0
 #define IORING_OP_READV		1
 #define IORING_OP_WRITEV	2
 #define IORING_OP_FSYNC		3
@@ -135,12 +137,18 @@ struct io_uring_params {
 #define IORING_UNREGISTER_FILES		3
 
 struct io_uring_register_buffers {
-	struct iovec *iovecs;
+	union {
+		struct iovec *iovecs;
+		__u64 pad;
+	};
 	__u32 nr_iovecs;
 };
 
 struct io_uring_register_files {
-	__s32 *fds;
+	union {
+		__s32 *fds;
+		__u64 pad;
+	};
 	__u32 nr_fds;
 };
 
