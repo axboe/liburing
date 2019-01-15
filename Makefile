@@ -14,10 +14,24 @@ all:
 	@$(MAKE) -C src
 	@$(MAKE) -C test
 
+config-host.mak: configure
+	@if [ ! -e "$@" ]; then					\
+	  echo "Running configure ...";				\
+	  ./configure;						\
+	else							\
+	  echo "$@ is out-of-date, running configure";		\
+	  sed -n "/.*Configured with/s/[^:]*: //p" "$@" | sh;	\
+	fi
+
+ifneq ($(MAKECMDGOALS),clean)
+include config-host.mak
+endif
+
 install:
 	@$(MAKE) -C src install prefix=$(DESTDIR)$(prefix) includedir=$(DESTDIR)$(includedir) libdir=$(DESTDIR)$(libdir)
 
 clean:
+	@rm -f config-host.mak config-host.h
 	@$(MAKE) -C src clean
 	@$(MAKE) -C test clean
 

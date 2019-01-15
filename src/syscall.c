@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <sys/syscall.h>
 #include <sys/uio.h>
+#include "compat.h"
 #include "io_uring.h"
 
 #if defined(__x86_64)

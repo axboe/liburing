@@ -5,6 +5,7 @@
 #include <errno.h>
 #include <string.h>
 
+#include "compat.h"
 #include "io_uring.h"
 #include "liburing.h"
 #include "barrier.h"

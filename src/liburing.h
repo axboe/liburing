@@ -2,6 +2,7 @@
 #define LIB_URING_H
 
 #include <sys/uio.h>
+#include "compat.h"
 #include "io_uring.h"
 
 /*
