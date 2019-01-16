@@ -59,7 +59,7 @@ int main(int argc, char *argv[])
 		sqe->ioprio = 0;
 		sqe->fd = fd;
 		sqe->off = offset;
-		sqe->addr = &iovecs[i];
+		sqe->addr = (unsigned long) &iovecs[i];
 		sqe->len = 1;
 		sqe->buf_index = 0;
 		offset += iovecs[i].iov_len;

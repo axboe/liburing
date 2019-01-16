@@ -31,9 +31,10 @@
 #error "Arch not supported yet"
 #endif
 
-int io_uring_register(int fd, unsigned int opcode, void *arg)
+int io_uring_register(int fd, unsigned int opcode, void *arg,
+		      unsigned int nr_args)
 {
-	return syscall(__NR_sys_io_uring_register, fd, opcode, arg);
+	return syscall(__NR_sys_io_uring_register, fd, opcode, arg, nr_args);
 }
 
 int io_uring_setup(unsigned int entries, struct io_uring_params *p)
