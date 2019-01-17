@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/poll.h>
 #include <sys/wait.h>
 
@@ -47,14 +48,10 @@ int main(int argc, char *argv[])
 			return 1;
 		}
 
+		memset(sqe, 0, sizeof(*sqe));
 		sqe->opcode = IORING_OP_POLL;
-		sqe->flags = 0;
-		sqe->ioprio = 0;
 		sqe->fd = pipe1[0];
-		sqe->addr = POLLIN;
-		sqe->off = 0;
-		sqe->len = 0;
-		sqe->buf_index = 0;
+		sqe->poll_events = POLLIN;
 		sqe->user_data = (unsigned long) &sqe;
 
 		ret = io_uring_submit(&cring);
@@ -98,14 +95,10 @@ int main(int argc, char *argv[])
 			return 1;
 		}
 
+		memset(sqe, 0, sizeof(*sqe));
 		sqe->opcode = IORING_OP_POLL;
-		sqe->flags = 0;
-		sqe->ioprio = 0;
 		sqe->fd = pipe2[0];
-		sqe->addr = POLLIN;
-		sqe->off = 0;
-		sqe->len = 0;
-		sqe->buf_index = 0;
+		sqe->poll_events = POLLIN;
 		sqe->user_data = (unsigned long) &sqe;
 
 		ret = io_uring_submit(&pring);
