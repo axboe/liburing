@@ -22,7 +22,7 @@ endif
 
 all: $(all_targets)
 
-liburing_srcs := io_uring.c syscall.c
+liburing_srcs := setup.c queue.c syscall.c
 
 liburing_objs := $(patsubst %.c,%.ol,$(liburing_srcs))
 liburing_sobjs := $(patsubst %.c,%.os,$(liburing_srcs))
