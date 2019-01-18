@@ -48,7 +48,7 @@ int main(int argc, char *argv[])
 			return 1;
 		}
 
-		io_uring_prep_poll(sqe, pipe1[0], POLLIN);
+		io_uring_prep_poll_add(sqe, pipe1[0], POLLIN);
 
 		ret = io_uring_submit(&cring);
 		if (ret <= 0) {
@@ -91,7 +91,7 @@ int main(int argc, char *argv[])
 			return 1;
 		}
 
-		io_uring_prep_poll(sqe, pipe2[0], POLLIN);
+		io_uring_prep_poll_add(sqe, pipe2[0], POLLIN);
 		io_uring_sqe_set_data(sqe, sqe);
 
 		ret = io_uring_submit(&pring);

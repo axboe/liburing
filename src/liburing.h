@@ -94,20 +94,20 @@ static inline void io_uring_prep_writev(struct io_uring_sqe *sqe, int fd,
 	sqe->len = nr_vecs;
 }
 
-static inline void io_uring_prep_poll(struct io_uring_sqe *sqe, int fd,
-				      short poll_mask)
+static inline void io_uring_prep_poll_add(struct io_uring_sqe *sqe, int fd,
+					  short poll_mask)
 {
 	memset(sqe, 0, sizeof(*sqe));
-	sqe->opcode = IORING_OP_POLL;
+	sqe->opcode = IORING_OP_POLL_ADD;
 	sqe->fd = fd;
 	sqe->poll_events = poll_mask;
 }
 
-static inline void io_uring_prep_poll_cancel(struct io_uring_sqe *sqe,
+static inline void io_uring_prep_poll_remove(struct io_uring_sqe *sqe,
 					     void *user_data)
 {
 	memset(sqe, 0, sizeof(*sqe));
-	sqe->opcode = IORING_OP_POLL_CANCEL;
+	sqe->opcode = IORING_OP_POLL_REMOVE;
 	sqe->addr = (unsigned long) user_data;
 }
 
