@@ -7,10 +7,23 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
+#include <inttypes.h>
 #include <sys/poll.h>
 #include <sys/wait.h>
+#include <sys/signal.h>
 
 #include "../src/liburing.h"
+
+struct poll_data {
+	unsigned is_poll;
+	unsigned is_cancel;
+};
+
+static void sig_alrm(int sig)
+{
+	printf("Timed out!\n");
+	exit(1);
+}
 
 int main(int argc, char *argv[])
 {
@@ -18,7 +31,8 @@ int main(int argc, char *argv[])
 	int pipe1[2];
 	struct io_uring_cqe *cqe;
 	struct io_uring_sqe *sqe;
-	void *addr;
+	struct poll_data *pd, pds[2];
+	struct sigaction act;
 	int ret;
 
 	if (pipe(pipe1) != 0) {
@@ -32,6 +46,12 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
+	memset(&act, 0, sizeof(act));
+	act.sa_handler = sig_alrm;
+	act.sa_flags = SA_RESTART;
+	sigaction(SIGALRM, &act, NULL);
+	alarm(1);
+
 	sqe = io_uring_get_sqe(&ring);
 	if (!sqe) {
 		printf("child: get sqe failed\n");
@@ -39,8 +59,10 @@ int main(int argc, char *argv[])
 	}
 
 	io_uring_prep_poll_add(sqe, pipe1[0], POLLIN);
-	io_uring_sqe_set_data(sqe, sqe);
-	addr = sqe;
+
+	pds[0].is_poll = 1;
+	pds[0].is_cancel = 0;
+	io_uring_sqe_set_data(sqe, &pds[0]);
 
 	ret = io_uring_submit(&ring);
 	if (ret <= 0) {
@@ -54,8 +76,10 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-	io_uring_prep_poll_remove(sqe, addr);
-	io_uring_sqe_set_data(sqe, sqe);
+	pds[1].is_poll = 0;
+	pds[1].is_cancel = 0;
+	io_uring_prep_poll_remove(sqe, &pds[0]);
+	io_uring_sqe_set_data(sqe, &pds[1]);
 
 	ret = io_uring_submit(&ring);
 	if (ret <= 0) {
@@ -69,8 +93,10 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-	if (cqe->user_data != (unsigned long) addr) {
-		printf("first complete not poll\n");
+	pd = (struct poll_data *) (uintptr_t) cqe->user_data;
+	if (cqe->res != 0) {
+		printf("sqe (add=%d/remove=%d) failed with %ld\n", pd->is_poll,
+							pd->is_cancel, (long) cqe->res);
 		return 1;
 	}
 
@@ -79,8 +105,11 @@ int main(int argc, char *argv[])
 		printf("parent: get failed\n");
 		return 1;
 	}
-	if (cqe->user_data != (unsigned long) sqe) {
-		printf("second not cancel\n");
+
+	pd = (struct poll_data *) (uintptr_t) cqe->user_data;
+	if (cqe->res != 0) {
+		printf("sqe (add=%d/remove=%d) failed with %ld\n", pd->is_poll,
+							pd->is_cancel, (long) cqe->res);
 		return 1;
 	}
 
