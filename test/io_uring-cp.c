@@ -6,7 +6,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <assert.h>
+#include <inttypes.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include "../src/liburing.h"
@@ -107,7 +107,7 @@ static int complete_writes(unsigned *writes)
 
 static void queue_write(int fd, struct io_uring_cqe *cqe)
 {
-	struct io_data *data = (struct io_data *) cqe->user_data;
+	struct io_data *data = (struct io_data *) (uintptr_t) cqe->user_data;
 	struct io_uring_sqe *sqe;
 
 	sqe = io_uring_get_sqe(&out_ring);

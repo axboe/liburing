@@ -1,4 +1,3 @@
-CC = gcc
 CFLAGS ?= -g -O2 -Wall -D_GNU_SOURCE -L../src/
 
 all_targets += io_uring-test io_uring-cp poll poll-cancel
