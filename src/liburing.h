@@ -79,7 +79,7 @@ static inline void io_uring_prep_readv(struct io_uring_sqe *sqe, int fd,
 	sqe->fd = fd;
 	sqe->off = offset;
 	sqe->addr = (unsigned long) iovecs;
-	sqe->len = 1;
+	sqe->len = nr_vecs;
 }
 
 static inline void io_uring_prep_writev(struct io_uring_sqe *sqe, int fd,
@@ -91,7 +91,7 @@ static inline void io_uring_prep_writev(struct io_uring_sqe *sqe, int fd,
 	sqe->fd = fd;
 	sqe->off = offset;
 	sqe->addr = (unsigned long) iovecs;
-	sqe->len = 1;
+	sqe->len = nr_vecs;
 }
 
 static inline void io_uring_prep_poll(struct io_uring_sqe *sqe, int fd,
