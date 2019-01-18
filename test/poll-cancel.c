@@ -18,7 +18,7 @@ int main(int argc, char *argv[])
 	int pipe1[2];
 	struct io_uring_cqe *cqe;
 	struct io_uring_sqe *sqe;
-	unsigned long addr;
+	void *addr;
 	int ret;
 
 	if (pipe(pipe1) != 0) {
@@ -37,11 +37,10 @@ int main(int argc, char *argv[])
 		printf("child: get sqe failed\n");
 		return 1;
 	}
-	memset(sqe, 0, sizeof(*sqe));
-	sqe->opcode = IORING_OP_POLL;
-	sqe->fd = pipe1[0];
-	sqe->poll_events = POLLIN;
-	sqe->user_data = addr = (unsigned long) &sqe;
+
+	io_uring_prep_poll(sqe, pipe1[0], POLLIN);
+	io_uring_sqe_set_data(sqe, sqe);
+	addr = sqe;
 
 	ret = io_uring_submit(&ring);
 	if (ret <= 0) {
@@ -54,10 +53,9 @@ int main(int argc, char *argv[])
 		printf("child: get sqe failed\n");
 		return 1;
 	}
-	memset(sqe, 0, sizeof(*sqe));
-	sqe->opcode = IORING_OP_POLL_CANCEL;
-	sqe->addr = addr;
-	sqe->user_data = (unsigned long) &sqe;
+
+	io_uring_prep_poll_cancel(sqe, addr);
+	io_uring_sqe_set_data(sqe, sqe);
 
 	ret = io_uring_submit(&ring);
 	if (ret <= 0) {
@@ -71,7 +69,7 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-	if (cqe->user_data != addr) {
+	if (cqe->user_data != (unsigned long) addr) {
 		printf("first complete not poll\n");
 		return 1;
 	}
@@ -81,7 +79,7 @@ int main(int argc, char *argv[])
 		printf("parent: get failed\n");
 		return 1;
 	}
-	if (cqe->user_data != (unsigned long) &sqe) {
+	if (cqe->user_data != (unsigned long) sqe) {
 		printf("second not cancel\n");
 		return 1;
 	}

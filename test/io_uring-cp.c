@@ -68,16 +68,9 @@ static int queue_read(int fd, off_t size, off_t offset)
 	data->offset = offset;
 	data->iov = &iovecs[sqe_index(sqe)];
 
-	sqe->opcode = IORING_OP_READV;
-	sqe->flags = 0;
-	sqe->ioprio = 0;
-	sqe->fd = fd;
-	sqe->off = offset;
-	sqe->addr = (unsigned long) data->iov;
-	sqe->buf_index = 0;
-	sqe->user_data = (unsigned long) data;
+	io_uring_prep_readv(sqe, fd, data->iov, 1, offset);
+	io_uring_sqe_set_data(sqe, data);
 	iovecs[sqe_index(sqe)].iov_len = size;
-	sqe->len = 1;
 	return 0;
 }
 
@@ -118,16 +111,8 @@ static void queue_write(int fd, struct io_uring_cqe *cqe)
 	struct io_uring_sqe *sqe;
 
 	sqe = io_uring_get_sqe(&out_ring);
-	sqe->opcode = IORING_OP_WRITEV;
-	sqe->flags = 0;
-	sqe->ioprio = 0;
-	sqe->fd = fd;
-	sqe->off = data->offset;
-	sqe->addr = (unsigned long) data->iov;
-	sqe->buf_index = 0;
-	sqe->user_data = 0;
+	io_uring_prep_writev(sqe, fd, data->iov, 1, data->offset);
 	data->iov->iov_len = cqe->res;
-	sqe->len = 1;
 	free(data);
 }
 

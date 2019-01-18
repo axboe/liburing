@@ -48,11 +48,7 @@ int main(int argc, char *argv[])
 			return 1;
 		}
 
-		memset(sqe, 0, sizeof(*sqe));
-		sqe->opcode = IORING_OP_POLL;
-		sqe->fd = pipe1[0];
-		sqe->poll_events = POLLIN;
-		sqe->user_data = (unsigned long) &sqe;
+		io_uring_prep_poll(sqe, pipe1[0], POLLIN);
 
 		ret = io_uring_submit(&cring);
 		if (ret <= 0) {
@@ -95,11 +91,8 @@ int main(int argc, char *argv[])
 			return 1;
 		}
 
-		memset(sqe, 0, sizeof(*sqe));
-		sqe->opcode = IORING_OP_POLL;
-		sqe->fd = pipe2[0];
-		sqe->poll_events = POLLIN;
-		sqe->user_data = (unsigned long) &sqe;
+		io_uring_prep_poll(sqe, pipe2[0], POLLIN);
+		io_uring_sqe_set_data(sqe, sqe);
 
 		ret = io_uring_submit(&pring);
 		if (ret <= 0) {
@@ -114,7 +107,7 @@ int main(int argc, char *argv[])
 			printf("parent: cqe get failed\n");
 			return 1;
 		}
-		if (cqe->user_data != (unsigned long) &sqe) {
+		if (cqe->user_data != (unsigned long) sqe) {
 			printf("parent: cqe wrong fd\n");
 			return 1;
 		}

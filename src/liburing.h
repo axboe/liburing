@@ -62,4 +62,53 @@ extern int io_uring_wait_completion(struct io_uring *ring,
 extern int io_uring_submit(struct io_uring *ring);
 extern struct io_uring_sqe *io_uring_get_sqe(struct io_uring *ring);
 
+/*
+ * Command prep helpers
+ */
+static inline void io_uring_sqe_set_data(struct io_uring_sqe *sqe, void *data)
+{
+	sqe->user_data = (unsigned long) data;
+}
+
+static inline void io_uring_prep_readv(struct io_uring_sqe *sqe, int fd,
+				       struct iovec *iovecs, unsigned nr_vecs,
+				       off_t offset)
+{
+	memset(sqe, 0, sizeof(*sqe));
+	sqe->opcode = IORING_OP_READV;
+	sqe->fd = fd;
+	sqe->off = offset;
+	sqe->addr = (unsigned long) iovecs;
+	sqe->len = 1;
+}
+
+static inline void io_uring_prep_writev(struct io_uring_sqe *sqe, int fd,
+				        struct iovec *iovecs, unsigned nr_vecs,
+					off_t offset)
+{
+	memset(sqe, 0, sizeof(*sqe));
+	sqe->opcode = IORING_OP_WRITEV;
+	sqe->fd = fd;
+	sqe->off = offset;
+	sqe->addr = (unsigned long) iovecs;
+	sqe->len = 1;
+}
+
+static inline void io_uring_prep_poll(struct io_uring_sqe *sqe, int fd,
+				      short poll_mask)
+{
+	memset(sqe, 0, sizeof(*sqe));
+	sqe->opcode = IORING_OP_POLL;
+	sqe->fd = fd;
+	sqe->poll_events = poll_mask;
+}
+
+static inline void io_uring_prep_poll_cancel(struct io_uring_sqe *sqe,
+					     void *user_data)
+{
+	memset(sqe, 0, sizeof(*sqe));
+	sqe->opcode = IORING_OP_POLL_CANCEL;
+	sqe->addr = (unsigned long) user_data;
+}
+
 #endif

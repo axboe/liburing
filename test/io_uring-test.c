@@ -54,14 +54,7 @@ int main(int argc, char *argv[])
 		sqe = io_uring_get_sqe(&ring);
 		if (!sqe)
 			break;
-		sqe->opcode = IORING_OP_READV;
-		sqe->flags = 0;
-		sqe->ioprio = 0;
-		sqe->fd = fd;
-		sqe->off = offset;
-		sqe->addr = (unsigned long) &iovecs[i];
-		sqe->len = 1;
-		sqe->buf_index = 0;
+		io_uring_prep_readv(sqe, fd, &iovecs[i], 1, offset);
 		offset += iovecs[i].iov_len;
 	} while (1);
 
