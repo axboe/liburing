@@ -21,11 +21,11 @@ static void sig_alrm(int sig)
 
 int main(int argc, char *argv[])
 {
-	pid_t parent = getpid(), p;
 	struct io_uring_cqe *cqe;
 	struct io_uring_sqe *sqe;
 	struct io_uring ring;
 	int pipe1[2];
+	pid_t p;
 	int ret;
 
 	if (pipe(pipe1) != 0) {
@@ -69,11 +69,11 @@ int main(int argc, char *argv[])
 		}
 
 		do {
-			if (getppid() != parent) {
-				printf("parent died\n");
-				exit(2);
-			}
 			ret = io_uring_wait_completion(&ring, &cqe);
+			if (ret < 0) {
+				printf("child: wait completion %d\n", ret);
+				break;
+			}
 		} while (ret != 0);
 
 		if (ret < 0) {
