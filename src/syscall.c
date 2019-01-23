@@ -7,25 +7,15 @@
 #include "compat.h"
 #include "io_uring.h"
 
-#if defined(__x86_64)
+#if defined(__x86_64) || defined(__i386__)
 #ifndef __NR_sys_io_uring_setup
-#define __NR_sys_io_uring_setup		335
+#define __NR_sys_io_uring_setup		425
 #endif
 #ifndef __NR_sys_io_uring_enter
-#define __NR_sys_io_uring_enter		336
+#define __NR_sys_io_uring_enter		426
 #endif
 #ifndef __NR_sys_io_uring_register
-#define __NR_sys_io_uring_register	337
-#endif
-#elif defined(__i386__)
-#ifndef __NR_sys_io_uring_setup
-#define __NR_sys_io_uring_setup		387
-#endif
-#ifndef __NR_sys_io_uring_enter
-#define __NR_sys_io_uring_enter		388
-#endif
-#ifndef __NR_sys_io_uring_register
-#define __NR_sys_io_uring_register	389
+#define __NR_sys_io_uring_register	427
 #endif
 #else
 #error "Arch not supported yet"
