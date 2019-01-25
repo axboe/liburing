@@ -135,7 +135,23 @@ returns 0.  On error, -1 is returned, and
 is set accordingly.
 
 .SH ERRORS
-
+.TP
+.B EBADF
+One or more fds in the
+.I fd
+array are invalid.
+.TP
+.B EBUSY
+.BR IORING_REGISTER_BUFFERS
+or
+.BR IORING_REGISTER_FILES
+was specified, but there were already buffers or files registered.
+.TP
+.B EFAULT
+buffer is outside of the process' accessible address space, or
+.I iov_len
+is greater than 1GiB.
+.TP
 .B EINVAL
 .BR IORING_REGISTER_BUFFERS
 or
@@ -143,14 +159,14 @@ or
 was specified, but
 .I nr_args
 is 0.
-
+.TP
 .B EINVAL
 .BR IORING_REGISTER_BUFFERS
 was specified, but
 .I nr_args
 exceeds
 .BR UIO_MAXIOV
-
+.TP
 .B EINVAL
 .BR IORING_UNREGISTER_BUFFERS
 or
@@ -160,19 +176,7 @@ was specified, and
 is non-zero or
 .I arg
 is non-NULL.
-
-.B ENXIO
-.BR IORING_UNREGISTER_BUFFERS
-or
-.BR IORING_UNREGISTER_FILES
-was specified, but there were no buffers or files registered.
-
-.B EBUSY
-.BR IORING_REGISTER_BUFFERS
-or
-.BR IORING_REGISTER_FILES
-was specified, but there were already buffers or files registered.
-
+.TP
 .B ENOMEM
 Insufficient kernel resources are available, or the caller had a
 non-zero
@@ -182,16 +186,12 @@ permitted.  This limit is not enforced if the process is privileged
 (
 .BR CAP_IPC_LOCK
 ).
-
-.B EBADF
-One or more fds in the
-.I fd
-array are invalid.
-
-.B EFAULT
-buffer is outside of the process' accessible address space, or
-.I iov_len
-is greater than 1GiB.
-
+.TP
+.B ENXIO
+.BR IORING_UNREGISTER_BUFFERS
+or
+.BR IORING_UNREGISTER_FILES
+was specified, but there were no buffers or files registered.
+.TP
 .B EOPNOTSUPP
 User buffers point to file-backed memory.
