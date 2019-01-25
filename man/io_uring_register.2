@@ -35,8 +35,8 @@ is the file descriptor returned by a call to
 .I opcode
 can be one of:
 
+.TP
 .BR IORING_REGISTER_BUFFERS
-
 .I arg
 points to a
 .I struct iovec
@@ -88,16 +88,15 @@ with the new buffers.
 
 An application need not unregister buffers explicitly before shutting
 down the io_uring instance.
-
+.TP
 .BR IORING_UNREGISTER_BUFFERS
-
 This operation takes no argument, and
 .I arg
 must be passed as NULL.  All previously registered buffers associated
 with the io_uring instance will be released.
 
+.TP
 .BR IORING_REGISTER_FILES
-
 Register files for I/O.
 .I arg
 contains a pointer to an array of
@@ -118,9 +117,8 @@ is set to the index of the buffer in the array supplied to
 Files are automatically unregistered when the io_uring instance is
 torn down. An application need only unregister if it wishes to
 register a few set of fds.
-
+.TP
 .BR IORING_UNREGISTER_FILES
-
 This operation requires no argument, and
 .I arg
 must be passed as NULL.  All previously registered files associated
