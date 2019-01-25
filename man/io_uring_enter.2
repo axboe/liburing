@@ -146,13 +146,13 @@ The
 .I flags
 field is a bit mask.  Currently, the only supported flag is
 .B IOSQE_FIXED_FILE.
-This flag must be specified for io_uring instances that registered
-files using the
-.BR io_uring_register(2)
-system call.  When specified,
+When this flag is specified,
 .I fd
-contains an index into the files array registered with the io_uring
-instance.
+is an index into the files array registered with the io_uring instance (see the
+.B IORING_REGISTER_FILES
+section of the
+.BR io_uring_register(2)
+man page).
 
 .I ioprio
 specifies the I/O priority.  See

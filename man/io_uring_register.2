@@ -103,20 +103,19 @@ contains a pointer to an array of
 .I nr_args
 file descriptors (signed 32 bit integers).
 
-When used, the application must set
+To make use of the registered files, the
 .B IOSQE_FIXED_FILE
-in the
+flag must be set in the
 .I flags
 member of the
-.I struct io_uring_sqe.
-Then,
+.I struct io_uring_sqe,
+and the
 .I fd
-is set to the index of the buffer in the array supplied to
-.B IORING_REGISTER_FILES.
+member is set to the index of the file in the file descriptor array.
 
 Files are automatically unregistered when the io_uring instance is
 torn down. An application need only unregister if it wishes to
-register a few set of fds.
+register a new set of fds.
 .TP
 .BR IORING_UNREGISTER_FILES
 This operation requires no argument, and
