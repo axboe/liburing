@@ -11,8 +11,6 @@
 #include <linux/fs.h>
 #include <linux/types.h>
 
-#define IORING_MAX_ENTRIES	4096
-
 /*
  * IO submission data structure (Submission Queue Entry)
  */
