@@ -108,6 +108,15 @@ is a submission queue ring setup using the
 .I struct io_sqring_offsets
 described below.
 .TP
+.BR
+To successfully use this feature, the application must register a set of files
+to be used for IO through
+.B io_uring_register(2)
+using the
+.B IORING_REGISTER_FILES
+opcode. Failure to do so will result in submitted IO being errored with
+.B EBADF.
+.TP
 .BR IORING_SETUP_SQ_AFF
 If this flag is specified, then the poll thread will be bound to the
 cpu set in the
