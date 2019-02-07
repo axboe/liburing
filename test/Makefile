@@ -1,10 +1,10 @@
 CFLAGS ?= -g -O2 -Wall -D_GNU_SOURCE -L../src/
 
-all_targets += io_uring-test io_uring-cp poll poll-cancel
+all_targets += io_uring-test io_uring-cp poll poll-cancel ring-leak
 
 all: $(all_targets)
 
-test_srcs := io_uring-test.c io_uring-cp.c poll.c poll-cancel.c
+test_srcs := io_uring-test.c io_uring-cp.c poll.c poll-cancel.c ring-leak.c
 
 test_objs := $(patsubst %.c,%.ol,$(test_srcs))
 
@@ -16,5 +16,7 @@ poll: poll.c
 	$(CC) $(CFLAGS) -o $@ poll.c -luring
 poll-cancel: poll-cancel.c
 	$(CC) $(CFLAGS) -o $@ poll-cancel.c -luring
+ring-leak: ring-leak.c
+	$(CC) $(CFLAGS) -o $@ ring-leak.c -luring
 clean:
 	rm -f $(all_targets) $(test_objs)
