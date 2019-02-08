@@ -95,11 +95,8 @@ int main(int argc, char *argv[])
 	}
 
 	pid = fork();
-	if (pid) {
-		printf("Sending fd %d\n", ring_fd);
-
+	if (pid)
 		send_fd(sp[0], ring_fd);
-	}
 
 	close(ring_fd);
 	close(sp[0]);
