@@ -115,4 +115,14 @@ static inline void io_uring_prep_poll_remove(struct io_uring_sqe *sqe,
 	sqe->addr = (unsigned long) user_data;
 }
 
+static inline void io_uring_prep_fsync(struct io_uring_sqe *sqe, int fd,
+				       int datasync)
+{
+	memset(sqe, 0, sizeof(*sqe));
+	sqe->opcode = IORING_OP_FSYNC;
+	sqe->fd = fd;
+	if (datasync)
+		sqe->fsync_flags = IORING_FSYNC_DATASYNC;
+}
+
 #endif
