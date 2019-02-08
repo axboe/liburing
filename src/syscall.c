@@ -36,5 +36,5 @@ int io_uring_enter(int fd, unsigned int to_submit, unsigned int min_complete,
 		   unsigned int flags)
 {
 	return syscall(__NR_sys_io_uring_enter, fd, to_submit, min_complete,
-			flags);
+			flags, NULL, 0);
 }
