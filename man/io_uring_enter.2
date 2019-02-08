@@ -14,7 +14,7 @@ io_uring_enter \- initiate and/or complete asynchronous I/O
 .PP
 .BI "int io_uring_enter(unsigned int " fd ", unsigned int " to_submit ,
 .BI "                   unsigned int " min_complete ", unsigned int " flags ,
-.BI "                   sigset_t *" sig ", size_t " sigsz)
+.BI "                   sigset_t *" sig);
 .fi
 .PP
 .SH DESCRIPTION
@@ -55,11 +55,7 @@ queue without entering the kernel.
 
 .I sig
 is a pointer to a signal mask (see
-.BR sigprocmask (2));
-.I sigsz
-is the size of the
-.I sig
-argument.  If
+.BR sigprocmask (2)); if
 .I sig
 is not NULL,
 .BR io_uring_enter ()
@@ -72,8 +68,7 @@ call:
 .PP
 .in +4n
 .EX
-ret = io_uring_enter(fd, 0, 1,
-            IORING_ENTER_GETEVENTS, &sig, sigsz);
+ret = io_uring_enter(fd, 0, 1, IORING_ENTER_GETEVENTS, &sig);
 .EE
 .in
 .PP
@@ -84,7 +79,7 @@ executing the following calls:
 .in +4n
 .EX
 pthread_sigmask(SIG_SETMASK, &sig, &orig);
-ret = io_uring_enter(fd, 0, 1, IORING_ENTER_GETEVENTS, NULL, 0);
+ret = io_uring_enter(fd, 0, 1, IORING_ENTER_GETEVENTS, NULL);
 pthread_sigmask(SIG_SETMASK, &orig, NULL);
 .EE
 .in
