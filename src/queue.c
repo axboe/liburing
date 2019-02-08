@@ -29,7 +29,7 @@ static int __io_uring_get_completion(struct io_uring *ring,
 		if (!wait)
 			break;
 		ret = io_uring_enter(ring->ring_fd, 0, 1,
-					IORING_ENTER_GETEVENTS, NULL, _NSIG / 8);
+					IORING_ENTER_GETEVENTS, NULL);
 		if (ret < 0)
 			return -errno;
 	} while (1);
@@ -112,7 +112,7 @@ int io_uring_submit(struct io_uring *ring)
 
 submit:
 	return io_uring_enter(ring->ring_fd, submitted, 0,
-				IORING_ENTER_GETEVENTS, NULL, _NSIG / 8);
+				IORING_ENTER_GETEVENTS, NULL);
 }
 
 /*

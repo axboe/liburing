@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <sys/syscall.h>
 #include <sys/uio.h>
+#include <signal.h>
 #include "compat.h"
 #include "io_uring.h"
 
@@ -33,8 +34,8 @@ int io_uring_setup(unsigned int entries, struct io_uring_params *p)
 }
 
 int io_uring_enter(int fd, unsigned int to_submit, unsigned int min_complete,
-		   unsigned int flags, sigset_t *sig, size_t sigsz)
+		   unsigned int flags, sigset_t *sig)
 {
 	return syscall(__NR_sys_io_uring_enter, fd, to_submit, min_complete,
-			flags, sig, sigsz);
+			flags, sig, _NSIG / 8);
 }
