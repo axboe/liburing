@@ -58,13 +58,30 @@ err:
 }
 
 /*
+ * For users that want to specify sq_thread_cpu or sq_thread_idle, this
+ * interface is a convenient helper for mmap()ing the rings.
+ * Returns -1 on error, or zero on success.  On success, 'ring'
+ * contains the necessary information to read/write to the rings.
+ */
+int io_uring_queue_mmap(int fd, struct io_uring_params *p, struct io_uring *ring)
+{
+	int ret;
+
+	memset(ring, 0, sizeof(*ring));
+	ret = io_uring_mmap(fd, p, &ring->sq, &ring->cq);
+	if (!ret)
+		ring->ring_fd = fd;
+	return ret;
+}
+
+/*
  * Returns -1 on error, or zero on success. On success, 'ring'
  * contains the necessary information to read/write to the rings.
  */
 int io_uring_queue_init(unsigned entries, struct io_uring *ring, unsigned flags)
 {
 	struct io_uring_params p;
-	int fd, ret;
+	int fd;
 
 	memset(&p, 0, sizeof(p));
 	p.flags = flags;
@@ -73,11 +90,7 @@ int io_uring_queue_init(unsigned entries, struct io_uring *ring, unsigned flags)
 	if (fd < 0)
 		return fd;
 
-	memset(ring, 0, sizeof(*ring));
-	ret = io_uring_mmap(fd, &p, &ring->sq, &ring->cq);
-	if (!ret)
-		ring->ring_fd = fd;
-	return ret;
+	return io_uring_queue_mmap(fd, &p, ring);
 }
 
 void io_uring_queue_exit(struct io_uring *ring)
