@@ -13,7 +13,8 @@ io_uring_enter \- initiate and/or complete asynchronous I/O
 .BR "#include <linux/io_uring.h>"
 .PP
 .BI "int io_uring_enter(unsigned int " fd ", unsigned int " to_submit ,
-.BI "                   unsigned int " min_complete ", unsigned int " flags)
+.BI "                   unsigned int " min_complete ", unsigned int " flags ,
+.BI "                   sigset_t *" sig ", size_t " sigsz)
 .fi
 .PP
 .SH DESCRIPTION
@@ -51,6 +52,48 @@ flag in
 .BR io_uring_setup(2)),
 as for IRQ driven I/O, the application can just check the completion
 queue without entering the kernel.
+
+.I sig
+is a pointer to a signal mask (see
+.BR sigprocmask (2));
+.I sigsz
+is the size of the
+.I sig
+argument.  If
+.I sig
+is not NULL,
+.BR io_uring_enter ()
+first replaces the current signal mask by the one pointed to by
+.I sig,
+then waits for events to become available in the completion queue, and
+then restores the original signal mask.  The following
+.BI io_uring_enter ()
+call:
+.PP
+.in +4n
+.EX
+ret = io_uring_enter(fd, 0, 1,
+            IORING_ENTER_GETEVENTS, &sig, sigsz);
+.EE
+.in
+.PP
+is equivalent to
+.I atomically
+executing the following calls:
+.PP
+.in +4n
+.EX
+pthread_sigmask(SIG_SETMASK, &sig, &orig);
+ret = io_uring_enter(fd, 0, 1, IORING_ENTER_GETEVENTS, NULL, 0);
+pthread_sigmask(SIG_SETMASK, &orig, NULL);
+.EE
+.in
+.PP
+See the description of
+.BR pselect (2)
+for an explanation of why the
+.I sig
+parameter is necessary.
 
 Submission queue entries are represented using the following data
 structure:

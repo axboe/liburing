@@ -33,8 +33,8 @@ int io_uring_setup(unsigned int entries, struct io_uring_params *p)
 }
 
 int io_uring_enter(int fd, unsigned int to_submit, unsigned int min_complete,
-		   unsigned int flags)
+		   unsigned int flags, sigset_t *sig, size_t sigsz)
 {
 	return syscall(__NR_sys_io_uring_enter, fd, to_submit, min_complete,
-			flags, NULL, 0);
+			flags, sig, sigsz);
 }
