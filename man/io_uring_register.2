@@ -55,7 +55,9 @@ or
 with the
 .B MAP_ANONYMOUS
 flag set.  It is expected that this limitation will be lifted in the
-future.
+future. Huge pages are supported as well. Note that the entire huge
+page will be pinned in the kernel, even if only a portion of it is
+used.
 
 After a successful call, the supplied buffers are mapped into the
 kernel and eligible for I/O.  To make use of them, the application
