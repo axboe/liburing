@@ -92,7 +92,8 @@ struct io_sqring_offsets {
 	__u32 flags;
 	__u32 dropped;
 	__u32 array;
-	__u32 resv[3];
+	__u32 resv1;
+	__u64 resv2;
 };
 
 /*
@@ -107,7 +108,7 @@ struct io_cqring_offsets {
 	__u32 ring_entries;
 	__u32 overflow;
 	__u32 cqes;
-	__u32 resv[4];
+	__u64 resv[2];
 };
 
 /*
