@@ -52,6 +52,13 @@ flag in
 .BR io_uring_setup(2)),
 as for IRQ driven I/O, the application can just check the completion
 queue without entering the kernel.
+.PP
+When the system call returns that a certain amount of SQEs have been
+consumed and submitted, it's safe to reuse SQE entries in the ring. This is
+true even if the actual IO submission had to be punted to async context,
+which means that the SQE may in fact not have been submitted yet. If the
+kernel requires later use of a particular SQE entry, it will have made a
+private copy of it.
 
 .I sig
 is a pointer to a signal mask (see
