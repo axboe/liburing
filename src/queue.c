@@ -21,6 +21,13 @@ static int __io_uring_get_completion(struct io_uring *ring,
 	*cqe_ptr = NULL;
 	head = *cq->khead;
 	do {
+		/*
+		 * It's necessary to use a read_barrier() before reading
+		 * the CQ tail, since the kernel updates it locklessly. The
+		 * kernel has the matching store barrier for the update. The
+		 * kernel also ensures that previous stores to CQEs are ordered
+		 * with the tail update.
+		 */
 		read_barrier();
 		if (head != *cq->ktail) {
 			*cqe_ptr = &cq->cqes[head & mask];
@@ -36,6 +43,10 @@ static int __io_uring_get_completion(struct io_uring *ring,
 
 	if (*cqe_ptr) {
 		*cq->khead = head + 1;
+		/*
+		 * Ensure that the kernel sees our new head, the kernel has
+		 * the matching read barrier.
+		 */
 		write_barrier();
 	}
 
@@ -72,7 +83,9 @@ int io_uring_submit(struct io_uring *ring)
 	unsigned ktail, ktail_next, submitted;
 
 	/*
-	 * If we have pending IO in the kring, submit it first
+	 * If we have pending IO in the kring, submit it first. We need a
+	 * read barrier here to match the kernels store barrier when updating
+	 * the SQ head.
 	 */
 	read_barrier();
 	if (*sq->khead != *sq->ktail) {
@@ -105,8 +118,18 @@ int io_uring_submit(struct io_uring *ring)
 		return 0;
 
 	if (*sq->ktail != ktail) {
+		/*
+		 * First write barrier ensures that the SQE stores are updated
+		 * with the tail update. This is needed so that the kernel
+		 * will never see a tail update without the preceeding sQE
+		 * stores being done.
+		 */
 		write_barrier();
 		*sq->ktail = ktail;
+		/*
+		 * The kernel has the matching read barrier for reading the
+		 * SQ tail.
+		 */
 		write_barrier();
 	}
 
