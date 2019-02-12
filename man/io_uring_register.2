@@ -186,13 +186,13 @@ exceeds the maximum allowed number of files in a fixed file set.
 .BR IORING_REGISTER_FILES
 was specified and adding
 .I nr_args
-file references would exceed the maximum allowed number of files the process
+file references would exceed the maximum allowed number of files the user
 is allowed to have according to the
 .B
 RLIMIT_NOFILE
 resource limit and the caller does not have
 .B CAP_SYS_RESOURCE
-capability.
+capability. Note that this is a per user limit, not per process.
 .TP
 .B ENOMEM
 Insufficient kernel resources are available, or the caller had a
