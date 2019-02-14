@@ -37,21 +37,28 @@ the
 bit is set in
 .I flags,
 then the system call will attempt to wait for
-.I min_events
-I/O completions.  Note that it is valid to specify
-.B IORING_ENTER_GETEVENTS
-in
-.I flags
-and pass in
 .I min_complete
-as 0 at the same time.  This allows the kernel to return already
-completed events without waiting.  This is useful only when the
-io_uring instance was configured for polling (by specifying the
+event completions before returning.  If the io_uring instance was
+configured for polling, by specifying
 .B IORING_SETUP_IOPOLL
-flag in
-.BR io_uring_setup(2)),
-as for IRQ driven I/O, the application can just check the completion
-queue without entering the kernel.
+in the call to
+.BR io_uring_setup (2),
+then min_complete has a slightly different meaning.  Passing a value
+of 0 instructs the kernel to return any events which are already complete,
+without blocking.  If
+.I min_complete
+is a non-zero value, the kernel will still return immediately if any
+completion events are available.  If no event completions are
+available, then the call will poll either until one or more
+completions become available, or until the process has exceeded its
+scheduler time slice.
+
+Note that, for interrupt driven I/O (where
+.B IORING_SETUP_IOPOLL
+was not specified in the call to
+.BR io_uring_setup (2)),
+an application may check the completion queue for event completions
+without entering the kernel at all.
 .PP
 When the system call returns that a certain amount of SQEs have been
 consumed and submitted, it's safe to reuse SQE entries in the ring. This is
