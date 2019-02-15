@@ -104,8 +104,6 @@ int io_uring_submit(struct io_uring *ring)
 	while (sq->sqe_head < sq->sqe_tail) {
 		ktail_next++;
 		read_barrier();
-		if (ktail_next == *sq->khead)
-			break;
 
 		sq->array[ktail & mask] = sq->sqe_head & mask;
 		ktail = ktail_next;
