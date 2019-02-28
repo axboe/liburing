@@ -74,28 +74,43 @@ static inline void io_uring_sqe_set_data(struct io_uring_sqe *sqe, void *data)
 	sqe->user_data = (unsigned long) data;
 }
 
+static inline void io_uring_prep_rw(int op, struct io_uring_sqe *sqe, int fd,
+				    void *addr, unsigned len, off_t offset)
+{
+	memset(sqe, 0, sizeof(*sqe));
+	sqe->opcode = op;
+	sqe->fd = fd;
+	sqe->off = offset;
+	sqe->addr = (unsigned long) addr;
+	sqe->len = len;
+}
+
 static inline void io_uring_prep_readv(struct io_uring_sqe *sqe, int fd,
 				       struct iovec *iovecs, unsigned nr_vecs,
 				       off_t offset)
 {
-	memset(sqe, 0, sizeof(*sqe));
-	sqe->opcode = IORING_OP_READV;
-	sqe->fd = fd;
-	sqe->off = offset;
-	sqe->addr = (unsigned long) iovecs;
-	sqe->len = nr_vecs;
+	io_uring_prep_rw(IORING_OP_READV, sqe, fd, iovecs, nr_vecs, offset);
+}
+
+static inline void io_uring_prep_read_fixed(struct io_uring_sqe *sqe, int fd,
+					    void *buf, unsigned nbytes,
+					    off_t offset)
+{
+	io_uring_prep_rw(IORING_OP_READ_FIXED, sqe, fd, buf, nbytes, offset);
 }
 
 static inline void io_uring_prep_writev(struct io_uring_sqe *sqe, int fd,
 				        struct iovec *iovecs, unsigned nr_vecs,
 					off_t offset)
 {
-	memset(sqe, 0, sizeof(*sqe));
-	sqe->opcode = IORING_OP_WRITEV;
-	sqe->fd = fd;
-	sqe->off = offset;
-	sqe->addr = (unsigned long) iovecs;
-	sqe->len = nr_vecs;
+	io_uring_prep_rw(IORING_OP_WRITEV, sqe, fd, iovecs, nr_vecs, offset);
+}
+
+static inline void io_uring_prep_write_fixed(struct io_uring_sqe *sqe, int fd,
+					     void *buf, unsigned nbytes,
+					     off_t offset)
+{
+	io_uring_prep_rw(IORING_OP_WRITE_FIXED, sqe, fd, buf, nbytes, offset);
 }
 
 static inline void io_uring_prep_poll_add(struct io_uring_sqe *sqe, int fd,
