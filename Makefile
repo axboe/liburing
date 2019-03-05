@@ -31,9 +31,12 @@ install:
 	@$(MAKE) -C src install prefix=$(DESTDIR)$(prefix) includedir=$(DESTDIR)$(includedir) libdir=$(DESTDIR)$(libdir)
 
 clean:
-	@rm -f config-host.mak config-host.h
+	@rm -f config-host.mak config-host.h cscope.out
 	@$(MAKE) -C src clean
 	@$(MAKE) -C test clean
+
+cscope:
+	@cscope -b -R
 
 tag-archive:
 	@git tag $(TAG)
