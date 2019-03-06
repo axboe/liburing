@@ -81,6 +81,7 @@ int io_uring_submit(struct io_uring *ring)
 	struct io_uring_sq *sq = &ring->sq;
 	const unsigned mask = *sq->kring_mask;
 	unsigned ktail, ktail_next, submitted;
+	int ret;
 
 	/*
 	 * If we have pending IO in the kring, submit it first. We need a
@@ -132,8 +133,12 @@ int io_uring_submit(struct io_uring *ring)
 	}
 
 submit:
-	return io_uring_enter(ring->ring_fd, submitted, 0,
+	ret = io_uring_enter(ring->ring_fd, submitted, 0,
 				IORING_ENTER_GETEVENTS, NULL);
+	if (ret < 0)
+		return -errno;
+
+	return 0;
 }
 
 /*
