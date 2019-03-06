@@ -154,8 +154,7 @@ static int copy_file(struct io_uring *ring, off_t insize)
 		}
 
 		/*
-		 * read queue full, get at least one completion and queue up
-		 * a write
+		 * Queue is full at this point. Find at least one completion.
 		 */
 		got_comp = 0;
 		while (write_left) {
@@ -184,6 +183,7 @@ static int copy_file(struct io_uring *ring, off_t insize)
 						strerror(-cqe->res));
 				return 1;
 			} else if (cqe->res != data->iov.iov_len) {
+				/* Short read/write, adjust and requeue */
 				data->iov.iov_base += cqe->res;
 				data->iov.iov_len -= cqe->res;
 				data->offset += cqe->res;
