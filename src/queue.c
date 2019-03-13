@@ -138,7 +138,7 @@ submit:
 	if (ret < 0)
 		return -errno;
 
-	return 0;
+	return ret;
 }
 
 /*
