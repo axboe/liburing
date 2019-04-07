@@ -59,6 +59,7 @@ struct io_uring_sqe {
  * sqe->fsync_flags
  */
 #define IORING_FSYNC_DATASYNC	(1U << 0)
+#define IORING_FSYNC_BARRIER	(1U << 1)
 
 /*
  * IO completion data structure (Completion Queue Entry)
