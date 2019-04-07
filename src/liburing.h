@@ -3,6 +3,7 @@
 
 #include <sys/uio.h>
 #include <signal.h>
+#include <inttypes.h>
 #include "compat.h"
 #include "io_uring.h"
 
@@ -72,6 +73,11 @@ extern struct io_uring_sqe *io_uring_get_sqe(struct io_uring *ring);
 static inline void io_uring_sqe_set_data(struct io_uring_sqe *sqe, void *data)
 {
 	sqe->user_data = (unsigned long) data;
+}
+
+static inline void *io_uring_cqe_get_data(struct io_uring_cqe *cqe)
+{
+	return (void *) (uintptr_t) cqe->user_data;
 }
 
 static inline void io_uring_prep_rw(int op, struct io_uring_sqe *sqe, int fd,
