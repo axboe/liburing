@@ -154,7 +154,7 @@ reap_events(struct io_uring *ring, unsigned nr)
 		}
 		if (cqe->res != 4096)
 			printf("cqe->res: %d, expected 4096\n", cqe->res);
-		iov = (struct iovec *)cqe->user_data;
+		iov = io_uring_cqe_get_data(cqe);
 		free(iov->iov_base);
 		free(iov);
 		left--;

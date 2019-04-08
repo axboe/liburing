@@ -173,7 +173,7 @@ static int copy_file(struct io_uring *ring, off_t insize)
 			if (!cqe)
 				break;
 
-			data = (struct io_data *) (uintptr_t) cqe->user_data;
+			data = io_uring_cqe_get_data(cqe);
 			if (cqe->res < 0) {
 				if (cqe->res == -EAGAIN) {
 					queue_prepped(ring, data);

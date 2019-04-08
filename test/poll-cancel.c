@@ -93,7 +93,7 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-	pd = (struct poll_data *) (uintptr_t) cqe->user_data;
+	pd = io_uring_cqe_get_data(cqe);
 	if (cqe->res != 0) {
 		printf("sqe (add=%d/remove=%d) failed with %ld\n", pd->is_poll,
 							pd->is_cancel, (long) cqe->res);
@@ -106,7 +106,7 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-	pd = (struct poll_data *) (uintptr_t) cqe->user_data;
+	pd = io_uring_cqe_get_data(cqe);
 	if (cqe->res != 0) {
 		printf("sqe (add=%d/remove=%d) failed with %ld\n", pd->is_poll,
 							pd->is_cancel, (long) cqe->res);
