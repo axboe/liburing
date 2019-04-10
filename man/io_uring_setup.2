@@ -304,6 +304,11 @@ reached.
 .TP
 .BR ENOMEM
 Insufficient kernel resources are available.
+.TP
+.BR EPERM
+.B IORING_SETUP_SQPOLL
+was specified, but the effective user ID of the caller did not have sufficient
+privileges.
 .SH SEE ALSO
 .BR io_uring_register(2),
 .BR io_uring_enter(2)
