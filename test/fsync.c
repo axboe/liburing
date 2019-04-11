@@ -35,7 +35,7 @@ static int test_single_fsync(struct io_uring *ring)
 
 	ret = io_uring_submit(ring);
 	if (ret <= 0) {
-		printf("sqe submit failed\n");
+		printf("sqe submit failed: %d\n", ret);
 		goto err;
 	}
 
@@ -90,9 +90,9 @@ static int test_barrier_fsync(struct io_uring *ring)
 		goto err;
 	}
 
-	io_uring_prep_fsync(sqe, fd,
-				IORING_FSYNC_DATASYNC | IORING_FSYNC_BARRIER);
+	io_uring_prep_fsync(sqe, fd, IORING_FSYNC_DATASYNC);
 	sqe->user_data = 1;
+	sqe->flags = IOSQE_IO_DRAIN;
 
 	ret = io_uring_submit(ring);
 	if (ret <= 0) {
@@ -141,12 +141,16 @@ int main(int argc, char *argv[])
 	}
 
 	ret = test_single_fsync(&ring);
-	if (ret)
+	if (ret) {
+		printf("test_single_fsync failed\n");
 		return ret;
+	}
 
 	ret = test_barrier_fsync(&ring);
-	if (ret)
+	if (ret) {
+		printf("test_single_fsync failed\n");
 		return ret;
+	}
 
 	return 0;
 }
