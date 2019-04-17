@@ -74,6 +74,7 @@ int main(int argc, char *argv[])
 				printf("child: wait completion %d\n", ret);
 				break;
 			}
+			io_uring_cqe_seen(&ring, cqe);
 		} while (ret != 0);
 
 		if (ret < 0) {

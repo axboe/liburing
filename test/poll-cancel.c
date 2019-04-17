@@ -99,6 +99,7 @@ int main(int argc, char *argv[])
 							pd->is_cancel, (long) cqe->res);
 		return 1;
 	}
+	io_uring_cqe_seen(&ring, cqe);
 
 	ret = io_uring_wait_completion(&ring, &cqe);
 	if (ret < 0) {
@@ -113,5 +114,6 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
+	io_uring_cqe_seen(&ring, cqe);
 	return 0;
 }

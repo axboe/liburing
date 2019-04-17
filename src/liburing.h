@@ -6,6 +6,7 @@
 #include <inttypes.h>
 #include "compat.h"
 #include "io_uring.h"
+#include "barrier.h"
 
 /*
  * Library interface to io_uring
@@ -66,6 +67,25 @@ extern int io_uring_wait_completion(struct io_uring *ring,
 	struct io_uring_cqe **cqe_ptr);
 extern int io_uring_submit(struct io_uring *ring);
 extern struct io_uring_sqe *io_uring_get_sqe(struct io_uring *ring);
+
+/*
+ * Must be called after io_uring_{get,wait}_completion() after the cqe has
+ * been processed by the application.
+ */
+static inline void io_uring_cqe_seen(struct io_uring *ring,
+				     struct io_uring_cqe *cqe)
+{
+	if (cqe) {
+		struct io_uring_cq *cq = &ring->cq;
+
+		(*cq->khead)++;
+		/*
+		 * Ensure that the kernel sees our new head, the kernel has
+		 * the matching read barrier.
+		 */
+		write_barrier();
+	}
+}
 
 /*
  * Command prep helpers

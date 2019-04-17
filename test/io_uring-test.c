@@ -74,10 +74,14 @@ int main(int argc, char *argv[])
 		}
 
 		done++;
+		ret = 0;
 		if (cqe->res != 4096) {
 			fprintf(stderr, "ret=%d, wanted 4096\n", cqe->res);
-			return 1;
+			ret = 1;
 		}
+		io_uring_cqe_seen(&ring, cqe);
+		if (ret)
+			break;
 	}
 
 	printf("Submitted=%d, completed=%d\n", pending, done);

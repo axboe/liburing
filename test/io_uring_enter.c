@@ -158,6 +158,7 @@ reap_events(struct io_uring *ring, unsigned nr)
 		free(iov->iov_base);
 		free(iov);
 		left--;
+		io_uring_cqe_seen(ring, cqe);
 
 		gettimeofday(&now, NULL);
 		timersub(&now, &start, &elapsed);

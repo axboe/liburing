@@ -41,15 +41,6 @@ static int __io_uring_get_completion(struct io_uring *ring,
 			return -errno;
 	} while (1);
 
-	if (*cqe_ptr) {
-		*cq->khead = head + 1;
-		/*
-		 * Ensure that the kernel sees our new head, the kernel has
-		 * the matching read barrier.
-		 */
-		write_barrier();
-	}
-
 	return 0;
 }
 

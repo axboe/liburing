@@ -45,6 +45,7 @@ static int test_single_fsync(struct io_uring *ring)
 		goto err;
 	}
 
+	io_uring_cqe_seen(ring, cqe);
 	unlink(buf);
 	return 0;
 err:
@@ -122,6 +123,7 @@ static int test_barrier_fsync(struct io_uring *ring)
 				goto err;
 			}
 		}
+		io_uring_cqe_seen(ring, cqe);
 	}
 
 	unlink("testfile");

@@ -67,6 +67,7 @@ int main(int argc, char *argv[])
 			printf("wait completion %d\n", ret);
 			goto err;
 		}
+		io_uring_cqe_seen(&ring, cqe);
 		if (!cqe)
 			break;
 		i++;

@@ -37,6 +37,7 @@ static int test_single_nop(struct io_uring *ring)
 		goto err;
 	}
 
+	io_uring_cqe_seen(ring, cqe);
 	return 0;
 err:
 	return 1;
@@ -75,6 +76,7 @@ static int test_barrier_nop(struct io_uring *ring)
 			printf("wait completion %d\n", ret);
 			goto err;
 		}
+		io_uring_cqe_seen(ring, cqe);
 	}
 
 	return 0;

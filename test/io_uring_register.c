@@ -428,13 +428,15 @@ ioring_poll(struct io_uring *ring, int fd, int fixed)
 		printf("io_uring_wait_completion failed with %d\n", ret);
 		return 1;
 	}
+	ret = 0;
 	if (cqe->res != POLLOUT) {
 		printf("io_uring_wait_completion: expected 0x%.8x, got 0x%.8x\n",
 		       POLLOUT, cqe->res);
-		return 1;
+		ret = 1;
 	}
 
-	return 0;
+	io_uring_cqe_seen(ring, cqe);
+	return ret;
 }
 
 int
