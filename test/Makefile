@@ -1,12 +1,13 @@
 CFLAGS ?= -g -O2 -Wall -D_GNU_SOURCE -L../src/
 
 all_targets += io_uring-test io_uring-cp poll poll-cancel ring-leak fsync \
-	io_uring_setup io_uring_register io_uring_enter nop
+	io_uring_setup io_uring_register io_uring_enter nop sq-full cq-full
 
 all: $(all_targets)
 
 test_srcs := io_uring-test.c io_uring-cp.c poll.c poll-cancel.c ring-leak.c \
-	fsync.c io_uring_setup.c io_uring_register.c io_uring_enter.c nop.c
+	fsync.c io_uring_setup.c io_uring_register.c io_uring_enter.c nop.c \
+	sq-full.c cq-full.c
 
 test_objs := $(patsubst %.c,%.ol,$(test_srcs))
 
@@ -30,6 +31,10 @@ io_uring_enter: io_uring_enter.c
 	$(CC) $(CFLAGS) -o $@ io_uring_enter.c -luring
 nop: nop.c
 	$(CC) $(CFLAGS) -o $@ nop.c -luring
+sq-full: sq-full.c
+	$(CC) $(CFLAGS) -o $@ sq-full.c -luring
+cq-full: cq-full.c
+	$(CC) $(CFLAGS) -o $@ cq-full.c -luring
 
 clean:
 	rm -f $(all_targets) $(test_objs)
