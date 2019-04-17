@@ -1,20 +1,15 @@
 CFLAGS ?= -g -O2 -Wall -D_GNU_SOURCE -L../src/
 
-all_targets += io_uring-test io_uring-cp poll poll-cancel ring-leak fsync \
-	io_uring_setup io_uring_register io_uring_enter nop sq-full cq-full
+all_targets += poll poll-cancel ring-leak fsync io_uring_setup io_uring_register \
+	       io_uring_enter nop sq-full cq-full
 
 all: $(all_targets)
 
-test_srcs := io_uring-test.c io_uring-cp.c poll.c poll-cancel.c ring-leak.c \
-	fsync.c io_uring_setup.c io_uring_register.c io_uring_enter.c nop.c \
-	sq-full.c cq-full.c
+test_srcs := poll.c poll-cancel.c ring-leak.c fsync.c io_uring_setup.c \
+	io_uring_register.c io_uring_enter.c nop.c sq-full.c cq-full.c
 
 test_objs := $(patsubst %.c,%.ol,$(test_srcs))
 
-io_uring-test: io_uring-test.c
-	$(CC) $(CFLAGS) -o $@ io_uring-test.c -luring
-io_uring-cp: io_uring-cp.c
-	$(CC) $(CFLAGS) -o $@ io_uring-cp.c -luring
 poll: poll.c
 	$(CC) $(CFLAGS) -o $@ poll.c -luring
 poll-cancel: poll-cancel.c
@@ -38,3 +33,6 @@ cq-full: cq-full.c
 
 clean:
 	rm -f $(all_targets) $(test_objs)
+
+runtests:
+	@./runtests.sh $(all_targets)

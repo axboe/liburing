@@ -13,6 +13,10 @@ default: all
 all:
 	@$(MAKE) -C src
 	@$(MAKE) -C test
+	@$(MAKE) -C examples
+
+runtests:
+	@$(MAKE) -C test runtests
 
 config-host.mak: configure
 	@if [ ! -e "$@" ]; then					\
