@@ -61,15 +61,15 @@ extern int io_uring_queue_init(unsigned entries, struct io_uring *ring,
 extern int io_uring_queue_mmap(int fd, struct io_uring_params *p,
 	struct io_uring *ring);
 extern void io_uring_queue_exit(struct io_uring *ring);
-extern int io_uring_get_completion(struct io_uring *ring,
+extern int io_uring_peek_cqe(struct io_uring *ring,
 	struct io_uring_cqe **cqe_ptr);
-extern int io_uring_wait_completion(struct io_uring *ring,
+extern int io_uring_wait_cqe(struct io_uring *ring,
 	struct io_uring_cqe **cqe_ptr);
 extern int io_uring_submit(struct io_uring *ring);
 extern struct io_uring_sqe *io_uring_get_sqe(struct io_uring *ring);
 
 /*
- * Must be called after io_uring_{get,wait}_completion() after the cqe has
+ * Must be called after io_uring_{peek,wait}_cqe() after the cqe has
  * been processed by the application.
  */
 static inline void io_uring_cqe_seen(struct io_uring *ring,

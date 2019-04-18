@@ -10,8 +10,8 @@
 #include "liburing.h"
 #include "barrier.h"
 
-static int __io_uring_get_completion(struct io_uring *ring,
-				     struct io_uring_cqe **cqe_ptr, int wait)
+static int __io_uring_get_cqe(struct io_uring *ring,
+			      struct io_uring_cqe **cqe_ptr, int wait)
 {
 	struct io_uring_cq *cq = &ring->cq;
 	const unsigned mask = *cq->kring_mask;
@@ -45,21 +45,21 @@ static int __io_uring_get_completion(struct io_uring *ring,
 }
 
 /*
- * Return an IO completion, if one is readily available
+ * Return an IO completion, if one is readily available. Returns 0 with
+ * cqe_ptr filled in on success, -errno on failure.
  */
-int io_uring_get_completion(struct io_uring *ring,
-			    struct io_uring_cqe **cqe_ptr)
+int io_uring_peek_cqe(struct io_uring *ring, struct io_uring_cqe **cqe_ptr)
 {
-	return __io_uring_get_completion(ring, cqe_ptr, 0);
+	return __io_uring_get_cqe(ring, cqe_ptr, 0);
 }
 
 /*
- * Return an IO completion, waiting for it if necessary
+ * Return an IO completion, waiting for it if necessary. Returns 0 with
+ * cqe_ptr filled in on success, -errno on failure.
  */
-int io_uring_wait_completion(struct io_uring *ring,
-			     struct io_uring_cqe **cqe_ptr)
+int io_uring_wait_cqe(struct io_uring *ring, struct io_uring_cqe **cqe_ptr)
 {
-	return __io_uring_get_completion(ring, cqe_ptr, 1);
+	return __io_uring_get_cqe(ring, cqe_ptr, 1);
 }
 
 /*

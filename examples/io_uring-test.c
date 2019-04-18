@@ -67,9 +67,9 @@ int main(int argc, char *argv[])
 	done = 0;
 	pending = ret;
 	for (i = 0; i < pending; i++) {
-		ret = io_uring_wait_completion(&ring, &cqe);
+		ret = io_uring_wait_cqe(&ring, &cqe);
 		if (ret < 0) {
-			fprintf(stderr, "io_uring_get_completion: %s\n", strerror(-ret));
+			fprintf(stderr, "io_uring_wait_cqe: %s\n", strerror(-ret));
 			return 1;
 		}
 

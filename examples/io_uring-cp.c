@@ -161,12 +161,12 @@ static int copy_file(struct io_uring *ring, off_t insize)
 			struct io_data *data;
 
 			if (!got_comp) {
-				ret = io_uring_wait_completion(ring, &cqe);
+				ret = io_uring_wait_cqe(ring, &cqe);
 				got_comp = 1;
 			} else
-				ret = io_uring_get_completion(ring, &cqe);
+				ret = io_uring_peek_cqe(ring, &cqe);
 			if (ret < 0) {
-				fprintf(stderr, "io_uring_get_completion: %s\n",
+				fprintf(stderr, "io_uring_peek_cqe: %s\n",
 							strerror(-ret));
 				return 1;
 			}

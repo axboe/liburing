@@ -87,7 +87,7 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-	ret = io_uring_wait_completion(&ring, &cqe);
+	ret = io_uring_wait_cqe(&ring, &cqe);
 	if (ret < 0) {
 		printf("child: get cqe failed\n");
 		return 1;
@@ -101,7 +101,7 @@ int main(int argc, char *argv[])
 	}
 	io_uring_cqe_seen(&ring, cqe);
 
-	ret = io_uring_wait_completion(&ring, &cqe);
+	ret = io_uring_wait_cqe(&ring, &cqe);
 	if (ret < 0) {
 		printf("parent: get failed\n");
 		return 1;

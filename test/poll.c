@@ -69,7 +69,7 @@ int main(int argc, char *argv[])
 		}
 
 		do {
-			ret = io_uring_wait_completion(&ring, &cqe);
+			ret = io_uring_wait_cqe(&ring, &cqe);
 			if (ret < 0) {
 				printf("child: wait completion %d\n", ret);
 				break;

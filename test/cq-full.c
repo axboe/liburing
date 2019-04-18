@@ -62,7 +62,7 @@ int main(int argc, char *argv[])
 
 	i = 0;
 	do {
-		ret = io_uring_get_completion(&ring, &cqe);
+		ret = io_uring_peek_cqe(&ring, &cqe);
 		if (ret < 0) {
 			printf("wait completion %d\n", ret);
 			goto err;

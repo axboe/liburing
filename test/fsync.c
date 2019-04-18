@@ -39,7 +39,7 @@ static int test_single_fsync(struct io_uring *ring)
 		goto err;
 	}
 
-	ret = io_uring_wait_completion(ring, &cqe);
+	ret = io_uring_wait_cqe(ring, &cqe);
 	if (ret < 0) {
 		printf("wait completion %d\n", ret);
 		goto err;
@@ -107,7 +107,7 @@ static int test_barrier_fsync(struct io_uring *ring)
 	}
 
 	for (i = 0; i < 5; i++) {
-		ret = io_uring_wait_completion(ring, &cqe);
+		ret = io_uring_wait_cqe(ring, &cqe);
 		if (ret < 0) {
 			printf("child: wait completion %d\n", ret);
 			goto err;
