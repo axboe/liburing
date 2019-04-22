@@ -210,5 +210,9 @@ or
 .BR IORING_UNREGISTER_FILES
 was specified, but there were no buffers or files registered.
 .TP
+.B ENXIO
+Attempt to register files or buffers on an io_uring instance that is already
+undergoing file or buffer registration, or is being torn down.
+.TP
 .B EOPNOTSUPP
 User buffers point to file-backed memory.
