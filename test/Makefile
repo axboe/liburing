@@ -1,12 +1,14 @@
 CFLAGS ?= -g -O2 -Wall -D_GNU_SOURCE -L../src/
 
 all_targets += poll poll-cancel ring-leak fsync io_uring_setup io_uring_register \
-	       io_uring_enter nop sq-full cq-full
+	       io_uring_enter nop sq-full cq-full 35fa71a030ca-test \
+		917257daa0fe-test b19062a56726-test
 
 all: $(all_targets)
 
 test_srcs := poll.c poll-cancel.c ring-leak.c fsync.c io_uring_setup.c \
-	io_uring_register.c io_uring_enter.c nop.c sq-full.c cq-full.c
+	io_uring_register.c io_uring_enter.c nop.c sq-full.c cq-full.c \
+	35fa71a030ca-test.c 917257daa0fe-test.c b19062a56726-test.c
 
 test_objs := $(patsubst %.c,%.ol,$(test_srcs))
 
@@ -30,6 +32,12 @@ sq-full: sq-full.c
 	$(CC) $(CFLAGS) -o $@ sq-full.c -luring
 cq-full: cq-full.c
 	$(CC) $(CFLAGS) -o $@ cq-full.c -luring
+35fa71a030ca-test: 35fa71a030ca-test.c
+	$(CC) $(CFLAGS) -o $@ 35fa71a030ca-test.c -lpthread
+917257daa0fe-test: 917257daa0fe-test.c
+	$(CC) $(CFLAGS) -o $@ 917257daa0fe-test.c
+b19062a56726-test: b19062a56726-test.c
+	$(CC) $(CFLAGS) -o $@ b19062a56726-test.c
 
 clean:
 	rm -f $(all_targets) $(test_objs)
