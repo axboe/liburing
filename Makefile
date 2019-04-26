@@ -4,9 +4,11 @@ VERSION=$(shell awk '/Version:/ { print $$2 }' $(SPECFILE))
 TAG = $(NAME)-$(VERSION)
 RPMBUILD=$(shell `which rpmbuild >&/dev/null` && echo "rpmbuild" || echo "rpm")
 
+INSTALL=install
 prefix=/usr
 includedir=$(prefix)/include
 libdir=$(prefix)/lib
+mandir=$(prefix)/man
 
 default: all
 
@@ -33,6 +35,8 @@ endif
 
 install:
 	@$(MAKE) -C src install prefix=$(DESTDIR)$(prefix) includedir=$(DESTDIR)$(includedir) libdir=$(DESTDIR)$(libdir)
+	$(INSTALL) -m 755 -d $(DESTDIR)$(mandir)/man2
+	$(INSTALL) -m 644 man/*.2 $(DESTDIR)$(mandir)/man2
 
 clean:
 	@rm -f config-host.mak config-host.h cscope.out
