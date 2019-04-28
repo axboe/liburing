@@ -46,6 +46,8 @@ flags_string(struct io_uring_params *p)
 	if (p->flags & IORING_SETUP_SQPOLL) {
 		if (add_pipe)
 			strncat(flagstr, "|", 64 - strlen(flagstr));
+		else
+			add_pipe = 1;
 		strncat(flagstr, "IORING_SETUP_SQPOLL", 64 - strlen(flagstr));
 	}
 	if (p->flags & IORING_SETUP_SQ_AFF) {
