@@ -112,6 +112,9 @@ static int test_barrier_fsync(struct io_uring *ring)
 			printf("child: wait completion %d\n", ret);
 			goto err;
 		}
+		/* kernel doesn't support IOSQE_IO_DRAIN */
+		if (cqe->res == -EINVAL)
+			break;
 		if (i <= 3) {
 			if (cqe->user_data) {
 				printf("Got fsync early?\n");
@@ -153,7 +156,7 @@ int main(int argc, char *argv[])
 
 	ret = test_barrier_fsync(&ring);
 	if (ret) {
-		printf("test_single_fsync failed\n");
+		printf("test_barrier_fsync failed\n");
 		return ret;
 	}
 

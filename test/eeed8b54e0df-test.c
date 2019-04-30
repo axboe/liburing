@@ -47,6 +47,7 @@ int main(int argc, char *argv[])
 {
 	struct io_uring ring;
 	struct io_uring_sqe *sqe;
+	struct io_uring_cqe *cqe;
 	struct iovec iov;
 	int ret, fd;
 
@@ -74,8 +75,19 @@ int main(int argc, char *argv[])
 	sqe->rw_flags = RWF_NOWAIT;
 
 	ret = io_uring_submit(&ring);
-	if (ret != -EAGAIN) {
-		printf("Got submit %d, expected EAGAIN\n", ret);
+	if (ret != 1) {
+		printf("Got submit %d, expected 1\n", ret);
+		goto err;
+	}
+
+	ret = io_uring_peek_cqe(&ring, &cqe);
+	if (ret) {
+		printf("Ring peek got %d\n", ret);
+		goto err;
+	}
+
+	if (cqe->res != -EAGAIN) {
+		printf("cqe error: %d\n", cqe->res);
 		goto err;
 	}
 
