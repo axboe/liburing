@@ -13,6 +13,10 @@
 
 #define BLOCK	4096
 
+#ifndef RWF_NOWAIT
+#define RWF_NOWAIT	8
+#endif
+
 static int get_file_fd(void)
 {
 	ssize_t ret;
