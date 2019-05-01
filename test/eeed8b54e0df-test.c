@@ -11,8 +11,11 @@
 
 #include "../src/liburing.h"
 
+#define BLOCK	4096
+
 static int get_file_fd(void)
 {
+	ssize_t ret;
 	char *buf;
 	int fd;
 
@@ -22,12 +25,20 @@ static int get_file_fd(void)
 		return -1;
 	}
 
-	buf = malloc(4096);
-	write(fd, buf, 4096);
+	buf = malloc(BLOCK);
+	ret = write(fd, buf, BLOCK);
+	if (ret != BLOCK) {
+		if (ret < 0)
+			perror("write");
+		else
+			printf("Short write\n");
+		goto err;
+	}
 	fsync(fd);
 
 	if (posix_fadvise(fd, 0, 4096, POSIX_FADV_DONTNEED)) {
 		perror("fadvise");
+err:
 		close(fd);
 		free(buf);
 		return -1;
