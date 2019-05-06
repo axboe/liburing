@@ -3,8 +3,8 @@ includedir=$(prefix)/include
 libdir=$(prefix)/lib
 
 CFLAGS ?= -g -fomit-frame-pointer -O2
-CFLAGS += -Wall -I. -fPIC
-SO_CFLAGS=-shared $(CFLAGS)
+CFLAGS += -Wall -I.
+SO_CFLAGS=-shared -fPIC $(CFLAGS)
 L_CFLAGS=$(CFLAGS)
 LINK_FLAGS=
 LINK_FLAGS+=$(LDFLAGS)
