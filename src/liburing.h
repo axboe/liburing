@@ -1,6 +1,10 @@
 #ifndef LIB_URING_H
 #define LIB_URING_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <sys/uio.h>
 #include <signal.h>
 #include <inttypes.h>
@@ -170,5 +174,9 @@ static inline void io_uring_prep_nop(struct io_uring_sqe *sqe)
 	memset(sqe, 0, sizeof(*sqe));
 	sqe->opcode = IORING_OP_NOP;
 }
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
