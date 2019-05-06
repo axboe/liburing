@@ -1,4 +1,4 @@
-prefix=/usr
+prefix ?= /usr
 includedir=$(prefix)/include
 libdir=$(prefix)/lib
 
@@ -47,6 +47,9 @@ $(libname): $(liburing_sobjs) liburing.map
 
 install: $(all_targets)
 	install -D -m 644 io_uring.h $(includedir)/io_uring.h
+	install -D -m 644 liburing.h $(includedir)/liburing.h
+	install -D -m 644 compat.h $(includedir)/compat.h
+	install -D -m 644 barrier.h $(includedir)/barrier.h
 	install -D -m 644 liburing.a $(libdir)/liburing.a
 ifeq ($(ENABLE_SHARED),1)
 	install -D -m 755 $(libname) $(libdir)/$(libname)

@@ -5,7 +5,7 @@ TAG = $(NAME)-$(VERSION)
 RPMBUILD=$(shell `which rpmbuild >&/dev/null` && echo "rpmbuild" || echo "rpm")
 
 INSTALL=install
-prefix=/usr
+prefix ?= /usr
 includedir=$(prefix)/include
 libdir=$(prefix)/lib
 mandir=$(prefix)/man
