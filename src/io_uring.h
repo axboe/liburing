@@ -39,6 +39,7 @@ struct io_uring_sqe {
  */
 #define IOSQE_FIXED_FILE	(1U << 0)	/* use fixed fileset */
 #define IOSQE_IO_DRAIN		(1U << 1)
+#define IOSQE_IO_LINK		(1U << 2)
 
 /*
  * io_uring_setup() flags
