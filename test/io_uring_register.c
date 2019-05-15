@@ -133,6 +133,10 @@ test_max_fds(int uring_fd)
 	fd_as = mmap(NULL, UINT_MAX * sizeof(int), PROT_READ|PROT_WRITE,
 		     MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
 	if (fd_as == MAP_FAILED) {
+		if (errno == ENOMEM) {
+			printf("Not enough memory for this test, skipping\n");
+			return 0;
+		}
 		perror("mmap fd_as");
 		exit(1);
 	}
