@@ -66,11 +66,13 @@ static void queue_rw_pair(struct io_uring *ring, off_t size, off_t offset)
 {
 	struct io_uring_sqe *sqe;
 	struct io_data *data;
+	void *ptr;
 
-	data = malloc(size + sizeof(*data));
+	ptr = malloc(size + sizeof(*data));
+	data = ptr + size;
 	data->index = 0;
 	data->offset = offset;
-	data->iov.iov_base = data + 1;
+	data->iov.iov_base = ptr;
 	data->iov.iov_len = size;
 
 	sqe = io_uring_get_sqe(ring);
@@ -100,8 +102,11 @@ static int handle_cqe(struct io_uring *ring, struct io_uring_cqe *cqe)
 		}
 	}
 
-	if (data->index == 2)
-		free(data);
+	if (data->index == 2) {
+		void *ptr = (void *) data - data->iov.iov_len;
+
+		free(ptr);
+	}
 	io_uring_cqe_seen(ring, cqe);
 	return ret;
 }
