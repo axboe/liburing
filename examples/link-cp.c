@@ -78,7 +78,7 @@ static int queue_rw_pair(struct io_uring *ring, off_t size, off_t offset)
 	return 0;
 }
 
-static void handle_cqe(struct io_uring_cqe *cqe)
+static void handle_cqe(struct io_uring *ring, struct io_uring_cqe *cqe)
 {
 	struct io_data *data;
 
@@ -86,10 +86,9 @@ static void handle_cqe(struct io_uring_cqe *cqe)
 		printf("cqe error: %s\n", strerror(cqe->res));
 
 	data = io_uring_cqe_get_data(cqe);
-	if (!data)
-		return;
-
-	free(data);
+	if (data)
+		free(data);
+	io_uring_cqe_seen(ring, cqe);
 }
 
 static int copy_file(struct io_uring *ring, off_t insize)
@@ -103,8 +102,9 @@ static int copy_file(struct io_uring *ring, off_t insize)
 	inflight = 0;
 	while (insize) {
 		int has_inflight = inflight;
+		int depth;
 
-		while (inflight < QD) {
+		while (insize && inflight < QD) {
 			this_size = BS;
 			if (this_size > insize)
 				this_size = insize;
@@ -117,12 +117,16 @@ static int copy_file(struct io_uring *ring, off_t insize)
 		if (has_inflight != inflight)
 			io_uring_submit(ring);
 
-		while (inflight >= QD) {
+		if (insize)
+			depth = QD;
+		else
+			depth = 1;
+		while (inflight >= depth) {
 			int ret;
 
 			ret = io_uring_wait_cqe(ring, &cqe);
 			assert(ret >= 0);
-			handle_cqe(cqe);
+			handle_cqe(ring, cqe);
 			inflight--;
 		}
 	}
