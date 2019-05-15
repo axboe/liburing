@@ -82,6 +82,9 @@ static void handle_cqe(struct io_uring_cqe *cqe)
 {
 	struct io_data *data;
 
+	if (cqe->res < 0)
+		printf("cqe error: %s\n", strerror(cqe->res));
+
 	data = io_uring_cqe_get_data(cqe);
 	if (!data)
 		return;
