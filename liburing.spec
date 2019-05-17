@@ -30,7 +30,7 @@ make
 %install
 [ "$RPM_BUILD_ROOT" != "/" ] && rm -rf $RPM_BUILD_ROOT
 
-make install DESTDIR=$RPM_BUILD_ROOT prefix=/usr libdir=/%{_libdir}
+make install DESTDIR=$RPM_BUILD_ROOT prefix=/usr libdir=/%{_libdir} mandir=/usr/share/man
 
 %clean
 [ "$RPM_BUILD_ROOT" != "/" ] && rm -rf $RPM_BUILD_ROOT
@@ -42,13 +42,14 @@ make install DESTDIR=$RPM_BUILD_ROOT prefix=/usr libdir=/%{_libdir}
 %files
 %defattr(-,root,root)
 %attr(0755,root,root) %{_libdir}/liburing.so.*
-%doc COPYING TODO
+%doc COPYING
 
 %files devel
 %defattr(-,root,root)
 %attr(0644,root,root) %{_includedir}/*
 %attr(0755,root,root) %{_libdir}/liburing.so
 %attr(0644,root,root) %{_libdir}/liburing.a
+%attr(0644,root,root) %{_mandir}/*
 
 %changelog
 * Tue Jan 8 2019 Jens Axboe <axboe@kernel.dk> - 0.1
