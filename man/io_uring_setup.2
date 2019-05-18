@@ -172,7 +172,7 @@ submission queue can be mapped with a call like:
 .in +4n
 .EX
 ptr = mmap(0, sq_off.array + sq_entries * sizeof(__u32),
-           PROT_READ|PROT_WRITE|MAP_SHARED|MAP_POPULATE,
+           PROT_READ|PROT_WRITE, MAP_SHARED|MAP_POPULATE,
            ring_fd, IORING_OFF_SQ_RING);
 .EE
 .in
@@ -229,7 +229,7 @@ The array of submission queue entries is mapped with:
 .in +4n
 .EX
 sqentries = mmap(0, sq_entries * sizeof(struct io_uring_sqe),
-                 PROT_READ|PROT_WRITE|MAP_SHARED|MAP_POPULATE,
+                 PROT_READ|PROT_WRITE, MAP_SHARED|MAP_POPULATE,
                  ring_fd, IORING_OFF_SQES);
 .EE
 .in
@@ -260,7 +260,7 @@ from the queue itself, and can be mapped with:
 .in +4n
 .EX
 ptr = mmap(0, cq_off.cqes + cq_entries * sizeof(struct io_uring_cqe),
-           PROT_READ|PROT_WRITE|MAP_SHARED|MAP_POPULATE, ring_fd,
+           PROT_READ|PROT_WRITE, MAP_SHARED|MAP_POPULATE, ring_fd,
            IORING_OFF_CQ_RING);
 .EE
 .in
