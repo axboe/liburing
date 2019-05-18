@@ -7,6 +7,7 @@ extern "C" {
 
 #include <sys/uio.h>
 #include <signal.h>
+#include <string.h>
 #include <inttypes.h>
 #include "compat.h"
 #include "io_uring.h"
