@@ -6,6 +6,10 @@ LIBURING_0.1 {
 		io_uring_wait_cqe;
 		io_uring_submit;
 		io_uring_get_sqe;
+		io_uring_register;
+		io_uring_setup;
+		io_uring_enter;
+		io_uring_mmap;
 	local:
 		*;
 
