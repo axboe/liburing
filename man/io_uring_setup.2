@@ -13,7 +13,7 @@ io_uring_setup \- setup a context for performing asynchronous I/O
 .nf
 .BR "#include <linux/io_uring.h>"
 .PP
-.BI "int io_uring_setup(u32 " entries ", struct io_uring_params *" p);
+.BI "int io_uring_setup(u32 " entries ", struct io_uring_params *" p );
 .fi
 .PP
 .SH DESCRIPTION
@@ -46,7 +46,8 @@ struct io_uring_params {
 .in
 .PP
 The
-.I flags,  sq_thread_cpu
+.IR flags ,
+.IR sq_thread_cpu ,
 and
 .I sq_thread_idle
 fields are used to configure the io_uring instance.
@@ -54,7 +55,7 @@ fields are used to configure the io_uring instance.
 is a bit mask of 0 or more of the following values ORed
 together:
 .TP
-.BR IORING_SETUP_IOPOLL
+.B IORING_SETUP_IOPOLL
 Perform busy-waiting for an I/O completion, as opposed to getting
 notifications via an asynchronous IRQ (Interrupt Request).  The file
 system (if any) and block device must support polling in order for
@@ -64,12 +65,12 @@ is usable only on a file descriptor opened using the
 .B O_DIRECT
 flag.  When a read or write is submitted to a polled context, the
 application must poll for completions on the CQ ring by calling
-.BR io_uring_enter(2).
+.BR io_uring_enter (2).
 It is illegal to mix and match polled and non-polled I/O on an io_uring
 instance.
 
 .TP
-.BR IORING_SETUP_SQPOLL
+.B IORING_SETUP_SQPOLL
 When this flag is specified, a kernel thread is created to perform
 submission queue polling.  An io_uring instance configured in this way
 enables an application to issue I/O without ever context switching
@@ -85,13 +86,13 @@ microseconds, it will set the
 bit in the
 .I flags
 field of the
-.I struct io_sq_ring.
+.IR "struct io_sq_ring" .
 When this happens, the application must call
-.BR io_uring_enter(2)
+.BR io_uring_enter (2)
 to wake the kernel thread.  If I/O is kept busy, the kernel thread
 will never sleep.  An application making use of this feature will need
 to guard the
-.BR io_uring_enter(2)
+.BR io_uring_enter (2)
 call with the following code sequence:
 
 .in +4n
@@ -111,25 +112,25 @@ described below.
 .BR
 To successfully use this feature, the application must register a set of files
 to be used for IO through
-.B io_uring_register(2)
+.BR io_uring_register (2)
 using the
 .B IORING_REGISTER_FILES
 opcode. Failure to do so will result in submitted IO being errored with
 .B EBADF.
 .TP
-.BR IORING_SETUP_SQ_AFF
+.B IORING_SETUP_SQ_AFF
 If this flag is specified, then the poll thread will be bound to the
 cpu set in the
 .I sq_thread_cpu
 field of the
-.I struct io_uring_params.
+.IR "struct io_uring_params" .
 This flag is only meaningful when
 .B IORING_SETUP_SQPOLL
 is specified.
 .PP
 If no flags are specified, the io_uring instance is setup for
 interrupt driven I/O.  I/O may be submitted using
-.BR io_uring_enter(2)
+.BR io_uring_enter (2)
 and can be reaped by polling the completion queue.
 
 The
@@ -177,12 +178,14 @@ ptr = mmap(0, sq_off.array + sq_entries * sizeof(__u32),
 .EE
 .in
 .PP
-Where sq_off is the
+where
+.I sq_off
+is the
 .I io_sqring_offsets
 structure, and
 .I ring_fd
 is the file descriptor returned from
-.BR io_uring_setup(2).
+.BR io_uring_setup (2).
 The addition of
 .I sq_off.array
 to the length of the region accounts for the fact that the ring
@@ -190,7 +193,7 @@ located at the end of the data structure.  As an example, the ring
 buffer head pointer can be accessed by adding
 .I sq_off.head
 to the address returned from
-.BR mmap(2):
+.BR mmap (2):
 .PP
 .in +4n
 .EX
@@ -203,7 +206,7 @@ The
 field is used by the kernel to communicate state information to the
 application.  Currently, it is used to inform the application when a
 call to
-.BR io_uring_enter(2)
+.BR io_uring_enter (2)
 is necessary.  See the documentation for the
 .B IORING_SETUP_SQPOLL
 flag above.
@@ -237,7 +240,7 @@ sqentries = mmap(0, sq_entries * sizeof(struct io_uring_sqe),
 The completion queue is described by
 .I cq_entries
 and
-.I cq_off,
+.I cq_off
 shown here:
 .PP
 .in +4n
@@ -265,23 +268,31 @@ ptr = mmap(0, cq_off.cqes + cq_entries * sizeof(struct io_uring_cqe),
 .EE
 .in
 .PP
-Closing the fd returned by io_uring_setup(2) will free all resources
-associated with the io_uring context.
+Closing the file descriptor returned by
+.BR io_uring_setup (2)
+will free all resources associated with the io_uring context.
 .PP
 .SH RETURN VALUE
-io_uring_setup() returns a new file descriptor on success.  The
-application may then provide the file descriptor in a subsequent mmap
+.BR io_uring_setup (2)
+returns a new file descriptor on success.  The application may then
+provide the file descriptor in a subsequent
+.BR mmap (2)
 call to map the submission and completion queues, or to the
-io_uring_register or io_uring_enter system calls.
+.BR io_uring_register (2)
+or
+.BR io_uring_enter (2)
+system calls.
 
-On error, -1 is returned and errno is set appropriately.
+On error, -1 is returned and
+.I errno
+is set appropriately.
 .PP
 .SH ERRORS
 .TP
-.BR EFAULT
+.B EFAULT
 params is outside your accessible address space.
 .TP
-.BR EINVAL
+.B EINVAL
 The resv array contains non-zero data, p.flags contains an unsupported
 flag,
 .I entries
@@ -291,24 +302,24 @@ was specified, but
 .B IORING_SETUP_SQPOLL
 was not.
 .TP
-.BR EMFILE
+.B EMFILE
 The per-process limit on the number of open file descriptors has been
 reached (see the description of
 .B RLIMIT_NOFILE
 in
-.BR getrlimit(2)).
+.BR getrlimit (2)).
 .TP
-.BR ENFILE
+.B ENFILE
 The system-wide limit on the total number of open files has been
 reached.
 .TP
-.BR ENOMEM
+.B ENOMEM
 Insufficient kernel resources are available.
 .TP
-.BR EPERM
+.B EPERM
 .B IORING_SETUP_SQPOLL
 was specified, but the effective user ID of the caller did not have sufficient
 privileges.
 .SH SEE ALSO
-.BR io_uring_register(2),
-.BR io_uring_enter(2)
+.BR io_uring_register (2),
+.BR io_uring_enter (2)
