@@ -8,18 +8,30 @@
 #include "compat.h"
 #include "io_uring.h"
 
-#if defined(__x86_64) || defined(__i386__)
-#ifndef __NR_io_uring_setup
-#define __NR_io_uring_setup		425
-#endif
-#ifndef __NR_io_uring_enter
-#define __NR_io_uring_enter		426
-#endif
-#ifndef __NR_io_uring_register
-#define __NR_io_uring_register	427
-#endif
-#else
-#error "Arch not supported yet"
+#ifdef __alpha__
+/*
+ * alpha is the only exception, all other architectures
+ * have common numbers for new system calls.
+ */
+# ifndef __NR_io_uring_setup
+#  define __NR_io_uring_setup		535
+# endif
+# ifndef __NR_io_uring_enter
+#  define __NR_io_uring_enter		536
+# endif
+# ifndef __NR_io_uring_register
+#  define __NR_io_uring_register	537
+# endif
+#else /* !__alpha__ */
+# ifndef __NR_io_uring_setup
+#  define __NR_io_uring_setup		425
+# endif
+# ifndef __NR_io_uring_enter
+#  define __NR_io_uring_enter		426
+# endif
+# ifndef __NR_io_uring_register
+#  define __NR_io_uring_register	427
+# endif
 #endif
 
 int io_uring_register(int fd, unsigned int opcode, void *arg,
