@@ -13,7 +13,7 @@ io_uring_register \- register files or user buffers for asynchronous I/O
 .BR "#include <linux/io_uring.h>"
 .PP
 .BI "int io_uring_register(unsigned int " fd ", unsigned int " opcode ,
-.BI "                      void *" arg ", unsigned int " nr_args)
+.BI "                      void *" arg ", unsigned int " nr_args );
 .fi
 .PP
 .SH DESCRIPTION
@@ -24,7 +24,7 @@ The
 system call registers user buffers or files for use in an
 .BR io_uring (7)
 instance referenced by
-.I fd.
+.IR fd .
 Registering files or user buffers allows the kernel to take long term
 references to internal data structures or create long term mappings of
 application memory, greatly reducing per-I/O overhead.
@@ -36,7 +36,7 @@ is the file descriptor returned by a call to
 can be one of:
 
 .TP
-.BR IORING_REGISTER_BUFFERS
+.B IORING_REGISTER_BUFFERS
 .I arg
 points to a
 .I struct iovec
@@ -44,7 +44,8 @@ array of
 .I nr_args
 entries.  The buffers associated with the iovecs will be locked in
 memory and charged against the user's
-.B RLIMIT_MEMLOCK resource limit.  See
+.B RLIMIT_MEMLOCK
+resource limit.  See
 .BR getrlimit (2)
 for more information.  Additionally, there is a size limit of 1GiB per
 buffer.  Currently, the buffers must be anonymous, non-file-backed
@@ -91,14 +92,14 @@ with the new buffers.
 An application need not unregister buffers explicitly before shutting
 down the io_uring instance.
 .TP
-.BR IORING_UNREGISTER_BUFFERS
+.B IORING_UNREGISTER_BUFFERS
 This operation takes no argument, and
 .I arg
 must be passed as NULL.  All previously registered buffers associated
 with the io_uring instance will be released.
 
 .TP
-.BR IORING_REGISTER_FILES
+.B IORING_REGISTER_FILES
 Register files for I/O.
 .I arg
 contains a pointer to an array of
@@ -110,7 +111,7 @@ To make use of the registered files, the
 flag must be set in the
 .I flags
 member of the
-.I struct io_uring_sqe,
+.IR "struct io_uring_sqe" ,
 and the
 .I fd
 member is set to the index of the file in the file descriptor array.
@@ -119,7 +120,7 @@ Files are automatically unregistered when the io_uring instance is
 torn down. An application need only unregister if it wishes to
 register a new set of fds.
 .TP
-.BR IORING_UNREGISTER_FILES
+.B IORING_UNREGISTER_FILES
 This operation requires no argument, and
 .I arg
 must be passed as NULL.  All previously registered files associated
@@ -141,9 +142,9 @@ One or more fds in the
 array are invalid.
 .TP
 .B EBUSY
-.BR IORING_REGISTER_BUFFERS
+.B IORING_REGISTER_BUFFERS
 or
-.BR IORING_REGISTER_FILES
+.B IORING_REGISTER_FILES
 was specified, but there were already buffers or files registered.
 .TP
 .B EFAULT
@@ -152,24 +153,24 @@ buffer is outside of the process' accessible address space, or
 is greater than 1GiB.
 .TP
 .B EINVAL
-.BR IORING_REGISTER_BUFFERS
+.B IORING_REGISTER_BUFFERS
 or
-.BR IORING_REGISTER_FILES
+.B IORING_REGISTER_FILES
 was specified, but
 .I nr_args
 is 0.
 .TP
 .B EINVAL
-.BR IORING_REGISTER_BUFFERS
+.B IORING_REGISTER_BUFFERS
 was specified, but
 .I nr_args
 exceeds
-.BR UIO_MAXIOV
+.B UIO_MAXIOV
 .TP
 .B EINVAL
-.BR IORING_UNREGISTER_BUFFERS
+.B IORING_UNREGISTER_BUFFERS
 or
-.BR IORING_UNREGISTER_FILES
+.B IORING_UNREGISTER_FILES
 was specified, and
 .I nr_args
 is non-zero or
@@ -177,13 +178,13 @@ is non-zero or
 is non-NULL.
 .TP
 .B EMFILE
-.BR IORING_REGISTER_FILES
+.B IORING_REGISTER_FILES
 was specified and
 .I nr_args
 exceeds the maximum allowed number of files in a fixed file set.
 .TP
 .B EMFILE
-.BR IORING_REGISTER_FILES
+.B IORING_REGISTER_FILES
 was specified and adding
 .I nr_args
 file references would exceed the maximum allowed number of files the user
@@ -197,17 +198,15 @@ capability. Note that this is a per user limit, not per process.
 .B ENOMEM
 Insufficient kernel resources are available, or the caller had a
 non-zero
-.BR RLIMIT_MEMLOCK
+.B RLIMIT_MEMLOCK
 soft resource limit, but tried to lock more memory than the limit
 permitted.  This limit is not enforced if the process is privileged
-(
-.BR CAP_IPC_LOCK
-).
+.RB ( CAP_IPC_LOCK ).
 .TP
 .B ENXIO
-.BR IORING_UNREGISTER_BUFFERS
+.B IORING_UNREGISTER_BUFFERS
 or
-.BR IORING_UNREGISTER_FILES
+.B IORING_UNREGISTER_FILES
 was specified, but there were no buffers or files registered.
 .TP
 .B ENXIO
