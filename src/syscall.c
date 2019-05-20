@@ -9,14 +9,14 @@
 #include "io_uring.h"
 
 #if defined(__x86_64) || defined(__i386__)
-#ifndef __NR_sys_io_uring_setup
-#define __NR_sys_io_uring_setup		425
+#ifndef __NR_io_uring_setup
+#define __NR_io_uring_setup		425
 #endif
-#ifndef __NR_sys_io_uring_enter
-#define __NR_sys_io_uring_enter		426
+#ifndef __NR_io_uring_enter
+#define __NR_io_uring_enter		426
 #endif
-#ifndef __NR_sys_io_uring_register
-#define __NR_sys_io_uring_register	427
+#ifndef __NR_io_uring_register
+#define __NR_io_uring_register	427
 #endif
 #else
 #error "Arch not supported yet"
@@ -25,17 +25,17 @@
 int io_uring_register(int fd, unsigned int opcode, void *arg,
 		      unsigned int nr_args)
 {
-	return syscall(__NR_sys_io_uring_register, fd, opcode, arg, nr_args);
+	return syscall(__NR_io_uring_register, fd, opcode, arg, nr_args);
 }
 
 int io_uring_setup(unsigned int entries, struct io_uring_params *p)
 {
-	return syscall(__NR_sys_io_uring_setup, entries, p);
+	return syscall(__NR_io_uring_setup, entries, p);
 }
 
 int io_uring_enter(int fd, unsigned int to_submit, unsigned int min_complete,
 		   unsigned int flags, sigset_t *sig)
 {
-	return syscall(__NR_sys_io_uring_enter, fd, to_submit, min_complete,
+	return syscall(__NR_io_uring_enter, fd, to_submit, min_complete,
 			flags, sig, _NSIG / 8);
 }
