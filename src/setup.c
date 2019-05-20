@@ -29,7 +29,7 @@ static int io_uring_mmap(int fd, struct io_uring_params *p,
 	sq->kdropped = ptr + p->sq_off.dropped;
 	sq->array = ptr + p->sq_off.array;
 
-	size = p->sq_entries * sizeof(struct io_uring_sqe),
+	size = p->sq_entries * sizeof(struct io_uring_sqe);
 	sq->sqes = mmap(0, size, PROT_READ | PROT_WRITE,
 				MAP_SHARED | MAP_POPULATE, fd,
 				IORING_OFF_SQES);
