@@ -71,7 +71,7 @@ int io_uring_submit(struct io_uring *ring)
 {
 	struct io_uring_sq *sq = &ring->sq;
 	const unsigned mask = *sq->kring_mask;
-	unsigned ktail, ktail_next, submitted;
+	unsigned ktail, ktail_next, submitted, to_submit;
 	int ret;
 
 	/*
@@ -93,7 +93,8 @@ int io_uring_submit(struct io_uring *ring)
 	 */
 	submitted = 0;
 	ktail = ktail_next = *sq->ktail;
-	while (sq->sqe_head < sq->sqe_tail) {
+	to_submit = sq->sqe_tail - sq->sqe_head;
+	while (to_submit--) {
 		ktail_next++;
 		read_barrier();
 
