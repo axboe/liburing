@@ -42,6 +42,7 @@ clean:
 	@rm -f config-host.mak config-host.h cscope.out
 	@$(MAKE) -C src clean
 	@$(MAKE) -C test clean
+	@$(MAKE) -C examples clean
 
 cscope:
 	@cscope -b -R
