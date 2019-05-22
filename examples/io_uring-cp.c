@@ -81,11 +81,16 @@ static int queue_read(struct io_uring *ring, off_t size, off_t offset)
 	struct io_uring_sqe *sqe;
 	struct io_data *data;
 
-	sqe = io_uring_get_sqe(ring);
-	if (!sqe)
+	data = malloc(size + sizeof(*data));
+	if (!data)
 		return 1;
 
-	data = malloc(size + sizeof(*data));
+	sqe = io_uring_get_sqe(ring);
+	if (!sqe) {
+		free(data);
+		return 1;
+	}
+
 	data->read = 1;
 	data->offset = data->first_offset = offset;
 
