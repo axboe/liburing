@@ -1,3 +1,6 @@
+/*
+ * Simple test case showing using sendmsg and recvmsg through io_uring
+ */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -17,15 +20,17 @@ static char str[] = "This is a test of sendmsg and recvmsg over io_uring!";
 
 static int do_recvmsg(void)
 {
-        struct sockaddr_in saddr;
-        char buf[MAX_MSG + 1];
-        struct msghdr msg;
-        struct iovec iov;
+	struct sockaddr_in saddr;
+	char buf[MAX_MSG + 1];
+	struct msghdr msg;
+	struct iovec iov = {
+		.iov_base = buf,
+		.iov_len = sizeof(buf) - 1,
+	};
 	struct io_uring ring;
 	struct io_uring_cqe *cqe;
 	struct io_uring_sqe *sqe;
-	char *recv_str;
-        int sockfd, ret;
+	int sockfd, ret;
 
 	ret = io_uring_queue_init(1, &ring, 0);
 	if (ret) {
@@ -33,18 +38,25 @@ static int do_recvmsg(void)
 		return 1;
 	}
 
-        sockfd = socket(AF_INET, SOCK_DGRAM, 0);
-        memset(&saddr, 0, sizeof(saddr));
-        saddr.sin_family = AF_INET;
-        saddr.sin_addr.s_addr = htonl(INADDR_ANY);
-        saddr.sin_port = htons(PORT);
-        bind(sockfd, (struct sockaddr *)&saddr, sizeof(saddr));
+	memset(&saddr, 0, sizeof(saddr));
+	saddr.sin_family = AF_INET;
+	saddr.sin_addr.s_addr = htonl(INADDR_ANY);
+	saddr.sin_port = htons(PORT);
+
+	sockfd = socket(AF_INET, SOCK_DGRAM, 0);
+	if (sockfd < 0) {
+		perror("socket");
+		return 1;
+	}
+
+	ret = bind(sockfd, (struct sockaddr *)&saddr, sizeof(saddr));
+	if (ret < 0) {
+		perror("bind");
+		goto err;
+	}
 
 	memset(&msg, 0, sizeof(msg));
         msg.msg_namelen = sizeof(struct sockaddr_in);
-
-	iov.iov_base = buf;
-	iov.iov_len = MAX_MSG;
 	msg.msg_iov = &iov;
 	msg.msg_iovlen = 1;
 
@@ -72,8 +84,7 @@ static int do_recvmsg(void)
 		goto err;
 	}
 
-        recv_str = msg.msg_iov[0].iov_base;
-	if (strcmp(str, recv_str)) {
+	if (strcmp(str, iov.iov_base)) {
 		printf("string mismatch\n");
 		goto err;
 	}
@@ -88,8 +99,11 @@ err:
 static int do_sendmsg(void)
 {
 	struct sockaddr_in saddr;
+	struct iovec iov = {
+		.iov_base = str,
+		.iov_len = sizeof(str),
+	};
 	struct msghdr msg;
-	struct iovec iov;
 	struct io_uring ring;
 	struct io_uring_cqe *cqe;
 	struct io_uring_sqe *sqe;
@@ -101,7 +115,6 @@ static int do_sendmsg(void)
 		return 1;
 	}
 
-	sockfd = socket(AF_INET, SOCK_DGRAM, 0);
 	memset(&saddr, 0, sizeof(saddr));
 	saddr.sin_family = AF_INET;
 	saddr.sin_port = htons(PORT);
@@ -110,11 +123,14 @@ static int do_sendmsg(void)
 	memset(&msg, 0, sizeof(msg));
 	msg.msg_name = &saddr;
 	msg.msg_namelen = sizeof(struct sockaddr_in);
-
-	iov.iov_base = str;
-	iov.iov_len = sizeof(str);
 	msg.msg_iov = &iov;
 	msg.msg_iovlen = 1;
+
+	sockfd = socket(AF_INET, SOCK_DGRAM, 0);
+	if (sockfd < 0) {
+		perror("socket");
+		return 1;
+	}
 
 	sqe = io_uring_get_sqe(&ring);
 	memset(sqe, 0, sizeof(*sqe));
