@@ -10,6 +10,10 @@ else
 fi
 
 cc=gcc
+prefix=/usr
+includedir="$prefix/include"
+libdir="$prefix/lib"
+mandir="$prefix/man"
 
 TMPC="${TMPDIR1}/fio-conf-${RANDOM}-$$-${RANDOM}.c"
 TMPC2="${TMPDIR1}/fio-conf-${RANDOM}-$$-${RANDOM}-2.c"
@@ -98,10 +102,59 @@ has() {
   type "$1" >/dev/null 2>&1
 }
 
+output_mak() {
+  echo "$1=$2" >> $config_host_mak
+}
+
 output_sym() {
-  echo "$1=y" >> $config_host_mak
+  output_mak "$1" "y"
   echo "#define $1" >> $config_host_h
 }
+
+print_and_output_mak() {
+  print_config "$1" "$2"
+  output_mak "$1" "$2"
+}
+
+for opt do
+  optarg=$(expr "x$opt" : 'x[^=]*=\(.*\)')
+  case "$opt" in
+  --help|-h) show_help=yes
+  ;;
+  --prefix=*) prefix="$optarg"
+  ;;
+  --includedir=*) includedir="$optarg"
+  ;;
+  --libdir=*) libdir="$optarg"
+  ;;
+  --mandir=*) mandir="$optarg"
+  ;;
+  *)
+    echo "ERROR: unkown option $opt"
+    echo "Try '$0 --help' for more information"
+    exit 1
+  ;;
+  esac
+done
+
+if test "$show_help" = "yes"; then
+cat <<EOF
+
+Usage: configure [options]
+Options: [defaults in brackets after descriptions]
+  --help                   print this message
+  --prefix=PATH            install in PATH [$prefix]
+  --includedir=PATH        install headers in PATH [$includedir]
+  --libdir=PATH            install libraries in PATH [$libdir]
+  --mandir=PATH            install man pages in PATH [$mandir]
+EOF
+exit 0
+fi
+
+print_and_output_mak "prefix" "$prefix"
+print_and_output_mak "includedir" "$includedir"
+print_and_output_mak "libdir" "$libdir"
+print_and_output_mak "mandir" "$mandir"
 
 ##########################################
 # check for __kernel_rwf_t
