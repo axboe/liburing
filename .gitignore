@@ -12,3 +12,5 @@
 config-host.h
 config-host.mak
 config.log
+
+liburing.pc

@@ -33,13 +33,22 @@ ifneq ($(MAKECMDGOALS),clean)
 include config-host.mak
 endif
 
-install:
+%.pc: %.pc.in
+	sed -e "s%@prefix@%$(prefix)%g" \
+	    -e "s%@libdir@%$(libdir)%g" \
+	    -e "s%@includedir@%$(includedir)%g" \
+	    -e "s%@NAME@%$(NAME)%g" \
+	    -e "s%@VERSION@%$(VERSION)%g" \
+	    $< >$@
+
+install: $(NAME).pc
 	@$(MAKE) -C src install prefix=$(DESTDIR)$(prefix) includedir=$(DESTDIR)$(includedir) libdir=$(DESTDIR)$(libdir)
+	$(INSTALL) -D -m 644 $(NAME).pc $(DESTDIR)$(libdir)/pkgconfig/$(NAME).pc
 	$(INSTALL) -m 755 -d $(DESTDIR)$(mandir)/man2
 	$(INSTALL) -m 644 man/*.2 $(DESTDIR)$(mandir)/man2
 
 clean:
-	@rm -f config-host.mak config-host.h cscope.out
+	@rm -f config-host.mak config-host.h cscope.out $(NAME).pc
 	@$(MAKE) -C src clean
 	@$(MAKE) -C test clean
 	@$(MAKE) -C examples clean
