@@ -88,7 +88,7 @@ int io_uring_queue_init(unsigned entries, struct io_uring *ring, unsigned flags)
 
 	fd = io_uring_setup(entries, &p);
 	if (fd < 0)
-		return fd;
+		return -errno;
 
 	ret = io_uring_queue_mmap(fd, &p, ring);
 	if (ret)
