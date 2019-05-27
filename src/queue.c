@@ -85,17 +85,6 @@ int io_uring_submit(struct io_uring *ring)
 	unsigned ktail, ktail_next, submitted, to_submit;
 	int ret;
 
-	/*
-	 * If we have pending IO in the kring, submit it first. We need a
-	 * read barrier here to match the kernels store barrier when updating
-	 * the SQ head.
-	 */
-	read_barrier();
-	if (*sq->khead != *sq->ktail) {
-		submitted = *sq->kring_entries;
-		goto submit;
-	}
-
 	if (sq->sqe_head == sq->sqe_tail)
 		return 0;
 
@@ -135,7 +124,6 @@ int io_uring_submit(struct io_uring *ring)
 		write_barrier();
 	}
 
-submit:
 	if (sq_ring_needs_enter(ring)) {
 		unsigned flags = 0;
 
