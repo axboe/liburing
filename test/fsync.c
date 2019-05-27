@@ -93,7 +93,7 @@ static int test_barrier_fsync(struct io_uring *ring)
 
 	io_uring_prep_fsync(sqe, fd, IORING_FSYNC_DATASYNC);
 	sqe->user_data = 1;
-	sqe->flags = IOSQE_IO_DRAIN;
+	io_uring_sqe_set_flags(sqe, IOSQE_IO_DRAIN);
 
 	ret = io_uring_submit(ring);
 	if (ret < 5) {
