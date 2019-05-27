@@ -63,6 +63,17 @@ int io_uring_wait_cqe(struct io_uring *ring, struct io_uring_cqe **cqe_ptr)
 }
 
 /*
+ * Returns true if we're not using SQ thread (thus nobody submits but us)
+ * or if IORING_SQ_NEED_WAKEUP is set, so dormouse should be explicitly
+ * awekened.
+ */
+static inline int sq_ring_needs_enter(struct io_uring *ring)
+{
+	return !(ring->flags & IORING_SETUP_SQPOLL) ||
+		(*ring->sq.kflags & IORING_SQ_NEED_WAKEUP);
+}
+
+/*
  * Submit sqes acquired from io_uring_get_sqe() to the kernel.
  *
  * Returns number of sqes submitted
@@ -125,10 +136,17 @@ int io_uring_submit(struct io_uring *ring)
 	}
 
 submit:
-	ret = io_uring_enter(ring->ring_fd, submitted, 0,
-				IORING_ENTER_GETEVENTS, NULL);
-	if (ret < 0)
-		return -errno;
+	if (sq_ring_needs_enter(ring)) {
+		unsigned flags = 0;
+
+		if ((*ring->sq.kflags & IORING_SQ_NEED_WAKEUP))
+			flags |= IORING_ENTER_SQ_WAKEUP;
+
+		ret = io_uring_enter(ring->ring_fd, submitted, 0, flags, NULL);
+		if (ret < 0)
+			return -errno;
+	} else
+		ret = submitted;
 
 	return ret;
 }

@@ -69,8 +69,10 @@ int io_uring_queue_mmap(int fd, struct io_uring_params *p, struct io_uring *ring
 
 	memset(ring, 0, sizeof(*ring));
 	ret = io_uring_mmap(fd, p, &ring->sq, &ring->cq);
-	if (!ret)
+	if (!ret) {
+		ring->flags = p->flags;
 		ring->ring_fd = fd;
+    }
 	return ret;
 }
 

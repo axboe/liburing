@@ -46,6 +46,7 @@ struct io_uring_cq {
 struct io_uring {
 	struct io_uring_sq sq;
 	struct io_uring_cq cq;
+	unsigned flags;
 	int ring_fd;
 };
 
