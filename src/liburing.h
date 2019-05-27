@@ -106,6 +106,12 @@ static inline void *io_uring_cqe_get_data(struct io_uring_cqe *cqe)
 	return (void *) (uintptr_t) cqe->user_data;
 }
 
+static inline void io_uring_sqe_set_flags(struct io_uring_sqe *sqe,
+					  unsigned flags)
+{
+	sqe->flags = flags;
+}
+
 static inline void io_uring_prep_rw(int op, struct io_uring_sqe *sqe, int fd,
 				    const void *addr, unsigned len,
 				    off_t offset)
