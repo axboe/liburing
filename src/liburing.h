@@ -74,6 +74,34 @@ extern int io_uring_wait_cqe(struct io_uring *ring,
 extern int io_uring_submit(struct io_uring *ring);
 extern struct io_uring_sqe *io_uring_get_sqe(struct io_uring *ring);
 
+#define io_uring_for_each_cqe(ring, head, cqe)					\
+	for (head = *(ring)->cq.khead;						\
+	     /* See read_barrier() explanation in __io_uring_get_cqe() */	\
+	     ({read_barrier();							\
+	       cqe = (head != *(ring)->cq.ktail ?				\
+		&(ring)->cq.cqes[head & (*(ring)->cq.kring_mask)] : NULL);});	\
+	     head++)								\
+
+
+/*
+ * Must be called after io_uring_for_each_cqe()
+ */
+static inline void io_uring_cq_advance(struct io_uring *ring,
+				       unsigned nr)
+{
+	if (nr) {
+		struct io_uring_cq *cq = &ring->cq;
+
+		(*cq->khead) += nr;
+
+		/*
+		 * Ensure that the kernel sees our new head, the kernel has
+		 * the matching read barrier.
+		 */
+		write_barrier();
+	}
+}
+
 /*
  * Must be called after io_uring_{peek,wait}_cqe() after the cqe has
  * been processed by the application.
@@ -81,16 +109,8 @@ extern struct io_uring_sqe *io_uring_get_sqe(struct io_uring *ring);
 static inline void io_uring_cqe_seen(struct io_uring *ring,
 				     struct io_uring_cqe *cqe)
 {
-	if (cqe) {
-		struct io_uring_cq *cq = &ring->cq;
-
-		(*cq->khead)++;
-		/*
-		 * Ensure that the kernel sees our new head, the kernel has
-		 * the matching read barrier.
-		 */
-		write_barrier();
-	}
+	if (cqe)
+		io_uring_cq_advance(ring, 1);
 }
 
 /*
