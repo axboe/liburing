@@ -30,6 +30,7 @@ struct io_uring_sq {
 	unsigned sqe_tail;
 
 	size_t ring_sz;
+	void *ring_ptr;
 };
 
 struct io_uring_cq {
@@ -41,6 +42,7 @@ struct io_uring_cq {
 	struct io_uring_cqe *cqes;
 
 	size_t ring_sz;
+	void *ring_ptr;
 };
 
 struct io_uring {

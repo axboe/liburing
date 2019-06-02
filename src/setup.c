@@ -13,21 +13,20 @@ static int io_uring_mmap(int fd, struct io_uring_params *p,
 			 struct io_uring_sq *sq, struct io_uring_cq *cq)
 {
 	size_t size;
-	void *ptr;
 	int ret;
 
 	sq->ring_sz = p->sq_off.array + p->sq_entries * sizeof(unsigned);
-	ptr = mmap(0, sq->ring_sz, PROT_READ | PROT_WRITE,
+	sq->ring_ptr = mmap(0, sq->ring_sz, PROT_READ | PROT_WRITE,
 			MAP_SHARED | MAP_POPULATE, fd, IORING_OFF_SQ_RING);
-	if (ptr == MAP_FAILED)
+	if (sq->ring_ptr == MAP_FAILED)
 		return -errno;
-	sq->khead = ptr + p->sq_off.head;
-	sq->ktail = ptr + p->sq_off.tail;
-	sq->kring_mask = ptr + p->sq_off.ring_mask;
-	sq->kring_entries = ptr + p->sq_off.ring_entries;
-	sq->kflags = ptr + p->sq_off.flags;
-	sq->kdropped = ptr + p->sq_off.dropped;
-	sq->array = ptr + p->sq_off.array;
+	sq->khead = sq->ring_ptr + p->sq_off.head;
+	sq->ktail = sq->ring_ptr + p->sq_off.tail;
+	sq->kring_mask = sq->ring_ptr + p->sq_off.ring_mask;
+	sq->kring_entries = sq->ring_ptr + p->sq_off.ring_entries;
+	sq->kflags = sq->ring_ptr + p->sq_off.flags;
+	sq->kdropped = sq->ring_ptr + p->sq_off.dropped;
+	sq->array = sq->ring_ptr + p->sq_off.array;
 
 	size = p->sq_entries * sizeof(struct io_uring_sqe);
 	sq->sqes = mmap(0, size, PROT_READ | PROT_WRITE,
@@ -36,24 +35,24 @@ static int io_uring_mmap(int fd, struct io_uring_params *p,
 	if (sq->sqes == MAP_FAILED) {
 		ret = -errno;
 err:
-		munmap(sq->khead, sq->ring_sz);
+		munmap(sq->ring_ptr, sq->ring_sz);
 		return ret;
 	}
 
 	cq->ring_sz = p->cq_off.cqes + p->cq_entries * sizeof(struct io_uring_cqe);
-	ptr = mmap(0, cq->ring_sz, PROT_READ | PROT_WRITE,
+	cq->ring_ptr = mmap(0, cq->ring_sz, PROT_READ | PROT_WRITE,
 			MAP_SHARED | MAP_POPULATE, fd, IORING_OFF_CQ_RING);
-	if (ptr == MAP_FAILED) {
+	if (cq->ring_ptr == MAP_FAILED) {
 		ret = -errno;
-		munmap(sq->sqes, p->sq_entries * sizeof(struct io_uring_sqe));
+		munmap(sq->sqes, *sq->kring_entries * sizeof(struct io_uring_sqe));
 		goto err;
 	}
-	cq->khead = ptr + p->cq_off.head;
-	cq->ktail = ptr + p->cq_off.tail;
-	cq->kring_mask = ptr + p->cq_off.ring_mask;
-	cq->kring_entries = ptr + p->cq_off.ring_entries;
-	cq->koverflow = ptr + p->cq_off.overflow;
-	cq->cqes = ptr + p->cq_off.cqes;
+	cq->khead = cq->ring_ptr + p->cq_off.head;
+	cq->ktail = cq->ring_ptr + p->cq_off.tail;
+	cq->kring_mask = cq->ring_ptr + p->cq_off.ring_mask;
+	cq->kring_entries = cq->ring_ptr + p->cq_off.ring_entries;
+	cq->koverflow = cq->ring_ptr + p->cq_off.overflow;
+	cq->cqes = cq->ring_ptr + p->cq_off.cqes;
 	return 0;
 }
 
@@ -105,7 +104,7 @@ void io_uring_queue_exit(struct io_uring *ring)
 	struct io_uring_cq *cq = &ring->cq;
 
 	munmap(sq->sqes, *sq->kring_entries * sizeof(struct io_uring_sqe));
-	munmap(sq->khead, sq->ring_sz);
-	munmap(cq->khead, cq->ring_sz);
+	munmap(sq->ring_ptr, sq->ring_sz);
+	munmap(cq->ring_ptr, cq->ring_sz);
 	close(ring->ring_fd);
 }
