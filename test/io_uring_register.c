@@ -231,6 +231,10 @@ test_memlock_exceeded(int fd)
 	void *buf;
 	struct iovec iov;
 
+	/* if limit is larger than 2gb, just skip this test */
+	if (mlock_limit >= 2 * 1024 * 1024 * 1024ULL)
+		return 0;
+
 	iov.iov_len = mlock_limit * 2;
 	buf = malloc(iov.iov_len);
 	assert(buf);
