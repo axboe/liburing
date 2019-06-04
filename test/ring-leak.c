@@ -25,11 +25,7 @@
 
 static int io_uring_register_files(int ring_fd, int fd1, int fd2)
 {
-	__s32 *fds;
-
-	fds = calloc(2, sizeof(__s32));
-	fds[0] = fd1;
-	fds[1] = fd2;
+	__s32 fds[2] = { fd1, fd2 };
 
 	return io_uring_register(ring_fd, IORING_REGISTER_FILES, fds, 2);
 }
