@@ -76,6 +76,13 @@ extern int io_uring_wait_cqe(struct io_uring *ring,
 extern int io_uring_submit(struct io_uring *ring);
 extern struct io_uring_sqe *io_uring_get_sqe(struct io_uring *ring);
 
+extern int io_uring_register_buffers(struct io_uring *ring, struct iovec *iovecs,
+					unsigned nr_iovecs);
+extern int io_uring_unregister_buffers(struct io_uring *ring);
+extern int io_uring_register_files(struct io_uring *ring, __s32 *files,
+					unsigned nr_files);
+extern int io_uring_unregister_files(struct io_uring *ring);
+
 #define io_uring_for_each_cqe(ring, head, cqe)					\
 	for (head = *(ring)->cq.khead;						\
 	     /* See read_barrier() explanation in __io_uring_get_cqe() */	\

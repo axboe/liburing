@@ -23,7 +23,7 @@
 
 #include "../src/liburing.h"
 
-static int io_uring_register_files(int ring_fd, int fd1, int fd2)
+static int __io_uring_register_files(int ring_fd, int fd1, int fd2)
 {
 	__s32 fds[2] = { fd1, fd2 };
 
@@ -84,7 +84,7 @@ int main(int argc, char *argv[])
 	if (ring_fd < 0)
 		return 1;
 
-	ret = io_uring_register_files(ring_fd, sp[0], sp[1]);
+	ret = __io_uring_register_files(ring_fd, sp[0], sp[1]);
 	if (ret < 0) {
 		perror("register files");
 		return 1;
