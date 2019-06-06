@@ -78,7 +78,7 @@ static inline int sq_ring_needs_enter(struct io_uring *ring)
  *
  * Returns number of sqes submitted
  */
-int io_uring_submit(struct io_uring *ring)
+static int __io_uring_submit(struct io_uring *ring, unsigned wait_nr)
 {
 	struct io_uring_sq *sq = &ring->sq;
 	const unsigned mask = *sq->kring_mask;
@@ -124,19 +124,45 @@ int io_uring_submit(struct io_uring *ring)
 		write_barrier();
 	}
 
-	if (sq_ring_needs_enter(ring)) {
+	if (wait_nr || sq_ring_needs_enter(ring)) {
 		unsigned flags = 0;
 
 		if ((*ring->sq.kflags & IORING_SQ_NEED_WAKEUP))
 			flags |= IORING_ENTER_SQ_WAKEUP;
+		if (wait_nr) {
+			if (wait_nr > submitted)
+				wait_nr = submitted;
+			flags |= IORING_ENTER_GETEVENTS;
+		}
 
-		ret = io_uring_enter(ring->ring_fd, submitted, 0, flags, NULL);
+		ret = io_uring_enter(ring->ring_fd, submitted, wait_nr, flags,
+					NULL);
 		if (ret < 0)
 			return -errno;
 	} else
 		ret = submitted;
 
 	return ret;
+}
+
+/*
+ * Submit sqes acquired from io_uring_get_sqe() to the kernel.
+ *
+ * Returns number of sqes submitted
+ */
+int io_uring_submit(struct io_uring *ring)
+{
+	return __io_uring_submit(ring, 0);
+}
+
+/*
+ * Like io_uring_submit(), but allows waiting for events as well.
+ *
+ * Returns number of sqes submitted
+ */
+int io_uring_submit_and_wait(struct io_uring *ring, unsigned wait_nr)
+{
+	return __io_uring_submit(ring, wait_nr);
 }
 
 /*

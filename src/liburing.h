@@ -74,6 +74,7 @@ extern int io_uring_peek_cqe(struct io_uring *ring,
 extern int io_uring_wait_cqe(struct io_uring *ring,
 	struct io_uring_cqe **cqe_ptr);
 extern int io_uring_submit(struct io_uring *ring);
+extern int io_uring_submit_and_wait(struct io_uring *ring, unsigned wait_nr);
 extern struct io_uring_sqe *io_uring_get_sqe(struct io_uring *ring);
 
 extern int io_uring_register_buffers(struct io_uring *ring, struct iovec *iovecs,
