@@ -56,6 +56,7 @@ int main(int argc, char *argv[])
 			break;
 		io_uring_prep_readv(sqe, fd, &iovecs[i], 1, offset);
 		offset += iovecs[i].iov_len;
+		i++;
 	} while (1);
 
 	ret = io_uring_submit(&ring);
