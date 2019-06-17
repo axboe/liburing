@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <string.h>
+#include <stdbool.h>
 
 #include "compat.h"
 #include "io_uring.h"
@@ -64,13 +65,19 @@ int io_uring_wait_cqe(struct io_uring *ring, struct io_uring_cqe **cqe_ptr)
 
 /*
  * Returns true if we're not using SQ thread (thus nobody submits but us)
- * or if IORING_SQ_NEED_WAKEUP is set, so dormouse should be explicitly
- * awekened.
+ * or if IORING_SQ_NEED_WAKEUP is set, so submit thread must be explicitly
+ * awakened. For the latter case, we set the thread wakeup flag.
  */
-static inline int sq_ring_needs_enter(struct io_uring *ring)
+static inline bool sq_ring_needs_enter(struct io_uring *ring, unsigned *flags)
 {
-	return !(ring->flags & IORING_SETUP_SQPOLL) ||
-		(*ring->sq.kflags & IORING_SQ_NEED_WAKEUP);
+	if (!(ring->flags & IORING_SETUP_SQPOLL))
+		return true;
+	if ((*ring->sq.kflags & IORING_SQ_NEED_WAKEUP)) {
+		*flags |= IORING_ENTER_SQ_WAKEUP;
+		return true;
+	}
+
+	return false;
 }
 
 /*
@@ -83,6 +90,7 @@ static int __io_uring_submit(struct io_uring *ring, unsigned wait_nr)
 	struct io_uring_sq *sq = &ring->sq;
 	const unsigned mask = *sq->kring_mask;
 	unsigned ktail, ktail_next, submitted, to_submit;
+	unsigned flags;
 	int ret;
 
 	if (sq->sqe_head == sq->sqe_tail)
@@ -124,11 +132,8 @@ static int __io_uring_submit(struct io_uring *ring, unsigned wait_nr)
 		write_barrier();
 	}
 
-	if (wait_nr || sq_ring_needs_enter(ring)) {
-		unsigned flags = 0;
-
-		if ((*ring->sq.kflags & IORING_SQ_NEED_WAKEUP))
-			flags |= IORING_ENTER_SQ_WAKEUP;
+	flags = 0;
+	if (wait_nr || sq_ring_needs_enter(ring, &flags)) {
 		if (wait_nr) {
 			if (wait_nr > submitted)
 				wait_nr = submitted;
