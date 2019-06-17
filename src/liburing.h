@@ -84,6 +84,8 @@ extern int io_uring_unregister_buffers(struct io_uring *ring);
 extern int io_uring_register_files(struct io_uring *ring, const int *files,
 					unsigned nr_files);
 extern int io_uring_unregister_files(struct io_uring *ring);
+extern int io_uring_register_eventfd(struct io_uring *ring, int fd);
+extern int io_uring_unregister_eventfd(struct io_uring *ring);
 
 #define io_uring_for_each_cqe(ring, head, cqe)					\
 	for (head = *(ring)->cq.khead;						\

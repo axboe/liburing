@@ -16,6 +16,8 @@ LIBURING_0.1 {
 		io_uring_unregister_buffers;
 		io_uring_register_files;
 		io_uring_unregister_files;
+		io_uring_register_eventfd;
+		io_uring_unregister_eventfd;
 	local:
 		*;
 
