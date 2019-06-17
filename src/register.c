@@ -9,7 +9,7 @@
 #include "io_uring.h"
 #include "liburing.h"
 
-int io_uring_register_buffers(struct io_uring *ring, struct iovec *iovecs,
+int io_uring_register_buffers(struct io_uring *ring, const struct iovec *iovecs,
 			      unsigned nr_iovecs)
 {
 	int ret;
@@ -34,7 +34,7 @@ int io_uring_unregister_buffers(struct io_uring *ring)
 	return 0;
 }
 
-int io_uring_register_files(struct io_uring *ring, __s32 *files,
+int io_uring_register_files(struct io_uring *ring, const int *files,
 			      unsigned nr_files)
 {
 	int ret;

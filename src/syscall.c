@@ -34,7 +34,7 @@
 # endif
 #endif
 
-int io_uring_register(int fd, unsigned int opcode, void *arg,
+int io_uring_register(int fd, unsigned int opcode, const void *arg,
 		      unsigned int nr_args)
 {
 	return syscall(__NR_io_uring_register, fd, opcode, arg, nr_args);

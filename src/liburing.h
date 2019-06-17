@@ -58,7 +58,7 @@ struct io_uring {
 extern int io_uring_setup(unsigned entries, struct io_uring_params *p);
 extern int io_uring_enter(unsigned fd, unsigned to_submit,
 	unsigned min_complete, unsigned flags, sigset_t *sig);
-extern int io_uring_register(int fd, unsigned int opcode, void *arg,
+extern int io_uring_register(int fd, unsigned int opcode, const void *arg,
 	unsigned int nr_args);
 
 /*
@@ -77,10 +77,11 @@ extern int io_uring_submit(struct io_uring *ring);
 extern int io_uring_submit_and_wait(struct io_uring *ring, unsigned wait_nr);
 extern struct io_uring_sqe *io_uring_get_sqe(struct io_uring *ring);
 
-extern int io_uring_register_buffers(struct io_uring *ring, struct iovec *iovecs,
+extern int io_uring_register_buffers(struct io_uring *ring,
+					const struct iovec *iovecs,
 					unsigned nr_iovecs);
 extern int io_uring_unregister_buffers(struct io_uring *ring);
-extern int io_uring_register_files(struct io_uring *ring, __s32 *files,
+extern int io_uring_register_files(struct io_uring *ring, const int *files,
 					unsigned nr_files);
 extern int io_uring_unregister_files(struct io_uring *ring);
 
