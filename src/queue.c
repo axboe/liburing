@@ -14,26 +14,14 @@
 static int __io_uring_get_cqe(struct io_uring *ring,
 			      struct io_uring_cqe **cqe_ptr, int wait)
 {
-	struct io_uring_cq *cq = &ring->cq;
-	const unsigned mask = *cq->kring_mask;
 	unsigned head;
 	int ret;
 
-	*cqe_ptr = NULL;
-	head = *cq->khead;
 	do {
-		/*
-		 * It's necessary to use a read_barrier() before reading
-		 * the CQ tail, since the kernel updates it locklessly. The
-		 * kernel has the matching store barrier for the update. The
-		 * kernel also ensures that previous stores to CQEs are ordered
-		 * with the tail update.
-		 */
-		read_barrier();
-		if (head != *cq->ktail) {
-			*cqe_ptr = &cq->cqes[head & mask];
+		io_uring_for_each_cqe(ring, head, *cqe_ptr)
 			break;
-		}
+		if (*cqe_ptr)
+			break;
 		if (!wait)
 			break;
 		ret = io_uring_enter(ring->ring_fd, 0, 1,
