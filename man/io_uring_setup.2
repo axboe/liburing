@@ -97,7 +97,11 @@ call with the following code sequence:
 
 .in +4n
 .EX
-read_barrier();
+/*
+ * Ensure that the wakeup flag is read after the tail pointer has been
+ * written.
+ */
+smp_mb();
 if (*sq_ring->flags & IORING_SQ_NEED_WAKEUP)
     io_uring_enter(fd, 0, 0, IORING_ENTER_SQ_WAKEUP);
 .EE

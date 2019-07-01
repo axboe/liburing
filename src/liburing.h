@@ -88,11 +88,10 @@ extern int io_uring_register_eventfd(struct io_uring *ring, int fd);
 extern int io_uring_unregister_eventfd(struct io_uring *ring);
 
 #define io_uring_for_each_cqe(ring, head, cqe)					\
+	/* smp_load_acquire() enforces the order of tail and CQE reads. */	\
 	for (head = *(ring)->cq.khead;						\
-	     /* See read_barrier() explanation in __io_uring_get_cqe() */	\
-	     ({read_barrier();							\
-	       cqe = (head != *(ring)->cq.ktail ?				\
-		&(ring)->cq.cqes[head & (*(ring)->cq.kring_mask)] : NULL);});	\
+	     (cqe = (head != smp_load_acquire((ring)->cq.ktail) ?		\
+		&(ring)->cq.cqes[head & (*(ring)->cq.kring_mask)] : NULL));	\
 	     head++)								\
 
 
@@ -105,13 +104,11 @@ static inline void io_uring_cq_advance(struct io_uring *ring,
 	if (nr) {
 		struct io_uring_cq *cq = &ring->cq;
 
-		(*cq->khead) += nr;
-
 		/*
-		 * Ensure that the kernel sees our new head, the kernel has
-		 * the matching read barrier.
+		 * Ensure that the kernel only sees the new value of the head
+		 * index after the CQEs have been read.
 		 */
-		write_barrier();
+		smp_store_release(cq->khead, *cq->khead + nr);
 	}
 }
 

@@ -262,9 +262,11 @@ main(int argc, char **argv)
 	ktail = *sq->ktail;
 	sq->array[ktail & mask] = index;
 	++ktail;
-	write_barrier();
-	*sq->ktail = ktail;
-	write_barrier();
+	/*
+	 * Ensure that the kernel sees the SQE update before it sees the tail
+	 * update.
+	 */
+	smp_store_release(sq->ktail, ktail);
 
 	ret = io_uring_enter(ring.ring_fd, 1, 0, 0, NULL);
 	/* now check to see if our sqe was dropped */

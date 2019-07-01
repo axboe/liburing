@@ -77,7 +77,7 @@ static int __io_uring_submit(struct io_uring *ring, unsigned wait_nr)
 {
 	struct io_uring_sq *sq = &ring->sq;
 	const unsigned mask = *sq->kring_mask;
-	unsigned ktail, ktail_next, submitted, to_submit;
+	unsigned ktail, submitted, to_submit;
 	unsigned flags;
 	int ret;
 
@@ -88,15 +88,11 @@ static int __io_uring_submit(struct io_uring *ring, unsigned wait_nr)
 	 * Fill in sqes that we have queued up, adding them to the kernel ring
 	 */
 	submitted = 0;
-	ktail = ktail_next = *sq->ktail;
+	ktail = *sq->ktail;
 	to_submit = sq->sqe_tail - sq->sqe_head;
 	while (to_submit--) {
-		ktail_next++;
-		read_barrier();
-
 		sq->array[ktail & mask] = sq->sqe_head & mask;
-		ktail = ktail_next;
-
+		ktail++;
 		sq->sqe_head++;
 		submitted++;
 	}
@@ -104,21 +100,11 @@ static int __io_uring_submit(struct io_uring *ring, unsigned wait_nr)
 	if (!submitted)
 		return 0;
 
-	if (*sq->ktail != ktail) {
-		/*
-		 * First write barrier ensures that the SQE stores are updated
-		 * with the tail update. This is needed so that the kernel
-		 * will never see a tail update without the preceeding sQE
-		 * stores being done.
-		 */
-		write_barrier();
-		*sq->ktail = ktail;
-		/*
-		 * The kernel has the matching read barrier for reading the
-		 * SQ tail.
-		 */
-		write_barrier();
-	}
+	/*
+	 * Ensure that the kernel sees the SQE updates before it sees the tail
+	 * update.
+	 */
+	smp_store_release(sq->ktail, ktail);
 
 	flags = 0;
 	if (wait_nr || sq_ring_needs_enter(ring, &flags)) {
