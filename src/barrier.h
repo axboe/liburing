@@ -31,7 +31,7 @@ after the acquire operation executes. This is implemented using
 #define READ_ONCE(var) (*((volatile typeof(var) *)(&(var))))
 
 
-#if defined(__x86_64) || defined(__i386__)
+#if defined(__x86_64__) || defined(__i386__)
 /* From tools/arch/x86/include/asm/barrier.h */
 #if defined(__i386__)
 /*
@@ -64,14 +64,14 @@ do {						\
 	___p1;					\
 })
 #endif /* defined(__x86_64__) */
-#else
+#else /* defined(__x86_64__) || defined(__i386__) */
 /*
  * Add arch appropriate definitions. Be safe and use full barriers for
  * archs we don't have support for.
  */
 #define smp_rmb()	__sync_synchronize()
 #define smp_wmb()	__sync_synchronize()
-#endif
+#endif /* defined(__x86_64__) || defined(__i386__) */
 
 /* From tools/include/asm/barrier.h */
 
@@ -92,4 +92,4 @@ do {						\
 })
 #endif
 
-#endif
+#endif /* defined(LIBURING_BARRIER_H) */
