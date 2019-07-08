@@ -1,4 +1,5 @@
-CFLAGS ?= -g -O2 -Wall -D_GNU_SOURCE -L../src/
+CFLAGS ?= -g -O2
+override CFLAGS += -Wall -D_GNU_SOURCE -L../src/
 
 all_targets += poll poll-cancel ring-leak fsync io_uring_setup io_uring_register \
 	       io_uring_enter nop sq-full cq-full 35fa71a030ca-test \
