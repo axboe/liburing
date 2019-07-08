@@ -7,7 +7,7 @@ TIMEOUT=10
 FAILED=""
 
 for t in $TESTS; do
-	echo Running test $t
+	echo Running test $t | tee > /dev/kmsg
 	timeout -s INT $TIMEOUT ./$t
 	r=$?
 	if [ "${r}" -eq 124 ]; then
