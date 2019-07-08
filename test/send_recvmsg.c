@@ -64,7 +64,7 @@ static int do_recvmsg(void)
 	memset(sqe, 0, sizeof(*sqe));
 	sqe->opcode = IORING_OP_RECVMSG;
 	sqe->fd = sockfd;
-	sqe->addr = (uint64_t) &msg;
+	sqe->addr = (uintptr_t) &msg;
 	sqe->len = 1;
 
 	ret = io_uring_submit(&ring);
@@ -136,7 +136,7 @@ static int do_sendmsg(void)
 	memset(sqe, 0, sizeof(*sqe));
 	sqe->opcode = IORING_OP_SENDMSG;
 	sqe->fd = sockfd;
-	sqe->addr = (uint64_t) &msg;
+	sqe->addr = (uintptr_t) &msg;
 	sqe->len = 1;
 
 	ret = io_uring_submit(&ring);

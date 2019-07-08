@@ -140,7 +140,7 @@ test_max_fds(int uring_fd)
 		perror("mmap fd_as");
 		exit(1);
 	}
-	printf("allocated %lu bytes of address space\n", UINT_MAX * sizeof(int));
+	printf("allocated %zu bytes of address space\n", UINT_MAX * sizeof(int));
 
 	fdtable_fd = mkstemp(template);
 	if (fdtable_fd < 0) {
@@ -178,7 +178,8 @@ test_max_fds(int uring_fd)
 		fds = mmap(fds, 128*1024*1024, PROT_READ|PROT_WRITE,
 			   MAP_SHARED|MAP_FIXED, fdtable_fd, 0);
 		if (fds == MAP_FAILED) {
-			printf("mmap failed at offset %lu\n", (char *)fd_as - (char *)fds);
+			printf("mmap failed at offset %lu\n",
+			       (unsigned long)((char *)fd_as - (char *)fds));
 			exit(1);
 		}
 	}
@@ -217,7 +218,7 @@ test_max_fds(int uring_fd)
 	close(fdtable_fd);
 	ret = munmap(fd_as, UINT_MAX * sizeof(int));
 	if (ret != 0) {
-		printf("munmap(%lu) failed\n", UINT_MAX * sizeof(int));
+		printf("munmap(%zu) failed\n", UINT_MAX * sizeof(int));
 		exit(1);
 	}
 
@@ -244,7 +245,7 @@ test_memlock_exceeded(int fd)
 		ret = io_uring_register(fd, IORING_REGISTER_BUFFERS, &iov, 1);
 		if (ret < 0) {
 			if (errno == ENOMEM) {
-				printf("io_uring_register of %lu bytes failed "
+				printf("io_uring_register of %zu bytes failed "
 				       "with ENOMEM (expected).\n", iov.iov_len);
 				iov.iov_len /= 2;
 				continue;
@@ -253,7 +254,7 @@ test_memlock_exceeded(int fd)
 			free(buf);
 			return 1;
 		}
-		printf("successfully registered %lu bytes (%d).\n",
+		printf("successfully registered %zu bytes (%d).\n",
 		       iov.iov_len, ret);
 		ret = io_uring_register(fd, IORING_UNREGISTER_BUFFERS, NULL, 0);
 		if (ret != 0) {
