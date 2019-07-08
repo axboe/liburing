@@ -32,25 +32,18 @@ after the acquire operation executes. This is implemented using
 
 
 #if defined(__x86_64__) || defined(__i386__)
-/* From tools/arch/x86/include/asm/barrier.h */
-#if defined(__i386__)
-/*
- * Some non-Intel clones support out of order store. wmb() ceases to be a
- * nop for these.
- */
-#define mb()	asm volatile("lock; addl $0,0(%%esp)" ::: "memory")
-#define rmb()	asm volatile("lock; addl $0,0(%%esp)" ::: "memory")
-#define wmb()	asm volatile("lock; addl $0,0(%%esp)" ::: "memory")
-#elif defined(__x86_64__)
+/* Adapted from arch/x86/include/asm/barrier.h */
 #define mb()	asm volatile("mfence" ::: "memory")
 #define rmb()	asm volatile("lfence" ::: "memory")
 #define wmb()	asm volatile("sfence" ::: "memory")
 #define smp_rmb() barrier()
 #define smp_wmb() barrier()
+#if defined(__i386__)
+#define smp_mb()  asm volatile("lock; addl $0,0(%%esp)" ::: "memory", "cc")
+#else
 #define smp_mb()  asm volatile("lock; addl $0,-132(%%rsp)" ::: "memory", "cc")
 #endif
 
-#if defined(__x86_64__)
 #define smp_store_release(p, v)			\
 do {						\
 	barrier();				\
@@ -63,7 +56,6 @@ do {						\
 	barrier();				\
 	___p1;					\
 })
-#endif /* defined(__x86_64__) */
 #else /* defined(__x86_64__) || defined(__i386__) */
 /*
  * Add arch appropriate definitions. Be safe and use full barriers for
