@@ -27,8 +27,8 @@ after the acquire operation executes. This is implemented using
 
 /* From tools/virtio/linux/compiler.h */
 #define WRITE_ONCE(var, val) \
-	(*((volatile typeof(val) *)(&(var))) = (val))
-#define READ_ONCE(var) (*((volatile typeof(var) *)(&(var))))
+	(*((volatile __typeof(val) *)(&(var))) = (val))
+#define READ_ONCE(var) (*((volatile __typeof(var) *)(&(var))))
 
 
 #if defined(__x86_64__) || defined(__i386__)
@@ -52,7 +52,7 @@ do {						\
 
 #define smp_load_acquire(p)			\
 ({						\
-	typeof(*p) ___p1 = READ_ONCE(*(p));	\
+	__typeof(*p) ___p1 = READ_ONCE(*(p));	\
 	barrier();				\
 	___p1;					\
 })
@@ -78,7 +78,7 @@ do {						\
 #ifndef smp_load_acquire
 # define smp_load_acquire(p)			\
 ({						\
-	typeof(*p) ___p1 = READ_ONCE(*p);	\
+	__typeof(*p) ___p1 = READ_ONCE(*p);	\
 	smp_mb();				\
 	___p1;					\
 })
