@@ -197,8 +197,9 @@ will contain
 .PP
 The
 .I flags
-field is a bit mask.  Currently, the only supported flag is
-.B IOSQE_FIXED_FILE.
+field is a bit mask. The supported flags are:
+.TP
+.B IOSQE_FIXED_FILE
 When this flag is specified,
 .I fd
 is an index into the files array registered with the io_uring instance (see the
@@ -206,7 +207,22 @@ is an index into the files array registered with the io_uring instance (see the
 section of the
 .BR io_uring_register (2)
 man page).
-
+.TP
+.B IOSQE_IO_DRAIN
+When this flag is specified, the SQE will not be started before previously
+submitted SQEs have completed, and new SQEs will not be started before this
+one completes.
+.TP
+.B IOSQE_IO_LINK
+When this flag is specified, it forms a link with the next SQE in the
+submission ring. That next SQE will not be started before this one completes.
+This, in effect, forms a chain of SQEs, which can be arbitrarily long. The tail
+of the chain is denoted by the first SQE that does not have this flag set.
+This flag has no effect on previous SQE submissions, nor does it impact SQEs
+that are outside of the chain tail. This means that multiple chains can be
+executing in parallel, or chains and individual SQEs. Only members inside the
+chain are serialized.
+.PP
 .I ioprio
 specifies the I/O priority.  See
 .BR ioprio_get (2)
