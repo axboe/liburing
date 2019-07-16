@@ -50,7 +50,7 @@ make install DESTDIR=$RPM_BUILD_ROOT prefix=/usr libdir=/%{_libdir} mandir=/usr/
 %attr(0755,root,root) %{_libdir}/liburing.so
 %attr(0644,root,root) %{_libdir}/liburing.a
 %attr(0644,root,root) %{_libdir}/pkgconfig/*
-%attr(0644,root,root) %{_mandir}/*
+%attr(0644,root,root) %{_mandir}/man2/*
 
 %changelog
 * Tue Jan 8 2019 Jens Axboe <axboe@kernel.dk> - 0.1
