@@ -29,7 +29,7 @@ ifneq ($(MAKECMDGOALS),clean)
 include config-host.mak
 endif
 
-%.pc: %.pc.in
+%.pc: %.pc.in config-host.mak
 	sed -e "s%@prefix@%$(prefix)%g" \
 	    -e "s%@libdir@%$(libdir)%g" \
 	    -e "s%@includedir@%$(includedir)%g" \
