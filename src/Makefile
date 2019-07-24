@@ -1,6 +1,6 @@
 prefix ?= /usr
-includedir=$(prefix)/include
-libdir=$(prefix)/lib
+includedir ?= $(prefix)/include
+libdir ?= $(prefix)/lib
 
 CFLAGS ?= -g -fomit-frame-pointer -O2
 override CFLAGS += -Wall -I.
