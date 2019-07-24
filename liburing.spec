@@ -25,12 +25,13 @@ for the Linux-native io_uring.
 %setup
 
 %build
+./configure --prefix=/usr --libdir=/%{_libdir} --mandir=/usr/share/man
 make
 
 %install
 [ "$RPM_BUILD_ROOT" != "/" ] && rm -rf $RPM_BUILD_ROOT
 
-make install DESTDIR=$RPM_BUILD_ROOT prefix=/usr libdir=/%{_libdir} mandir=/usr/share/man
+make install DESTDIR=$RPM_BUILD_ROOT
 
 %clean
 [ "$RPM_BUILD_ROOT" != "/" ] && rm -rf $RPM_BUILD_ROOT
