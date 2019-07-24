@@ -22,8 +22,8 @@
 #include <sys/resource.h>
 #include <limits.h>
 #include <sys/time.h>
-#include "../src/liburing.h"
-#include "../src/barrier.h"
+#include "liburing.h"
+#include "liburing/barrier.h"
 
 #define IORING_MAX_ENTRIES 4096
 

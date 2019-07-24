@@ -13,7 +13,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/ioctl.h>
-#include "../src/liburing.h"
+#include "liburing.h"
 
 #define QD	64
 #define BS	(32*1024)

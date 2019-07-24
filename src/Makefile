@@ -3,7 +3,7 @@ includedir ?= $(prefix)/include
 libdir ?= $(prefix)/lib
 
 CFLAGS ?= -g -fomit-frame-pointer -O2
-override CFLAGS += -Wall -I.
+override CFLAGS += -Wall -Iinclude/
 SO_CFLAGS=-shared -fPIC $(CFLAGS)
 L_CFLAGS=$(CFLAGS)
 LINK_FLAGS=
@@ -27,7 +27,7 @@ liburing_srcs := setup.c queue.c syscall.c register.c
 liburing_objs := $(patsubst %.c,%.ol,$(liburing_srcs))
 liburing_sobjs := $(patsubst %.c,%.os,$(liburing_srcs))
 
-$(liburing_objs) $(liburing_sobjs): io_uring.h
+$(liburing_objs) $(liburing_sobjs): include/liburing/io_uring.h
 
 %.os: %.c
 	$(CC) $(SO_CFLAGS) -c -o $@ $<
@@ -46,10 +46,10 @@ $(libname): $(liburing_sobjs) liburing.map
 	$(CC) $(SO_CFLAGS) -Wl,--version-script=liburing.map -Wl,-soname=$(soname) -o $@ $(liburing_sobjs) $(LINK_FLAGS)
 
 install: $(all_targets)
-	install -D -m 644 io_uring.h $(includedir)/io_uring.h
-	install -D -m 644 liburing.h $(includedir)/liburing.h
-	install -D -m 644 compat.h $(includedir)/compat.h
-	install -D -m 644 barrier.h $(includedir)/barrier.h
+	install -D -m 644 include/liburing/io_uring.h $(includedir)/liburing/io_uring.h
+	install -D -m 644 include/liburing.h $(includedir)/liburing.h
+	install -D -m 644 include/liburing/compat.h $(includedir)/liburing/compat.h
+	install -D -m 644 include/liburing/barrier.h $(includedir)/liburing/barrier.h
 	install -D -m 644 liburing.a $(libdir)/liburing.a
 ifeq ($(ENABLE_SHARED),1)
 	install -D -m 755 $(libname) $(libdir)/$(libname)
@@ -57,7 +57,7 @@ ifeq ($(ENABLE_SHARED),1)
 	ln -sf $(libname) $(libdir)/liburing.so
 endif
 
-$(liburing_objs): liburing.h
+$(liburing_objs): include/liburing.h
 
 clean:
 	rm -f $(all_targets) $(liburing_objs) $(liburing_sobjs) $(soname).new

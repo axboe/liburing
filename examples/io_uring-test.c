@@ -9,7 +9,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include "../src/liburing.h"
+#include "liburing.h"
 
 #define QD	4
 

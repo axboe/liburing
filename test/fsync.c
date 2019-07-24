@@ -9,7 +9,7 @@
 #include <string.h>
 #include <fcntl.h>
 
-#include "../src/liburing.h"
+#include "liburing.h"
 
 static int test_single_fsync(struct io_uring *ring)
 {

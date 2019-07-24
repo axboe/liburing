@@ -9,7 +9,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 
-#include "../src/liburing.h"
+#include "liburing.h"
 
 static char str[] = "This is a test of sendmsg and recvmsg over io_uring!";
 

@@ -5,8 +5,8 @@
 #include <errno.h>
 #include <string.h>
 
-#include "compat.h"
-#include "io_uring.h"
+#include "liburing/compat.h"
+#include "liburing/io_uring.h"
 #include "liburing.h"
 
 static int io_uring_mmap(int fd, struct io_uring_params *p,

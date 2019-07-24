@@ -5,8 +5,8 @@
 #include <sys/syscall.h>
 #include <sys/uio.h>
 #include <signal.h>
-#include "compat.h"
-#include "io_uring.h"
+#include "liburing/compat.h"
+#include "liburing/io_uring.h"
 
 #ifdef __alpha__
 /*

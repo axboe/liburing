@@ -5,8 +5,8 @@
 #include <errno.h>
 #include <string.h>
 
-#include "compat.h"
-#include "io_uring.h"
+#include "liburing/compat.h"
+#include "liburing/io_uring.h"
 #include "liburing.h"
 
 int io_uring_register_buffers(struct io_uring *ring, const struct iovec *iovecs,

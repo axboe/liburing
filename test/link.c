@@ -9,7 +9,7 @@
 #include <string.h>
 #include <fcntl.h>
 
-#include "../src/liburing.h"
+#include "liburing.h"
 
 /*
  * Test failing head of chain, and dependent getting -ECANCELED

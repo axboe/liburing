@@ -21,7 +21,7 @@
 #include <sys/time.h>
 #include <sys/resource.h>
 #include <limits.h>
-#include "../src/liburing.h"
+#include "liburing.h"
 
 static int pagesize;
 static rlim_t mlock_limit;

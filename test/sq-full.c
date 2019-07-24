@@ -9,7 +9,7 @@
 #include <string.h>
 #include <fcntl.h>
 
-#include "../src/liburing.h"
+#include "liburing.h"
 
 int main(int argc, char *argv[])
 {

@@ -13,7 +13,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <sys/sysinfo.h>
-#include "../src/liburing.h"
+#include "liburing.h"
 
 /*
  * Attempt the call with the given args.  Return 0 when expect matches

@@ -6,10 +6,10 @@
 #include <string.h>
 #include <stdbool.h>
 
-#include "compat.h"
-#include "io_uring.h"
+#include "liburing/compat.h"
+#include "liburing/io_uring.h"
 #include "liburing.h"
-#include "barrier.h"
+#include "liburing/barrier.h"
 
 static int __io_uring_get_cqe(struct io_uring *ring,
 			      struct io_uring_cqe **cqe_ptr, int wait)

@@ -9,9 +9,9 @@ extern "C" {
 #include <signal.h>
 #include <string.h>
 #include <inttypes.h>
-#include "compat.h"
-#include "io_uring.h"
-#include "barrier.h"
+#include "liburing/compat.h"
+#include "liburing/io_uring.h"
+#include "liburing/barrier.h"
 
 /*
  * Library interface to io_uring

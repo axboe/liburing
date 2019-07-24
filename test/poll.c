@@ -11,7 +11,7 @@
 #include <sys/poll.h>
 #include <sys/wait.h>
 
-#include "../src/liburing.h"
+#include "liburing.h"
 
 static void sig_alrm(int sig)
 {
