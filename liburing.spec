@@ -48,7 +48,7 @@ make install DESTDIR=$RPM_BUILD_ROOT
 
 %files devel
 %defattr(-,root,root)
-%attr(0755,root,root) %{_includedir}/liburing/*
+%attr(-,root,root) %{_includedir}/liburing/
 %attr(0644,root,root) %{_includedir}/liburing.h
 %attr(0755,root,root) %{_libdir}/liburing.so
 %attr(0644,root,root) %{_libdir}/liburing.a
