@@ -2,7 +2,7 @@ Name: liburing
 Version: 0.1
 Release: 1
 Summary: Linux-native io_uring I/O access library
-License: LGPL
+License: LGPLv2+
 Group:  System Environment/Libraries
 Source: %{name}-%{version}.tar.gz
 BuildRoot: %{_tmppath}/%{name}-root
