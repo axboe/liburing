@@ -6,6 +6,7 @@ License: LGPLv2+
 Group:  System Environment/Libraries
 Source: %{name}-%{version}.tar.gz
 BuildRoot: %{_tmppath}/%{name}-root
+URL: http://git.kernel.dk/cgit/liburing/
 
 %description
 Provides native async IO for the Linux kernel, in a fast and efficient
