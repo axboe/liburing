@@ -56,7 +56,20 @@ do {						\
 	barrier();				\
 	___p1;					\
 })
-#else /* defined(__x86_64__) || defined(__i386__) */
+
+#elif defined(__aarch64__)
+/* Adapted from arch/arm64/include/asm/barrier.h */
+#define dmb(opt)	asm volatile("dmb " #opt : : : "memory")
+#define dsb(opt)	asm volatile("dsb " #opt : : : "memory")
+
+#define mb()		dsb(sy)
+#define rmb()		dsb(ld)
+#define wmb()		dsb(st)
+#define smp_mb()	dmb(ish)
+#define smp_rmb()	dmb(ishld)
+#define smp_wmb()	dmb(ishst)
+
+#else /* defined(__x86_64__) || defined(__i386__) || defined(__aarch64__) */
 /*
  * Add arch appropriate definitions. Be safe and use full barriers for
  * archs we don't have support for.
