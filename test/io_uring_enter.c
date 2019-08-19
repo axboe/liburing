@@ -266,7 +266,7 @@ main(int argc, char **argv)
 	 * Ensure that the kernel sees the SQE update before it sees the tail
 	 * update.
 	 */
-	smp_store_release(sq->ktail, ktail);
+	io_uring_smp_store_release(sq->ktail, ktail);
 
 	ret = io_uring_enter(ring.ring_fd, 1, 0, 0, NULL);
 	/* now check to see if our sqe was dropped */

@@ -23,7 +23,7 @@ after the acquire operation executes. This is implemented using
 /* From tools/include/linux/compiler.h */
 /* Optimization barrier */
 /* The "volatile" is due to gcc bugs */
-#define barrier() __asm__ __volatile__("": : :"memory")
+#define io_uring_barrier()	__asm__ __volatile__("": : :"memory")
 
 /* From tools/virtio/linux/compiler.h */
 #define WRITE_ONCE(var, val) \
@@ -33,27 +33,29 @@ after the acquire operation executes. This is implemented using
 
 #if defined(__x86_64__) || defined(__i386__)
 /* Adapted from arch/x86/include/asm/barrier.h */
-#define mb()	asm volatile("mfence" ::: "memory")
-#define rmb()	asm volatile("lfence" ::: "memory")
-#define wmb()	asm volatile("sfence" ::: "memory")
-#define smp_rmb() barrier()
-#define smp_wmb() barrier()
+#define io_uring_mb()		asm volatile("mfence" ::: "memory")
+#define io_uring_rmb()		asm volatile("lfence" ::: "memory")
+#define io_uring_wmb()		asm volatile("sfence" ::: "memory")
+#define io_uring_smp_rmb()	io_uring_barrier()
+#define io_uring_smp_wmb()	io_uring_barrier()
 #if defined(__i386__)
-#define smp_mb()  asm volatile("lock; addl $0,0(%%esp)" ::: "memory", "cc")
+#define io_uring_smp_mb()	asm volatile("lock; addl $0,0(%%esp)" \
+					     ::: "memory", "cc")
 #else
-#define smp_mb()  asm volatile("lock; addl $0,-132(%%rsp)" ::: "memory", "cc")
+#define io_uring_smp_mb()	asm volatile("lock; addl $0,-132(%%rsp)" \
+					     ::: "memory", "cc")
 #endif
 
-#define smp_store_release(p, v)			\
+#define io_uring_smp_store_release(p, v)	\
 do {						\
-	barrier();				\
+	io_uring_barrier();			\
 	WRITE_ONCE(*(p), (v));			\
 } while (0)
 
-#define smp_load_acquire(p)			\
+#define io_uring_smp_load_acquire(p)		\
 ({						\
 	__typeof(*p) ___p1 = READ_ONCE(*(p));	\
-	barrier();				\
+	io_uring_barrier();			\
 	___p1;					\
 })
 
@@ -74,25 +76,25 @@ do {						\
  * Add arch appropriate definitions. Be safe and use full barriers for
  * archs we don't have support for.
  */
-#define smp_rmb()	__sync_synchronize()
-#define smp_wmb()	__sync_synchronize()
+#define io_uring_smp_rmb()	__sync_synchronize()
+#define io_uring_smp_wmb()	__sync_synchronize()
 #endif /* defined(__x86_64__) || defined(__i386__) */
 
 /* From tools/include/asm/barrier.h */
 
-#ifndef smp_store_release
-# define smp_store_release(p, v)		\
+#ifndef io_uring_smp_store_release
+# define io_uring_smp_store_release(p, v)	\
 do {						\
-	smp_mb();				\
+	io_uring_smp_mb();			\
 	WRITE_ONCE(*p, v);			\
 } while (0)
 #endif
 
-#ifndef smp_load_acquire
-# define smp_load_acquire(p)			\
+#ifndef io_uring_smp_load_acquire
+# define io_uring_smp_load_acquire(p)		\
 ({						\
 	__typeof(*p) ___p1 = READ_ONCE(*p);	\
-	smp_mb();				\
+	io_uring_smp_mb();			\
 	___p1;					\
 })
 #endif

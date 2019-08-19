@@ -104,7 +104,7 @@ static int __io_uring_submit(struct io_uring *ring, unsigned wait_nr)
 	 * Ensure that the kernel sees the SQE updates before it sees the tail
 	 * update.
 	 */
-	smp_store_release(sq->ktail, ktail);
+	io_uring_smp_store_release(sq->ktail, ktail);
 
 	flags = 0;
 	if (wait_nr || sq_ring_needs_enter(ring, &flags)) {
