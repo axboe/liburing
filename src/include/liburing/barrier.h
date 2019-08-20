@@ -26,9 +26,9 @@ after the acquire operation executes. This is implemented using
 #define io_uring_barrier()	__asm__ __volatile__("": : :"memory")
 
 /* From tools/virtio/linux/compiler.h */
-#define WRITE_ONCE(var, val) \
+#define IO_URING_WRITE_ONCE(var, val) \
 	(*((volatile __typeof(val) *)(&(var))) = (val))
-#define READ_ONCE(var) (*((volatile __typeof(var) *)(&(var))))
+#define IO_URING_READ_ONCE(var) (*((volatile __typeof(var) *)(&(var))))
 
 
 #if defined(__x86_64__) || defined(__i386__)
@@ -49,27 +49,27 @@ after the acquire operation executes. This is implemented using
 #define io_uring_smp_store_release(p, v)	\
 do {						\
 	io_uring_barrier();			\
-	WRITE_ONCE(*(p), (v));			\
+	IO_URING_WRITE_ONCE(*(p), (v));		\
 } while (0)
 
-#define io_uring_smp_load_acquire(p)		\
-({						\
-	__typeof(*p) ___p1 = READ_ONCE(*(p));	\
-	io_uring_barrier();			\
-	___p1;					\
+#define io_uring_smp_load_acquire(p)			\
+({							\
+	__typeof(*p) ___p1 = IO_URING_READ_ONCE(*(p));	\
+	io_uring_barrier();				\
+	___p1;						\
 })
 
 #elif defined(__aarch64__)
 /* Adapted from arch/arm64/include/asm/barrier.h */
-#define dmb(opt)	asm volatile("dmb " #opt : : : "memory")
-#define dsb(opt)	asm volatile("dsb " #opt : : : "memory")
+#define io_uring_dmb(opt)	asm volatile("dmb " #opt : : : "memory")
+#define io_uring_dsb(opt)	asm volatile("dsb " #opt : : : "memory")
 
-#define mb()		dsb(sy)
-#define rmb()		dsb(ld)
-#define wmb()		dsb(st)
-#define smp_mb()	dmb(ish)
-#define smp_rmb()	dmb(ishld)
-#define smp_wmb()	dmb(ishst)
+#define io_uring_mb()		io_uring_dsb(sy)
+#define io_uring_rmb()		io_uring_dsb(ld)
+#define io_uring_wmb()		io_uring_dsb(st)
+#define io_uring_smp_mb()	io_uring_dmb(ish)
+#define io_uring_smp_rmb()	io_uring_dmb(ishld)
+#define io_uring_smp_wmb()	io_uring_dmb(ishst)
 
 #else /* defined(__x86_64__) || defined(__i386__) || defined(__aarch64__) */
 /*
@@ -83,19 +83,19 @@ do {						\
 /* From tools/include/asm/barrier.h */
 
 #ifndef io_uring_smp_store_release
-# define io_uring_smp_store_release(p, v)	\
+#define io_uring_smp_store_release(p, v)	\
 do {						\
 	io_uring_smp_mb();			\
-	WRITE_ONCE(*p, v);			\
+	IO_URING_WRITE_ONCE(*p, v);		\
 } while (0)
 #endif
 
 #ifndef io_uring_smp_load_acquire
-# define io_uring_smp_load_acquire(p)		\
-({						\
-	__typeof(*p) ___p1 = READ_ONCE(*p);	\
-	io_uring_smp_mb();			\
-	___p1;					\
+#define io_uring_smp_load_acquire(p)			\
+({							\
+	__typeof(*p) ___p1 = IO_URING_READ_ONCE(*p);	\
+	io_uring_smp_mb();				\
+	___p1;						\
 })
 #endif
 
