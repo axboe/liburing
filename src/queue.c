@@ -23,7 +23,7 @@ static int __io_uring_get_cqe(struct io_uring *ring,
 		if (*cqe_ptr)
 			break;
 		if (!wait)
-			break;
+			return -EAGAIN;
 		ret = io_uring_enter(ring->ring_fd, 0, 1,
 					IORING_ENTER_GETEVENTS, NULL);
 		if (ret < 0)
