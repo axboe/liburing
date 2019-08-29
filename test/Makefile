@@ -4,14 +4,15 @@ override CFLAGS += -Wall -D_GNU_SOURCE -L../src/ -I../src/include/
 all_targets += poll poll-cancel ring-leak fsync io_uring_setup io_uring_register \
 	       io_uring_enter nop sq-full cq-full 35fa71a030ca-test \
 		917257daa0fe-test b19062a56726-test eeed8b54e0df-test link \
-		send_recvmsg a4c0b3decb33-test
+		send_recvmsg a4c0b3decb33-test 500f9fbadef8-test
 
 all: $(all_targets)
 
 test_srcs := poll.c poll-cancel.c ring-leak.c fsync.c io_uring_setup.c \
 	io_uring_register.c io_uring_enter.c nop.c sq-full.c cq-full.c \
 	35fa71a030ca-test.c 917257daa0fe-test.c b19062a56726-test.c \
-	eeed8b54e0df-test.c link.c send_recvmsg.c a4c0b3decb33-test.c
+	eeed8b54e0df-test.c link.c send_recvmsg.c a4c0b3decb33-test.c \
+	500f9fbadef8-test.c
 
 test_objs := $(patsubst %.c,%.ol,$(test_srcs))
 
@@ -49,6 +50,8 @@ send_recvmsg: send_recvmsg.c
 	$(CC) $(CFLAGS) -o $@ send_recvmsg.c -luring
 a4c0b3decb33-test: a4c0b3decb33-test.c
 	$(CC) $(CFLAGS) -o $@ a4c0b3decb33-test.c -luring
+500f9fbadef8-test: 500f9fbadef8-test.c
+	$(CC) $(CFLAGS) -o $@ 500f9fbadef8-test.c -luring
 
 clean:
 	rm -f $(all_targets) $(test_objs)
