@@ -168,8 +168,13 @@ static int copy_file(struct io_uring *ring, off_t insize)
 			if (!got_comp) {
 				ret = io_uring_wait_cqe(ring, &cqe);
 				got_comp = 1;
-			} else
+			} else {
 				ret = io_uring_peek_cqe(ring, &cqe);
+				if (ret == -EAGAIN) {
+					cqe = NULL;
+					ret = 0;
+				}
+			}
 			if (ret < 0) {
 				fprintf(stderr, "io_uring_peek_cqe: %s\n",
 							strerror(-ret));
