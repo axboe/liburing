@@ -166,9 +166,10 @@ static inline void io_uring_prep_readv(struct io_uring_sqe *sqe, int fd,
 
 static inline void io_uring_prep_read_fixed(struct io_uring_sqe *sqe, int fd,
 					    void *buf, unsigned nbytes,
-					    off_t offset)
+					    off_t offset, int buf_index)
 {
 	io_uring_prep_rw(IORING_OP_READ_FIXED, sqe, fd, buf, nbytes, offset);
+	sqe->buf_index = buf_index;
 }
 
 static inline void io_uring_prep_writev(struct io_uring_sqe *sqe, int fd,
@@ -180,9 +181,10 @@ static inline void io_uring_prep_writev(struct io_uring_sqe *sqe, int fd,
 
 static inline void io_uring_prep_write_fixed(struct io_uring_sqe *sqe, int fd,
 					     const void *buf, unsigned nbytes,
-					     off_t offset)
+					     off_t offset, int buf_index)
 {
 	io_uring_prep_rw(IORING_OP_WRITE_FIXED, sqe, fd, buf, nbytes, offset);
+	sqe->buf_index = buf_index;
 }
 
 static inline void io_uring_prep_poll_add(struct io_uring_sqe *sqe, int fd,
