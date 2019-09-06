@@ -16,10 +16,30 @@ static int io_uring_mmap(int fd, struct io_uring_params *p,
 	int ret;
 
 	sq->ring_sz = p->sq_off.array + p->sq_entries * sizeof(unsigned);
+	cq->ring_sz = p->cq_off.cqes + p->cq_entries * sizeof(struct io_uring_cqe);
+
+	if (p->features & IORING_FEAT_SINGLE_MMAP) {
+		if (cq->ring_sz > sq->ring_sz) {
+			sq->ring_sz = cq->ring_sz;
+		}
+		cq->ring_sz = sq->ring_sz;
+	}
 	sq->ring_ptr = mmap(0, sq->ring_sz, PROT_READ | PROT_WRITE,
 			MAP_SHARED | MAP_POPULATE, fd, IORING_OFF_SQ_RING);
 	if (sq->ring_ptr == MAP_FAILED)
 		return -errno;
+
+	if (p->features & IORING_FEAT_SINGLE_MMAP) {
+		cq->ring_ptr = sq->ring_ptr;
+	} else {
+		cq->ring_ptr = mmap(0, cq->ring_sz, PROT_READ | PROT_WRITE,
+				MAP_SHARED | MAP_POPULATE, fd, IORING_OFF_CQ_RING);
+		if (cq->ring_ptr == MAP_FAILED) {
+			ret = -errno;
+			goto err;
+		}
+	}
+
 	sq->khead = sq->ring_ptr + p->sq_off.head;
 	sq->ktail = sq->ring_ptr + p->sq_off.tail;
 	sq->kring_mask = sq->ring_ptr + p->sq_off.ring_mask;
@@ -34,19 +54,14 @@ static int io_uring_mmap(int fd, struct io_uring_params *p,
 				IORING_OFF_SQES);
 	if (sq->sqes == MAP_FAILED) {
 		ret = -errno;
+		if (cq->ring_ptr != sq->ring_ptr) {
+			munmap(cq->ring_ptr, cq->ring_sz);
+		}
 err:
 		munmap(sq->ring_ptr, sq->ring_sz);
 		return ret;
 	}
 
-	cq->ring_sz = p->cq_off.cqes + p->cq_entries * sizeof(struct io_uring_cqe);
-	cq->ring_ptr = mmap(0, cq->ring_sz, PROT_READ | PROT_WRITE,
-			MAP_SHARED | MAP_POPULATE, fd, IORING_OFF_CQ_RING);
-	if (cq->ring_ptr == MAP_FAILED) {
-		ret = -errno;
-		munmap(sq->sqes, *sq->kring_entries * sizeof(struct io_uring_sqe));
-		goto err;
-	}
 	cq->khead = cq->ring_ptr + p->cq_off.head;
 	cq->ktail = cq->ring_ptr + p->cq_off.tail;
 	cq->kring_mask = cq->ring_ptr + p->cq_off.ring_mask;
@@ -105,6 +120,8 @@ void io_uring_queue_exit(struct io_uring *ring)
 
 	munmap(sq->sqes, *sq->kring_entries * sizeof(struct io_uring_sqe));
 	munmap(sq->ring_ptr, sq->ring_sz);
-	munmap(cq->ring_ptr, cq->ring_sz);
+	if (cq->ring_ptr != sq->ring_ptr) {
+		munmap(cq->ring_ptr, cq->ring_sz);
+	}
 	close(ring->ring_fd);
 }
