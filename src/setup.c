@@ -9,6 +9,13 @@
 #include "liburing/io_uring.h"
 #include "liburing.h"
 
+static void io_uring_unmap_rings(struct io_uring_sq *sq, struct io_uring_cq *cq)
+{
+	munmap(sq->ring_ptr, sq->ring_sz);
+	if (cq->ring_ptr && cq->ring_ptr != sq->ring_ptr)
+		munmap(cq->ring_ptr, cq->ring_sz);
+}
+
 static int io_uring_mmap(int fd, struct io_uring_params *p,
 			 struct io_uring_sq *sq, struct io_uring_cq *cq)
 {
@@ -19,9 +26,8 @@ static int io_uring_mmap(int fd, struct io_uring_params *p,
 	cq->ring_sz = p->cq_off.cqes + p->cq_entries * sizeof(struct io_uring_cqe);
 
 	if (p->features & IORING_FEAT_SINGLE_MMAP) {
-		if (cq->ring_sz > sq->ring_sz) {
+		if (cq->ring_sz > sq->ring_sz)
 			sq->ring_sz = cq->ring_sz;
-		}
 		cq->ring_sz = sq->ring_sz;
 	}
 	sq->ring_ptr = mmap(0, sq->ring_sz, PROT_READ | PROT_WRITE,
@@ -35,6 +41,7 @@ static int io_uring_mmap(int fd, struct io_uring_params *p,
 		cq->ring_ptr = mmap(0, cq->ring_sz, PROT_READ | PROT_WRITE,
 				MAP_SHARED | MAP_POPULATE, fd, IORING_OFF_CQ_RING);
 		if (cq->ring_ptr == MAP_FAILED) {
+			cq->ring_ptr = NULL;
 			ret = -errno;
 			goto err;
 		}
@@ -54,11 +61,8 @@ static int io_uring_mmap(int fd, struct io_uring_params *p,
 				IORING_OFF_SQES);
 	if (sq->sqes == MAP_FAILED) {
 		ret = -errno;
-		if (cq->ring_ptr != sq->ring_ptr) {
-			munmap(cq->ring_ptr, cq->ring_sz);
-		}
 err:
-		munmap(sq->ring_ptr, sq->ring_sz);
+		io_uring_unmap_rings(sq, cq);
 		return ret;
 	}
 
@@ -86,7 +90,7 @@ int io_uring_queue_mmap(int fd, struct io_uring_params *p, struct io_uring *ring
 	if (!ret) {
 		ring->flags = p->flags;
 		ring->ring_fd = fd;
-    }
+	}
 	return ret;
 }
 
@@ -119,9 +123,6 @@ void io_uring_queue_exit(struct io_uring *ring)
 	struct io_uring_cq *cq = &ring->cq;
 
 	munmap(sq->sqes, *sq->kring_entries * sizeof(struct io_uring_sqe));
-	munmap(sq->ring_ptr, sq->ring_sz);
-	if (cq->ring_ptr != sq->ring_ptr) {
-		munmap(cq->ring_ptr, cq->ring_sz);
-	}
+	io_uring_unmap_rings(sq, cq);
 	close(ring->ring_fd);
 }
