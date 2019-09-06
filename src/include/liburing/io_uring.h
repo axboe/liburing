@@ -41,7 +41,7 @@ struct io_uring_sqe {
  */
 #define IOSQE_FIXED_FILE	(1U << 0)	/* use fixed fileset */
 #define IOSQE_IO_DRAIN		(1U << 1)	/* issue after inflight IO */
-#define IOSQE_IO_LINK		(1U << 2)	/* next IO depends on this one */
+#define IOSQE_IO_LINK		(1U << 2)	/* links next sqe */
 
 /*
  * io_uring_setup() flags
@@ -128,10 +128,16 @@ struct io_uring_params {
 	__u32 flags;
 	__u32 sq_thread_cpu;
 	__u32 sq_thread_idle;
-	__u32 resv[5];
+	__u32 features;
+	__u32 resv[4];
 	struct io_sqring_offsets sq_off;
 	struct io_cqring_offsets cq_off;
 };
+
+/*
+ * io_uring_params->features flags
+ */
+#define IORING_FEAT_SINGLE_MMAP		(1U << 0)
 
 /*
  * io_uring_register(2) opcodes and arguments
