@@ -64,6 +64,8 @@ int main(int argc, char *argv[])
 	do {
 		ret = io_uring_peek_cqe(&ring, &cqe);
 		if (ret < 0) {
+			if (ret == -EAGAIN)
+				break;
 			printf("wait completion %d\n", ret);
 			goto err;
 		}
