@@ -15,6 +15,24 @@
 #include <sys/sysinfo.h>
 #include "liburing.h"
 
+char *features_string(struct io_uring_params *p)
+{
+	static char flagstr[64];
+
+	if (!p || !p->features)
+		return "none";
+
+	if (p->features & ~IORING_FEAT_SINGLE_MMAP) {
+		snprintf(flagstr, 64, "0x%.8x", p->features);
+		return flagstr;
+	}
+
+	if (p->features & IORING_FEAT_SINGLE_MMAP)
+		strncat(flagstr, "IORING_FEAT_SINGLE_MMAP", 64 - strlen(flagstr));
+
+	return flagstr;
+}
+
 /*
  * Attempt the call with the given args.  Return 0 when expect matches
  * the return value of the system call, 1 otherwise.
@@ -67,8 +85,8 @@ dump_resv(struct io_uring_params *p)
 	if (!p)
 		return "";
 
-	sprintf(resvstr, "0x%.8x 0x%.8x 0x%.8x 0x%.8x 0x%.8x", p->resv[0],
-		p->resv[1], p->resv[2], p->resv[3], p->resv[4]);
+	sprintf(resvstr, "0x%.8x 0x%.8x 0x%.8x 0x%.8x", p->resv[0],
+		p->resv[1], p->resv[2], p->resv[3]);
 
 	return resvstr;
 }
@@ -80,8 +98,8 @@ try_io_uring_setup(unsigned entries, struct io_uring_params *p, int expect, int 
 {
 	int ret, __errno;
 
-	printf("io_uring_setup(%u, %p), flags: %s, resv: %s, sq_thread_cpu: %u\n",
-	       entries, p, flags_string(p), dump_resv(p),
+	printf("io_uring_setup(%u, %p), flags: %s, feat: %s, resv: %s, sq_thread_cpu: %u\n",
+	       entries, p, flags_string(p), features_string(p), dump_resv(p),
 	       p ? p->sq_thread_cpu : 0);
 
 	ret = io_uring_setup(entries, p);
@@ -118,7 +136,7 @@ main(int argc, char **argv)
 
 	/* resv array is non-zero */
 	memset(&p, 0, sizeof(p));
-	p.resv[0] = p.resv[1] = p.resv[2] = p.resv[3] = p.resv[4] = 1;
+	p.resv[0] = p.resv[1] = p.resv[2] = p.resv[3] = 1;
 	status |= try_io_uring_setup(1, &p, -1, EINVAL);
 
 	/* invalid flags */
