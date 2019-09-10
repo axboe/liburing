@@ -92,10 +92,9 @@ try_io_uring_enter(int fd, unsigned int to_submit, unsigned int min_complete,
  * prep a read I/O.  index is treated like a block number.
  */
 int
-setup_file(off_t len)
+setup_file(char *template, off_t len)
 {
 	int fd, ret;
-	static char template[32] = "/tmp/io_uring_enter-test.XXXXXX";
 	char buf[4096];
 
 	fd = mkstemp(template);
@@ -176,11 +175,12 @@ submit_io(struct io_uring *ring, unsigned nr)
 	int fd, ret;
 	off_t file_len;
 	unsigned i;
+	static char template[32] = "/tmp/io_uring_enter-test.XXXXXX";
 	struct io_uring_sqe *sqe;
 
 	printf("Allocating %u sqes\n", nr);
 	file_len = nr * 4096;
-	fd = setup_file(file_len);
+	fd = setup_file(template, file_len);
 	for (i = 0; i < nr; i++) {
 		/* allocate an sqe */
 		sqe = io_uring_get_sqe(ring);
@@ -191,6 +191,7 @@ submit_io(struct io_uring *ring, unsigned nr)
 	/* submit the I/Os */
 	printf("Submitting %u I/Os\n", nr);
 	ret = io_uring_submit(ring);
+	unlink(template);
 	if (ret < 0) {
 		perror("io_uring_enter");
 		exit(1);
