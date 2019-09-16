@@ -5,6 +5,7 @@
 extern "C" {
 #endif
 
+#include <sys/socket.h>
 #include <sys/uio.h>
 #include <signal.h>
 #include <string.h>
@@ -185,6 +186,20 @@ static inline void io_uring_prep_write_fixed(struct io_uring_sqe *sqe, int fd,
 {
 	io_uring_prep_rw(IORING_OP_WRITE_FIXED, sqe, fd, buf, nbytes, offset);
 	sqe->buf_index = buf_index;
+}
+
+static inline void io_uring_prep_recvmsg(struct io_uring_sqe *sqe, int fd,
+					 struct msghdr *msg, unsigned flags)
+{
+	io_uring_prep_rw(IORING_OP_RECVMSG, sqe, fd, msg, 1, 0);
+	sqe->msg_flags = flags;
+}
+
+static inline void io_uring_prep_sendmsg(struct io_uring_sqe *sqe, int fd,
+					 const struct msghdr *msg, unsigned flags)
+{
+	io_uring_prep_rw(IORING_OP_SENDMSG, sqe, fd, msg, 1, 0);
+	sqe->msg_flags = flags;
 }
 
 static inline void io_uring_prep_poll_add(struct io_uring_sqe *sqe, int fd,
