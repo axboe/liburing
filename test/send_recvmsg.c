@@ -61,11 +61,7 @@ static int do_recvmsg(void)
 	msg.msg_iovlen = 1;
 
 	sqe = io_uring_get_sqe(&ring);
-	memset(sqe, 0, sizeof(*sqe));
-	sqe->opcode = IORING_OP_RECVMSG;
-	sqe->fd = sockfd;
-	sqe->addr = (uintptr_t) &msg;
-	sqe->len = 1;
+	io_uring_prep_recvmsg(sqe, sockfd, &msg, 0);
 
 	ret = io_uring_submit(&ring);
 	if (ret <= 0) {
@@ -133,11 +129,7 @@ static int do_sendmsg(void)
 	}
 
 	sqe = io_uring_get_sqe(&ring);
-	memset(sqe, 0, sizeof(*sqe));
-	sqe->opcode = IORING_OP_SENDMSG;
-	sqe->fd = sockfd;
-	sqe->addr = (uintptr_t) &msg;
-	sqe->len = 1;
+	io_uring_prep_sendmsg(sqe, sockfd, &msg, 0);
 
 	ret = io_uring_submit(&ring);
 	if (ret <= 0) {
