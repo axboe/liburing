@@ -10,7 +10,6 @@ extern "C" {
 #include <signal.h>
 #include <string.h>
 #include <inttypes.h>
-#include <time.h>
 #include "liburing/compat.h"
 #include "liburing/io_uring.h"
 #include "liburing/barrier.h"
@@ -233,12 +232,6 @@ static inline void io_uring_prep_nop(struct io_uring_sqe *sqe)
 {
 	memset(sqe, 0, sizeof(*sqe));
 	sqe->opcode = IORING_OP_NOP;
-}
-
-static inline void io_uring_prep_timeout(struct io_uring_sqe *sqe,
-					 struct timespec *ts)
-{
-	io_uring_prep_rw(IORING_OP_TIMEOUT, sqe, 0, ts, 1, 0);
 }
 
 #ifdef __cplusplus
