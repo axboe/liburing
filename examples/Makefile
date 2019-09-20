@@ -1,7 +1,7 @@
 CFLAGS ?= -g -O2
 override CFLAGS += -Wall -D_GNU_SOURCE -L../src/ -I../src/include/
 
-all_targets += io_uring-test io_uring-cp link-cp
+all_targets += io_uring-test io_uring-cp link-cp ucontext-cp
 
 all: $(all_targets)
 
@@ -15,6 +15,8 @@ io_uring-cp: io_uring-cp.c
 	$(CC) $(CFLAGS) -o $@ io_uring-cp.c -luring
 link-cp: link-cp.c
 	$(CC) $(CFLAGS) -o $@ link-cp.c -luring
+ucontext-cp: ucontext-cp.c
+	$(CC) $(CFLAGS) -o $@ ucontext-cp.c -luring
 
 clean:
 	rm -f $(all_targets) $(test_objs)
