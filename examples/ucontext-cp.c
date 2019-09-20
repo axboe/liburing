@@ -31,31 +31,29 @@ typedef struct {
 	int outfd;
 } arguments_bundle;
 
-#define DEFINE_AWAIT_OP(operation) \
-static ssize_t await_##operation( \
-	async_context *pctx, \
-	int fd, \
-	const struct iovec *ioves, \
-	unsigned int nr_vecs, \
-	off_t offset) \
-{ \
-	struct io_uring_sqe *sqe = io_uring_get_sqe(&pctx->ring); \
-\
-	if (!sqe) { \
-		return -1; \
-	} \
-\
-	io_uring_prep_##operation(sqe, fd, ioves, nr_vecs, offset); \
-	io_uring_sqe_set_data(sqe, pctx); \
-	io_uring_submit(&pctx->ring); \
-	swapcontext(&pctx->ctx_fnew, &pctx->ctx_main); \
-	struct io_uring_cqe *cqe; \
-	if (io_uring_peek_cqe(&pctx->ring, &cqe) < 0) { \
-		return -1; \
-	} \
-	io_uring_cqe_seen(&pctx->ring, cqe); \
-\
-	return cqe->res; \
+#define DEFINE_AWAIT_OP(operation) 					\
+static ssize_t await_##operation(					\
+	async_context *pctx,						\
+	int fd,								\
+	const struct iovec *ioves,					\
+	unsigned int nr_vecs,						\
+	off_t offset)							\
+{									\
+	struct io_uring_sqe *sqe = io_uring_get_sqe(&pctx->ring);	\
+	struct io_uring_cqe *cqe;					\
+									\
+	if (!sqe)							\
+		return -1;						\
+									\
+	io_uring_prep_##operation(sqe, fd, ioves, nr_vecs, offset);	\
+	io_uring_sqe_set_data(sqe, pctx);				\
+	io_uring_submit(&pctx->ring);					\
+	swapcontext(&pctx->ctx_fnew, &pctx->ctx_main);			\
+	if (io_uring_peek_cqe(&pctx->ring, &cqe) < 0)			\
+		return -1;						\
+	io_uring_cqe_seen(&pctx->ring, cqe);				\
+									\
+	return cqe->res;						\
 }
 
 DEFINE_AWAIT_OP(readv)
@@ -95,14 +93,16 @@ static int copy_file(async_context *pctx, int infd, int outfd, struct iovec* pio
 			perror("await_readv");
 			return 1;
 		}
-		if (bytes_read == 0) return 0;
+		if (bytes_read == 0)
+			return 0;
 		piov->iov_len = bytes_read;
 
 		if (await_writev(pctx, outfd, piov, 1, offset) != bytes_read) {
 			perror("await_writev");
 			return 1;
 		}
-		if (bytes_read < BS) return 0;
+		if (bytes_read < BS)
+			return 0;
 		offset += bytes_read;
 	}
 }
@@ -159,12 +159,12 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-	// event loop
+	/* event loop */
 	while (bundle.ret == -1) {
 		int ret;
 		async_context* pctx;
 
-		// usually be timed waiting
+		/* usually be timed waiting */
 		ret = io_uring_wait_cqe(&ctx.ring, &cqe);
 		if (ret < 0) {
 			fprintf(stderr, "wait_cqe: %s\n", strerror(-ret));
