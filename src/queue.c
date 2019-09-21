@@ -65,6 +65,9 @@ int io_uring_wait_cqe(struct io_uring *ring, struct io_uring_cqe **cqe_ptr)
  * Like io_uring_wait_cqe(), except it accepts a timeout value as well. Note
  * that an sqe is used internally to handle the timeout. Applications using
  * this function must never set sqe->user_data to LIBURING_UDATA_TIMEOUT!
+ *
+ * Note that the application need not call io_uring_submit() before calling
+ * this function, as we will do that on its behalf.
  */
 int io_uring_wait_cqe_timeout(struct io_uring *ring,
 			      struct io_uring_cqe **cqe_ptr,
