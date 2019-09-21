@@ -79,14 +79,14 @@ int io_uring_wait_cqe_timeout(struct io_uring *ring,
 	sqe = io_uring_get_sqe(ring);
 	if (!sqe) {
 		ret = io_uring_submit(ring);
-		if (ret)
+		if (ret < 0)
 			return ret;
 		sqe = io_uring_get_sqe(ring);
 	}
 	io_uring_prep_timeout(sqe, ts, 1);
 	sqe->user_data = LIBURING_UDATA_TIMEOUT;
 	ret = io_uring_submit(ring);
-	if (ret)
+	if (ret < 0)
 		return ret;
 
 	return __io_uring_get_cqe(ring, cqe_ptr, 1, 1);
