@@ -197,7 +197,7 @@ static int test_single_timeout_wait(struct io_uring *ring)
 
 	i = 0;
 	do {
-		ret = io_uring_wait_cqe_timeout(ring, &cqe, &ts);
+		ret = io_uring_wait_cqes_timeout(ring, &cqe, 2, &ts);
 		if (ret == -ETIME)
 			break;
 		if (ret < 0) {
