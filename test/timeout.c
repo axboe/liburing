@@ -177,6 +177,57 @@ err:
 	return 1;
 }
 
+static int test_single_timeout_wait(struct io_uring *ring)
+{
+	struct io_uring_cqe *cqe;
+	struct io_uring_sqe *sqe;
+	struct timespec ts;
+	int i, ret;
+
+	sqe = io_uring_get_sqe(ring);
+	io_uring_prep_nop(sqe);
+	io_uring_sqe_set_data(sqe, (void *) 1);
+
+	sqe = io_uring_get_sqe(ring);
+	io_uring_prep_nop(sqe);
+	io_uring_sqe_set_data(sqe, (void *) 1);
+
+	ret = io_uring_submit(ring);
+	if (ret <= 0) {
+		printf("sqe submit failed: %d\n", ret);
+		goto err;
+	}
+
+	ts.tv_sec = 1;
+	ts.tv_nsec = 0;
+
+	i = 0;
+	do {
+		ret = io_uring_wait_cqe_timeout(ring, &cqe, &ts);
+		if (ret == -ETIME)
+			break;
+		if (ret < 0) {
+			printf("wait timeout failed: %d\n", ret);
+			goto err;
+		}
+
+		if (cqe->res < 0) {
+			printf("res: %d\n", cqe->res);
+			goto err;
+		}
+		io_uring_cqe_seen(ring, cqe);
+		i++;
+	} while (1);
+
+	if (i != 2) {
+		printf("got %d completions\n", i);
+		goto err;
+	}
+	return 0;
+err:
+	return 1;
+}
+
 /*
  * Test single timeout waking us up
  */
@@ -290,6 +341,12 @@ int main(int argc, char *argv[])
 	ret = test_single_timeout_nr(&ring);
 	if (ret) {
 		printf("test_single_timeout_nr failed\n");
+		return ret;
+	}
+
+	ret = test_single_timeout_wait(&ring);
+	if (ret) {
+		printf("test_single_timeout_wait failed\n");
 		return ret;
 	}
 
