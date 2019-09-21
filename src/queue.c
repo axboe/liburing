@@ -12,25 +12,35 @@
 #include "liburing/barrier.h"
 
 static int __io_uring_get_cqe(struct io_uring *ring,
-			      struct io_uring_cqe **cqe_ptr, int wait)
+			      struct io_uring_cqe **cqe_ptr, unsigned submit,
+			      int wait)
 {
+	int ret, err = 0;
 	unsigned head;
-	int ret;
 
 	do {
 		io_uring_for_each_cqe(ring, head, *cqe_ptr)
 			break;
-		if (*cqe_ptr)
+		if (*cqe_ptr) {
+			if ((*cqe_ptr)->user_data == LIBURING_UDATA_TIMEOUT) {
+				if ((*cqe_ptr)->res < 0)
+					err = (*cqe_ptr)->res;
+				io_uring_cq_advance(ring, 1);
+				if (!err)
+					continue;
+				*cqe_ptr = NULL;
+			}
 			break;
+		}
 		if (!wait)
 			return -EAGAIN;
-		ret = io_uring_enter(ring->ring_fd, 0, 1,
-					IORING_ENTER_GETEVENTS, NULL);
+		ret = io_uring_enter(ring->ring_fd, submit, 1,
+				IORING_ENTER_GETEVENTS, NULL);
 		if (ret < 0)
 			return -errno;
 	} while (1);
 
-	return 0;
+	return err;
 }
 
 /*
@@ -39,7 +49,7 @@ static int __io_uring_get_cqe(struct io_uring *ring,
  */
 int io_uring_peek_cqe(struct io_uring *ring, struct io_uring_cqe **cqe_ptr)
 {
-	return __io_uring_get_cqe(ring, cqe_ptr, 0);
+	return __io_uring_get_cqe(ring, cqe_ptr, 0, 0);
 }
 
 /*
@@ -48,7 +58,38 @@ int io_uring_peek_cqe(struct io_uring *ring, struct io_uring_cqe **cqe_ptr)
  */
 int io_uring_wait_cqe(struct io_uring *ring, struct io_uring_cqe **cqe_ptr)
 {
-	return __io_uring_get_cqe(ring, cqe_ptr, 1);
+	return __io_uring_get_cqe(ring, cqe_ptr, 0, 1);
+}
+
+/*
+ * Like io_uring_wait_cqe(), except it accepts a timeout value as well. Note
+ * that an sqe is used internally to handle the timeout. Applications using
+ * this function must never set sqe->user_data to LIBURING_UDATA_TIMEOUT!
+ */
+int io_uring_wait_cqe_timeout(struct io_uring *ring,
+			      struct io_uring_cqe **cqe_ptr,
+			      struct timespec *ts)
+{
+	struct io_uring_sqe *sqe;
+	int ret;
+
+	/*
+	 * If the SQ ring is full, we may need to submit IO first
+	 */
+	sqe = io_uring_get_sqe(ring);
+	if (!sqe) {
+		ret = io_uring_submit(ring);
+		if (ret)
+			return ret;
+		sqe = io_uring_get_sqe(ring);
+	}
+	io_uring_prep_timeout(sqe, ts, 1);
+	sqe->user_data = LIBURING_UDATA_TIMEOUT;
+	ret = io_uring_submit(ring);
+	if (ret)
+		return ret;
+
+	return __io_uring_get_cqe(ring, cqe_ptr, 1, 1);
 }
 
 /*
