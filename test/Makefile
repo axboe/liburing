@@ -1,4 +1,5 @@
 CFLAGS ?= -g -O2
+XCFLAGS =
 override CFLAGS += -Wall -D_GNU_SOURCE -L../src/ -I../src/include/
 
 all_targets += poll poll-cancel ring-leak fsync io_uring_setup io_uring_register \
@@ -9,6 +10,9 @@ all_targets += poll poll-cancel ring-leak fsync io_uring_setup io_uring_register
 
 all: $(all_targets)
 
+%: %.c
+	$(CC) $(CFLAGS) -o $@ $< -luring $(XCFLAGS)
+
 test_srcs := poll.c poll-cancel.c ring-leak.c fsync.c io_uring_setup.c \
 	io_uring_register.c io_uring_enter.c nop.c sq-full.c cq-full.c \
 	35fa71a030ca-test.c 917257daa0fe-test.c b19062a56726-test.c \
@@ -17,46 +21,7 @@ test_srcs := poll.c poll-cancel.c ring-leak.c fsync.c io_uring_setup.c \
 
 test_objs := $(patsubst %.c,%.ol,$(test_srcs))
 
-poll: poll.c
-	$(CC) $(CFLAGS) -o $@ poll.c -luring
-poll-cancel: poll-cancel.c
-	$(CC) $(CFLAGS) -o $@ poll-cancel.c -luring
-ring-leak: ring-leak.c
-	$(CC) $(CFLAGS) -o $@ ring-leak.c -luring
-fsync: fsync.c
-	$(CC) $(CFLAGS) -o $@ fsync.c -luring
-io_uring_setup: io_uring_setup.c
-	$(CC) $(CFLAGS) -o $@ io_uring_setup.c -luring
-io_uring_register: io_uring_register.c
-	$(CC) $(CFLAGS) -o $@ io_uring_register.c -luring
-io_uring_enter: io_uring_enter.c
-	$(CC) $(CFLAGS) -o $@ io_uring_enter.c -luring
-nop: nop.c
-	$(CC) $(CFLAGS) -o $@ nop.c -luring
-sq-full: sq-full.c
-	$(CC) $(CFLAGS) -o $@ sq-full.c -luring
-sq-space_left: sq-space_left.c
-	$(CC) $(CFLAGS) -o $@ sq-space_left.c -luring
-cq-full: cq-full.c
-	$(CC) $(CFLAGS) -o $@ cq-full.c -luring
-35fa71a030ca-test: 35fa71a030ca-test.c
-	$(CC) $(CFLAGS) -o $@ 35fa71a030ca-test.c -lpthread
-917257daa0fe-test: 917257daa0fe-test.c
-	$(CC) $(CFLAGS) -o $@ 917257daa0fe-test.c
-b19062a56726-test: b19062a56726-test.c
-	$(CC) $(CFLAGS) -o $@ b19062a56726-test.c
-eeed8b54e0df-test: eeed8b54e0df-test.c
-	$(CC) $(CFLAGS) -o $@ eeed8b54e0df-test.c -luring
-link: link.c
-	$(CC) $(CFLAGS) -o $@ link.c -luring
-send_recvmsg: send_recvmsg.c
-	$(CC) $(CFLAGS) -o $@ send_recvmsg.c -luring
-a4c0b3decb33-test: a4c0b3decb33-test.c
-	$(CC) $(CFLAGS) -o $@ a4c0b3decb33-test.c -luring
-500f9fbadef8-test: 500f9fbadef8-test.c
-	$(CC) $(CFLAGS) -o $@ 500f9fbadef8-test.c -luring
-timeout: timeout.c
-	$(CC) $(CFLAGS) -o $@ timeout.c -luring
+35fa71a030ca-test: XCFLAGS = -lpthread
 
 clean:
 	rm -f $(all_targets) $(test_objs)
