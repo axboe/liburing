@@ -8,7 +8,6 @@ extern "C" {
 #include <sys/socket.h>
 #include <sys/uio.h>
 #include <signal.h>
-#include <string.h>
 #include <inttypes.h>
 #include <time.h>
 #include "liburing/compat.h"
@@ -151,12 +150,16 @@ static inline void io_uring_prep_rw(int op, struct io_uring_sqe *sqe, int fd,
 				    const void *addr, unsigned len,
 				    off_t offset)
 {
-	memset(sqe, 0, sizeof(*sqe));
 	sqe->opcode = op;
+	sqe->flags = 0;
+	sqe->ioprio = 0;
 	sqe->fd = fd;
 	sqe->off = offset;
 	sqe->addr = (unsigned long) addr;
 	sqe->len = len;
+	sqe->rw_flags = 0;
+	sqe->user_data = 0;
+	sqe->__pad2[0] = sqe->__pad2[1] = sqe->__pad2[2] = 0;
 }
 
 static inline void io_uring_prep_readv(struct io_uring_sqe *sqe, int fd,
@@ -206,33 +209,26 @@ static inline void io_uring_prep_sendmsg(struct io_uring_sqe *sqe, int fd,
 static inline void io_uring_prep_poll_add(struct io_uring_sqe *sqe, int fd,
 					  short poll_mask)
 {
-	memset(sqe, 0, sizeof(*sqe));
-	sqe->opcode = IORING_OP_POLL_ADD;
-	sqe->fd = fd;
+	io_uring_prep_rw(IORING_OP_POLL_ADD, sqe, fd, NULL, 0, 0);
 	sqe->poll_events = poll_mask;
 }
 
 static inline void io_uring_prep_poll_remove(struct io_uring_sqe *sqe,
 					     void *user_data)
 {
-	memset(sqe, 0, sizeof(*sqe));
-	sqe->opcode = IORING_OP_POLL_REMOVE;
-	sqe->addr = (unsigned long) user_data;
+	io_uring_prep_rw(IORING_OP_POLL_REMOVE, sqe, 0, user_data, 0, 0);
 }
 
 static inline void io_uring_prep_fsync(struct io_uring_sqe *sqe, int fd,
 				       unsigned fsync_flags)
 {
-	memset(sqe, 0, sizeof(*sqe));
-	sqe->opcode = IORING_OP_FSYNC;
-	sqe->fd = fd;
+	io_uring_prep_rw(IORING_OP_FSYNC, sqe, fd, NULL, 0, 0);
 	sqe->fsync_flags = fsync_flags;
 }
 
 static inline void io_uring_prep_nop(struct io_uring_sqe *sqe)
 {
-	memset(sqe, 0, sizeof(*sqe));
-	sqe->opcode = IORING_OP_NOP;
+	io_uring_prep_rw(IORING_OP_NOP, sqe, 0, NULL, 0, 0);
 }
 
 static inline void io_uring_prep_timeout(struct io_uring_sqe *sqe,
