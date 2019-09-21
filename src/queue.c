@@ -13,7 +13,7 @@
 
 static int __io_uring_get_cqe(struct io_uring *ring,
 			      struct io_uring_cqe **cqe_ptr, unsigned submit,
-			      int wait)
+			      unsigned wait_nr)
 {
 	int ret, err = 0;
 	unsigned head;
@@ -32,9 +32,9 @@ static int __io_uring_get_cqe(struct io_uring *ring,
 			}
 			break;
 		}
-		if (!wait)
+		if (!wait_nr)
 			return -EAGAIN;
-		ret = io_uring_enter(ring->ring_fd, submit, 1,
+		ret = io_uring_enter(ring->ring_fd, submit, wait_nr,
 				IORING_ENTER_GETEVENTS, NULL);
 		if (ret < 0)
 			return -errno;
