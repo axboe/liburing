@@ -74,6 +74,8 @@ extern int io_uring_peek_cqe(struct io_uring *ring,
 	struct io_uring_cqe **cqe_ptr);
 extern int io_uring_wait_cqe(struct io_uring *ring,
 	struct io_uring_cqe **cqe_ptr);
+extern int io_uring_wait_cqe_timeout(struct io_uring *ring,
+	struct io_uring_cqe **cqe_ptr, struct timespec *ts);
 extern int io_uring_submit(struct io_uring *ring);
 extern int io_uring_submit_and_wait(struct io_uring *ring, unsigned wait_nr);
 extern struct io_uring_sqe *io_uring_get_sqe(struct io_uring *ring);
@@ -87,6 +89,8 @@ extern int io_uring_register_files(struct io_uring *ring, const int *files,
 extern int io_uring_unregister_files(struct io_uring *ring);
 extern int io_uring_register_eventfd(struct io_uring *ring, int fd);
 extern int io_uring_unregister_eventfd(struct io_uring *ring);
+
+#define LIBURING_TIMEOUT	((__u64) -1)
 
 #define io_uring_for_each_cqe(ring, head, cqe)					\
 	/*									\
