@@ -74,6 +74,8 @@ extern int io_uring_peek_cqe(struct io_uring *ring,
 	struct io_uring_cqe **cqe_ptr);
 extern int io_uring_wait_cqe(struct io_uring *ring,
 	struct io_uring_cqe **cqe_ptr);
+extern int io_uring_wait_cqes_timeout(struct io_uring *ring,
+	struct io_uring_cqe **cqe_ptr, unsigned wait_nr, struct timespec *ts);
 extern int io_uring_wait_cqe_timeout(struct io_uring *ring,
 	struct io_uring_cqe **cqe_ptr, struct timespec *ts);
 extern int io_uring_submit(struct io_uring *ring);

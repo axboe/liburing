@@ -69,30 +69,46 @@ int io_uring_wait_cqe(struct io_uring *ring, struct io_uring_cqe **cqe_ptr)
  * Note that the application need not call io_uring_submit() before calling
  * this function, as we will do that on its behalf.
  */
-int io_uring_wait_cqe_timeout(struct io_uring *ring,
-			      struct io_uring_cqe **cqe_ptr,
-			      struct timespec *ts)
+int io_uring_wait_cqes_timeout(struct io_uring *ring,
+			       struct io_uring_cqe **cqe_ptr,
+			       unsigned wait_nr,
+			       struct timespec *ts)
 {
-	struct io_uring_sqe *sqe;
 	int ret;
 
-	/*
-	 * If the SQ ring is full, we may need to submit IO first
-	 */
-	sqe = io_uring_get_sqe(ring);
-	if (!sqe) {
-		ret = io_uring_submit(ring);
-		if (ret < 0)
-			return ret;
+	if (wait_nr) {
+		struct io_uring_sqe *sqe;
+
+		/*
+		 * If the SQ ring is full, we may need to submit IO first
+		 */
 		sqe = io_uring_get_sqe(ring);
+		if (!sqe) {
+			ret = io_uring_submit(ring);
+			if (ret < 0)
+				return ret;
+			sqe = io_uring_get_sqe(ring);
+		}
+		io_uring_prep_timeout(sqe, ts, wait_nr);
+		sqe->user_data = LIBURING_UDATA_TIMEOUT;
 	}
-	io_uring_prep_timeout(sqe, ts, 1);
-	sqe->user_data = LIBURING_UDATA_TIMEOUT;
+
 	ret = io_uring_submit(ring);
 	if (ret < 0)
 		return ret;
 
 	return __io_uring_get_cqe(ring, cqe_ptr, 1, 1);
+}
+
+/*
+ * See io_uring_wait_cqes_timeout() - this function is the same, it just
+ * always uses '1' as the wait_nr.
+ */
+int io_uring_wait_cqe_timeout(struct io_uring *ring,
+			      struct io_uring_cqe **cqe_ptr,
+			      struct timespec *ts)
+{
+	return io_uring_wait_cqes_timeout(ring, cqe_ptr, 1, ts);
 }
 
 /*
