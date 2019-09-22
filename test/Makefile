@@ -8,10 +8,17 @@ all_targets += poll poll-cancel ring-leak fsync io_uring_setup io_uring_register
 		send_recvmsg a4c0b3decb33-test 500f9fbadef8-test timeout \
 		sq-space_left
 
+ifneq ($(findstring $(MAKEFLAGS),s),s)
+ifndef V
+	QUIET_CC	= @echo '   ' CC $@;
+	QUIET_LINK	= @echo ' ' LINK $@;
+endif
+endif
+
 all: $(all_targets)
 
 %: %.c
-	$(CC) $(CFLAGS) -o $@ $< -luring $(XCFLAGS)
+	$(QUIET_CC)$(CC) $(CFLAGS) -o $@ $< -luring $(XCFLAGS)
 
 test_srcs := poll.c poll-cancel.c ring-leak.c fsync.c io_uring_setup.c \
 	io_uring_register.c io_uring_enter.c nop.c sq-full.c cq-full.c \
