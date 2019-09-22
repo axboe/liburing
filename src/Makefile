@@ -20,12 +20,7 @@ ifeq ($(ENABLE_SHARED),1)
 all_targets += $(libname)
 endif
 
-ifneq ($(findstring $(MAKEFLAGS),s),s)
-ifndef V
-	QUIET_CC	= @echo '   ' CC $@;
-	QUIET_LINK	= @echo ' ' LINK $@;
-endif
-endif
+include ../Makefile.quiet
 
 all: $(all_targets)
 
@@ -45,9 +40,9 @@ $(liburing_objs) $(liburing_sobjs): include/liburing/io_uring.h
 AR ?= ar
 RANLIB ?= ranlib
 liburing.a: $(liburing_objs)
-	rm -f liburing.a
-	$(AR) r liburing.a $^
-	$(RANLIB) liburing.a
+	@rm -f liburing.a
+	$(QUIET_AR)$(AR) r liburing.a $^
+	$(QUIET_RANLIB)$(RANLIB) liburing.a
 
 $(libname): $(liburing_sobjs) liburing.map
 	$(QUIET_CC)$(CC) $(SO_CFLAGS) -Wl,--version-script=liburing.map -Wl,-soname=$(soname) -o $@ $(liburing_sobjs) $(LINK_FLAGS)
