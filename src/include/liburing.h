@@ -248,6 +248,11 @@ static inline unsigned io_uring_sq_space_left(struct io_uring *ring)
 	return *ring->sq.kring_entries - (ring->sq.sqe_tail - ring->sq.sqe_head);
 }
 
+static inline unsigned io_uring_cq_ready(struct io_uring *ring)
+{
+	return io_uring_smp_load_acquire(ring->cq.ktail) - *ring->cq.khead;
+}
+
 #ifdef __cplusplus
 }
 #endif
