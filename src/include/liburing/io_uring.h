@@ -28,6 +28,7 @@ struct io_uring_sqe {
 		__u16		poll_events;
 		__u32		sync_range_flags;
 		__u32		msg_flags;
+		__u32		timeout_flags;
 	};
 	__u64	user_data;	/* data to be passed back at completion time */
 	union {
