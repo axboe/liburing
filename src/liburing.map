@@ -60,6 +60,14 @@ LIBURING_0.3 {
 
 		io_uring_queue_init_params;
 		io_uring_register_files_update;
+
+		io_queue_init;
+		io_setup;
+		io_destroy;
+		io_submit;
+		io_getevents;
+		io_pgetevents;
+		io_cancel;
 	local:
 		__sys_io_uring_setup;
 		__sys_io_uring_enter;
