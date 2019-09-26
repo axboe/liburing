@@ -72,6 +72,8 @@ extern int io_uring_queue_mmap(int fd, struct io_uring_params *p,
 extern void io_uring_queue_exit(struct io_uring *ring);
 extern int io_uring_peek_cqe(struct io_uring *ring,
 	struct io_uring_cqe **cqe_ptr);
+unsigned io_uring_peek_batch_cqe(struct io_uring *ring,
+	struct io_uring_cqe **cqes, unsigned count);
 extern int io_uring_wait_cqe(struct io_uring *ring,
 	struct io_uring_cqe **cqe_ptr);
 extern int io_uring_wait_cqes_timeout(struct io_uring *ring,
@@ -246,6 +248,11 @@ static inline void io_uring_prep_timeout(struct io_uring_sqe *sqe,
 static inline unsigned io_uring_sq_space_left(struct io_uring *ring)
 {
 	return *ring->sq.kring_entries - (ring->sq.sqe_tail - ring->sq.sqe_head);
+}
+
+static inline unsigned io_uring_cq_ready(struct io_uring *ring)
+{
+	return io_uring_smp_load_acquire(ring->cq.ktail) - *ring->cq.khead;
 }
 
 #ifdef __cplusplus

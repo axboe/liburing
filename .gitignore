@@ -20,6 +20,8 @@
 /test/a4c0b3decb33-test
 /test/b19062a56726-test
 /test/cq-full
+/test/cq-ready
+/test/cq-peek-batch
 /test/eeed8b54e0df-test
 /test/fsync
 /test/io_uring_enter
@@ -33,6 +35,7 @@
 /test/send_recvmsg
 /test/sq-full
 /test/sq-space_left
+/test/stdout
 /test/timeout
 
 config-host.h
