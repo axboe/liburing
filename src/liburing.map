@@ -5,6 +5,7 @@ LIBURING_0.1 {
 		io_uring_queue_exit;
 		io_uring_peek_cqe;
 		io_uring_wait_cqe;
+		io_uring_peek_batch_cqe;
 		io_uring_wait_cqe_timeout;
 		io_uring_wait_cqes_timeout;
 		io_uring_submit;

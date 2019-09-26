@@ -56,18 +56,22 @@ int io_uring_peek_cqe(struct io_uring *ring, struct io_uring_cqe **cqe_ptr)
  * Fill in an array of IO completions up to count, if any are available.
  * Returns the amount of IO completions filled.
  */
-unsigned io_uring_peek_batch_cqe(struct io_uring *ring, struct io_uring_cqe **cqes, unsigned count)
+unsigned io_uring_peek_batch_cqe(struct io_uring *ring,
+				 struct io_uring_cqe **cqes, unsigned count)
 {
-	unsigned ready = io_uring_cq_ready(ring);
+	unsigned ready;
+
+	ready = io_uring_cq_ready(ring);
 	if (ready) {
-		count = count > ready ? ready : count;
 		unsigned head = *ring->cq.khead;
-		unsigned last = head + count;
 		unsigned mask = *ring->cq.kring_mask;
+		unsigned last;
 		int i = 0;
-		for (;head!=last;head++,i++) {
+
+		count = count > ready ? ready : count;
+		last = head + count;
+		for (;head != last; head++, i++)
 			cqes[i] = &ring->cq.cqes[head & mask];
-		}
 
 		return count;
 	}
