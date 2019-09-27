@@ -124,6 +124,16 @@ int io_uring_wait_cqe(struct io_uring *ring, struct io_uring_cqe **cqe_ptr)
 }
 
 /*
+ * Like io_uring_wait_cqe(), except we ask to wait for more entries in the
+ * kernel.
+ */
+int io_uring_wait_cqes(struct io_uring *ring, struct io_uring_cqe **cqe_ptr,
+		       unsigned wait_nr)
+{
+	return __io_uring_get_cqe(ring, cqe_ptr, 0, wait_nr);
+}
+
+/*
  * Like io_uring_wait_cqe(), except it accepts a timeout value as well. Note
  * that an sqe is used internally to handle the timeout. Applications using
  * this function must never set sqe->user_data to LIBURING_UDATA_TIMEOUT!
