@@ -27,6 +27,5 @@ LIBURING_0.2 {
 	global:
 		io_uring_peek_batch_cqe;
 		io_uring_wait_cqe_timeout;
-		io_uring_wait_cqes_timeout;
 		io_uring_wait_cqes;
 } LIBURING_0.1;

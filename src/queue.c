@@ -13,7 +13,7 @@
 
 static int __io_uring_get_cqe(struct io_uring *ring,
 			      struct io_uring_cqe **cqe_ptr, unsigned submit,
-			      unsigned wait_nr)
+			      unsigned wait_nr, sigset_t *sigmask)
 {
 	int ret, err = 0;
 	unsigned head;
@@ -35,7 +35,7 @@ static int __io_uring_get_cqe(struct io_uring *ring,
 		if (!wait_nr)
 			return -EAGAIN;
 		ret = io_uring_enter(ring->ring_fd, submit, wait_nr,
-				IORING_ENTER_GETEVENTS, NULL);
+				IORING_ENTER_GETEVENTS, sigmask);
 		if (ret < 0)
 			return -errno;
 	} while (1);
@@ -49,7 +49,7 @@ static int __io_uring_get_cqe(struct io_uring *ring,
  */
 int io_uring_peek_cqe(struct io_uring *ring, struct io_uring_cqe **cqe_ptr)
 {
-	return __io_uring_get_cqe(ring, cqe_ptr, 0, 0);
+	return __io_uring_get_cqe(ring, cqe_ptr, 0, 0, NULL);
 }
 
 /*
@@ -120,17 +120,7 @@ static int __io_uring_flush_sq(struct io_uring *ring)
  */
 int io_uring_wait_cqe(struct io_uring *ring, struct io_uring_cqe **cqe_ptr)
 {
-	return __io_uring_get_cqe(ring, cqe_ptr, 0, 1);
-}
-
-/*
- * Like io_uring_wait_cqe(), except we ask to wait for more entries in the
- * kernel.
- */
-int io_uring_wait_cqes(struct io_uring *ring, struct io_uring_cqe **cqe_ptr,
-		       unsigned wait_nr)
-{
-	return __io_uring_get_cqe(ring, cqe_ptr, 0, wait_nr);
+	return __io_uring_get_cqe(ring, cqe_ptr, 0, 1, NULL);
 }
 
 /*
@@ -141,17 +131,12 @@ int io_uring_wait_cqes(struct io_uring *ring, struct io_uring_cqe **cqe_ptr,
  * Note that the application need not call io_uring_submit() before calling
  * this function, as we will do that on its behalf.
  */
-int io_uring_wait_cqes_timeout(struct io_uring *ring,
-			       struct io_uring_cqe **cqe_ptr,
-			       unsigned wait_nr,
-			       struct timespec *ts)
+int io_uring_wait_cqes(struct io_uring *ring, struct io_uring_cqe **cqe_ptr,
+		       unsigned wait_nr, struct timespec *ts, sigset_t *sigmask)
 {
 	int ret;
 
-	if (!ts)
-		return io_uring_wait_cqes(ring, cqe_ptr, wait_nr);
-
-	if (wait_nr) {
+	if (wait_nr && ts) {
 		struct io_uring_sqe *sqe;
 
 		/*
@@ -169,10 +154,8 @@ int io_uring_wait_cqes_timeout(struct io_uring *ring,
 	}
 
 	ret = __io_uring_flush_sq(ring);
-	if (!ret)
-		return ret;
 
-	return __io_uring_get_cqe(ring, cqe_ptr, ret, wait_nr);
+	return __io_uring_get_cqe(ring, cqe_ptr, ret, wait_nr, sigmask);
 }
 
 /*
@@ -183,7 +166,7 @@ int io_uring_wait_cqe_timeout(struct io_uring *ring,
 			      struct io_uring_cqe **cqe_ptr,
 			      struct timespec *ts)
 {
-	return io_uring_wait_cqes_timeout(ring, cqe_ptr, 1, ts);
+	return io_uring_wait_cqes(ring, cqe_ptr, 1, ts, NULL);
 }
 
 /*
