@@ -219,6 +219,17 @@ static int __io_uring_submit(struct io_uring *ring, unsigned submitted,
 	return ret;
 }
 
+static int __io_uring_submit_and_wait(struct io_uring *ring, unsigned wait_nr)
+{
+	int submitted;
+
+	submitted = __io_uring_flush_sq(ring);
+	if (submitted)
+		return __io_uring_submit(ring, submitted, wait_nr);
+
+	return 0;
+}
+
 /*
  * Submit sqes acquired from io_uring_get_sqe() to the kernel.
  *
@@ -226,13 +237,7 @@ static int __io_uring_submit(struct io_uring *ring, unsigned submitted,
  */
 int io_uring_submit(struct io_uring *ring)
 {
-	int submitted;
-
-	submitted = __io_uring_flush_sq(ring);
-	if (submitted)
-		return __io_uring_submit(ring, submitted, 0);
-
-	return 0;
+	return __io_uring_submit_and_wait(ring, 0);
 }
 
 /*
@@ -242,13 +247,7 @@ int io_uring_submit(struct io_uring *ring)
  */
 int io_uring_submit_and_wait(struct io_uring *ring, unsigned wait_nr)
 {
-	int submitted;
-
-	submitted = __io_uring_flush_sq(ring);
-	if (submitted)
-		return __io_uring_submit(ring, submitted, wait_nr);
-
-	return 0;
+	return __io_uring_submit_and_wait(ring, wait_nr);
 }
 
 /*
