@@ -80,6 +80,41 @@ unsigned io_uring_peek_batch_cqe(struct io_uring *ring,
 }
 
 /*
+ * Sync internal state with kernel ring state on the SQ side
+ */
+static int __io_uring_flush_sq(struct io_uring *ring)
+{
+	struct io_uring_sq *sq = &ring->sq;
+	const unsigned mask = *sq->kring_mask;
+	unsigned ktail, submitted, to_submit;
+
+	if (sq->sqe_head == sq->sqe_tail)
+		return 0;
+
+	/*
+	 * Fill in sqes that we have queued up, adding them to the kernel ring
+	 */
+	submitted = 0;
+	ktail = *sq->ktail;
+	to_submit = sq->sqe_tail - sq->sqe_head;
+	while (to_submit--) {
+		sq->array[ktail & mask] = sq->sqe_head & mask;
+		ktail++;
+		sq->sqe_head++;
+		submitted++;
+	}
+
+	/*
+	 * Ensure that the kernel sees the SQE updates before it sees the tail
+	 * update.
+	 */
+	if (submitted)
+		io_uring_smp_store_release(sq->ktail, ktail);
+
+	return submitted;
+}
+
+/*
  * Return an IO completion, waiting for it if necessary. Returns 0 with
  * cqe_ptr filled in on success, -errno on failure.
  */
@@ -120,11 +155,11 @@ int io_uring_wait_cqes_timeout(struct io_uring *ring,
 		sqe->user_data = LIBURING_UDATA_TIMEOUT;
 	}
 
-	ret = io_uring_submit(ring);
-	if (ret < 0)
+	ret = __io_uring_flush_sq(ring);
+	if (!ret)
 		return ret;
 
-	return __io_uring_get_cqe(ring, cqe_ptr, 1, 1);
+	return __io_uring_get_cqe(ring, cqe_ptr, ret, wait_nr);
 }
 
 /*
@@ -153,41 +188,6 @@ static inline bool sq_ring_needs_enter(struct io_uring *ring, unsigned *flags)
 	}
 
 	return false;
-}
-
-/*
- * Sync internal state with kernel ring state on the SQ side
- */
-static int __io_uring_flush_sq(struct io_uring *ring)
-{
-	struct io_uring_sq *sq = &ring->sq;
-	const unsigned mask = *sq->kring_mask;
-	unsigned ktail, submitted, to_submit;
-
-	if (sq->sqe_head == sq->sqe_tail)
-		return 0;
-
-	/*
-	 * Fill in sqes that we have queued up, adding them to the kernel ring
-	 */
-	submitted = 0;
-	ktail = *sq->ktail;
-	to_submit = sq->sqe_tail - sq->sqe_head;
-	while (to_submit--) {
-		sq->array[ktail & mask] = sq->sqe_head & mask;
-		ktail++;
-		sq->sqe_head++;
-		submitted++;
-	}
-
-	/*
-	 * Ensure that the kernel sees the SQE updates before it sees the tail
-	 * update.
-	 */
-	if (submitted)
-		io_uring_smp_store_release(sq->ktail, ktail);
-
-	return submitted;
 }
 
 /*
