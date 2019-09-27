@@ -148,6 +148,9 @@ int io_uring_wait_cqes_timeout(struct io_uring *ring,
 {
 	int ret;
 
+	if (!ts)
+		return io_uring_wait_cqes(ring, cqe_ptr, wait_nr);
+
 	if (wait_nr) {
 		struct io_uring_sqe *sqe;
 
