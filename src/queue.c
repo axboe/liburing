@@ -156,17 +156,13 @@ static inline bool sq_ring_needs_enter(struct io_uring *ring, unsigned *flags)
 }
 
 /*
- * Submit sqes acquired from io_uring_get_sqe() to the kernel.
- *
- * Returns number of sqes submitted
+ * Sync internal state with kernel ring state on the SQ side
  */
-static int __io_uring_submit(struct io_uring *ring, unsigned wait_nr)
+static int __io_uring_flush_sq(struct io_uring *ring)
 {
 	struct io_uring_sq *sq = &ring->sq;
 	const unsigned mask = *sq->kring_mask;
 	unsigned ktail, submitted, to_submit;
-	unsigned flags;
-	int ret;
 
 	if (sq->sqe_head == sq->sqe_tail)
 		return 0;
@@ -184,14 +180,26 @@ static int __io_uring_submit(struct io_uring *ring, unsigned wait_nr)
 		submitted++;
 	}
 
-	if (!submitted)
-		return 0;
-
 	/*
 	 * Ensure that the kernel sees the SQE updates before it sees the tail
 	 * update.
 	 */
-	io_uring_smp_store_release(sq->ktail, ktail);
+	if (submitted)
+		io_uring_smp_store_release(sq->ktail, ktail);
+
+	return submitted;
+}
+
+/*
+ * Submit sqes acquired from io_uring_get_sqe() to the kernel.
+ *
+ * Returns number of sqes submitted
+ */
+static int __io_uring_submit(struct io_uring *ring, unsigned submitted,
+			     unsigned wait_nr)
+{
+	unsigned flags;
+	int ret;
 
 	flags = 0;
 	if (wait_nr || sq_ring_needs_enter(ring, &flags)) {
@@ -218,7 +226,13 @@ static int __io_uring_submit(struct io_uring *ring, unsigned wait_nr)
  */
 int io_uring_submit(struct io_uring *ring)
 {
-	return __io_uring_submit(ring, 0);
+	int submitted;
+
+	submitted = __io_uring_flush_sq(ring);
+	if (submitted)
+		return __io_uring_submit(ring, submitted, 0);
+
+	return 0;
 }
 
 /*
@@ -228,7 +242,13 @@ int io_uring_submit(struct io_uring *ring)
  */
 int io_uring_submit_and_wait(struct io_uring *ring, unsigned wait_nr)
 {
-	return __io_uring_submit(ring, wait_nr);
+	int submitted;
+
+	submitted = __io_uring_flush_sq(ring);
+	if (submitted)
+		return __io_uring_submit(ring, submitted, wait_nr);
+
+	return 0;
 }
 
 /*
