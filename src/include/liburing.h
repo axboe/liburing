@@ -70,12 +70,8 @@ extern int io_uring_queue_init(unsigned entries, struct io_uring *ring,
 extern int io_uring_queue_mmap(int fd, struct io_uring_params *p,
 	struct io_uring *ring);
 extern void io_uring_queue_exit(struct io_uring *ring);
-extern int io_uring_peek_cqe(struct io_uring *ring,
-	struct io_uring_cqe **cqe_ptr);
 unsigned io_uring_peek_batch_cqe(struct io_uring *ring,
 	struct io_uring_cqe **cqes, unsigned count);
-extern int io_uring_wait_cqe(struct io_uring *ring,
-	struct io_uring_cqe **cqe_ptr);
 extern int io_uring_wait_cqes(struct io_uring *ring,
 	struct io_uring_cqe **cqe_ptr, unsigned wait_nr, struct timespec *ts,
 	sigset_t *sigmask);
@@ -94,6 +90,14 @@ extern int io_uring_register_files(struct io_uring *ring, const int *files,
 extern int io_uring_unregister_files(struct io_uring *ring);
 extern int io_uring_register_eventfd(struct io_uring *ring, int fd);
 extern int io_uring_unregister_eventfd(struct io_uring *ring);
+
+/*
+ * Helper for the peek/wait single cqe functions. Exported because of that,
+ * but probably shouldn't be used directly in an application.
+ */
+extern int __io_uring_get_cqe(struct io_uring *ring,
+			      struct io_uring_cqe **cqe_ptr, unsigned submit,
+			      unsigned wait_nr, sigset_t *sigmask);
 
 #define LIBURING_UDATA_TIMEOUT	((__u64) -1)
 
@@ -254,6 +258,59 @@ static inline unsigned io_uring_sq_space_left(struct io_uring *ring)
 static inline unsigned io_uring_cq_ready(struct io_uring *ring)
 {
 	return io_uring_smp_load_acquire(ring->cq.ktail) - *ring->cq.khead;
+}
+
+static struct io_uring_cqe *__io_uring_peek_cqe(struct io_uring *ring)
+{
+	struct io_uring_cqe *cqe;
+	unsigned head;
+	int err = 0;
+
+	do {
+		io_uring_for_each_cqe(ring, head, cqe)
+			break;
+		if (cqe) {
+			if (cqe->user_data == LIBURING_UDATA_TIMEOUT) {
+				if (cqe->res < 0)
+					err = cqe->res;
+				io_uring_cq_advance(ring, 1);
+				if (!err)
+					continue;
+				cqe = NULL;
+			}
+		}
+		break;
+	} while (1);
+
+	return cqe;
+}
+
+/*
+ * Return an IO completion, if one is readily available. Returns 0 with
+ * cqe_ptr filled in on success, -errno on failure.
+ */
+static inline int io_uring_peek_cqe(struct io_uring *ring,
+				    struct io_uring_cqe **cqe_ptr)
+{
+	*cqe_ptr = __io_uring_peek_cqe(ring);
+	if (*cqe_ptr)
+		return 0;
+
+	return __io_uring_get_cqe(ring, cqe_ptr, 0, 0, NULL);
+}
+
+/*
+ * Return an IO completion, waiting for it if necessary. Returns 0 with
+ * cqe_ptr filled in on success, -errno on failure.
+ */
+static inline int io_uring_wait_cqe(struct io_uring *ring,
+				    struct io_uring_cqe **cqe_ptr)
+{
+	*cqe_ptr = __io_uring_peek_cqe(ring);
+	if (*cqe_ptr)
+		return 0;
+
+	return __io_uring_get_cqe(ring, cqe_ptr, 0, 1, NULL);
 }
 
 #ifdef __cplusplus

@@ -11,45 +11,26 @@
 #include "liburing.h"
 #include "liburing/barrier.h"
 
-static int __io_uring_get_cqe(struct io_uring *ring,
-			      struct io_uring_cqe **cqe_ptr, unsigned submit,
-			      unsigned wait_nr, sigset_t *sigmask)
+int __io_uring_get_cqe(struct io_uring *ring, struct io_uring_cqe **cqe_ptr,
+		       unsigned submit, unsigned wait_nr, sigset_t *sigmask)
 {
 	int ret, err = 0;
-	unsigned head;
 
 	do {
-		io_uring_for_each_cqe(ring, head, *cqe_ptr)
+		*cqe_ptr = __io_uring_peek_cqe(ring);
+		if (*cqe_ptr)
 			break;
-		if (*cqe_ptr) {
-			if ((*cqe_ptr)->user_data == LIBURING_UDATA_TIMEOUT) {
-				if ((*cqe_ptr)->res < 0)
-					err = (*cqe_ptr)->res;
-				io_uring_cq_advance(ring, 1);
-				if (!err)
-					continue;
-				*cqe_ptr = NULL;
-			}
+		if (!wait_nr) {
+			err = -EAGAIN;
 			break;
 		}
-		if (!wait_nr)
-			return -EAGAIN;
 		ret = io_uring_enter(ring->ring_fd, submit, wait_nr,
-				IORING_ENTER_GETEVENTS, sigmask);
+					IORING_ENTER_GETEVENTS, sigmask);
 		if (ret < 0)
-			return -errno;
-	} while (1);
+			err = -errno;
+	} while (!err);
 
 	return err;
-}
-
-/*
- * Return an IO completion, if one is readily available. Returns 0 with
- * cqe_ptr filled in on success, -errno on failure.
- */
-int io_uring_peek_cqe(struct io_uring *ring, struct io_uring_cqe **cqe_ptr)
-{
-	return __io_uring_get_cqe(ring, cqe_ptr, 0, 0, NULL);
 }
 
 /*
@@ -112,15 +93,6 @@ static int __io_uring_flush_sq(struct io_uring *ring)
 		io_uring_smp_store_release(sq->ktail, ktail);
 
 	return submitted;
-}
-
-/*
- * Return an IO completion, waiting for it if necessary. Returns 0 with
- * cqe_ptr filled in on success, -errno on failure.
- */
-int io_uring_wait_cqe(struct io_uring *ring, struct io_uring_cqe **cqe_ptr)
-{
-	return __io_uring_get_cqe(ring, cqe_ptr, 0, 1, NULL);
 }
 
 /*
