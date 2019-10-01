@@ -269,7 +269,9 @@ struct io_uring_params {
 #define IORING_REGISTER_PROBE		8
 #define IORING_REGISTER_PERSONALITY	9
 #define IORING_UNREGISTER_PERSONALITY	10
-
+#define IORING_REGISTER_AIORING		11
+#define IORING_UNREGISTER_AIORING	12
+ 
 struct io_uring_files_update {
 	__u32 offset;
 	__u32 resv;
