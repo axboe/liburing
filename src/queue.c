@@ -17,8 +17,8 @@ int __io_uring_get_cqe(struct io_uring *ring, struct io_uring_cqe **cqe_ptr,
 	int ret, err = 0;
 
 	do {
-		*cqe_ptr = __io_uring_peek_cqe(ring);
-		if (*cqe_ptr)
+		err = __io_uring_peek_cqe(ring, cqe_ptr);
+		if (err || *cqe_ptr)
 			break;
 		if (!wait_nr) {
 			err = -EAGAIN;
@@ -28,6 +28,7 @@ int __io_uring_get_cqe(struct io_uring *ring, struct io_uring_cqe **cqe_ptr,
 					IORING_ENTER_GETEVENTS, sigmask);
 		if (ret < 0)
 			err = -errno;
+		submit -= ret;
 	} while (!err);
 
 	return err;

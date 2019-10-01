@@ -260,7 +260,7 @@ static inline unsigned io_uring_cq_ready(struct io_uring *ring)
 	return io_uring_smp_load_acquire(ring->cq.ktail) - *ring->cq.khead;
 }
 
-static struct io_uring_cqe *__io_uring_peek_cqe(struct io_uring *ring)
+static int __io_uring_peek_cqe(struct io_uring *ring, struct io_uring_cqe **cqe_ptr)
 {
 	struct io_uring_cqe *cqe;
 	unsigned head;
@@ -282,7 +282,8 @@ static struct io_uring_cqe *__io_uring_peek_cqe(struct io_uring *ring)
 		break;
 	} while (1);
 
-	return cqe;
+	*cqe_ptr = cqe;
+	return err;
 }
 
 /*
@@ -292,9 +293,11 @@ static struct io_uring_cqe *__io_uring_peek_cqe(struct io_uring *ring)
 static inline int io_uring_peek_cqe(struct io_uring *ring,
 				    struct io_uring_cqe **cqe_ptr)
 {
-	*cqe_ptr = __io_uring_peek_cqe(ring);
-	if (*cqe_ptr)
-		return 0;
+	int err;
+
+	err = __io_uring_peek_cqe(ring, cqe_ptr);
+	if (err)
+		return err;
 
 	return __io_uring_get_cqe(ring, cqe_ptr, 0, 0, NULL);
 }
@@ -306,9 +309,11 @@ static inline int io_uring_peek_cqe(struct io_uring *ring,
 static inline int io_uring_wait_cqe(struct io_uring *ring,
 				    struct io_uring_cqe **cqe_ptr)
 {
-	*cqe_ptr = __io_uring_peek_cqe(ring);
-	if (*cqe_ptr)
-		return 0;
+	int err;
+
+	err = __io_uring_peek_cqe(ring, cqe_ptr);
+	if (err)
+		return err;
 
 	return __io_uring_get_cqe(ring, cqe_ptr, 0, 1, NULL);
 }
