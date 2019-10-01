@@ -182,38 +182,38 @@ static void copy_file_wrapper(arguments_bundle *pbundle)
 
 int main(int argc, char *argv[])
 {
-	int ret;
+	struct io_uring ring;
+	int i, req_count, ret;
+	int success = 0, failure = 0;
 
 	if (argc < 3) {
 		fprintf(stderr, "%s: infile1 outfile1 [infile2 outfile2 [...]]\n", argv[0]);
 		return 1;
 	}
 
-	struct io_uring ring;
 	ret = io_uring_queue_init(QD, &ring, 0);
 	if (ret < 0) {
 		fprintf(stderr, "queue_init: %s\n", strerror(-ret));
 		return -1;
 	}
 
-	int req_count = (argc - 1) / 2;
-
+	req_count = (argc - 1) / 2;
 	printf("copying %d files...\n", req_count);
 
-	int success = 0, failure = 0;
+	for (i = 1; i < argc; i += 2) {
+		int infd, outfd;
 
-	for (int i = 1; i < argc; i += 2) {
 		async_context *pctx = malloc(sizeof(*pctx));
 
 		if (!pctx || setup_context(pctx, &ring))
 			return 1;
 
-		int infd = open(argv[i], O_RDONLY);
+		infd = open(argv[i], O_RDONLY);
 		if (infd < 0) {
 			perror("open infile");
 			return 1;
 		}
-		int outfd = open(argv[i + 1], O_WRONLY | O_CREAT | O_TRUNC, 0644);
+		outfd = open(argv[i + 1], O_WRONLY | O_CREAT | O_TRUNC, 0644);
 		if (outfd < 0) {
 			perror("open outfile");
 			return 1;
