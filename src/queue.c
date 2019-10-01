@@ -105,7 +105,8 @@ static int __io_uring_flush_sq(struct io_uring *ring)
  * this function, as we will do that on its behalf.
  */
 int io_uring_wait_cqes(struct io_uring *ring, struct io_uring_cqe **cqe_ptr,
-		       unsigned wait_nr, struct timespec *ts, sigset_t *sigmask)
+		       unsigned wait_nr, struct __kernel_timespec *ts,
+		       sigset_t *sigmask)
 {
 	int ret;
 
@@ -137,7 +138,7 @@ int io_uring_wait_cqes(struct io_uring *ring, struct io_uring_cqe **cqe_ptr,
  */
 int io_uring_wait_cqe_timeout(struct io_uring *ring,
 			      struct io_uring_cqe **cqe_ptr,
-			      struct timespec *ts)
+			      struct __kernel_timespec *ts)
 {
 	return io_uring_wait_cqes(ring, cqe_ptr, 1, ts, NULL);
 }

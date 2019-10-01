@@ -14,6 +14,13 @@ extern "C" {
 #include "liburing/io_uring.h"
 #include "liburing/barrier.h"
 
+#ifndef CONFIG_HAVE_KERNEL_TIMESPEC
+struct __kernel_timespec {
+	int64_t		tv_sec;
+	long long	tv_nsec;
+};
+#endif
+
 /*
  * Library interface to io_uring
  */
@@ -73,10 +80,10 @@ extern void io_uring_queue_exit(struct io_uring *ring);
 unsigned io_uring_peek_batch_cqe(struct io_uring *ring,
 	struct io_uring_cqe **cqes, unsigned count);
 extern int io_uring_wait_cqes(struct io_uring *ring,
-	struct io_uring_cqe **cqe_ptr, unsigned wait_nr, struct timespec *ts,
-	sigset_t *sigmask);
+	struct io_uring_cqe **cqe_ptr, unsigned wait_nr,
+	struct __kernel_timespec *ts, sigset_t *sigmask);
 extern int io_uring_wait_cqe_timeout(struct io_uring *ring,
-	struct io_uring_cqe **cqe_ptr, struct timespec *ts);
+	struct io_uring_cqe **cqe_ptr, struct __kernel_timespec *ts);
 extern int io_uring_submit(struct io_uring *ring);
 extern int io_uring_submit_and_wait(struct io_uring *ring, unsigned wait_nr);
 extern struct io_uring_sqe *io_uring_get_sqe(struct io_uring *ring);
@@ -245,7 +252,8 @@ static inline void io_uring_prep_nop(struct io_uring_sqe *sqe)
 }
 
 static inline void io_uring_prep_timeout(struct io_uring_sqe *sqe,
-					 struct timespec *ts, unsigned count)
+					 struct __kernel_timespec *ts,
+					 unsigned count)
 {
 	io_uring_prep_rw(IORING_OP_TIMEOUT, sqe, 0, ts, 1, count);
 }

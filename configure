@@ -181,8 +181,29 @@ if compile_prog "" "" "__kernel_rwf_t"; then
 fi
 print_config "__kernel_rwf_t" "$__kernel_rwf_t"
 
+##########################################
+# check for __kernel_timespec
+__kernel_timespec="no"
+cat > $TMPC << EOF
+#include <linux/time.h>
+int main(int argc, char **argv)
+{
+  struct __kernel_timespec ts;
+  ts.tv_sec = 0;
+  ts.tv_nsec = 1;
+  return 0;
+}
+EOF
+if compile_prog "" "" "__kernel_timespec"; then
+  __kernel_timespec="yes"
+fi
+print_config "__kernel_timespec" "$__kernel_timespec"
+
 #############################################################################
 
 if test "$__kernel_rwf_t" = "yes"; then
   output_sym "CONFIG_HAVE_KERNEL_RWF_T"
+fi
+if test "$__kernel_timespec" = "yes"; then
+  output_sym "CONFIG_HAVE_KERNEL_TIMESPEC"
 fi

@@ -49,7 +49,7 @@ static int test_single_timeout_many(struct io_uring *ring)
 	struct io_uring_cqe *cqe;
 	struct io_uring_sqe *sqe;
 	unsigned long long exp;
-	struct timespec ts;
+	struct __kernel_timespec ts;
 	struct timeval tv;
 	int ret;
 
@@ -106,7 +106,7 @@ static int test_single_timeout_nr(struct io_uring *ring)
 {
 	struct io_uring_cqe *cqe;
 	struct io_uring_sqe *sqe;
-	struct timespec ts;
+	struct __kernel_timespec ts;
 	int i, ret;
 
 	sqe = io_uring_get_sqe(ring);
@@ -181,7 +181,7 @@ static int test_single_timeout_wait(struct io_uring *ring)
 {
 	struct io_uring_cqe *cqe;
 	struct io_uring_sqe *sqe;
-	struct timespec ts;
+	struct __kernel_timespec ts;
 	int i, ret;
 
 	sqe = io_uring_get_sqe(ring);
@@ -230,7 +230,7 @@ static int test_single_timeout(struct io_uring *ring)
 	struct io_uring_cqe *cqe;
 	struct io_uring_sqe *sqe;
 	unsigned long long exp;
-	struct timespec ts;
+	struct __kernel_timespec ts;
 	struct timeval tv;
 	int ret;
 
@@ -280,7 +280,7 @@ err:
 static int test_single_timeout_exit(struct io_uring *ring)
 {
 	struct io_uring_sqe *sqe;
-	struct timespec ts;
+	struct __kernel_timespec ts;
 	int ret;
 
 	sqe = io_uring_get_sqe(ring);
