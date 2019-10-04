@@ -19,14 +19,16 @@ static void close_files(int *files, int nr_files, int add)
 	int i;
 
 	for (i = 0; i < nr_files; i++) {
-		close(files[i]);
+		if (files)
+			close(files[i]);
 		if (!add)
 			sprintf(fname, ".reg.%d", i);
 		else
-			sprintf(fname, ".add.%d", i);
+			sprintf(fname, ".add.%d", i + add);
 		unlink(fname);
 	}
-	free(files);
+	if (files)
+		free(files);
 }
 
 static int *open_files(int nr_files, int extra, int add)
@@ -41,7 +43,7 @@ static int *open_files(int nr_files, int extra, int add)
 		if (!add)
 			sprintf(fname, ".reg.%d", i);
 		else
-			sprintf(fname, ".add.%d", i);
+			sprintf(fname, ".add.%d", i + add);
 		files[i] = open(fname, O_RDWR | O_CREAT, 0644);
 		if (files[i] < 0) {
 			perror("open");
@@ -56,6 +58,90 @@ static int *open_files(int nr_files, int extra, int add)
 	}
 
 	return files;
+}
+
+static int test_shrink(struct io_uring *ring)
+{
+	struct io_uring_files_update up;
+	int ret, off, fd;
+	int *files;
+
+	files = open_files(50, 0, 0);
+	ret = io_uring_register(ring->ring_fd, IORING_REGISTER_FILES, files, 50);
+	if (ret) {
+		printf("ret=%d, errno=%d\n", ret, errno);
+		goto err;
+	}
+
+	off = 0;
+	do {
+		fd = -1;
+		up.fds = &fd;
+		up.offset = off;
+
+		ret = io_uring_register(ring->ring_fd, IORING_REGISTER_FILES_UPDATE, &up, 1);
+		if (ret != 1) {
+			if (off == 50 && errno == EINVAL)
+				break;
+			printf("ret=%d, errno=%d\n", ret, errno);
+			break;
+		}
+		off++;
+	} while (1);
+
+	ret = io_uring_register(ring->ring_fd, IORING_UNREGISTER_FILES, NULL, 0);
+	if (ret) {
+		printf("ret=%d, errno=%d\n", ret, errno);
+		goto err;
+	}
+
+	return 0;
+err:
+	return 1;
+}
+
+
+static int test_grow(struct io_uring *ring)
+{
+	struct io_uring_files_update up;
+	int ret, off;
+	int *files;
+
+	files = open_files(50, 250, 0);
+	ret = io_uring_register(ring->ring_fd, IORING_REGISTER_FILES, files, 300);
+	if (ret) {
+		printf("ret=%d, errno=%d\n", ret, errno);
+		goto err;
+	}
+
+	off = 50;
+	do {
+		up.fds = open_files(1, 0, off);
+		up.offset = off;
+
+		ret = io_uring_register(ring->ring_fd, IORING_REGISTER_FILES_UPDATE, &up, 1);
+		if (ret != 1) {
+			if (off == 300 && errno == EINVAL)
+				break;
+			printf("ret=%d, errno=%d\n", ret, errno);
+			break;
+		}
+		off++;
+	} while (1);
+
+	ret = io_uring_register(ring->ring_fd, IORING_UNREGISTER_FILES, NULL, 0);
+	if (ret) {
+		printf("ret=%d, errno=%d\n", ret, errno);
+		goto err;
+	}
+
+	close_files(files, 100, 0);
+	close_files(NULL, 251, 50);
+	return 0;
+err:
+	close_files(files, 100, 0);
+	close_files(NULL, 251, 50);
+	return 1;
 }
 
 static int test_replace_all(struct io_uring *ring)
@@ -325,6 +411,18 @@ int main(int argc, char *argv[])
 	ret = test_replace_all(&ring);
 	if (ret) {
 		printf("test_replace_all failed\n");
+		return ret;
+	}
+
+	ret = test_grow(&ring);
+	if (ret) {
+		printf("test_grow failed\n");
+		return ret;
+	}
+
+	ret = test_shrink(&ring);
+	if (ret) {
+		printf("test_shrink failed\n");
 		return ret;
 	}
 
