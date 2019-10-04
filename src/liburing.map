@@ -30,4 +30,6 @@ LIBURING_0.2 {
 		io_uring_wait_cqes;
 
 		__io_uring_get_cqe;
+
+		io_uring_queue_init_params;
 } LIBURING_0.1;

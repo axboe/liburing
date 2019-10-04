@@ -72,6 +72,8 @@ extern int io_uring_register(int fd, unsigned int opcode, const void *arg,
 /*
  * Library interface
  */
+extern int io_uring_queue_init_params(unsigned entries, struct io_uring *ring,
+	struct io_uring_params *p);
 extern int io_uring_queue_init(unsigned entries, struct io_uring *ring,
 	unsigned flags);
 extern int io_uring_queue_mmap(int fd, struct io_uring_params *p,
