@@ -358,6 +358,40 @@ err:
 	return 1;
 }
 
+/*
+ * Register 0 files, but reserve space for 10.  Then add one file.
+ */
+static int test_zero(struct io_uring *ring)
+{
+	struct io_uring_files_update up;
+	int *files;
+	int ret;
+
+	files = open_files(0, 10, 0);
+	ret = io_uring_register(ring->ring_fd, IORING_REGISTER_FILES, files, 10);
+	if (ret)
+		goto err;
+
+	up.fds = open_files(1, 0, 1);
+	up.offset = 0;
+	ret = io_uring_register(ring->ring_fd,
+				IORING_REGISTER_FILES_UPDATE, &up, 1);
+	if (ret != 1) {
+		printf("ret=%d, errno=%d\n", ret, errno);
+		goto err;
+	}
+
+	ret = io_uring_register(ring->ring_fd, IORING_UNREGISTER_FILES, NULL, 0);
+	if (ret)
+		goto err;
+
+	close_files(up.fds, 1, 1);
+	return 0;
+err:
+	close_files(up.fds, 1, 1);
+	return 1;
+}
+
 int main(int argc, char *argv[])
 {
 	struct io_uring ring;
@@ -423,6 +457,12 @@ int main(int argc, char *argv[])
 	ret = test_shrink(&ring);
 	if (ret) {
 		printf("test_shrink failed\n");
+		return ret;
+	}
+
+	ret = test_zero(&ring);
+	if (ret) {
+		printf("test_zero failed\n");
 		return ret;
 	}
 
