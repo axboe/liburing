@@ -3,7 +3,7 @@
 TESTS="$@"
 RET=0
 
-TIMEOUT=10
+TIMEOUT=30
 FAILED=""
 
 for t in $TESTS; do
