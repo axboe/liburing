@@ -95,8 +95,10 @@ static int test_shrink(struct io_uring *ring)
 		goto err;
 	}
 
+	close_files(files, 50, 0);
 	return 0;
 err:
+	close_files(files, 50, 0);
 	return 1;
 }
 
