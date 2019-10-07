@@ -126,6 +126,10 @@ static int test_grow(struct io_uring *ring)
 			printf("ret=%d, errno=%d\n", ret, errno);
 			break;
 		}
+		if (off >= 300) {
+			printf("Succeeded beyond end-of-list?\n");
+			goto err;
+		}
 		off++;
 	} while (1);
 
