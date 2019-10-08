@@ -17,12 +17,12 @@ for t in $TESTS; do
 	else
 		echo Running test $t
 	fi
-	timeout -s INT $TIMEOUT ./$t
+	timeout --preserve-status -s INT $TIMEOUT ./$t
 	r=$?
 	if [ "${r}" -eq 124 ]; then
 		echo "Test $t timed out (may not be a failure)"
 	elif [ "${r}" -ne 0 ]; then
-		echo Test $t failed
+		echo "Test $t failed with ret ${r}"
 		FAILED="$FAILED $t"
 		RET=1
 	fi
@@ -30,6 +30,8 @@ done
 
 if [ "${RET}" -ne 0 ]; then
 	echo "Tests $FAILED failed"
+	exit $RET
+else
+	echo "All tests passed"
+	exit 0
 fi
-
-exit $RET

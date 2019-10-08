@@ -164,8 +164,14 @@ void execute_one(void)
 	syscall(__NR_io_uring_setup, 0x983, 0x20000080);
 }
 
+static void sig_int(int sig)
+{
+	exit(0);
+}
+
 int main(void)
 {
+	signal(SIGINT, sig_int);
 	syscall(__NR_mmap, 0x20000000, 0x1000000, 3, 0x32, -1, 0);
 	loop();
 	return 0;

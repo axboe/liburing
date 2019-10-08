@@ -310,8 +310,15 @@ void execute_call(int call)
     break;
   }
 }
+
+static void sig_int(int sig)
+{
+	exit(0);
+}
+
 int main(void)
 {
+  signal(SIGINT, sig_int);
   syscall(__NR_mmap, 0x20000000, 0x1000000, 3, 0x32, -1, 0);
   loop();
   return 0;
