@@ -22,7 +22,7 @@ int main(int argc, char *argv[])
 
 	ret = io_uring_queue_init_params(4, &ring, &p);
 	if (ret) {
-		if (errno == EINVAL) {
+		if (ret == -EINVAL) {
 			printf("Skipped, not supported on this kernel\n");
 			goto done;
 		}
