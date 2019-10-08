@@ -32,4 +32,5 @@ LIBURING_0.2 {
 		__io_uring_get_cqe;
 
 		io_uring_queue_init_params;
+		io_uring_register_files_update;
 } LIBURING_0.1;

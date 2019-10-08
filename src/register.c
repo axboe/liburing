@@ -34,6 +34,30 @@ int io_uring_unregister_buffers(struct io_uring *ring)
 	return 0;
 }
 
+/*
+ * Register an update for an existing file set. The updates will start at
+ * 'off' in the original array, and 'nr_files' is the number of files we'll
+ * update.
+ *
+ * Returns number of files updated on success, -ERROR on failure.
+ */
+int io_uring_register_files_update(struct io_uring *ring, unsigned off,
+				   int *files, unsigned nr_files)
+{
+	struct io_uring_files_update up = {
+		.offset	= off,
+		.fds	= files,
+	};
+	int ret;
+
+	ret = io_uring_register(ring->ring_fd, IORING_REGISTER_FILES_UPDATE,
+				&up, nr_files);
+	if (ret < 0)
+		return -errno;
+
+	return ret;
+}
+
 int io_uring_register_files(struct io_uring *ring, const int *files,
 			      unsigned nr_files)
 {
