@@ -6,8 +6,17 @@ RET=0
 TIMEOUT=30
 FAILED=""
 
+do_kmsg="yes"
+if ! [ $(id -u) = 0 ]; then
+	do_kmsg="no"
+fi
+
 for t in $TESTS; do
-	echo Running test $t | tee > /dev/kmsg
+	if [ "$do_kmsg" = "yes" ]; then
+		echo Running test $t | tee > /dev/kmsg
+	else
+		echo Running test $t
+	fi
 	timeout -s INT $TIMEOUT ./$t
 	r=$?
 	if [ "${r}" -eq 124 ]; then
