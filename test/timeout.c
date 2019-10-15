@@ -275,6 +275,61 @@ err:
 }
 
 /*
+ * Test single absolute timeout waking us up
+ */
+static int test_single_timeout_abs(struct io_uring *ring)
+{
+	struct io_uring_cqe *cqe;
+	struct io_uring_sqe *sqe;
+	unsigned long long exp;
+	struct __kernel_timespec ts;
+	struct timespec abs_ts;
+	struct timeval tv;
+	int ret;
+
+	sqe = io_uring_get_sqe(ring);
+	if (!sqe) {
+		printf("get sqe failed\n");
+		goto err;
+	}
+
+	clock_gettime(CLOCK_MONOTONIC, &abs_ts);
+	ts.tv_sec = abs_ts.tv_sec + 1;
+	ts.tv_nsec = abs_ts.tv_nsec;
+	io_uring_prep_timeout(sqe, &ts, 0);
+	sqe->timeout_flags |= IORING_TIMEOUT_ABS;
+
+	ret = io_uring_submit(ring);
+	if (ret <= 0) {
+		printf("sqe submit failed: %d\n", ret);
+		goto err;
+	}
+
+	gettimeofday(&tv, NULL);
+	ret = io_uring_wait_cqe(ring, &cqe);
+	if (ret < 0) {
+		printf("wait completion %d\n", ret);
+		goto err;
+	}
+	if (cqe->res == -EINVAL) {
+		printf("Absolute timeouts not supported, ignored\n");
+		io_uring_cqe_seen(ring, cqe);
+		return 0;
+	} else if (cqe->res != -ETIME) {
+		printf("Timeout: %s\n", strerror(-cqe->res));
+		io_uring_cqe_seen(ring, cqe);
+		goto err;
+	}
+
+	exp = mtime_since_now(&tv);
+	if (exp >= TIMEOUT_MSEC / 2 && exp <= (TIMEOUT_MSEC * 3) / 2)
+		return 0;
+	printf("Timeout seems wonky (got %llu)\n", exp);
+err:
+	return 1;
+}
+
+/*
  * Test that timeout is canceled on exit
  */
 static int test_single_timeout_exit(struct io_uring *ring)
@@ -325,6 +380,12 @@ int main(int argc, char *argv[])
 	}
 	if (not_supported)
 		return 0;
+
+	ret = test_single_timeout_abs(&ring);
+	if (ret) {
+		printf("test_single_timeout_abs failed\n");
+		return ret;
+	}
 
 	ret = test_single_timeout_many(&ring);
 	if (ret) {
