@@ -61,7 +61,7 @@ static int test_single_timeout_many(struct io_uring *ring)
 
 	ts.tv_sec = TIMEOUT_MSEC / 1000;
 	ts.tv_nsec = 0;
-	io_uring_prep_timeout(sqe, &ts, 0);
+	io_uring_prep_timeout(sqe, &ts, 0, 0);
 
 	ret = io_uring_submit(ring);
 	if (ret <= 0) {
@@ -117,7 +117,7 @@ static int test_single_timeout_nr(struct io_uring *ring)
 
 	ts.tv_sec = TIMEOUT_MSEC / 1000;
 	ts.tv_nsec = 0;
-	io_uring_prep_timeout(sqe, &ts, 2);
+	io_uring_prep_timeout(sqe, &ts, 2, 0);
 
 	sqe = io_uring_get_sqe(ring);
 	io_uring_prep_nop(sqe);
@@ -242,7 +242,7 @@ static int test_single_timeout(struct io_uring *ring)
 
 	ts.tv_sec = TIMEOUT_MSEC / 1000;
 	ts.tv_nsec = 0;
-	io_uring_prep_timeout(sqe, &ts, 0);
+	io_uring_prep_timeout(sqe, &ts, 0, 0);
 
 	ret = io_uring_submit(ring);
 	if (ret <= 0) {
@@ -296,8 +296,7 @@ static int test_single_timeout_abs(struct io_uring *ring)
 	clock_gettime(CLOCK_MONOTONIC, &abs_ts);
 	ts.tv_sec = abs_ts.tv_sec + 1;
 	ts.tv_nsec = abs_ts.tv_nsec;
-	io_uring_prep_timeout(sqe, &ts, 0);
-	sqe->timeout_flags |= IORING_TIMEOUT_ABS;
+	io_uring_prep_timeout(sqe, &ts, 0, IORING_TIMEOUT_ABS);
 
 	ret = io_uring_submit(ring);
 	if (ret <= 0) {
@@ -346,7 +345,7 @@ static int test_single_timeout_exit(struct io_uring *ring)
 
 	ts.tv_sec = 30;
 	ts.tv_nsec = 0;
-	io_uring_prep_timeout(sqe, &ts, 0);
+	io_uring_prep_timeout(sqe, &ts, 0, 0);
 
 	ret = io_uring_submit(ring);
 	if (ret <= 0) {

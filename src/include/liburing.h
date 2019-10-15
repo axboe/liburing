@@ -257,9 +257,10 @@ static inline void io_uring_prep_nop(struct io_uring_sqe *sqe)
 
 static inline void io_uring_prep_timeout(struct io_uring_sqe *sqe,
 					 struct __kernel_timespec *ts,
-					 unsigned count)
+					 unsigned count, unsigned flags)
 {
 	io_uring_prep_rw(IORING_OP_TIMEOUT, sqe, 0, ts, 1, count);
+	sqe->timeout_flags = flags;
 }
 
 static inline unsigned io_uring_sq_space_left(struct io_uring *ring)

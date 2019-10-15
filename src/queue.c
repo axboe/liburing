@@ -123,7 +123,7 @@ int io_uring_wait_cqes(struct io_uring *ring, struct io_uring_cqe **cqe_ptr,
 				return ret;
 			sqe = io_uring_get_sqe(ring);
 		}
-		io_uring_prep_timeout(sqe, ts, wait_nr);
+		io_uring_prep_timeout(sqe, ts, wait_nr, 0);
 		sqe->user_data = LIBURING_UDATA_TIMEOUT;
 	}
 
