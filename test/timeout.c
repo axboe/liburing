@@ -55,7 +55,7 @@ static int test_single_timeout_many(struct io_uring *ring)
 
 	sqe = io_uring_get_sqe(ring);
 	if (!sqe) {
-		printf("get sqe failed\n");
+		fprintf(stderr, "%s: get sqe failed\n", __FUNCTION__);
 		goto err;
 	}
 
@@ -65,36 +65,37 @@ static int test_single_timeout_many(struct io_uring *ring)
 
 	ret = io_uring_submit(ring);
 	if (ret <= 0) {
-		printf("sqe submit failed: %d\n", ret);
+		fprintf(stderr, "%s: sqe submit failed: %d\n", __FUNCTION__, ret);
 		goto err;
 	}
 
 	gettimeofday(&tv, NULL);
 	ret = io_uring_enter(ring->ring_fd, 0, 4, IORING_ENTER_GETEVENTS, NULL);
 	if (ret < 0) {
-		printf("io_uring_enter %d\n", ret);
+		fprintf(stderr, "%s: io_uring_enter %d\n", __FUNCTION__, ret);
 		goto err;
 	}
 
 	ret = io_uring_wait_cqe(ring, &cqe);
 	if (ret < 0) {
-		printf("wait completion %d\n", ret);
+		fprintf(stderr, "%s: wait completion %d\n", __FUNCTION__, ret);
 		goto err;
 	}
-	if (cqe->res == -EINVAL) {
-		printf("Timeout not supported, ignored\n");
+	ret = cqe->res;
+	io_uring_cqe_seen(ring, cqe);
+	if (ret == -EINVAL) {
+		fprintf(stdout, "Timeout not supported, ignored\n");
 		not_supported = 1;
 		return 0;
-	} else if (cqe->res != -ETIME) {
-		printf("Timeout: %s\n", strerror(-cqe->res));
+	} else if (ret != -ETIME) {
+		fprintf(stderr, "Timeout: %s\n", strerror(-ret));
 		goto err;
 	}
-	io_uring_cqe_seen(ring, cqe);
 
 	exp = mtime_since_now(&tv);
 	if (exp >= TIMEOUT_MSEC / 2 && exp <= (TIMEOUT_MSEC * 3) / 2)
 		return 0;
-	printf("Timeout seems wonky (got %llu)\n", exp);
+	fprintf(stderr, "%s: Timeout seems wonky (got %llu)\n", __FUNCTION__, exp);
 err:
 	return 1;
 }
@@ -111,7 +112,7 @@ static int test_single_timeout_nr(struct io_uring *ring)
 
 	sqe = io_uring_get_sqe(ring);
 	if (!sqe) {
-		printf("get sqe failed\n");
+		fprintf(stderr, "%s: get sqe failed\n", __FUNCTION__);
 		goto err;
 	}
 
@@ -128,7 +129,7 @@ static int test_single_timeout_nr(struct io_uring *ring)
 
 	ret = io_uring_submit_and_wait(ring, 4);
 	if (ret <= 0) {
-		printf("sqe submit failed: %d\n", ret);
+		fprintf(stderr, "%s: sqe submit failed: %d\n", __FUNCTION__, ret);
 		goto err;
 	}
 
@@ -136,7 +137,7 @@ static int test_single_timeout_nr(struct io_uring *ring)
 	while (i < 3) {
 		ret = io_uring_wait_cqe(ring, &cqe);
 		if (ret < 0) {
-			printf("wait completion %d\n", ret);
+			fprintf(stderr, "%s: wait completion %d\n", __FUNCTION__, ret);
 			goto err;
 		}
 
@@ -149,26 +150,27 @@ static int test_single_timeout_nr(struct io_uring *ring)
 		case 0:
 		case 1:
 			if (io_uring_cqe_get_data(cqe) != (void *) 1) {
-				printf("nop not seen as 1 or 2\n");
+				fprintf(stderr, "%s: nop not seen as 1 or 2\n", __FUNCTION__);
 				goto err;
 			}
 			break;
 		case 2:
 			if (io_uring_cqe_get_data(cqe) != NULL) {
-				printf("timeout not last\n");
+				fprintf(stderr, "%s: timeout not last\n", __FUNCTION__);
 				goto err;
 			}
 			break;
 		}
 
-		if (cqe->res < 0) {
-			printf("Timeout: %s\n", strerror(-cqe->res));
+		ret = cqe->res;
+		io_uring_cqe_seen(ring, cqe);
+		if (ret < 0) {
+			fprintf(stderr, "Timeout: %s\n", strerror(-ret));
 			goto err;
-		} else if (cqe->res) {
-			printf("res: %d\n", cqe->res);
+		} else if (ret) {
+			fprintf(stderr, "res: %d\n", ret);
 			goto err;
 		}
-		io_uring_cqe_seen(ring, cqe);
 		i++;
 	};
 
@@ -201,20 +203,21 @@ static int test_single_timeout_wait(struct io_uring *ring)
 		if (ret == -ETIME)
 			break;
 		if (ret < 0) {
-			printf("wait timeout failed: %d\n", ret);
+			fprintf(stderr, "%s: wait timeout failed: %d\n", __FUNCTION__, ret);
 			goto err;
 		}
 
-		if (cqe->res < 0) {
-			printf("res: %d\n", cqe->res);
+		ret = cqe->res;
+		io_uring_cqe_seen(ring, cqe);
+		if (ret < 0) {
+			fprintf(stderr, "res: %d\n", ret);
 			goto err;
 		}
-		io_uring_cqe_seen(ring, cqe);
 		i++;
 	} while (1);
 
 	if (i != 2) {
-		printf("got %d completions\n", i);
+		fprintf(stderr, "got %d completions\n", i);
 		goto err;
 	}
 	return 0;
@@ -236,7 +239,7 @@ static int test_single_timeout(struct io_uring *ring)
 
 	sqe = io_uring_get_sqe(ring);
 	if (!sqe) {
-		printf("get sqe failed\n");
+		fprintf(stderr, "%s: get sqe failed\n", __FUNCTION__);
 		goto err;
 	}
 
@@ -246,30 +249,31 @@ static int test_single_timeout(struct io_uring *ring)
 
 	ret = io_uring_submit(ring);
 	if (ret <= 0) {
-		printf("sqe submit failed: %d\n", ret);
+		fprintf(stderr, "%s: sqe submit failed: %d\n", __FUNCTION__, ret);
 		goto err;
 	}
 
 	gettimeofday(&tv, NULL);
 	ret = io_uring_wait_cqe(ring, &cqe);
 	if (ret < 0) {
-		printf("wait completion %d\n", ret);
+		fprintf(stderr, "%s: wait completion %d\n", __FUNCTION__, ret);
 		goto err;
 	}
-	if (cqe->res == -EINVAL) {
-		printf("Timeout not supported, ignored\n");
+	ret = cqe->res;
+	io_uring_cqe_seen(ring, cqe);
+	if (ret == -EINVAL) {
+		fprintf(stdout, "%s: Timeout not supported, ignored\n", __FUNCTION__);
 		not_supported = 1;
 		return 0;
-	} else if (cqe->res != -ETIME) {
-		printf("Timeout: %s\n", strerror(-cqe->res));
+	} else if (ret != -ETIME) {
+		fprintf(stderr, "%s: Timeout: %s\n", __FUNCTION__, strerror(-ret));
 		goto err;
 	}
-	io_uring_cqe_seen(ring, cqe);
 
 	exp = mtime_since_now(&tv);
 	if (exp >= TIMEOUT_MSEC / 2 && exp <= (TIMEOUT_MSEC * 3) / 2)
 		return 0;
-	printf("Timeout seems wonky (got %llu)\n", exp);
+	fprintf(stderr, "%s: Timeout seems wonky (got %llu)\n", __FUNCTION__, exp);
 err:
 	return 1;
 }
@@ -289,7 +293,7 @@ static int test_single_timeout_abs(struct io_uring *ring)
 
 	sqe = io_uring_get_sqe(ring);
 	if (!sqe) {
-		printf("get sqe failed\n");
+		fprintf(stderr, "%s: get sqe failed\n", __FUNCTION__);
 		goto err;
 	}
 
@@ -300,30 +304,30 @@ static int test_single_timeout_abs(struct io_uring *ring)
 
 	ret = io_uring_submit(ring);
 	if (ret <= 0) {
-		printf("sqe submit failed: %d\n", ret);
+		fprintf(stderr, "%s: sqe submit failed: %d\n", __FUNCTION__, ret);
 		goto err;
 	}
 
 	gettimeofday(&tv, NULL);
 	ret = io_uring_wait_cqe(ring, &cqe);
 	if (ret < 0) {
-		printf("wait completion %d\n", ret);
+		fprintf(stderr, "%s: wait completion %d\n", __FUNCTION__, ret);
 		goto err;
 	}
-	if (cqe->res == -EINVAL) {
-		printf("Absolute timeouts not supported, ignored\n");
-		io_uring_cqe_seen(ring, cqe);
+	ret = cqe->res;
+	io_uring_cqe_seen(ring, cqe);
+	if (ret == -EINVAL) {
+		fprintf(stdout, "Absolute timeouts not supported, ignored\n");
 		return 0;
-	} else if (cqe->res != -ETIME) {
-		printf("Timeout: %s\n", strerror(-cqe->res));
-		io_uring_cqe_seen(ring, cqe);
+	} else if (ret != -ETIME) {
+		fprintf(stderr, "Timeout: %s\n", strerror(-ret));
 		goto err;
 	}
 
 	exp = mtime_since_now(&tv);
 	if (exp >= TIMEOUT_MSEC / 2 && exp <= (TIMEOUT_MSEC * 3) / 2)
 		return 0;
-	printf("Timeout seems wonky (got %llu)\n", exp);
+	fprintf(stderr, "%s: Timeout seems wonky (got %llu)\n", __FUNCTION__, exp);
 err:
 	return 1;
 }
@@ -339,7 +343,7 @@ static int test_single_timeout_exit(struct io_uring *ring)
 
 	sqe = io_uring_get_sqe(ring);
 	if (!sqe) {
-		printf("get sqe failed\n");
+		fprintf(stderr, "%s: get sqe failed\n", __FUNCTION__);
 		goto err;
 	}
 
@@ -349,7 +353,7 @@ static int test_single_timeout_exit(struct io_uring *ring)
 
 	ret = io_uring_submit(ring);
 	if (ret <= 0) {
-		printf("sqe submit failed: %d\n", ret);
+		fprintf(stderr, "%s: sqe submit failed: %d\n", __FUNCTION__, ret);
 		goto err;
 	}
 
@@ -367,14 +371,13 @@ int main(int argc, char *argv[])
 
 	ret = io_uring_queue_init(8, &ring, 0);
 	if (ret) {
-		printf("ring setup failed\n");
+		fprintf(stderr, "ring setup failed\n");
 		return 1;
-
 	}
 
 	ret = test_single_timeout(&ring);
 	if (ret) {
-		printf("test_single_timeout failed\n");
+		fprintf(stderr, "test_single_timeout failed\n");
 		return ret;
 	}
 	if (not_supported)
@@ -382,25 +385,25 @@ int main(int argc, char *argv[])
 
 	ret = test_single_timeout_abs(&ring);
 	if (ret) {
-		printf("test_single_timeout_abs failed\n");
+		fprintf(stderr, "test_single_timeout_abs failed\n");
 		return ret;
 	}
 
 	ret = test_single_timeout_many(&ring);
 	if (ret) {
-		printf("test_single_timeout_many failed\n");
+		fprintf(stderr, "test_single_timeout_many failed\n");
 		return ret;
 	}
 
 	ret = test_single_timeout_nr(&ring);
 	if (ret) {
-		printf("test_single_timeout_nr failed\n");
+		fprintf(stderr, "test_single_timeout_nr failed\n");
 		return ret;
 	}
 
 	ret = test_single_timeout_wait(&ring);
 	if (ret) {
-		printf("test_single_timeout_wait failed\n");
+		fprintf(stderr, "test_single_timeout_wait failed\n");
 		return ret;
 	}
 
@@ -409,7 +412,7 @@ int main(int argc, char *argv[])
 	 */
 	ret = test_single_timeout_exit(&ring);
 	if (ret) {
-		printf("test_single_timeout_nr failed\n");
+		fprintf(stderr, "test_single_timeout_nr failed\n");
 		return ret;
 	}
 
