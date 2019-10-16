@@ -14,6 +14,7 @@
 
 #define TIMEOUT_MSEC	1000
 static int not_supported;
+static int no_modify;
 
 static unsigned long long mtime_since(const struct timeval *s,
 				      const struct timeval *e)
@@ -278,6 +279,153 @@ err:
 	return 1;
 }
 
+static int test_single_timeout_remove_notfound(struct io_uring *ring)
+{
+	struct io_uring_cqe *cqe;
+	struct io_uring_sqe *sqe;
+	struct __kernel_timespec ts;
+	int ret, i;
+
+	if (no_modify)
+		return 0;
+
+	sqe = io_uring_get_sqe(ring);
+	if (!sqe) {
+		fprintf(stderr, "%s: get sqe failed\n", __FUNCTION__);
+		goto err;
+	}
+
+	ts.tv_sec = TIMEOUT_MSEC / 1000;
+	ts.tv_nsec = 0;
+	io_uring_prep_timeout(sqe, &ts, 2, 0);
+	sqe->user_data = 1;
+
+	ret = io_uring_submit(ring);
+	if (ret <= 0) {
+		fprintf(stderr, "%s: sqe submit failed: %d\n", __FUNCTION__, ret);
+		goto err;
+	}
+
+	sqe = io_uring_get_sqe(ring);
+	if (!sqe) {
+		fprintf(stderr, "%s: get sqe failed\n", __FUNCTION__);
+		goto err;
+	}
+
+	io_uring_prep_timeout_remove(sqe, 2, 0);
+	sqe->user_data = 2;
+
+	ret = io_uring_submit(ring);
+	if (ret <= 0) {
+		fprintf(stderr, "%s: sqe submit failed: %d\n", __FUNCTION__, ret);
+		goto err;
+	}
+
+	/*
+	 * We should get two completions. One is our modify request, which should
+	 * complete with -ENOENT. The other is the timeout that will trigger after
+	 * TIMEOUT_MSEC.
+	 */
+	for (i = 0; i < 2; i++) {
+		ret = io_uring_wait_cqe(ring, &cqe);
+		if (ret < 0) {
+			fprintf(stderr, "%s: wait completion %d\n", __FUNCTION__, ret);
+			goto err;
+		}
+		if (cqe->user_data == 2) {
+			if (cqe->res != -ENOENT) {
+				fprintf(stderr, "%s: modify ret %d, wanted ENOENT\n", __FUNCTION__, cqe->res);
+				break;
+			}
+		} else if (cqe->user_data == 1) {
+			if (cqe->res != -ETIME) {
+				fprintf(stderr, "%s: timeout ret %d, wanted -ETIME\n", __FUNCTION__, cqe->res);
+				break;
+			}
+		}
+		io_uring_cqe_seen(ring, cqe);
+	}
+	return 0;
+err:
+	return 1;
+}
+
+static int test_single_timeout_remove(struct io_uring *ring)
+{
+	struct io_uring_cqe *cqe;
+	struct io_uring_sqe *sqe;
+	struct __kernel_timespec ts;
+	int ret, i;
+
+	sqe = io_uring_get_sqe(ring);
+	if (!sqe) {
+		fprintf(stderr, "%s: get sqe failed\n", __FUNCTION__);
+		goto err;
+	}
+
+	ts.tv_sec = TIMEOUT_MSEC / 1000;
+	ts.tv_nsec = 0;
+	io_uring_prep_timeout(sqe, &ts, 0, 0);
+	sqe->user_data = 1;
+
+	ret = io_uring_submit(ring);
+	if (ret <= 0) {
+		fprintf(stderr, "%s: sqe submit failed: %d\n", __FUNCTION__, ret);
+		goto err;
+	}
+
+	sqe = io_uring_get_sqe(ring);
+	if (!sqe) {
+		fprintf(stderr, "%s: get sqe failed\n", __FUNCTION__);
+		goto err;
+	}
+
+	io_uring_prep_timeout_remove(sqe, 1, 0);
+	sqe->user_data = 2;
+
+	ret = io_uring_submit(ring);
+	if (ret <= 0) {
+		fprintf(stderr, "%s: sqe submit failed: %d\n", __FUNCTION__, ret);
+		goto err;
+	}
+
+	/*
+	 * We should have two completions ready. One is for the original timeout
+	 * request, user_data == 1, that should have a ret of -ECANCELED. The other
+	 * is for our modify request, user_data == 2, that should have a ret of 0.
+	 */
+	for (i = 0; i < 2; i++) {
+		ret = io_uring_wait_cqe(ring, &cqe);
+		if (ret < 0) {
+			fprintf(stderr, "%s: wait completion %d\n", __FUNCTION__, ret);
+			goto err;
+		}
+		if (no_modify)
+			goto seen;
+		if (cqe->res == -EINVAL && cqe->user_data == 2) {
+			fprintf(stdout, "Timeout modify not supported, ignoring\n");
+			no_modify = 1;
+			goto seen;
+		}
+		if (cqe->user_data == 1) {
+			if (cqe->res != -ECANCELED) {
+				fprintf(stderr, "%s: timeout ret %d, wanted canceled\n", __FUNCTION__, cqe->res);
+				break;
+			}
+		} else if (cqe->user_data == 2) {
+			if (cqe->res) {
+				fprintf(stderr, "%s: modify ret %d, wanted 0\n", __FUNCTION__, cqe->res);
+				break;
+			}
+		}
+seen:
+		io_uring_cqe_seen(ring, cqe);
+	}
+	return 0;
+err:
+	return 1;
+}
+
 /*
  * Test single absolute timeout waking us up
  */
@@ -386,6 +534,18 @@ int main(int argc, char *argv[])
 	ret = test_single_timeout_abs(&ring);
 	if (ret) {
 		fprintf(stderr, "test_single_timeout_abs failed\n");
+		return ret;
+	}
+
+	ret = test_single_timeout_remove(&ring);
+	if (ret) {
+		fprintf(stderr, "test_single_timeout_remove failed\n");
+		return ret;
+	}
+
+	ret = test_single_timeout_remove_notfound(&ring);
+	if (ret) {
+		fprintf(stderr, "test_single_timeout_remove_notfound failed\n");
 		return ret;
 	}
 

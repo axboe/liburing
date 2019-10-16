@@ -263,6 +263,13 @@ static inline void io_uring_prep_timeout(struct io_uring_sqe *sqe,
 	sqe->timeout_flags = flags;
 }
 
+static inline void io_uring_prep_timeout_remove(struct io_uring_sqe *sqe,
+						__u64 user_data, unsigned flags)
+{
+	io_uring_prep_rw(IORING_OP_TIMEOUT_REMOVE, sqe, 0, (void *)user_data, 0, 0);
+	sqe->timeout_flags = flags;
+}
+
 static inline unsigned io_uring_sq_space_left(struct io_uring *ring)
 {
 	return *ring->sq.kring_entries - (ring->sq.sqe_tail - ring->sq.sqe_head);
