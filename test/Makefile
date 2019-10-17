@@ -7,7 +7,8 @@ all_targets += poll poll-cancel ring-leak fsync io_uring_setup io_uring_register
 		917257daa0fe-test b19062a56726-test eeed8b54e0df-test link \
 		send_recvmsg a4c0b3decb33-test 500f9fbadef8-test timeout \
 		sq-space_left stdout cq-ready cq-peek-batch file-register \
-		cq-size 8a9973408177-test a0908ae19763-test 232c93d07b74-test
+		cq-size 8a9973408177-test a0908ae19763-test 232c93d07b74-test \
+		socket-rw
 
 include ../Makefile.quiet
 
@@ -22,7 +23,7 @@ test_srcs := poll.c poll-cancel.c ring-leak.c fsync.c io_uring_setup.c \
 	eeed8b54e0df-test.c link.c send_recvmsg.c a4c0b3decb33-test.c \
 	500f9fbadef8-test.c timeout.c sq-space_left.c stdout.c cq-ready.c\
 	cq-peek-batch.c file-register.c cq-size.c 8a9973408177-test.c \
-	a0908ae19763-test.c 232c93d07b74-test.c
+	a0908ae19763-test.c 232c93d07b74-test.c socket-rw.c
 
 test_objs := $(patsubst %.c,%.ol,$(test_srcs))
 
