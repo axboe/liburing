@@ -19,22 +19,20 @@
 
 #include <liburing.h>
 
-//#define TCP
-
 int main(int argc, char *argv[])
 {
 	int p_fd[2];
 
-#ifdef TCP
 	int32_t recv_s0 = socket(AF_INET, SOCK_STREAM | SOCK_CLOEXEC, IPPROTO_TCP);
 
 	int32_t val = 1;
 	assert(setsockopt(recv_s0, SOL_SOCKET, SO_REUSEPORT, &val, sizeof(val)) != -1);
+	assert(setsockopt(recv_s0, SOL_SOCKET, SO_REUSEADDR, &val, sizeof(val)) != -1);
 
 	struct sockaddr_in addr;
 
 	addr.sin_family = AF_INET;
-	addr.sin_port = 0x0001;
+	addr.sin_port = 0x1235;
 	addr.sin_addr.s_addr = 0x0100007fU;
 
 	assert(bind(recv_s0, (struct sockaddr*)&addr, sizeof(addr)) != -1);
@@ -72,9 +70,6 @@ int main(int argc, char *argv[])
 		if (!code)
 			break;
 	}
-#else
-	assert(pipe(p_fd) != -1);
-#endif
 
 	struct io_uring m_io_uring;
 
@@ -107,7 +102,7 @@ int main(int argc, char *argv[])
 		io_uring_prep_writev(sqe, p_fd[1], iov, 1, 0);
 	}
 
-	assert(io_uring_submit(&m_io_uring) != -1);
+	assert(io_uring_submit_and_wait(&m_io_uring, 2) != -1);
 
 	struct io_uring_cqe* cqe;
 	uint32_t head;
