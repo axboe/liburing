@@ -270,6 +270,14 @@ static inline void io_uring_prep_timeout_remove(struct io_uring_sqe *sqe,
 	sqe->timeout_flags = flags;
 }
 
+static inline void io_uring_prep_accept(struct io_uring_sqe *sqe, int fd,
+					struct sockaddr *addr,
+					socklen_t *addrlen, int flags)
+{
+	io_uring_prep_rw(IORING_OP_ACCEPT, sqe, fd, addr, 0, (__u64) addrlen);
+	sqe->accept_flags = flags;
+}
+
 static inline unsigned io_uring_sq_space_left(struct io_uring *ring)
 {
 	return *ring->sq.kring_entries - (ring->sq.sqe_tail - ring->sq.sqe_head);
