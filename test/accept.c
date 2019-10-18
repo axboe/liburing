@@ -62,7 +62,7 @@ static int accept_conn(struct io_uring *ring, int fd)
 	return ret;
 }
 
-static int test(struct io_uring *ring, int accept_should_einval)
+static int test(struct io_uring *ring, int accept_should_error)
 {
 	struct io_uring_cqe *cqe;
 	uint32_t head;
@@ -104,17 +104,20 @@ static int test(struct io_uring *ring, int accept_should_einval)
 	flags &= ~O_NONBLOCK;
 	assert(fcntl(p_fd[1], F_SETFL, flags) != -1);
 
-	assert(io_uring_queue_init(32, ring, 0) >= 0);
-
 	p_fd[0] = accept_conn(ring, recv_s0);
 	if (p_fd[0] == -EINVAL) {
-		if (accept_should_einval)
+		if (accept_should_error)
 			goto out;
 		fprintf(stdout, "Accept not supported, skipping\n");
 		no_accept = 1;
 		goto out;
+	} else if (p_fd[0] < 0) {
+		if (accept_should_error &&
+		    (p_fd[0] == -EBADF || p_fd[0] == -EINVAL))
+			goto out;
+		fprintf(stderr, "Accept got %d\n", p_fd[0]);
+		goto err;
 	}
-	assert(p_fd[0] >= 0);
 
 	queue_send(ring, p_fd[1]);
 	queue_recv(ring, p_fd[0]);
