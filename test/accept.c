@@ -17,6 +17,8 @@
 
 #include <liburing.h>
 
+static int no_accept;
+
 static void queue_send(struct io_uring *ring, int fd)
 {
 	struct io_uring_sqe *sqe;
@@ -60,9 +62,8 @@ static int accept_conn(struct io_uring *ring, int fd)
 	return ret;
 }
 
-int main(int argc, char *argv[])
+static int test(struct io_uring *ring, int accept_should_einval)
 {
-	struct io_uring m_io_uring;
 	struct io_uring_cqe *cqe;
 	uint32_t head;
 	uint32_t count = 0;
@@ -103,22 +104,25 @@ int main(int argc, char *argv[])
 	flags &= ~O_NONBLOCK;
 	assert(fcntl(p_fd[1], F_SETFL, flags) != -1);
 
-	assert(io_uring_queue_init(32, &m_io_uring, 0) >= 0);
+	assert(io_uring_queue_init(32, ring, 0) >= 0);
 
-	p_fd[0] = accept_conn(&m_io_uring, recv_s0);
+	p_fd[0] = accept_conn(ring, recv_s0);
 	if (p_fd[0] == -EINVAL) {
+		if (accept_should_einval)
+			goto out;
 		fprintf(stdout, "Accept not supported, skipping\n");
+		no_accept = 1;
 		goto out;
 	}
 	assert(p_fd[0] >= 0);
 
-	queue_send(&m_io_uring, p_fd[1]);
-	queue_recv(&m_io_uring, p_fd[0]);
+	queue_send(ring, p_fd[1]);
+	queue_recv(ring, p_fd[0]);
 
-	assert(io_uring_submit_and_wait(&m_io_uring, 2) != -1);
+	assert(io_uring_submit_and_wait(ring, 2) != -1);
 
 	while (count < 2) {
-		io_uring_for_each_cqe(&m_io_uring, head, cqe) {
+		io_uring_for_each_cqe(ring, head, cqe) {
 			if (cqe->res < 0) {
 				fprintf(stderr, "Got cqe res %d\n", cqe->res);
 				done = 1;
@@ -129,15 +133,60 @@ int main(int argc, char *argv[])
 		}
 
 		assert(count <= 2);
-		io_uring_cq_advance(&m_io_uring, count);
+		io_uring_cq_advance(ring, count);
 		if (done)
 			goto err;
 	}
 
 out:
-	io_uring_queue_exit(&m_io_uring);
+	close(p_fd[0]);
+	close(p_fd[1]);
 	return 0;
 err:
-	io_uring_queue_exit(&m_io_uring);
+	close(p_fd[0]);
+	close(p_fd[1]);
 	return 1;
+}
+
+static int test_accept(void)
+{
+	struct io_uring m_io_uring;
+	int ret;
+
+	assert(io_uring_queue_init(32, &m_io_uring, 0) >= 0);
+	ret = test(&m_io_uring, 0);
+	io_uring_queue_exit(&m_io_uring);
+	return ret;
+}
+
+static int test_accept_sqpoll(void)
+{
+	struct io_uring m_io_uring;
+	int ret;
+
+	assert(io_uring_queue_init(32, &m_io_uring, IORING_SETUP_SQPOLL) >= 0);
+	ret = test(&m_io_uring, 1);
+	io_uring_queue_exit(&m_io_uring);
+	return ret;
+}
+
+int main(int argc, char *argv[])
+{
+	int ret;
+
+	ret = test_accept();
+	if (ret) {
+		fprintf(stderr, "test_accept failed\n");
+		return ret;
+	}
+	if (no_accept)
+		return 0;
+
+	ret = test_accept_sqpoll();
+	if (ret) {
+		fprintf(stderr, "test_accept_sqpoll failed\n");
+		return ret;
+	}
+
+	return 0;
 }
