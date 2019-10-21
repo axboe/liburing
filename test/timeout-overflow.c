@@ -9,8 +9,14 @@
 
 #include "liburing.h"
 
-#define TIMEOUT_MSEC	1000
+#define TIMEOUT_MSEC	200
 static int not_supported;
+
+static void msec_to_ts(struct __kernel_timespec *ts, unsigned int msec)
+{
+	ts->tv_sec = TIMEOUT_MSEC / 1000;
+	ts->tv_nsec = (msec % 1000) * 1000000;
+}
 
 static int check_timeout_support()
 {
@@ -26,8 +32,7 @@ static int check_timeout_support()
 		return 1;
 	}
 	sqe = io_uring_get_sqe(&ring);
-	ts.tv_sec = TIMEOUT_MSEC / 1000;
-	ts.tv_nsec = 0;
+	msec_to_ts(&ts, TIMEOUT_MSEC);
 	io_uring_prep_timeout(sqe, &ts, 1, 0);
 
 	ret = io_uring_submit(&ring);
@@ -49,8 +54,10 @@ static int check_timeout_support()
 	}
 
 	io_uring_cqe_seen(&ring, cqe);
+	io_uring_queue_exit(&ring);
 	return 0;
 err:
+	io_uring_queue_exit(&ring);
 	return 1;
 }
 
@@ -80,8 +87,7 @@ static int test_timeout_overflow()
 		return 1;
 	}
 
-	ts.tv_sec = TIMEOUT_MSEC / 1000;
-	ts.tv_nsec = 0;
+	msec_to_ts(&ts, TIMEOUT_MSEC);
 	for (i = 0; i < 4; i++) {
 		unsigned num;
 		sqe = io_uring_get_sqe(&ring);

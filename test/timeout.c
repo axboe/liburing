@@ -12,9 +12,15 @@
 
 #include "liburing.h"
 
-#define TIMEOUT_MSEC	1000
+#define TIMEOUT_MSEC	200
 static int not_supported;
 static int no_modify;
+
+static void msec_to_ts(struct __kernel_timespec *ts, unsigned int msec)
+{
+	ts->tv_sec = TIMEOUT_MSEC / 1000;
+	ts->tv_nsec = (msec % 1000) * 1000000;
+}
 
 static unsigned long long mtime_since(const struct timeval *s,
 				      const struct timeval *e)
@@ -60,8 +66,7 @@ static int test_single_timeout_many(struct io_uring *ring)
 		goto err;
 	}
 
-	ts.tv_sec = TIMEOUT_MSEC / 1000;
-	ts.tv_nsec = 0;
+	msec_to_ts(&ts, TIMEOUT_MSEC);
 	io_uring_prep_timeout(sqe, &ts, 0, 0);
 
 	ret = io_uring_submit(ring);
@@ -117,8 +122,7 @@ static int test_single_timeout_nr(struct io_uring *ring)
 		goto err;
 	}
 
-	ts.tv_sec = TIMEOUT_MSEC / 1000;
-	ts.tv_nsec = 0;
+	msec_to_ts(&ts, TIMEOUT_MSEC);
 	io_uring_prep_timeout(sqe, &ts, 2, 0);
 
 	sqe = io_uring_get_sqe(ring);
@@ -195,8 +199,7 @@ static int test_single_timeout_wait(struct io_uring *ring)
 	io_uring_prep_nop(sqe);
 	io_uring_sqe_set_data(sqe, (void *) 1);
 
-	ts.tv_sec = 1;
-	ts.tv_nsec = 0;
+	msec_to_ts(&ts, 1000);
 
 	i = 0;
 	do {
@@ -244,8 +247,7 @@ static int test_single_timeout(struct io_uring *ring)
 		goto err;
 	}
 
-	ts.tv_sec = TIMEOUT_MSEC / 1000;
-	ts.tv_nsec = 0;
+	msec_to_ts(&ts, TIMEOUT_MSEC);
 	io_uring_prep_timeout(sqe, &ts, 0, 0);
 
 	ret = io_uring_submit(ring);
@@ -295,8 +297,7 @@ static int test_single_timeout_remove_notfound(struct io_uring *ring)
 		goto err;
 	}
 
-	ts.tv_sec = TIMEOUT_MSEC / 1000;
-	ts.tv_nsec = 0;
+	msec_to_ts(&ts, TIMEOUT_MSEC);
 	io_uring_prep_timeout(sqe, &ts, 2, 0);
 	sqe->user_data = 1;
 
@@ -363,8 +364,7 @@ static int test_single_timeout_remove(struct io_uring *ring)
 		goto err;
 	}
 
-	ts.tv_sec = TIMEOUT_MSEC / 1000;
-	ts.tv_nsec = 0;
+	msec_to_ts(&ts, TIMEOUT_MSEC);
 	io_uring_prep_timeout(sqe, &ts, 0, 0);
 	sqe->user_data = 1;
 
@@ -473,7 +473,7 @@ static int test_single_timeout_abs(struct io_uring *ring)
 	}
 
 	exp = mtime_since_now(&tv);
-	if (exp >= TIMEOUT_MSEC / 2 && exp <= (TIMEOUT_MSEC * 3) / 2)
+	if (exp >= 1000 / 2 && exp <= (1000 * 3) / 2)
 		return 0;
 	fprintf(stderr, "%s: Timeout seems wonky (got %llu)\n", __FUNCTION__, exp);
 err:
@@ -495,8 +495,7 @@ static int test_single_timeout_exit(struct io_uring *ring)
 		goto err;
 	}
 
-	ts.tv_sec = 30;
-	ts.tv_nsec = 0;
+	msec_to_ts(&ts, 30000);
 	io_uring_prep_timeout(sqe, &ts, 0, 0);
 
 	ret = io_uring_submit(ring);
