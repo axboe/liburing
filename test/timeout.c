@@ -511,6 +511,97 @@ err:
 	return 1;
 }
 
+/*
+ * Test multi timeouts waking us up
+ */
+static int test_multi_timeout(struct io_uring *ring)
+{
+	struct io_uring_sqe *sqe;
+	struct io_uring_cqe *cqe;
+	struct __kernel_timespec ts[2];
+	unsigned int timeout[2];
+	unsigned long long exp;
+	struct timeval tv;
+	int ret, i;
+
+	/* req_1: timeout req, count = 1, time = (TIMEOUT_MSEC * 2) */
+	timeout[0] = TIMEOUT_MSEC * 2;
+	msec_to_ts(&ts[0], timeout[0]);
+	sqe = io_uring_get_sqe(ring);
+	if (!sqe) {
+		fprintf(stderr, "%s: get sqe failed\n", __FUNCTION__);
+		goto err;
+	}
+	io_uring_prep_timeout(sqe, &ts[0], 1, 0);
+	sqe->user_data = 1;
+
+	/* req_2: timeout req, count = 1, time = TIMEOUT_MSEC */
+	timeout[1] = TIMEOUT_MSEC;
+	msec_to_ts(&ts[1], timeout[1]);
+	sqe = io_uring_get_sqe(ring);
+	if (!sqe) {
+		fprintf(stderr, "%s: get sqe failed\n", __FUNCTION__);
+		goto err;
+	}
+	io_uring_prep_timeout(sqe, &ts[1], 1, 0);
+	sqe->user_data = 2;
+
+	ret = io_uring_submit(ring);
+	if (ret <= 0) {
+		fprintf(stderr, "%s: sqe submit failed: %d\n", __FUNCTION__, ret);
+		goto err;
+	}
+
+	gettimeofday(&tv, NULL);
+	for (i = 0; i < 2; i++) {
+		unsigned int time;
+		__u64 user_data;
+
+		ret = io_uring_wait_cqe(ring, &cqe);
+		if (ret < 0) {
+			fprintf(stderr, "%s: wait completion %d\n", __FUNCTION__, ret);
+			goto err;
+		}
+
+		/*
+		 * Both of these two reqs should timeout, but req_2 should
+		 * return before req_1.
+		 */
+		switch (i) {
+		case 0:
+			user_data = 2;
+			time = timeout[1];
+			break;
+		case 1:
+			user_data = 1;
+			time = timeout[0];
+			break;
+		}
+
+		if (cqe->user_data != user_data) {
+			fprintf(stderr, "%s: unexpected timeout req %d sequece\n",
+				__FUNCTION__, i+1);
+			goto err;
+		}
+		if (cqe->res != -ETIME) {
+			fprintf(stderr, "%s: Req %d timeout: %s\n",
+				__FUNCTION__, i+1, strerror(cqe->res));
+			goto err;
+		}
+		exp = mtime_since_now(&tv);
+		if (exp < time / 2 || exp > (time * 3) / 2) {
+			fprintf(stderr, "%s: Req %d timeout seems wonky (got %llu)\n",
+				__FUNCTION__, i+1, exp);
+			goto err;
+		}
+		io_uring_cqe_seen(ring, cqe);
+	}
+
+	return 0;
+err:
+	return 1;
+}
+
 int main(int argc, char *argv[])
 {
 	struct io_uring ring;
@@ -529,6 +620,12 @@ int main(int argc, char *argv[])
 	}
 	if (not_supported)
 		return 0;
+
+	ret = test_multi_timeout(&ring);
+	if (ret) {
+		fprintf(stderr, "test_single_timeout failed\n");
+		return ret;
+	}
 
 	ret = test_single_timeout_abs(&ring);
 	if (ret) {
