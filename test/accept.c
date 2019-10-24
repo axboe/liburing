@@ -151,6 +151,48 @@ err:
 	return 1;
 }
 
+static void sig_alrm(int sig)
+{
+	exit(0);
+}
+
+static int test_accept_cancel(void)
+{
+	struct io_uring m_io_uring;
+	struct io_uring_cqe *cqe;
+	struct io_uring_sqe *sqe;
+	int fd;
+
+	assert(io_uring_queue_init(32, &m_io_uring, 0) >= 0);
+
+	fd = socket(AF_INET, SOCK_STREAM | SOCK_CLOEXEC, IPPROTO_TCP);
+
+	int32_t val = 1;
+	assert(setsockopt(fd, SOL_SOCKET, SO_REUSEPORT, &val, sizeof(val)) != -1);
+	assert(setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &val, sizeof(val)) != -1);
+
+	struct sockaddr_in addr;
+
+	addr.sin_family = AF_INET;
+	addr.sin_port = 0x1235;
+	addr.sin_addr.s_addr = 0x0100007fU;
+
+	assert(bind(fd, (struct sockaddr*)&addr, sizeof(addr)) != -1);
+	assert(listen(fd, 128) != -1);
+
+	sqe = io_uring_get_sqe(&m_io_uring);
+	io_uring_prep_accept(sqe, fd, NULL, NULL, 0);
+	assert(io_uring_submit(&m_io_uring) != -1);
+
+	signal(SIGALRM, sig_alrm);
+	alarm(1);
+	assert(!io_uring_wait_cqe(&m_io_uring, &cqe));
+	io_uring_cqe_seen(&m_io_uring, cqe);
+
+	io_uring_queue_exit(&m_io_uring);
+	return 0;
+}
+
 static int test_accept(void)
 {
 	struct io_uring m_io_uring;
@@ -188,6 +230,12 @@ int main(int argc, char *argv[])
 	ret = test_accept_sqpoll();
 	if (ret) {
 		fprintf(stderr, "test_accept_sqpoll failed\n");
+		return ret;
+	}
+
+	ret = test_accept_cancel();
+	if (ret) {
+		fprintf(stderr, "test_accept_cancel failed\n");
 		return ret;
 	}
 
