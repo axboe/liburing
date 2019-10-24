@@ -18,6 +18,11 @@ static char str[] = "This is a test of sendmsg and recvmsg over io_uring!";
 #define PORT	10200
 #define HOST	"127.0.0.1"
 
+static void sig_alrm(int sig)
+{
+	exit(0);
+}
+
 static int do_recvmsg(void)
 {
 	struct sockaddr_in saddr;
@@ -31,6 +36,8 @@ static int do_recvmsg(void)
 	struct io_uring_cqe *cqe;
 	struct io_uring_sqe *sqe;
 	int sockfd, ret;
+
+	signal(SIGALRM, sig_alrm);
 
 	ret = io_uring_queue_init(1, &ring, 0);
 	if (ret) {
@@ -68,6 +75,9 @@ static int do_recvmsg(void)
 		printf("submit failed\n");
 		goto err;
 	}
+
+	/* we may never get the data, ensure we exit */
+	alarm(1);
 
 	ret = io_uring_wait_cqe(&ring, &cqe);
 	if (cqe->res < 0) {
