@@ -31,7 +31,9 @@ for t in $TESTS; do
 		ps aux | grep "\[io_wq_manager\]" > /dev/null
 		R="$?"
 		if [ "$R" -eq 0 ]; then
-			echo "Test $t has alive workers?!"
+			if [ -z "$MAYBE_FAILED" ]; then
+				echo "Test $t has alive workers after exit?!"
+			fi
 			MAYBE_FAILED="$MAYBE_FAILED $t"
 		fi
 	fi
