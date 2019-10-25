@@ -37,3 +37,5 @@ clean:
 
 runtests:
 	@./runtests.sh $(all_targets)
+runtests-loop:
+	@./runtests-loop.sh $(all_targets)

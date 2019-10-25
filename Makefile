@@ -15,6 +15,8 @@ all:
 
 runtests:
 	@$(MAKE) -C test runtests
+runtests-loop:
+	@$(MAKE) -C test runtests-loop
 
 config-host.mak: configure
 	@if [ ! -e "$@" ]; then					\
