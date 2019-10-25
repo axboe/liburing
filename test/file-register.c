@@ -407,6 +407,126 @@ err:
 	return 1;
 }
 
+static int test_fixed_read_write(struct io_uring *ring, int index)
+{
+	struct io_uring_sqe *sqe;
+	struct io_uring_cqe *cqe;
+	struct iovec iov[2];
+	int ret, i;
+
+	iov[0].iov_base = malloc(4096);
+	iov[0].iov_len = 4096;
+	memset(iov[0].iov_base, 0x5a, 4096);
+
+	iov[1].iov_base = malloc(4096);
+	iov[1].iov_len = 4096;
+
+	sqe = io_uring_get_sqe(ring);
+	if (!sqe) {
+		fprintf(stderr, "%s: failed to get sqe\n", __FUNCTION__);
+		return 1;
+	}
+	io_uring_prep_writev(sqe, index, &iov[0], 1, 0);
+	sqe->flags |= IOSQE_FIXED_FILE;
+	sqe->user_data = 1;
+
+	sqe = io_uring_get_sqe(ring);
+	if (!sqe) {
+		fprintf(stderr, "%s: failed to get sqe\n", __FUNCTION__);
+		return 1;
+	}
+	io_uring_prep_readv(sqe, index, &iov[1], 1, 0);
+	sqe->flags |= IOSQE_FIXED_FILE;
+	sqe->user_data = 2;
+
+	ret = io_uring_submit(ring);
+	if (ret != 2) {
+		fprintf(stderr, "%s: got %d, wanted 2\n", __FUNCTION__, ret);
+		return 1;
+	}
+
+	for (i = 0; i < 2; i++) {
+		ret = io_uring_wait_cqe(ring, &cqe);
+		if (ret < 0) {
+			fprintf(stderr, "%s: io_uring_wait_cqe=%d\n", __FUNCTION__, ret);
+			return 1;
+		}
+		if (cqe->res != 4096) {
+			fprintf(stderr, "%s: cqe->res=%d\n", __FUNCTION__, cqe->res);
+			return 1;
+		}
+		if (cqe->user_data == 2) {
+			if (memcmp(iov[1].iov_base, iov[0].iov_base, 4096)) {
+				fprintf(stderr, "%s: data mismatch\n", __FUNCTION__);
+				return 1;
+			}
+		}
+		io_uring_cqe_seen(ring, cqe);
+	}
+
+	free(iov[0].iov_base);
+	free(iov[1].iov_base);
+	return 0;
+}
+
+/*
+ * Register 8K of sparse files, update one at a random spot, then do some
+ * file IO to verify it works.
+ */
+static int test_huge(struct io_uring *ring)
+{
+	int *files;
+	int ret;
+
+	files = open_files(0, 8192, 0);
+	ret = io_uring_register_files(ring, files, 8192);
+	if (ret) {
+		/* huge sets not supported */
+		if (ret == -EMFILE) {
+			fprintf(stdout, "%s: No huge file set support, skipping\n", __FUNCTION__);
+			goto out;
+		}
+		fprintf(stderr, "%s: register ret=%d\n", __FUNCTION__, ret);
+		goto err;
+	}
+
+	files[7193] = open(".reg.7193", O_RDWR | O_CREAT, 0644);
+	if (files[7193] < 0) {
+		fprintf(stderr, "%s: open=%d\n", __FUNCTION__, errno);
+		goto err;
+	}
+
+	ret = io_uring_register_files_update(ring, 7193, &files[7193], 1);
+	if (ret != 1) {
+		fprintf(stderr, "%s: update ret=%d\n", __FUNCTION__, ret);
+		goto err;
+	}
+
+	if (test_fixed_read_write(ring, 7193))
+		goto err;
+
+	ret = io_uring_unregister_files(ring);
+	if (ret) {
+		fprintf(stderr, "%s: unregister ret=%d\n", __FUNCTION__, ret);
+		goto err;
+	}
+
+	if (files[7193] != -1) {
+		close(files[7193]);
+		unlink(".reg.7193");
+	}
+out:
+	free(files);
+	return 0;
+err:
+	if (files[7193] != -1) {
+		close(files[7193]);
+		unlink(".reg.7193");
+	}
+	free(files);
+	return 1;
+}
+
 int main(int argc, char *argv[])
 {
 	struct io_uring ring;
@@ -478,6 +598,12 @@ int main(int argc, char *argv[])
 	ret = test_zero(&ring);
 	if (ret) {
 		printf("test_zero failed\n");
+		return ret;
+	}
+
+	ret = test_huge(&ring);
+	if (ret) {
+		printf("test_huge failed\n");
 		return ret;
 	}
 
