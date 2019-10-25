@@ -30,6 +30,7 @@ test_objs := $(patsubst %.c,%.ol,$(test_srcs))
 
 35fa71a030ca-test: XCFLAGS = -lpthread
 232c93d07b74-test: XCFLAGS = -lpthread
+send_recvmsg: XCFLAGS = -lpthread
 
 clean:
 	rm -f $(all_targets) $(test_objs)
