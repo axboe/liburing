@@ -1,0 +1,243 @@
+/*
+ * Description: basic read/write tests with buffered, O_DIRECT, and SQPOLL
+ */
+#include <errno.h>
+#include <stdio.h>
+#include <unistd.h>
+#include <stdlib.h>
+#include <string.h>
+#include <fcntl.h>
+#include <sys/types.h>
+
+#include "liburing.h"
+
+#define FILE_SIZE	(128 * 1024)
+#define BS		4096
+#define BUFFERS		(FILE_SIZE / BS)
+
+static struct iovec *vecs;
+
+static int create_buffers(void)
+{
+	int i;
+
+	vecs = malloc(BUFFERS * sizeof(struct iovec));
+	for (i = 0; i < BUFFERS; i++) {
+		if (posix_memalign(&vecs[i].iov_base, BS, BS))
+			return 1;
+		vecs[i].iov_len = BS;
+	}
+
+	return 0;
+}
+
+static int create_file(const char *file)
+{
+	ssize_t ret;
+	char *buf;
+	int fd;
+
+	buf = malloc(FILE_SIZE);
+	memset(buf, 0xaa, FILE_SIZE);
+
+	fd = open(file, O_WRONLY | O_CREAT, 0644);
+	if (fd < 0) {
+		perror("open file");
+		return 1;
+	}
+	ret = write(fd, buf, FILE_SIZE);
+	close(fd);
+	return ret != FILE_SIZE;
+}
+
+static int test_io(const char *file, int write, int buffered, int sqthread,
+		   int fixed, int mixed_fixed)
+{
+	struct io_uring_sqe *sqe;
+	struct io_uring_cqe *cqe;
+	struct io_uring ring;
+	int open_flags, ring_flags;
+	int i, fd, ret;
+
+#ifdef VERBOSE
+	fprintf(stdout, "%s: start %d/%d/%d/%d/%d: ", __FUNCTION__, write,
+							buffered, sqthread,
+							fixed, mixed_fixed);
+#endif
+	if (sqthread && geteuid()) {
+#ifdef VERBOSE
+		printf("SKIPPED (not root)\n");
+#endif
+		return 0;
+	}
+
+	if (write)
+		open_flags = O_WRONLY;
+	else
+		open_flags = O_RDONLY;
+	if (!buffered)
+		open_flags |= O_DIRECT;
+
+	fd = open(file, open_flags);
+	if (fd < 0) {
+		perror("file open");
+		goto err;
+	}
+
+	if (sqthread)
+		ring_flags = IORING_SETUP_SQPOLL;
+	else
+		ring_flags = 0;
+	ret = io_uring_queue_init(64, &ring, ring_flags);
+	if (ret) {
+		fprintf(stderr, "ring create failed: %d\n", ret);
+		goto err;
+	}
+
+	if (fixed) {
+		ret = io_uring_register_buffers(&ring, vecs, BUFFERS);
+		if (ret) {
+			fprintf(stderr, "buffer reg failed: %d\n", ret);
+			goto err;
+		}
+	}
+	if (sqthread) {
+		ret = io_uring_register_files(&ring, &fd, 1);
+		if (ret) {
+			fprintf(stderr, "file reg failed: %d\n", ret);
+			goto err;
+		}
+	}
+
+	for (i = 0; i < BUFFERS; i++) {
+		off_t offset;
+
+		sqe = io_uring_get_sqe(&ring);
+		if (!sqe) {
+			fprintf(stderr, "sqe get failed\n");
+			goto err;
+		}
+		offset = BS * (rand() % BUFFERS);
+		if (write) {
+			int do_fixed = fixed;
+			int use_fd = fd;
+
+			if (sqthread)
+				use_fd = 0;
+			if (fixed && (i & 1))
+				do_fixed = 0;
+			if (do_fixed) {
+				io_uring_prep_write_fixed(sqe, use_fd, vecs[i].iov_base,
+								vecs[i].iov_len,
+								offset, i);
+			} else {
+				io_uring_prep_writev(sqe, use_fd, &vecs[i], 1,
+								offset);
+			}
+		} else {
+			int do_fixed = fixed;
+			int use_fd = fd;
+
+			if (sqthread)
+				use_fd = 0;
+			if (fixed && (i & 1))
+				do_fixed = 0;
+			if (do_fixed) {
+				io_uring_prep_read_fixed(sqe, use_fd, vecs[i].iov_base,
+								vecs[i].iov_len,
+								offset, i);
+			} else {
+				io_uring_prep_readv(sqe, use_fd, &vecs[i], 1,
+								offset);
+			}
+
+		}
+		if (sqthread)
+			sqe->flags |= IOSQE_FIXED_FILE;
+	}
+
+	ret = io_uring_submit(&ring);
+	if (ret != BUFFERS) {
+		fprintf(stderr, "submit got %d, wanted %d\n", ret, BUFFERS);
+		goto err;
+	}
+
+	for (i = 0; i < BUFFERS; i++) {
+		ret = io_uring_wait_cqe(&ring, &cqe);
+		if (ret) {
+			fprintf(stderr, "wait_cqe=%d\n", ret);
+			goto err;
+		}
+		if (cqe->res != BS) {
+			fprintf(stderr, "cqe res %d, wanted %d\n", cqe->res, BS);
+			goto err;
+		}
+		io_uring_cqe_seen(&ring, cqe);
+	}
+
+	if (fixed) {
+		ret = io_uring_unregister_buffers(&ring);
+		if (ret) {
+			fprintf(stderr, "buffer unreg failed: %d\n", ret);
+			goto err;
+		}
+	}
+	if (sqthread) {
+		ret = io_uring_unregister_files(&ring);
+		if (ret) {
+			fprintf(stderr, "file unreg failed: %d\n", ret);
+			goto err;
+		}
+	}
+
+	io_uring_queue_exit(&ring);
+	close(fd);
+#ifdef VERBOSE
+	printf("PASS\n");
+#endif
+	return 0;
+err:
+#ifdef VERBOSE
+	print("FAILED\n");
+#endif
+	if (fd != -1)
+		close(fd);
+	return 1;
+}
+
+int main(int argc, char *argv[])
+{
+	int i, ret;
+
+	if (create_file(".basic-rw")) {
+		fprintf(stderr, "file creation failed\n");
+		goto err;
+	}
+	if (create_buffers()) {
+		fprintf(stderr, "file creation failed\n");
+		goto err;
+	}
+
+	/* 5 values, 2^5 == 32 */
+	for (i = 0; i < 32; i++) {
+		int v1, v2, v3, v4, v5;
+
+		v1 = (i & 1) != 0;
+		v2 = (i & 2) != 0;
+		v3 = (i & 4) != 0;
+		v4 = (i & 8) != 0;
+		v5 = (i & 16) != 0;
+		ret = test_io(".basic-rw", v1, v2, v3, v4, v5);
+		if (ret) {
+			fprintf(stderr, "test_io failed %d/%d/%d/%d/%d\n",
+					v1, v2, v3, v4, v5);
+			goto err;
+		}
+	}
+
+	unlink(".basic-rw");
+	return 0;
+err:
+	unlink(".basic-rw");
+	return 1;
+}
