@@ -278,6 +278,13 @@ static inline void io_uring_prep_accept(struct io_uring_sqe *sqe, int fd,
 	sqe->accept_flags = flags;
 }
 
+static inline void io_uring_prep_cancel(struct io_uring_sqe *sqe, void *user_data,
+					int flags)
+{
+	io_uring_prep_rw(IORING_OP_ASYNC_CANCEL, sqe, 0, user_data, 0, 0);
+	sqe->cancel_flags = flags;
+}
+
 static inline unsigned io_uring_sq_space_left(struct io_uring *ring)
 {
 	return *ring->sq.kring_entries - (ring->sq.sqe_tail - ring->sq.sqe_head);
