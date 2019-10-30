@@ -132,7 +132,9 @@ static void *rcv(void *arg)
 				if (cqe->res < 0)
 					assert(cqe->res == -EAGAIN);
 				else {
-					for (int i = 0; i < cqe->res; i++) {
+					int i;
+
+					for (i = 0; i < cqe->res; i++) {
 						if (buff[i] != expected_byte) {
 							fprintf(stderr,
 								"Received %d, wanted %d\n",
@@ -208,8 +210,9 @@ static void *snd(void *arg)
 
 	while (!done && bytes_written != 33) {
 		char buff[SEND_BUFF_SIZE];
+		int i;
 
-		for (int i = 0; i < SEND_BUFF_SIZE; i++)
+		for (i = 0; i < SEND_BUFF_SIZE; i++)
 			buff[i] = i + bytes_written;
 
 		struct iovec iov;

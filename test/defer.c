@@ -92,7 +92,7 @@ static int test_cancelled_userdata(struct io_uring *ring)
 	if (wait_cqes(&ctx))
 		goto err;
 
-	for (int i = 0; i < nr; i++) {
+	for (i = 0; i < nr; i++) {
 		if (i != ctx.cqes[i].user_data) {
 			printf("invalid user data\n");
 			goto err;
@@ -126,7 +126,7 @@ static int test_thread_link_cancel(struct io_uring *ring)
 	if (wait_cqes(&ctx))
 		goto err;
 
-	for (int i = 0; i < nr; i++) {
+	for (i = 0; i < nr; i++) {
 		bool fail = false;
 
 		if (i == 0)
