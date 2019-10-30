@@ -90,8 +90,7 @@ static int __io_uring_flush_sq(struct io_uring *ring)
 	 * Ensure that the kernel sees the SQE updates before it sees the tail
 	 * update.
 	 */
-	if (submitted)
-		io_uring_smp_store_release(sq->ktail, ktail);
+	io_uring_smp_store_release(sq->ktail, ktail);
 
 	return submitted;
 }
