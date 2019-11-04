@@ -8,6 +8,11 @@ side implementation.
 
 For more info on io_uring, please see:
 
-http://kernel.dk/io_uring.pdf
+https://kernel.dk/io_uring.pdf
+
+Subscribe to io-uring@vger.kernel.org for io_uring related discussions
+and development for both kernel and userspace. The list is archived here:
+
+https://lore.kernel.org/io-uring/
 
 Jens Axboe 2019-08-05
