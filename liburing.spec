@@ -1,12 +1,11 @@
 Name: liburing
 Version: 0.2
-Release: 1
+Release: 1%{?dist}
 Summary: Linux-native io_uring I/O access library
 License: LGPLv2+
-Group:  System Environment/Libraries
 Source: %{name}-%{version}.tar.gz
-BuildRoot: %{_tmppath}/%{name}-root
-URL: http://git.kernel.dk/cgit/liburing/
+URL: https://git.kernel.dk/cgit/liburing/snapshot/%{name}-%{version}.tar.gz
+BuildRequires: gcc
 
 %description
 Provides native async IO for the Linux kernel, in a fast and efficient
@@ -14,47 +13,49 @@ manner, for both buffered and O_DIRECT.
 
 %package devel
 Summary: Development files for Linux-native io_uring I/O access library
-Group: Development/System
-Requires: liburing
-Provides: liburing.so.1
+Requires: %{name} = %{version}-%{release}
+Requires: pkgconfig
 
 %description devel
 This package provides header files to include and libraries to link with
 for the Linux-native io_uring.
 
 %prep
-%setup
+%autosetup
 
 %build
-./configure --prefix=/usr --libdir=/%{_libdir} --mandir=/usr/share/man
-make
+./configure --prefix=%{_prefix} --libdir=/%{_libdir} --mandir=%{_mandir} --includedir=%{_includedir}
+
+%make_build
 
 %install
-[ "$RPM_BUILD_ROOT" != "/" ] && rm -rf $RPM_BUILD_ROOT
-
-make install DESTDIR=$RPM_BUILD_ROOT
-
-%clean
-[ "$RPM_BUILD_ROOT" != "/" ] && rm -rf $RPM_BUILD_ROOT
-
-%post -p /sbin/ldconfig
-
-%postun -p /sbin/ldconfig
+%make_install
 
 %files
-%defattr(-,root,root)
 %attr(0755,root,root) %{_libdir}/liburing.so.*
 %doc COPYING
 
 %files devel
-%defattr(-,root,root)
-%attr(-,root,root) %{_includedir}/liburing/
-%attr(0644,root,root) %{_includedir}/liburing.h
-%attr(0755,root,root) %{_libdir}/liburing.so
-%attr(0644,root,root) %{_libdir}/liburing.a
-%attr(0644,root,root) %{_libdir}/pkgconfig/*
-%attr(0644,root,root) %{_mandir}/man2/*
+%{_includedir}/liburing/
+%{_includedir}/liburing.h
+%{_libdir}/liburing.so
+%{_libdir}/liburing.a
+%{_libdir}/pkgconfig/*
+%{_mandir}/man2/*
 
 %changelog
+* Thu Oct 31 2019 Jeff Moyer <jmoyer@redhat.com> - 0.2-1
+- Add io_uring_cq_ready()
+- Add io_uring_peek_batch_cqe()
+- Add io_uring_prep_accept()
+- Add io_uring_prep_{recv,send}msg()
+- Add io_uring_prep_timeout_remove()
+- Add io_uring_queue_init_params()
+- Add io_uring_register_files_update()
+- Add io_uring_sq_space_left()
+- Add io_uring_wait_cqe_timeout()
+- Add io_uring_wait_cqes()
+- Add io_uring_wait_cqes_timeout()
+
 * Tue Jan 8 2019 Jens Axboe <axboe@kernel.dk> - 0.1
 - Initial version
