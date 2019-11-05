@@ -76,6 +76,7 @@ do {						\
  * Add arch appropriate definitions. Be safe and use full barriers for
  * archs we don't have support for.
  */
+#define io_uring_smp_mb()	__sync_synchronize()
 #define io_uring_smp_rmb()	__sync_synchronize()
 #define io_uring_smp_wmb()	__sync_synchronize()
 #endif /* defined(__x86_64__) || defined(__i386__) */
