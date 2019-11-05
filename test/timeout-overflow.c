@@ -14,7 +14,7 @@ static int not_supported;
 
 static void msec_to_ts(struct __kernel_timespec *ts, unsigned int msec)
 {
-	ts->tv_sec = TIMEOUT_MSEC / 1000;
+	ts->tv_sec = msec / 1000;
 	ts->tv_nsec = (msec % 1000) * 1000000;
 }
 
