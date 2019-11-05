@@ -722,7 +722,7 @@ int main(int argc, char *argv[])
 
 	ret = test_multi_timeout(&ring);
 	if (ret) {
-		fprintf(stderr, "test_single_timeout failed\n");
+		fprintf(stderr, "test_multi_timeout failed\n");
 		return ret;
 	}
 
@@ -773,7 +773,7 @@ int main(int argc, char *argv[])
 	 */
 	ret = test_single_timeout_exit(&ring);
 	if (ret) {
-		fprintf(stderr, "test_single_timeout_nr failed\n");
+		fprintf(stderr, "test_single_timeout_exit failed\n");
 		return ret;
 	}
 
