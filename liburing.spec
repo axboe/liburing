@@ -1,5 +1,5 @@
 Name: liburing
-Version: 0.1
+Version: 0.2
 Release: 1
 Summary: Linux-native io_uring I/O access library
 License: LGPLv2+
