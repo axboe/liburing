@@ -285,6 +285,14 @@ static inline void io_uring_prep_cancel(struct io_uring_sqe *sqe, void *user_dat
 	sqe->cancel_flags = flags;
 }
 
+static inline void io_uring_prep_link_timeout(struct io_uring_sqe *sqe,
+					      struct __kernel_timespec *ts,
+					      unsigned flags)
+{
+	io_uring_prep_rw(IORING_OP_LINK_TIMEOUT, sqe, 0, ts, 1, 0);
+	sqe->timeout_flags = flags;
+}
+
 static inline unsigned io_uring_sq_space_left(struct io_uring *ring)
 {
 	return *ring->sq.kring_entries - (ring->sq.sqe_tail - ring->sq.sqe_head);
