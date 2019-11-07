@@ -341,7 +341,9 @@ is set appropriately.
 .SH ERRORS
 .TP
 .B EAGAIN
-The kernel was unable to allocate memory for the request.
+The kernel was unable to allocate memory for the request, or otherwise ran out
+of resources to handle it. The application should wait for some completions and
+try again.
 .TP
 .B EBADF
 The
