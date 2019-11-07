@@ -131,6 +131,13 @@ field of the
 This flag is only meaningful when
 .B IORING_SETUP_SQPOLL
 is specified.
+.TP
+.B IORING_SETUP_CQSIZE
+Create the completion queue with
+.IR "struct io_uring_params.cq_entries"
+entries.  The value must be greater than
+.IR entries ,
+and may be rounded up to the next power-of-two.
 .PP
 If no flags are specified, the io_uring instance is setup for
 interrupt driven I/O.  I/O may be submitted using
@@ -300,11 +307,15 @@ params is outside your accessible address space.
 The resv array contains non-zero data, p.flags contains an unsupported
 flag,
 .I entries
-is out of bounds, or
+is out of bounds,
 .B IORING_SETUP_SQ_AFF
 was specified, but
 .B IORING_SETUP_SQPOLL
-was not.
+was not, or
+.B IORING_SETUP_CQSIZE
+was specified, but
+.I io_uring_params.cq_entries
+was invalid.
 .TP
 .B EMFILE
 The per-process limit on the number of open file descriptors has been
