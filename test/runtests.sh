@@ -14,7 +14,7 @@ fi
 
 for t in $TESTS; do
 	if [ "$do_kmsg" = "yes" ]; then
-		echo Running test $t | tee > /dev/kmsg
+		echo Running test $t | tee /dev/kmsg
 	else
 		echo Running test $t
 	fi
