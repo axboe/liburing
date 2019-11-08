@@ -11,6 +11,140 @@
 
 #include "liburing.h"
 
+static int no_nodrop;
+
+#define FILE_SIZE	(256 * 1024)
+#define BS		4096
+#define BUFFERS		(FILE_SIZE / BS)
+
+static struct iovec *vecs;
+
+static int create_buffers(void)
+{
+	int i;
+
+	vecs = malloc(BUFFERS * sizeof(struct iovec));
+	for (i = 0; i < BUFFERS; i++) {
+		if (posix_memalign(&vecs[i].iov_base, BS, BS))
+			return 1;
+		vecs[i].iov_len = BS;
+	}
+
+	return 0;
+}
+
+static int create_file(const char *file)
+{
+	ssize_t ret;
+	char *buf;
+	int fd;
+
+	buf = malloc(FILE_SIZE);
+	memset(buf, 0xaa, FILE_SIZE);
+
+	fd = open(file, O_WRONLY | O_CREAT, 0644);
+	if (fd < 0) {
+		perror("open file");
+		return 1;
+	}
+	ret = write(fd, buf, FILE_SIZE);
+	close(fd);
+	return ret != FILE_SIZE;
+}
+
+static int test_io(const char *file, int nodrop, unsigned long usecs,
+		   unsigned *drops)
+{
+	struct io_uring_sqe *sqe;
+	struct io_uring_cqe *cqe;
+	struct io_uring ring;
+	unsigned reaped, total;
+	int ring_flags;
+	int i, fd, ret;
+
+	if (no_nodrop && nodrop)
+		return 0;
+
+	fd = open(file, O_RDONLY | O_DIRECT);
+	if (fd < 0) {
+		perror("file open");
+		goto err;
+	}
+
+	ring_flags = 0;
+	if (nodrop)
+		ring_flags |= IORING_SETUP_CQ_NODROP;
+	ret = io_uring_queue_init(8, &ring, ring_flags);
+	if (ret) {
+		if (nodrop && ret == -EINVAL) {
+			printf("CQ_NODROP not supported, skipped\n");
+			goto out;
+		}
+		fprintf(stderr, "ring create failed: %d\n", ret);
+		goto err;
+	}
+
+	total = BUFFERS;
+	for (i = 0; i < BUFFERS; i++) {
+		off_t offset;
+
+		sqe = io_uring_get_sqe(&ring);
+		if (!sqe) {
+			fprintf(stderr, "sqe get failed\n");
+			goto err;
+		}
+		offset = BS * (rand() % BUFFERS);
+		io_uring_prep_readv(sqe, fd, &vecs[i], 1, offset);
+
+		ret = io_uring_submit(&ring);
+		if (ret != 1) {
+			fprintf(stderr, "submit got %d, wanted %d\n", ret, 1);
+			total = i;
+			break;
+		}
+	}
+
+	usleep(usecs);
+
+	reaped = 0;
+	do {
+		if (nodrop) {
+			/* nodrop should never lose events */
+			if (reaped == total)
+				break;
+		} else {
+			if (reaped + *ring.cq.koverflow == total)
+				break;
+		}
+		ret = io_uring_wait_cqe(&ring, &cqe);
+		if (ret) {
+			fprintf(stderr, "wait_cqe=%d\n", ret);
+			goto err;
+		}
+		if (cqe->res != BS) {
+			fprintf(stderr, "cqe res %d, wanted %d\n", cqe->res, BS);
+			goto err;
+		}
+		io_uring_cqe_seen(&ring, cqe);
+		reaped++;
+	} while (1);
+
+	if (!io_uring_peek_cqe(&ring, &cqe)) {
+		fprintf(stderr, "found unexpected completion\n");
+		goto err;
+	}
+
+	*drops = *ring.cq.koverflow;
+	io_uring_queue_exit(&ring);
+out:
+	close(fd);
+	return 0;
+err:
+	if (fd != -1)
+		close(fd);
+	return 1;
+}
+
 static int reap_events(struct io_uring *ring, unsigned nr_events, int do_wait)
 {
 	struct io_uring_cqe *cqe;
@@ -56,6 +190,7 @@ static int test_overflow_nodrop(void)
 	if (ret) {
 		if (ret == -EINVAL) {
 			fprintf(stdout, "CQ_NODROP not supported, skipped\n");
+			no_nodrop = 1;
 			return 0;
 		}
 		fprintf(stderr, "io_uring_queue_init failed %d\n", ret);
@@ -180,6 +315,8 @@ err:
 
 int main(int argc, char *argv[])
 {
+	unsigned iters, drops;
+	unsigned long usecs;
 	int ret;
 
 	ret = test_overflow();
@@ -194,5 +331,38 @@ int main(int argc, char *argv[])
 		return ret;
 	}
 
+	if (create_file(".basic-rw")) {
+		fprintf(stderr, "file creation failed\n");
+		goto err;
+	}
+	if (create_buffers()) {
+		fprintf(stderr, "file creation failed\n");
+		goto err;
+	}
+
+	iters = 0;
+	usecs = 1000;
+	do {
+		drops = 0;
+
+		if (test_io(".basic-rw", 0, 1000, &drops)) {
+			fprintf(stderr, "test_io drop failed\n");
+			goto err;
+		}
+		if ((drops >= BUFFERS / 4) && (drops <= 3 * BUFFERS / 4))
+			break;
+		usecs = (usecs * 12) / 10;
+		iters++;
+	} while (iters < 40);
+
+	if (test_io(".basic-rw", 1, usecs, &drops)) {
+		fprintf(stderr, "test_io nodrop failed\n");
+		goto err;
+	}
+
+	unlink(".basic-rw");
 	return 0;
+err:
+	unlink(".basic-rw");
+	return 1;
 }
