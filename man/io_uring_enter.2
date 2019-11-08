@@ -118,7 +118,10 @@ struct io_uring_sqe {
     __u8    flags;          /* IOSQE_ flags */
     __u16   ioprio;         /* ioprio for the request */
     __s32   fd;             /* file descriptor to do IO on */
-    __u64   off;            /* offset into file */
+    union {
+        __u64   off;            /* offset into file */
+        __u64   addr2;
+    };
     __u64   addr;           /* pointer to buffer or iovecs */
     __u32   len;            /* buffer size or number of iovecs */
     union {
@@ -128,6 +131,8 @@ struct io_uring_sqe {
         __u32    sync_range_flags;
         __u32    msg_flags;
         __u32    timeout_flags;
+        __u32    accept_flags;
+        __u32    cancel_flags;
     };
     __u64    user_data;     /* data to be passed back at completion time */
     union {
@@ -196,6 +201,129 @@ will contain 0.  If not found,
 .I res
 will contain
 .B -ENOENT.
+
+.TP
+.B IORING_OP_SYNC_FILE_RANGE
+Issue the equivalent of a \fBsync_file_range\fR (2) on the file descriptor. The
+.I fd
+field is the file descriptor to sync, the
+.I off
+field holds the offset in bytes, the
+.I len
+field holds the length in bytes, and the
+.I flags
+field holds the flags for the command. See also
+.BR sync_file_range (2).
+for the general description of the related system call.
+
+.TP
+.B IORING_OP_SENDMSG
+Issue the equivalent of a
+.BR sendmsg(2)
+system call.
+.I fd
+must be set to the socket file descriptor,
+.I addr
+must contains a pointer to the msghdr structure, and
+.I flags
+holds the flags associated with the system call. See also
+.BR sendmsg (2).
+for the general description of the related system call.
+
+.TP
+.B IORING_OP_RECVMSG
+Works just like IORING_OP_SENDMSG, except for
+.BRrecvmsg(2)
+instead. See the description of IORING_OP_SENDMSG.
+
+.TP
+.B IORING_OP_TIMEOUT
+This command will register a timeout operation. The
+.I addr
+field must contain a pointer to a struct timespec64 structure,
+.I len
+must contain 1 to signify one timespec64 structure,
+.I timeout_flags
+may contain IORING_TIMEOUT_ABS
+for an absolutel timeout value, or 0 for a relative timeout.
+.I off
+may contain a completion event count. If not set, this defaults to 1. A timeout
+will trigger a wakeup event on the completion ring for anyone waiting for
+events. A timeout condition is met when either the specified timeout expires,
+or the specified number of events have completed. Either condition will
+trigger the event. The request will complete with
+.I -ETIME
+if the timeout got completed through expiration of the timer, or
+.I 0
+if the timeout got completed through requests completing on their own. If
+the timeout was cancelled before it expired, the request will complete with
+.I -ECANCELED.
+
+.TP
+.B IORING_OP_TIMEOUT_REMOVE
+Attempt to remove an existing timeout operation.
+.I addr
+must contain the
+.I user_data
+field of the previously issued timeout operation. If the specified timeout
+request is found and cancelled successfully, this request will terminate
+with a result value of
+.I 0
+If the timeout request was found but expiration was already in progress,
+this request will terminate with a result value of
+.I -EBUSY
+If the timeout request wasn't found, the request will terminate with a result
+value of
+
+.TP
+.B IORING_OP_ACCEPT
+Issue the equivalent of an
+.BR accept4(2)
+system call.
+.I fd
+must be set to the socket file descriptor,
+.I addr
+must contains the pointer to the sockaddr structure, and
+.I addr2
+must contain a pointer to the socklen_t addrlen field. See also
+.BR accept4(2)
+for the general description of the related system call.
+
+.TP
+.B IORING_OP_ASYNC_CANCEL
+Attempt to cancel an already issued request.
+.I addr
+must contain the
+.I user_data
+field of the request that should be cancelled. The cancellation request will
+complete with one of the following results codes. I found, the
+.I res
+field of the cqe will contain 0. If not found,
+.I res
+will contain -ENOENT. If found and attempted cancelled, the
+.I res
+field will contain -EALREADY. In this case, the request may or may not
+terminate. In general, requests that are interruptible (like socket IO) will
+get cancelled, while disk IO requests cannot be cancelled if already started.
+
+.TP
+.B IORING_OP_LINK_TIMEOUT
+This request must be linked with another request through
+.I IOSQE_IO_LINK
+which is described below. Unlike
+.I IORING_OP_TIMEOUT,
+.I IORING_OP_LINK_TIMEOUT
+acts on the linked request, not the completion queue. The format of the command
+is otherwise like
+.I IORING_OP_TIMEOUT,
+except there's no completion event count as it's tied to a specific request.
+If used, the timeout specified in the command will cancel the linked command,
+unless the linked command completes before the timeout. The timeout will
+complete with
+.I -ETIME
+if the timer expired and the linked request was attempted cancelled, or
+.I -ECANCELED
+if the timer got cancelled because of completion of the linked request.
 
 .PP
 The
