@@ -473,6 +473,12 @@ The kernel was unable to allocate memory for the request, or otherwise ran out
 of resources to handle it. The application should wait for some completions and
 try again.
 .TP
+.B EBUSY
+The application is attempting to overcommit the number of requests it can have
+pending. The application should wait for some completions and try again. May
+occur if the application tries to queue more requests than we have room for in
+the CQ ring.
+.TP
 .B EBADF
 The
 .I fd
