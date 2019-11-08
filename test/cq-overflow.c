@@ -97,7 +97,10 @@ static int test_io(const char *file, int nodrop, unsigned long usecs,
 		io_uring_prep_readv(sqe, fd, &vecs[i], 1, offset);
 
 		ret = io_uring_submit(&ring);
-		if (ret != 1) {
+		if (nodrop && ret == -EBUSY) {
+			total = i;
+			break;
+		} else if (ret != 1) {
 			fprintf(stderr, "submit got %d, wanted %d\n", ret, 1);
 			total = i;
 			break;
@@ -142,6 +145,7 @@ out:
 err:
 	if (fd != -1)
 		close(fd);
+	io_uring_queue_exit(&ring);
 	return 1;
 }
 
