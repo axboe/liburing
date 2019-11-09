@@ -11,8 +11,6 @@
 
 #include "liburing.h"
 
-static int no_nodrop;
-
 #define FILE_SIZE	(256 * 1024)
 #define BS		4096
 #define BUFFERS		(FILE_SIZE / BS)
@@ -52,18 +50,16 @@ static int create_file(const char *file)
 	return ret != FILE_SIZE;
 }
 
-static int test_io(const char *file, int nodrop, unsigned long usecs,
-		   unsigned *drops)
+#define ENTRIES	8
+
+static int test_io(const char *file, unsigned long usecs, unsigned *drops, int fault)
 {
 	struct io_uring_sqe *sqe;
 	struct io_uring_cqe *cqe;
-	struct io_uring ring;
+	struct io_uring_params p;
 	unsigned reaped, total;
-	int ring_flags;
-	int i, fd, ret;
-
-	if (no_nodrop && nodrop)
-		return 0;
+	struct io_uring ring;
+	int nodrop, i, fd, ret;
 
 	fd = open(file, O_RDONLY | O_DIRECT);
 	if (fd < 0) {
@@ -71,21 +67,49 @@ static int test_io(const char *file, int nodrop, unsigned long usecs,
 		goto err;
 	}
 
-	ring_flags = 0;
-	if (nodrop)
-		ring_flags |= IORING_SETUP_CQ_NODROP;
-	ret = io_uring_queue_init(8, &ring, ring_flags);
+	memset(&p, 0, sizeof(p));
+	ret = io_uring_queue_init_params(ENTRIES, &ring, &p);
 	if (ret) {
-		if (nodrop && ret == -EINVAL) {
-			printf("CQ_NODROP not supported, skipped\n");
-			goto out;
-		}
 		fprintf(stderr, "ring create failed: %d\n", ret);
 		goto err;
 	}
+	nodrop = 0;
+	if (p.features & IORING_FEAT_NODROP)
+		nodrop = 1;
 
-	total = BUFFERS;
-	for (i = 0; i < BUFFERS; i++) {
+	total = 0;
+	for (i = 0; i < BUFFERS / 2; i++) {
+		off_t offset;
+
+		sqe = io_uring_get_sqe(&ring);
+		if (!sqe) {
+			fprintf(stderr, "sqe get failed\n");
+			goto err;
+		}
+		offset = BS * (rand() % BUFFERS);
+		if (fault && i == ENTRIES + 4)
+			vecs[i].iov_base = NULL;
+		io_uring_prep_readv(sqe, fd, &vecs[i], 1, offset);
+
+		ret = io_uring_submit(&ring);
+		if (nodrop && ret == -EBUSY) {
+			*drops = 1;
+			total = i;
+			break;
+		} else if (ret != 1) {
+			fprintf(stderr, "submit got %d, wanted %d\n", ret, 1);
+			total = i;
+			break;
+		}
+		total++;
+	}
+
+	if (*drops)
+		goto reap_it;
+
+	usleep(usecs);
+
+	for (i = total; i < BUFFERS; i++) {
 		off_t offset;
 
 		sqe = io_uring_get_sqe(&ring);
@@ -98,17 +122,16 @@ static int test_io(const char *file, int nodrop, unsigned long usecs,
 
 		ret = io_uring_submit(&ring);
 		if (nodrop && ret == -EBUSY) {
-			total = i;
+			*drops = 1;
 			break;
 		} else if (ret != 1) {
 			fprintf(stderr, "submit got %d, wanted %d\n", ret, 1);
-			total = i;
 			break;
 		}
+		total++;
 	}
 
-	usleep(usecs);
-
+reap_it:
 	reaped = 0;
 	do {
 		if (nodrop) {
@@ -125,8 +148,11 @@ static int test_io(const char *file, int nodrop, unsigned long usecs,
 			goto err;
 		}
 		if (cqe->res != BS) {
-			fprintf(stderr, "cqe res %d, wanted %d\n", cqe->res, BS);
-			goto err;
+			if (!(fault && cqe->res == -EFAULT)) {
+				fprintf(stderr, "cqe res %d, wanted %d\n",
+						cqe->res, BS);
+				goto err;
+			}
 		}
 		io_uring_cqe_seen(&ring, cqe);
 		reaped++;
@@ -137,9 +163,14 @@ static int test_io(const char *file, int nodrop, unsigned long usecs,
 		goto err;
 	}
 
-	*drops = *ring.cq.koverflow;
+	if (!nodrop) {
+		*drops = *ring.cq.koverflow;
+	} else if (*ring.cq.koverflow) {
+		fprintf(stderr, "Found %u overflows\n", *ring.cq.koverflow);
+		goto err;
+	}
+
 	io_uring_queue_exit(&ring);
-out:
 	close(fd);
 	return 0;
 err:
@@ -186,19 +217,20 @@ static int test_overflow_nodrop(void)
 {
 	struct __kernel_timespec ts;
 	struct io_uring_sqe *sqe;
+	struct io_uring_params p;
 	struct io_uring ring;
 	unsigned pending;
 	int ret, i, j;
 
-	ret = io_uring_queue_init(4, &ring, IORING_SETUP_CQ_NODROP);
+	memset(&p, 0, sizeof(p));
+	ret = io_uring_queue_init_params(4, &ring, &p);
 	if (ret) {
-		if (ret == -EINVAL) {
-			fprintf(stdout, "CQ_NODROP not supported, skipped\n");
-			no_nodrop = 1;
-			return 0;
-		}
 		fprintf(stderr, "io_uring_queue_init failed %d\n", ret);
 		return 1;
+	}
+	if (!(p.features & IORING_FEAT_NODROP)) {
+		fprintf(stdout, "FEAT_NODROP not supported, skipped\n");
+		return 0;
 	}
 
 	ts.tv_sec = 0;
@@ -271,16 +303,20 @@ err:
 static int test_overflow(void)
 {
 	struct io_uring ring;
+	struct io_uring_params p;
 	struct io_uring_sqe *sqe;
+	unsigned pending;
 	int ret, i, j;
 
-	ret = io_uring_queue_init(4, &ring, 0);
+	memset(&p, 0, sizeof(p));
+	ret = io_uring_queue_init_params(4, &ring, &p);
 	if (ret) {
 		fprintf(stderr, "io_uring_queue_init failed %d\n", ret);
 		return 1;
 	}
 
 	/* submit 4x4 SQEs, should overflow the ring by 8 */
+	pending = 0;
 	for (i = 0; i < 4; i++) {
 		for (j = 0; j < 4; j++) {
 			sqe = io_uring_get_sqe(&ring);
@@ -294,21 +330,29 @@ static int test_overflow(void)
 		}
 
 		ret = io_uring_submit(&ring);
-		if (ret != 4) {
-			fprintf(stderr, "sqe submit failed: %d\n", ret);
-			goto err;
+		if (ret == 4) {
+			pending += 4;
+			continue;
 		}
+		if (p.features & IORING_FEAT_NODROP) {
+			if (ret == -EBUSY)
+				break;
+		}
+		fprintf(stderr, "sqe submit failed: %d\n", ret);
+		goto err;
 	}
 
 	/* we should now have 8 completions ready */
-	ret = reap_events(&ring, 8, 0);
+	ret = reap_events(&ring, pending, 0);
 	if (ret < 0)
 		goto err;
 
-	if (*ring.cq.koverflow != 8) {
-		fprintf(stderr, "cq ring overflow %d, expected 8\n",
-				*ring.cq.koverflow);
-		goto err;
+	if (!(p.features & IORING_FEAT_NODROP)) {
+		if (*ring.cq.koverflow != 8) {
+			fprintf(stderr, "cq ring overflow %d, expected 8\n",
+					*ring.cq.koverflow);
+			goto err;
+		}
 	}
 	io_uring_queue_exit(&ring);
 	return 0;
@@ -349,20 +393,26 @@ int main(int argc, char *argv[])
 	do {
 		drops = 0;
 
-		if (test_io(".basic-rw", 0, 1000, &drops)) {
-			fprintf(stderr, "test_io drop failed\n");
+		if (test_io(".basic-rw", usecs, &drops, 0)) {
+			fprintf(stderr, "test_io nofault failed\n");
 			goto err;
 		}
-		if ((drops >= BUFFERS / 4) && (drops <= 3 * BUFFERS / 4))
+		if (drops)
 			break;
 		usecs = (usecs * 12) / 10;
 		iters++;
 	} while (iters < 40);
 
-	if (test_io(".basic-rw", 1, usecs, &drops)) {
-		fprintf(stderr, "test_io nodrop failed\n");
+	if (test_io(".basic-rw", usecs, &drops, 0)) {
+		fprintf(stderr, "test_io nofault failed\n");
 		goto err;
 	}
+
+	if (test_io(".basic-rw", usecs, &drops, 1)) {
+		fprintf(stderr, "test_io fault failed\n");
+		goto err;
+	}
+
 
 	unlink(".basic-rw");
 	return 0;
