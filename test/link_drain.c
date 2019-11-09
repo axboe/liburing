@@ -11,7 +11,7 @@
 
 #include "liburing.h"
 
-char expect[6][5] = {
+char expect[3][5] = {
 	{ 0, 1, 2, 3, 4 },
 	{ 0, 1, 2, 4, 3 },
 	{ 0, 1, 4, 2, 3 }
@@ -86,12 +86,13 @@ static int test_link_drain(struct io_uring *ring)
 	}
 
 	free(iovecs.iov_base);
+	close(fd);
 
-	for (i = 0; i < 6; i++) {
+	for (i = 0; i < 3; i++) {
 		if (memcmp(data, expect[i], 5) == 0)
 			break;
 	}
-	if (i == 6)
+	if (i == 3)
 		goto err;
 
 	unlink("testfile");
