@@ -222,6 +222,17 @@ int io_uring_submit_and_wait(struct io_uring *ring, unsigned wait_nr)
 	return __io_uring_submit_and_wait(ring, wait_nr);
 }
 
+#define __io_uring_get_sqe(sq, __head) ({				\
+	unsigned __next = (sq)->sqe_tail + 1;				\
+	struct io_uring_sqe *__sqe = NULL;				\
+									\
+	if (__next - __head <= *(sq)->kring_entries) {			\
+		__sqe = &(sq)->sqes[(sq)->sqe_tail & *(sq)->kring_mask];\
+		(sq)->sqe_tail = __next;				\
+	}								\
+	__sqe;								\
+})
+
 /*
  * Return an sqe to fill. Application must later call io_uring_submit()
  * when it's ready to tell the kernel about it. The caller may call this
@@ -232,16 +243,9 @@ int io_uring_submit_and_wait(struct io_uring *ring, unsigned wait_nr)
 struct io_uring_sqe *io_uring_get_sqe(struct io_uring *ring)
 {
 	struct io_uring_sq *sq = &ring->sq;
-	unsigned next = sq->sqe_tail + 1;
-	struct io_uring_sqe *sqe;
 
-	/*
-	 * All sqes are used
-	 */
-	if (next - sq->sqe_head > *sq->kring_entries)
-		return NULL;
+	if (!(ring->flags & IORING_SETUP_SQPOLL))
+		return __io_uring_get_sqe(sq, sq->sqe_head);
 
-	sqe = &sq->sqes[sq->sqe_tail & *sq->kring_mask];
-	sq->sqe_tail = next;
-	return sqe;
+	return __io_uring_get_sqe(sq, io_uring_smp_load_acquire(sq->khead));
 }
