@@ -156,14 +156,9 @@ static void sig_alrm(int sig)
 	exit(0);
 }
 
-static int test_accept_cancel(void)
+static int start_accept_listen(void)
 {
-	struct io_uring m_io_uring;
-	struct io_uring_cqe *cqe;
-	struct io_uring_sqe *sqe;
 	int fd;
-
-	assert(io_uring_queue_init(32, &m_io_uring, 0) >= 0);
 
 	fd = socket(AF_INET, SOCK_STREAM | SOCK_CLOEXEC, IPPROTO_TCP);
 
@@ -180,6 +175,20 @@ static int test_accept_cancel(void)
 	assert(bind(fd, (struct sockaddr*)&addr, sizeof(addr)) != -1);
 	assert(listen(fd, 128) != -1);
 
+	return fd;
+}
+
+static int test_accept_pending_on_exit(void)
+{
+	struct io_uring m_io_uring;
+	struct io_uring_cqe *cqe;
+	struct io_uring_sqe *sqe;
+	int fd;
+
+	assert(io_uring_queue_init(32, &m_io_uring, 0) >= 0);
+
+	fd = start_accept_listen();
+
 	sqe = io_uring_get_sqe(&m_io_uring);
 	io_uring_prep_accept(sqe, fd, NULL, NULL, 0);
 	assert(io_uring_submit(&m_io_uring) != -1);
@@ -191,6 +200,63 @@ static int test_accept_cancel(void)
 
 	io_uring_queue_exit(&m_io_uring);
 	return 0;
+}
+
+static int test_accept_cancel(unsigned usecs)
+{
+	struct io_uring m_io_uring;
+	struct io_uring_cqe *cqe;
+	struct io_uring_sqe *sqe;
+	int fd, i;
+
+	assert(io_uring_queue_init(32, &m_io_uring, 0) >= 0);
+
+	fd = start_accept_listen();
+
+	sqe = io_uring_get_sqe(&m_io_uring);
+	io_uring_prep_accept(sqe, fd, NULL, NULL, 0);
+	sqe->user_data = 1;
+	assert(io_uring_submit(&m_io_uring) == 1);
+
+	if (usecs)
+		usleep(usecs);
+
+	sqe = io_uring_get_sqe(&m_io_uring);
+	io_uring_prep_cancel(sqe, (void *) 1, 0);
+	sqe->user_data = 2;
+	assert(io_uring_submit(&m_io_uring) == 1);
+
+	for (i = 0; i < 2; i++) {
+		assert(!io_uring_wait_cqe(&m_io_uring, &cqe));
+		/*
+		 * Two cases here:
+		 *
+		 * 1) We cancel the accept4() before it got started, we should
+		 *    get '0' for the cancel request and '-ECANCELED' for the
+		 *    accept request.
+		 * 2) We cancel the accept4() after it's already running, we
+		 *    should get '-EALREADY' for the cancel request and
+		 *    '-EINTR' for the accept request.
+		 */
+		if (cqe->user_data == 1) {
+			if (cqe->res != -EINTR && cqe->res != -ECANCELED) {
+				fprintf(stderr, "Cancelled accept got %d\n", cqe->res);
+				goto err;
+			}
+		} else if (cqe->user_data == 2) {
+			if (cqe->res != -EALREADY && cqe->res != 0) {
+				fprintf(stderr, "Cancel got %d\n", cqe->res);
+				goto err;
+			}
+		}
+		io_uring_cqe_seen(&m_io_uring, cqe);
+	}
+
+	io_uring_queue_exit(&m_io_uring);
+	return 0;
+err:
+	io_uring_queue_exit(&m_io_uring);
+	return 1;
 }
 
 static int test_accept(void)
@@ -239,9 +305,21 @@ int main(int argc, char *argv[])
 		return ret;
 	}
 
-	ret = test_accept_cancel();
+	ret = test_accept_cancel(0);
 	if (ret) {
-		fprintf(stderr, "test_accept_cancel failed\n");
+		fprintf(stderr, "test_accept_cancel nodelay failed\n");
+		return ret;
+	}
+
+	ret = test_accept_cancel(10000);
+	if (ret) {
+		fprintf(stderr, "test_accept_cancel delay failed\n");
+		return ret;
+	}
+
+	ret = test_accept_pending_on_exit();
+	if (ret) {
+		fprintf(stderr, "test_accept_pending_on_exit failed\n");
 		return ret;
 	}
 
