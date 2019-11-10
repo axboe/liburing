@@ -62,28 +62,41 @@ static int accept_conn(struct io_uring *ring, int fd)
 	return ret;
 }
 
+static int start_accept_listen(struct sockaddr_in *addr)
+{
+	int fd;
+
+	fd = socket(AF_INET, SOCK_STREAM | SOCK_CLOEXEC, IPPROTO_TCP);
+
+	int32_t val = 1;
+	assert(setsockopt(fd, SOL_SOCKET, SO_REUSEPORT, &val, sizeof(val)) != -1);
+	assert(setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &val, sizeof(val)) != -1);
+
+	struct sockaddr_in laddr;
+
+	if (!addr)
+		addr = &laddr;
+
+	addr->sin_family = AF_INET;
+	addr->sin_port = 0x1235;
+	addr->sin_addr.s_addr = 0x0100007fU;
+
+	assert(bind(fd, (struct sockaddr*)addr, sizeof(*addr)) != -1);
+	assert(listen(fd, 128) != -1);
+
+	return fd;
+}
+
 static int test(struct io_uring *ring, int accept_should_error)
 {
 	struct io_uring_cqe *cqe;
+	struct sockaddr_in addr;
 	uint32_t head;
 	uint32_t count = 0;
 	int done = 0;
 	int p_fd[2];
 
-	int32_t recv_s0 = socket(AF_INET, SOCK_STREAM | SOCK_CLOEXEC, IPPROTO_TCP);
-
-	int32_t val = 1;
-	assert(setsockopt(recv_s0, SOL_SOCKET, SO_REUSEPORT, &val, sizeof(val)) != -1);
-	assert(setsockopt(recv_s0, SOL_SOCKET, SO_REUSEADDR, &val, sizeof(val)) != -1);
-
-	struct sockaddr_in addr;
-
-	addr.sin_family = AF_INET;
-	addr.sin_port = 0x1235;
-	addr.sin_addr.s_addr = 0x0100007fU;
-
-	assert(bind(recv_s0, (struct sockaddr*)&addr, sizeof(addr)) != -1);
-	assert(listen(recv_s0, 128) != -1);
+	int32_t val, recv_s0 = start_accept_listen(&addr);
 
 	p_fd[1] = socket(AF_INET, SOCK_STREAM | SOCK_CLOEXEC, IPPROTO_TCP);
 
@@ -156,28 +169,6 @@ static void sig_alrm(int sig)
 	exit(0);
 }
 
-static int start_accept_listen(void)
-{
-	int fd;
-
-	fd = socket(AF_INET, SOCK_STREAM | SOCK_CLOEXEC, IPPROTO_TCP);
-
-	int32_t val = 1;
-	assert(setsockopt(fd, SOL_SOCKET, SO_REUSEPORT, &val, sizeof(val)) != -1);
-	assert(setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &val, sizeof(val)) != -1);
-
-	struct sockaddr_in addr;
-
-	addr.sin_family = AF_INET;
-	addr.sin_port = 0x1235;
-	addr.sin_addr.s_addr = 0x0100007fU;
-
-	assert(bind(fd, (struct sockaddr*)&addr, sizeof(addr)) != -1);
-	assert(listen(fd, 128) != -1);
-
-	return fd;
-}
-
 static int test_accept_pending_on_exit(void)
 {
 	struct io_uring m_io_uring;
@@ -187,7 +178,7 @@ static int test_accept_pending_on_exit(void)
 
 	assert(io_uring_queue_init(32, &m_io_uring, 0) >= 0);
 
-	fd = start_accept_listen();
+	fd = start_accept_listen(NULL);
 
 	sqe = io_uring_get_sqe(&m_io_uring);
 	io_uring_prep_accept(sqe, fd, NULL, NULL, 0);
@@ -211,7 +202,7 @@ static int test_accept_cancel(unsigned usecs)
 
 	assert(io_uring_queue_init(32, &m_io_uring, 0) >= 0);
 
-	fd = start_accept_listen();
+	fd = start_accept_listen(NULL);
 
 	sqe = io_uring_get_sqe(&m_io_uring);
 	io_uring_prep_accept(sqe, fd, NULL, NULL, 0);
