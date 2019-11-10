@@ -251,10 +251,13 @@ static int test_overflow_nodrop(void)
 		}
 
 		ret = io_uring_submit(&ring);
-		if (ret != 4) {
+		if (ret <= 0) {
+			if (ret == -EBUSY)
+				break;
 			fprintf(stderr, "sqe submit failed: %d, %d\n", ret, pending);
 			goto err;
 		}
+		pending += ret;
 	}
 
 	/* wait for timers to fire */
@@ -277,8 +280,8 @@ static int test_overflow_nodrop(void)
 		goto err;
 	}
 
-	/* reap the 16 events we should have available */
-	ret = reap_events(&ring, 16, 1);
+	/* reap the events we should have available */
+	ret = reap_events(&ring, pending, 1);
 	if (ret < 0) {
 		fprintf(stderr, "ret=%d\n", ret);
 		goto err;
