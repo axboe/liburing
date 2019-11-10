@@ -43,10 +43,12 @@ err:
 int main(int argc, char *argv[])
 {
 	struct io_uring_cqe *cqe;
+	struct io_uring_params p;
 	struct io_uring ring;
 	int i, ret;
 
-	ret = io_uring_queue_init(4, &ring, 0);
+	memset(&p, 0, sizeof(p));
+	ret = io_uring_queue_init_params(4, &ring, &p);
 	if (ret) {
 		printf("ring setup failed\n");
 		return 1;
@@ -75,7 +77,8 @@ int main(int argc, char *argv[])
 		i++;
 	} while (1);
 
-	if (i != 8 || *ring.cq.koverflow != 4) {
+	if (i != 8 ||
+	    ((*ring.cq.koverflow != 4) && !(p.features & IORING_FEAT_NODROP))) {
 		printf("CQ overflow fail: %d completions, %u overflow\n", i,
 				*ring.cq.koverflow);
 		goto err;
