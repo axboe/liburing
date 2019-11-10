@@ -179,7 +179,7 @@ static int test_overflow_hung(struct io_uring *ring)
 	struct io_uring_sqe *sqe;
 	int ret, nr = 10;
 
-	while (*ring->cq.koverflow !=  1000) {
+	while (*ring->cq.koverflow != 1000) {
 		sqe = io_uring_get_sqe(ring);
 		if (!sqe) {
 			printf("get sqe failed\n");
@@ -208,9 +208,11 @@ static int test_dropped_hung(struct io_uring *ring)
 int main(int argc, char *argv[])
 {
 	struct io_uring ring, poll_ring, sqthread_ring;
+	struct io_uring_params p;
 	int ret;
 
-	ret = io_uring_queue_init(1000, &ring, 0);
+	memset(&p, 0, sizeof(p));
+	ret = io_uring_queue_init_params(1000, &ring, &p);
 	if (ret) {
 		printf("ring setup failed\n");
 		return 1;
@@ -241,10 +243,12 @@ int main(int argc, char *argv[])
 		return ret;
 	}
 
-	ret = test_overflow_hung(&ring);
-	if (ret) {
-		printf("test_overflow_hung failed\n");
-		return ret;
+	if (!(p.features & IORING_FEAT_NODROP)) {
+		ret = test_overflow_hung(&ring);
+		if (ret) {
+			printf("test_overflow_hung failed\n");
+			return ret;
+		}
 	}
 
 	ret = test_dropped_hung(&ring);
