@@ -293,9 +293,14 @@ static inline void io_uring_prep_link_timeout(struct io_uring_sqe *sqe,
 	sqe->timeout_flags = flags;
 }
 
+static inline unsigned io_uring_sq_ready(struct io_uring *ring)
+{
+	return ring->sq.sqe_tail - ring->sq.sqe_head;
+}
+
 static inline unsigned io_uring_sq_space_left(struct io_uring *ring)
 {
-	return *ring->sq.kring_entries - (ring->sq.sqe_tail - ring->sq.sqe_head);
+	return *ring->sq.kring_entries - io_uring_sq_ready(ring);
 }
 
 static inline unsigned io_uring_cq_ready(struct io_uring *ring)
