@@ -209,7 +209,7 @@ int main(int argc, char *argv[])
 {
 	struct io_uring ring, poll_ring, sqthread_ring;
 	struct io_uring_params p;
-	int ret;
+	int ret, no_sqthread = 0;
 
 	memset(&p, 0, sizeof(p));
 	ret = io_uring_queue_init_params(1000, &ring, &p);
@@ -227,8 +227,12 @@ int main(int argc, char *argv[])
 	ret = io_uring_queue_init(1000, &sqthread_ring,
 				IORING_SETUP_SQPOLL | IORING_SETUP_IOPOLL);
 	if (ret) {
-		printf("poll_ring setup failed\n");
-		return 1;
+		if (geteuid()) {
+			no_sqthread = 1;
+		} else {
+			printf("poll_ring setup failed\n");
+			return 1;
+		}
 	}
 
 	ret = test_cancelled_userdata(&poll_ring);
@@ -237,10 +241,14 @@ int main(int argc, char *argv[])
 		return ret;
 	}
 
-	ret = test_thread_link_cancel(&sqthread_ring);
-	if (ret) {
-		printf("test_thread_link_cancel failed\n");
-		return ret;
+	if (no_sqthread) {
+		printf("test_thread_link_cancel: skipped, not root\n");
+	} else {
+		ret = test_thread_link_cancel(&sqthread_ring);
+		if (ret) {
+			printf("test_thread_link_cancel failed\n");
+			return ret;
+		}
 	}
 
 	if (!(p.features & IORING_FEAT_NODROP)) {

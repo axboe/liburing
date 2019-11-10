@@ -209,7 +209,13 @@ static int test_accept_sqpoll(void)
 	struct io_uring m_io_uring;
 	int ret;
 
-	assert(io_uring_queue_init(32, &m_io_uring, IORING_SETUP_SQPOLL) >= 0);
+	ret = io_uring_queue_init(32, &m_io_uring, IORING_SETUP_SQPOLL);
+	if (ret && geteuid()) {
+		printf("%s: skipped, not root\n", __FUNCTION__);
+		return 0;
+	} else if (ret)
+		return ret;
+
 	ret = test(&m_io_uring, 1);
 	io_uring_queue_exit(&m_io_uring);
 	return ret;
