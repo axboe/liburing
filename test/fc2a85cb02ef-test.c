@@ -49,7 +49,7 @@ static int inject_fault(int nth)
   return fd;
 }
 
-static void setup_fault()
+static int setup_fault()
 {
   static struct {
     const char* file;
@@ -66,9 +66,10 @@ static void setup_fault()
   for (i = 0; i < sizeof(files) / sizeof(files[0]); i++) {
     if (!write_file(files[i].file, files[i].val)) {
       if (files[i].fatal)
-        exit(1);
+	return 1;
     }
   }
+  return 0;
 }
 
 #ifndef __NR_io_uring_register
@@ -83,7 +84,8 @@ uint64_t r[2] = {0xffffffffffffffff, 0xffffffffffffffff};
 int main(void)
 {
   syscall(__NR_mmap, 0x20000000ul, 0x1000000ul, 3ul, 0x32ul, -1, 0);
-  setup_fault();
+  if (setup_fault())
+    printf("Test needs failslab/fail_futex/fail_page_alloc enabled\n");
   intptr_t res = 0;
   *(uint32_t*)0x20000000 = 0;
   *(uint32_t*)0x20000004 = 0;
