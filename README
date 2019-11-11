@@ -15,4 +15,18 @@ and development for both kernel and userspace. The list is archived here:
 
 https://lore.kernel.org/io-uring/
 
-Jens Axboe 2019-08-05
+
+ulimit settings
+---------------
+
+io_uring accounts memory it needs under the rlimit memlocked option, which
+can be quite low on some setups (64K). The default is usually enough for
+most use cases, but bigger rings or things like registered buffers deplete
+it quickly. root isn't under this restriction, but regular users are. Going
+into detail on how to bump the limit on various systems is beyond the scope
+of this little blurb, but check /etc/security/limits.conf for user specific
+settings, or /etc/systemd/user.conf and /etc/systemd/system.conf for systemd
+setups.
+
+
+Jens Axboe 2019-11-10
