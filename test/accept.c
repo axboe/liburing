@@ -11,6 +11,8 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/socket.h>
+#include <sys/time.h>
+#include <sys/resource.h>
 #include <sys/un.h>
 #include <netinet/tcp.h>
 #include <netinet/in.h>
@@ -62,7 +64,7 @@ static int accept_conn(struct io_uring *ring, int fd)
 	return ret;
 }
 
-static int start_accept_listen(struct sockaddr_in *addr)
+static int start_accept_listen(struct sockaddr_in *addr, int port_off)
 {
 	int fd;
 
@@ -78,7 +80,7 @@ static int start_accept_listen(struct sockaddr_in *addr)
 		addr = &laddr;
 
 	addr->sin_family = AF_INET;
-	addr->sin_port = 0x1235;
+	addr->sin_port = 0x1235 + port_off;
 	addr->sin_addr.s_addr = 0x0100007fU;
 
 	assert(bind(fd, (struct sockaddr*)addr, sizeof(*addr)) != -1);
@@ -96,7 +98,7 @@ static int test(struct io_uring *ring, int accept_should_error)
 	int done = 0;
 	int p_fd[2];
 
-	int32_t val, recv_s0 = start_accept_listen(&addr);
+	int32_t val, recv_s0 = start_accept_listen(&addr, 0);
 
 	p_fd[1] = socket(AF_INET, SOCK_STREAM | SOCK_CLOEXEC, IPPROTO_TCP);
 
@@ -178,7 +180,7 @@ static int test_accept_pending_on_exit(void)
 
 	assert(io_uring_queue_init(32, &m_io_uring, 0) >= 0);
 
-	fd = start_accept_listen(NULL);
+	fd = start_accept_listen(NULL, 0);
 
 	sqe = io_uring_get_sqe(&m_io_uring);
 	io_uring_prep_accept(sqe, fd, NULL, NULL, 0);
@@ -193,6 +195,72 @@ static int test_accept_pending_on_exit(void)
 	return 0;
 }
 
+/*
+ * Test issue many accepts and see if we handle cancellation on exit
+ */
+static int test_accept_many(unsigned nr, unsigned usecs)
+{
+	struct io_uring m_io_uring;
+	struct io_uring_cqe *cqe;
+	struct io_uring_sqe *sqe;
+	unsigned long cur_lim;
+	struct rlimit rlim;
+	int *fds, i, ret = 0;
+
+	if (getrlimit(RLIMIT_NPROC, &rlim) < 0) {
+		perror("getrlimit");
+		return 1;
+	}
+
+	cur_lim = rlim.rlim_cur;
+	rlim.rlim_cur = nr / 4;
+
+	if (setrlimit(RLIMIT_NPROC, &rlim) < 0) {
+		perror("setrlimit");
+		return 1;
+	}
+
+	assert(io_uring_queue_init(2 * nr, &m_io_uring, 0) >= 0);
+
+	fds = calloc(nr, sizeof(int));
+
+	for (i = 0; i < nr; i++)
+		fds[i] = start_accept_listen(NULL, i);
+
+	for (i = 0; i < nr; i++) {
+		sqe = io_uring_get_sqe(&m_io_uring);
+		io_uring_prep_accept(sqe, fds[i], NULL, NULL, 0);
+		sqe->user_data = 1 + i;
+		assert(io_uring_submit(&m_io_uring) == 1);
+	}
+
+	if (usecs)
+		usleep(usecs);
+
+	for (i = 0; i < nr; i++) {
+		if (io_uring_peek_cqe(&m_io_uring, &cqe))
+			break;
+		if (cqe->res != -ECANCELED) {
+			fprintf(stderr, "Expected cqe to be cancelled\n");
+			goto err;
+		}
+		io_uring_cqe_seen(&m_io_uring, cqe);
+	}
+out:
+	rlim.rlim_cur = cur_lim;
+	if (setrlimit(RLIMIT_NPROC, &rlim) < 0) {
+		perror("setrlimit");
+		return 1;
+	}
+
+	free(fds);
+	io_uring_queue_exit(&m_io_uring);
+	return ret;
+err:
+	ret = 1;
+	goto out;
+}
+
 static int test_accept_cancel(unsigned usecs)
 {
 	struct io_uring m_io_uring;
@@ -202,7 +270,7 @@ static int test_accept_cancel(unsigned usecs)
 
 	assert(io_uring_queue_init(32, &m_io_uring, 0) >= 0);
 
-	fd = start_accept_listen(NULL);
+	fd = start_accept_listen(NULL, 0);
 
 	sqe = io_uring_get_sqe(&m_io_uring);
 	io_uring_prep_accept(sqe, fd, NULL, NULL, 0);
@@ -305,6 +373,18 @@ int main(int argc, char *argv[])
 	ret = test_accept_cancel(10000);
 	if (ret) {
 		fprintf(stderr, "test_accept_cancel delay failed\n");
+		return ret;
+	}
+
+	ret = test_accept_many(128, 0);
+	if (ret) {
+		fprintf(stderr, "test_accept_many failed\n");
+		return ret;
+	}
+
+	ret = test_accept_many(128, 100000);
+	if (ret) {
+		fprintf(stderr, "test_accept_many failed\n");
 		return ret;
 	}
 
