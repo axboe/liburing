@@ -37,38 +37,46 @@ static void wait_for_var(int *var)
         pthread_mutex_unlock(&mutex);
 }
 
+struct data {
+	unsigned expected[2];
+	unsigned just_positive[2];
+	unsigned long timeout;
+	int port;
+	int stop;
+};
+
 static void *send_thread(void *arg)
 {
+	struct data *data = arg;
+
 	wait_for_var(&recv_thread_ready);
+
+	if (data->stop)
+		return NULL;
 
 	int s0 = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 	assert(s0 != -1);
 
 	struct sockaddr_in addr;
 
-        addr.sin_family = AF_INET;
-        addr.sin_port = 0x1235;
-        addr.sin_addr.s_addr = 0x0100007fU;
+	addr.sin_family = AF_INET;
+	addr.sin_port = data->port;
+	addr.sin_addr.s_addr = 0x0100007fU;
 
         assert(connect(s0, (struct sockaddr*)&addr, sizeof(addr)) != -1);
 
 	wait_for_var(&recv_thread_done);
 
 	close(s0);
-	return 0;
+	return NULL;
 }
-
-struct data {
-	unsigned expected[2];
-	unsigned just_positive[2];
-	unsigned long timeout;
-};
 
 void *recv_thread(void *arg)
 {
 	struct data *data = arg;
-
 	struct io_uring ring;
+	int i;
+
 	assert(io_uring_queue_init(8, &ring, 0) == 0);
 
 	int s0 = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
@@ -81,10 +89,24 @@ void *recv_thread(void *arg)
 	struct sockaddr_in addr;
 
         addr.sin_family = AF_INET;
-        addr.sin_port = 0x1235;
         addr.sin_addr.s_addr = 0x0100007fU;
 
-        assert(bind(s0, (struct sockaddr*)&addr, sizeof(addr)) != -1);
+	i = 0;
+	do {
+		data->port = 1025 + (rand() % 64510);
+		addr.sin_port = data->port;
+
+		if (bind(s0, (struct sockaddr*)&addr, sizeof(addr)) != -1)
+			break;
+	} while (++i < 100);
+
+	if (i >= 100) {
+		printf("Can't find good port, skipped\n");
+		data->stop = 1;
+		signal_var(&recv_thread_ready);
+		goto out;
+	}
+
         assert(listen(s0, 128) != -1);
 
 	signal_var(&recv_thread_ready);
@@ -121,8 +143,9 @@ void *recv_thread(void *arg)
 		if (cqe->res != data->expected[idx]) {
 			if (cqe->res > 0 && data->just_positive[idx])
 				goto ok;
-			fprintf(stderr, "cqe got %d, wanted %d\n", cqe->res,
-						data->expected[idx]);
+			fprintf(stderr, "cqe %llu got %d, wanted %d\n",
+					cqe->user_data, cqe->res,
+					data->expected[idx]);
 			goto err;
 		}
 ok:
@@ -134,6 +157,7 @@ ok:
 
 	signal_var(&recv_thread_done);
 
+out:
 	close(s0);
 	return NULL;
 err:
@@ -164,7 +188,7 @@ static int test_accept_timeout(int do_connect, unsigned long timeout)
 	pthread_create(&t1, NULL, recv_thread, &d);
 
 	if (do_connect)
-		pthread_create(&t2, NULL, send_thread, NULL);
+		pthread_create(&t2, NULL, send_thread, &d);
 
 	pthread_join(t1, &tret);
 	if (tret)
@@ -181,7 +205,7 @@ static int test_accept_timeout(int do_connect, unsigned long timeout)
 
 int main(int argc, char *argv[])
 {
-	if (test_accept_timeout(0, 1000000000)) {
+	if (test_accept_timeout(0, 200000000)) {
 		fprintf(stderr, "accept timeout 0 failed\n");
 		return 1;
 	}
