@@ -202,13 +202,14 @@ static int test_single_link_timeout_error(struct io_uring *ring)
 		switch (cqe->user_data) {
 		case 1:
 			if (cqe->res != -ECANCELED) {
-				fprintf(stderr, "Read got %d, wanted -EINTR\n", cqe->res);
+				fprintf(stderr, "Read got %d, wanted -ECANCELED\n",
+						cqe->res);
 				goto err;
 			}
 			break;
 		case 2:
 			if (cqe->res != -EINVAL) {
-				fprintf(stderr, "Link timeout got %d, wanted -EALREADY\n", cqe->res);
+				fprintf(stderr, "Link timeout got %d, wanted -EINVAL\n", cqe->res);
 				goto err;
 			}
 			break;
@@ -395,15 +396,21 @@ int main(int argc, char *argv[])
 
 	}
 
+	ret = test_single_link_timeout(&ring, 10);
+	if (ret) {
+		printf("test_single_link_timeout 10 failed\n");
+		return ret;
+	}
+
 	ret = test_single_link_timeout(&ring, 100000ULL);
 	if (ret) {
-		printf("test_single_link_timeout failed\n");
+		printf("test_single_link_timeout 100000 failed\n");
 		return ret;
 	}
 
 	ret = test_single_link_timeout(&ring, 500000000ULL);
 	if (ret) {
-		printf("test_single_link_timeout failed\n");
+		printf("test_single_link_timeout 500000000 failed\n");
 		return ret;
 	}
 
