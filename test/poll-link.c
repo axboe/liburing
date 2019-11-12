@@ -39,6 +39,7 @@ static void wait_for_var(int *var)
 
 struct data {
 	unsigned expected[2];
+	unsigned is_mask[2];
 	unsigned long timeout;
 	int port;
 	int stop;
@@ -135,7 +136,12 @@ void *recv_thread(void *arg)
 			goto err;
 		}
 		idx = cqe->user_data - 1;
-		if (cqe->res != data->expected[idx]) {
+		if (data->is_mask[idx] && !(data->expected[idx] & cqe->res)) {
+			fprintf(stderr, "cqe %llu got %x, wanted mask %x\n",
+					cqe->user_data, cqe->res,
+					data->expected[idx]);
+			goto err;
+		} else if (!data->is_mask[idx] && cqe->res != data->expected[idx]) {
 			fprintf(stderr, "cqe %llu got %d, wanted %d\n",
 					cqe->user_data, cqe->res,
 					data->expected[idx]);
@@ -144,13 +150,15 @@ void *recv_thread(void *arg)
 		io_uring_cqe_seen(&ring, cqe);
 	}
 
-	signal_var(&recv_thread_done);
-
 out:
+	signal_var(&recv_thread_done);
 	close(s0);
+	io_uring_queue_exit(&ring);
 	return NULL;
 err:
+	signal_var(&recv_thread_done);
 	close(s0);
+	io_uring_queue_exit(&ring);
 	return (void *) 1;
 }
 
@@ -164,12 +172,14 @@ static int test_poll_timeout(int do_connect, unsigned long timeout)
 	recv_thread_ready = 0;
 	recv_thread_done = 0;
 
+	memset(&d, 0, sizeof(d));
 	d.timeout = timeout;
 	if (!do_connect) {
 		d.expected[0] = 0;
 		d.expected[1] = 0;
 	} else {
-		d.expected[0] = POLLRDBAND | POLLRDNORM | POLLIN | POLLPRI;
+		d.expected[0] = POLLIN;
+		d.is_mask[0] = 1;
 		d.expected[1] = -ECANCELED;
 	}
 
