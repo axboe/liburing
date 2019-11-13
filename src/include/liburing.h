@@ -240,7 +240,7 @@ static inline void io_uring_prep_poll_add(struct io_uring_sqe *sqe, int fd,
 static inline void io_uring_prep_poll_remove(struct io_uring_sqe *sqe,
 					     void *user_data)
 {
-	io_uring_prep_rw(IORING_OP_POLL_REMOVE, sqe, 0, user_data, 0, 0);
+	io_uring_prep_rw(IORING_OP_POLL_REMOVE, sqe, -1, user_data, 0, 0);
 }
 
 static inline void io_uring_prep_fsync(struct io_uring_sqe *sqe, int fd,
@@ -252,21 +252,21 @@ static inline void io_uring_prep_fsync(struct io_uring_sqe *sqe, int fd,
 
 static inline void io_uring_prep_nop(struct io_uring_sqe *sqe)
 {
-	io_uring_prep_rw(IORING_OP_NOP, sqe, 0, NULL, 0, 0);
+	io_uring_prep_rw(IORING_OP_NOP, sqe, -1, NULL, 0, 0);
 }
 
 static inline void io_uring_prep_timeout(struct io_uring_sqe *sqe,
 					 struct __kernel_timespec *ts,
 					 unsigned count, unsigned flags)
 {
-	io_uring_prep_rw(IORING_OP_TIMEOUT, sqe, 0, ts, 1, count);
+	io_uring_prep_rw(IORING_OP_TIMEOUT, sqe, -1, ts, 1, count);
 	sqe->timeout_flags = flags;
 }
 
 static inline void io_uring_prep_timeout_remove(struct io_uring_sqe *sqe,
 						__u64 user_data, unsigned flags)
 {
-	io_uring_prep_rw(IORING_OP_TIMEOUT_REMOVE, sqe, 0, (void *)user_data, 0, 0);
+	io_uring_prep_rw(IORING_OP_TIMEOUT_REMOVE, sqe, -1, (void *)user_data, 0, 0);
 	sqe->timeout_flags = flags;
 }
 
@@ -281,7 +281,7 @@ static inline void io_uring_prep_accept(struct io_uring_sqe *sqe, int fd,
 static inline void io_uring_prep_cancel(struct io_uring_sqe *sqe, void *user_data,
 					int flags)
 {
-	io_uring_prep_rw(IORING_OP_ASYNC_CANCEL, sqe, 0, user_data, 0, 0);
+	io_uring_prep_rw(IORING_OP_ASYNC_CANCEL, sqe, -1, user_data, 0, 0);
 	sqe->cancel_flags = flags;
 }
 
@@ -289,7 +289,7 @@ static inline void io_uring_prep_link_timeout(struct io_uring_sqe *sqe,
 					      struct __kernel_timespec *ts,
 					      unsigned flags)
 {
-	io_uring_prep_rw(IORING_OP_LINK_TIMEOUT, sqe, 0, ts, 1, 0);
+	io_uring_prep_rw(IORING_OP_LINK_TIMEOUT, sqe, -1, ts, 1, 0);
 	sqe->timeout_flags = flags;
 }
 
