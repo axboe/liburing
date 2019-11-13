@@ -57,7 +57,9 @@ static int setup_fault()
     bool fatal;
   } files[] = {
       {"/sys/kernel/debug/failslab/ignore-gfp-wait", "N", true},
+      {"/sys/kernel/debug/failslab/verbose", "0", false},
       {"/sys/kernel/debug/fail_futex/ignore-private", "N", false},
+      {"/sys/kernel/debug/fail_page_alloc/verbose", "0", false},
       {"/sys/kernel/debug/fail_page_alloc/ignore-gfp-highmem", "N", false},
       {"/sys/kernel/debug/fail_page_alloc/ignore-gfp-wait", "N", false},
       {"/sys/kernel/debug/fail_page_alloc/min-order", "0", false},
