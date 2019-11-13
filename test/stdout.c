@@ -28,11 +28,11 @@ static int test_pipe_io(struct io_uring *ring)
 	io_uring_prep_writev(sqe, STDOUT_FILENO, &vecs, 1, 0);
 
 	ret = io_uring_submit(ring);
-	if (ret < 1) {
-		printf("Submitted only %d\n", ret);
-		goto err;
-	} else if (ret < 0) {
+	if (ret < 0) {
 		printf("sqe submit failed: %d\n", ret);
+		goto err;
+	} else if (ret < 1) {
+		printf("Submitted only %d\n", ret);
 		goto err;
 	}
 

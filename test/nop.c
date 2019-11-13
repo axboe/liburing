@@ -62,11 +62,11 @@ static int test_barrier_nop(struct io_uring *ring)
 	}
 
 	ret = io_uring_submit(ring);
-	if (ret < 8) {
-		printf("Submitted only %d\n", ret);
-		goto err;
-	} else if (ret < 0) {
+	if (ret < 0) {
 		printf("sqe submit failed: %d\n", ret);
+		goto err;
+	} else if (ret < 8) {
+		printf("Submitted only %d\n", ret);
 		goto err;
 	}
 
