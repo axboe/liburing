@@ -16,7 +16,7 @@ int main(int argc, char *argv[])
 	struct iovec iovecs[IOVECS_LEN];
 	struct io_uring ring;
 	int i, fd, ret;
-       
+
 	fd = open("/dev/zero", O_RDONLY);
 	if (fd < 0) {
 		fprintf(stderr, "Failed to open /dev/zero\n");
@@ -70,7 +70,7 @@ int main(int argc, char *argv[])
 		}
 		if (cqe->res != iovecs[i].iov_len) {
 			fprintf(stderr, "read: wanted %d, got %ld\n", cqe->res,
-					iovecs[i].iov_len);
+					(long) iovecs[i].iov_len);
 			return 1;
 		}
 		io_uring_cqe_seen(&ring, cqe);
