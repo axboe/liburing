@@ -69,8 +69,8 @@ int main(int argc, char *argv[])
 			return 1;
 		}
 		if (cqe->res != iovecs[i].iov_len) {
-			fprintf(stderr, "read: wanted %d, got %ld\n", cqe->res,
-					(long) iovecs[i].iov_len);
+			fprintf(stderr, "read: wanted %ld, got %d\n",
+					(long) iovecs[i].iov_len, cqe->res);
 			return 1;
 		}
 		io_uring_cqe_seen(&ring, cqe);
