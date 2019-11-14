@@ -1,0 +1,16 @@
+#!/usr/bin/make -f
+# You must remove unused comment lines for the released package.
+export DH_VERBOSE = 1
+export DEB_BUILD_MAINT_OPTIONS = hardening=+all
+#export DEB_CFLAGS_MAINT_APPEND  = -Wall -pedantic
+#export DEB_LDFLAGS_MAINT_APPEND = -Wl,--as-needed
+
+%:
+	dh $@
+
+override_dh_auto_configure:
+	./configure --mandir=/usr/share/man
+	rm -rf config.log
+
+override_dh_strip:
+	dh_strip --dbgsym-migration=liburing-dev
