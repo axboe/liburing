@@ -1,0 +1,120 @@
+/*
+ * Description: test massive amounts of poll with cancel
+ *
+ */
+#include <errno.h>
+#include <stdio.h>
+#include <unistd.h>
+#include <stdlib.h>
+#include <string.h>
+#include <inttypes.h>
+#include <sys/poll.h>
+#include <sys/wait.h>
+#include <sys/signal.h>
+
+#include "liburing.h"
+
+static int reap_events(struct io_uring *ring, unsigned nr_events)
+{
+	struct io_uring_cqe *cqe;
+	int i, ret = 0;
+
+	for (i = 0; i < nr_events; i++) {
+		if (!i)
+			ret = io_uring_wait_cqe(ring, &cqe);
+		else
+			ret = io_uring_peek_cqe(ring, &cqe);
+		if (ret) {
+			if (ret != -EAGAIN)
+				fprintf(stderr, "cqe peek failed: %d\n", ret);
+			break;
+		}
+		io_uring_cqe_seen(ring, cqe);
+	}
+
+	return i ? i : ret;
+}
+
+static int del_polls(struct io_uring *ring, int fd, int nr)
+{
+	int pending, batch, i, ret;
+	struct io_uring_sqe *sqe;
+
+	while (nr) {
+		batch = 1024;
+		if (batch > nr)
+			batch = nr;
+
+		for (i = 0; i < batch; i++) {
+			unsigned data;
+			sqe = io_uring_get_sqe(ring);
+			data = rand() % 10001;
+			io_uring_prep_poll_remove(sqe, (void *) (unsigned long) data);
+		}
+
+		ret = io_uring_submit(ring);
+		if (ret != batch) {
+			fprintf(stderr, "%s: failed submit, %d\n", __FUNCTION__, ret);
+			return 1;
+		}
+		nr -= batch;
+		pending += batch;
+		ret = reap_events(ring, 2 * batch);
+	}
+	return 0;
+}
+
+static int add_polls(struct io_uring *ring, int fd, int nr)
+{
+	int pending, batch, i, count, ret;
+	struct io_uring_sqe *sqe;
+
+	pending = count = 0;
+	while (nr) {
+		batch = 1024;
+		if (batch > nr)
+			batch = nr;
+
+		for (i = 0; i < batch; i++) {
+			sqe = io_uring_get_sqe(ring);
+			io_uring_prep_poll_add(sqe, fd, POLLIN);
+			sqe->user_data = ++count;
+		}
+
+		ret = io_uring_submit(ring);
+		if (ret != batch) {
+			fprintf(stderr, "%s: failed submit, %d\n", __FUNCTION__, ret);
+			return 1;
+		}
+		nr -= batch;
+		pending += batch;
+	}
+	return 0;
+}
+
+int main(int argc, char *argv[])
+{
+	struct io_uring ring;
+	int pipe1[2];
+	int ret;
+
+	if (pipe(pipe1) != 0) {
+		printf("pipe failed\n");
+		return 1;
+	}
+
+	ret = io_uring_queue_init(1024, &ring, 0);
+	if (ret) {
+		printf("child: ring setup failed\n");
+		return 1;
+	}
+
+	add_polls(&ring, pipe1[0], 30000);
+#if 0
+	usleep(1000);
+#endif
+	del_polls(&ring, pipe1[0], 30000);
+
+	io_uring_queue_exit(&ring);
+	return 0;
+}
