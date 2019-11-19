@@ -12,6 +12,150 @@
 
 #include "liburing.h"
 
+static int test_fail_lone_link_timeouts(struct io_uring *ring)
+{
+	struct __kernel_timespec ts;
+	struct io_uring_cqe *cqe;
+	struct io_uring_sqe *sqe;
+	int ret;
+
+	sqe = io_uring_get_sqe(ring);
+	if (!sqe) {
+		printf("get sqe failed\n");
+		goto err;
+	}
+	io_uring_prep_link_timeout(sqe, &ts, 0);
+	ts.tv_sec = 1;
+	ts.tv_nsec = 0;
+	sqe->user_data = 1;
+	sqe->flags |= IOSQE_IO_LINK;
+
+	ret = io_uring_submit(ring);
+	if (ret != 1) {
+		printf("sqe submit failed: %d\n", ret);
+		goto err;
+	}
+
+	ret = io_uring_wait_cqe(ring, &cqe);
+	if (ret < 0) {
+		printf("wait completion %d\n", ret);
+		goto err;
+	}
+
+	if (cqe->user_data != 1) {
+		fprintf(stderr, "invalid user data %d\n", cqe->res);
+		goto err;
+	}
+	if (cqe->res != -EINVAL) {
+		fprintf(stderr, "got %d, wanted -EINVAL\n", cqe->res);
+		goto err;
+	}
+	io_uring_cqe_seen(ring, cqe);
+
+	return 0;
+err:
+	return 1;
+}
+
+static int test_fail_two_link_timeouts(struct io_uring *ring)
+{
+	struct __kernel_timespec ts;
+	struct io_uring_cqe *cqe;
+	struct io_uring_sqe *sqe;
+	int ret, i;
+
+	ts.tv_sec = 1;
+	ts.tv_nsec = 0;
+
+	/*
+	 * sqe_1: write destined to fail
+	 * use buf=NULL, to do that during the issuing stage
+	 */
+	sqe = io_uring_get_sqe(ring);
+	if (!sqe) {
+		printf("get sqe failed\n");
+		goto err;
+	}
+	io_uring_prep_writev(sqe, 0, NULL, 1, 0);
+	sqe->flags |= IOSQE_IO_LINK;
+	sqe->user_data = 1;
+
+
+	/* sqe_2: valid linked timeout */
+	sqe = io_uring_get_sqe(ring);
+	if (!sqe) {
+		printf("get sqe failed\n");
+		goto err;
+	}
+	io_uring_prep_link_timeout(sqe, &ts, 0);
+	sqe->user_data = 2;
+	sqe->flags |= IOSQE_IO_LINK;
+
+
+	/* sqe_3: invalid linked timeout */
+	sqe = io_uring_get_sqe(ring);
+	if (!sqe) {
+		printf("get sqe failed\n");
+		goto err;
+	}
+	io_uring_prep_link_timeout(sqe, &ts, 0);
+	sqe->flags |= IOSQE_IO_LINK;
+	sqe->user_data = 3;
+
+	/* sqe_4: invalid linked timeout */
+	sqe = io_uring_get_sqe(ring);
+	if (!sqe) {
+		printf("get sqe failed\n");
+		goto err;
+	}
+	io_uring_prep_link_timeout(sqe, &ts, 0);
+	sqe->flags |= IOSQE_IO_LINK;
+	sqe->user_data = 4;
+
+	ret = io_uring_submit(ring);
+	if (ret != 4) {
+		printf("sqe submit failed: %d\n", ret);
+		goto err;
+	}
+
+	for (i = 0; i < 4; i++) {
+		ret = io_uring_wait_cqe(ring, &cqe);
+		if (ret < 0) {
+			printf("wait completion %d\n", ret);
+			goto err;
+		}
+
+		switch (cqe->user_data) {
+		case 1:
+			if (cqe->res != -EFAULT) {
+				fprintf(stderr, "write got %d, wanted -EFAULT\n", cqe->res);
+				goto err;
+			}
+			break;
+		case 2:
+			if (cqe->res != -ECANCELED) {
+				fprintf(stderr, "Link timeout got %d, wanted -ECACNCELED\n", cqe->res);
+				goto err;
+			}
+			break;
+		case 3:
+			/* fall through */
+		case 4:
+			if (cqe->res != -ECANCELED && cqe->res != -EINVAL) {
+				fprintf(stderr, "Invalid link timeout got %d"
+					", wanted -ECACNCELED || -EINVAL\n", cqe->res);
+				goto err;
+			}
+			break;
+		}
+		io_uring_cqe_seen(ring, cqe);
+	}
+
+	return 0;
+err:
+	return 1;
+}
+
 /*
  * Test linked timeout with timeout (timeoutception)
  */
@@ -684,7 +828,6 @@ int main(int argc, char *argv[])
 	if (ret) {
 		printf("ring setup failed\n");
 		return 1;
-
 	}
 
 	ret = test_timeout_link_chain1(&ring);
@@ -744,6 +887,18 @@ int main(int argc, char *argv[])
 	ret = test_single_link_timeout_ception(&ring);
 	if (ret) {
 		printf("test_single_link_timeout_ception failed\n");
+		return ret;
+	}
+
+	ret = test_fail_lone_link_timeouts(&ring);
+	if (ret) {
+		printf("test_fail_lone_link_timeouts failed\n");
+		return ret;
+	}
+
+	ret = test_fail_two_link_timeouts(&ring);
+	if (ret) {
+		printf("test_fail_two_link_timeouts failed\n");
 		return ret;
 	}
 
