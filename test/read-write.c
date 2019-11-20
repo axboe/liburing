@@ -8,6 +8,7 @@
 #include <string.h>
 #include <fcntl.h>
 #include <sys/types.h>
+#include <sys/poll.h>
 
 #include "liburing.h"
 
@@ -205,6 +206,64 @@ err:
 	return 1;
 }
 
+static int read_poll_link(const char *file)
+{
+	struct __kernel_timespec ts;
+	struct io_uring_sqe *sqe;
+	struct io_uring_cqe *cqe;
+	struct io_uring ring;
+	int i, fd, ret, fds[2];
+
+	ret = io_uring_queue_init(8, &ring, 0);
+	if (ret)
+		return ret;
+
+	fd = open(file, O_WRONLY);
+	if (fd < 0) {
+		perror("open");
+		return 1;
+	}
+
+	if (pipe(fds)) {
+		perror("pipe");
+		return 1;
+	}
+
+	sqe = io_uring_get_sqe(&ring);
+	io_uring_prep_writev(sqe, fd, &vecs[0], 1, 0);
+	sqe->flags |= IOSQE_IO_LINK;
+	sqe->user_data = 1;
+
+	sqe = io_uring_get_sqe(&ring);
+	io_uring_prep_poll_add(sqe, fds[0], POLLIN);
+	sqe->flags |= IOSQE_IO_LINK;
+	sqe->user_data = 2;
+
+	ts.tv_sec = 1;
+	ts.tv_nsec = 0;
+	sqe = io_uring_get_sqe(&ring);
+	io_uring_prep_link_timeout(sqe, &ts, 0);
+	sqe->user_data = 3;
+
+	ret = io_uring_submit(&ring);
+	if (ret != 3) {
+		fprintf(stderr, "submitted %d\n", ret);
+		return 1;
+	}
+
+	for (i = 0; i < 3; i++) {
+		ret = io_uring_wait_cqe(&ring, &cqe);
+		if (ret) {
+			fprintf(stderr, "wait_cqe=%d\n", ret);
+			return 1;
+		}
+		printf("%d: data=%llu, res=%d\n", i, cqe->user_data, cqe->res);
+		io_uring_cqe_seen(&ring, cqe);
+	}
+
+	return 0;
+}
+
 int main(int argc, char *argv[])
 {
 	int i, ret;
@@ -233,6 +292,12 @@ int main(int argc, char *argv[])
 					v1, v2, v3, v4, v5);
 			goto err;
 		}
+	}
+
+	ret = read_poll_link(".basic-rw");
+	if (ret) {
+		fprintf(stderr, "read_poll_link failed\n");
+		goto err;
 	}
 
 	unlink(".basic-rw");
