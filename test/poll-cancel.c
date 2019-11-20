@@ -77,7 +77,7 @@ int main(int argc, char *argv[])
 	}
 
 	pds[1].is_poll = 0;
-	pds[1].is_cancel = 0;
+	pds[1].is_cancel = 1;
 	io_uring_prep_poll_remove(sqe, &pds[0]);
 	io_uring_sqe_set_data(sqe, &pds[1]);
 
@@ -94,7 +94,11 @@ int main(int argc, char *argv[])
 	}
 
 	pd = io_uring_cqe_get_data(cqe);
-	if (cqe->res != 0) {
+	if (pd->is_poll && cqe->res != -ECANCELED) {
+		printf("sqe (add=%d/remove=%d) failed with %ld\n", pd->is_poll,
+							pd->is_cancel, (long) cqe->res);
+		return 1;
+	} else if (pd->is_cancel && cqe->res) {
 		printf("sqe (add=%d/remove=%d) failed with %ld\n", pd->is_poll,
 							pd->is_cancel, (long) cqe->res);
 		return 1;
@@ -108,7 +112,11 @@ int main(int argc, char *argv[])
 	}
 
 	pd = io_uring_cqe_get_data(cqe);
-	if (cqe->res != 0) {
+	if (pd->is_poll && cqe->res != -ECANCELED) {
+		printf("sqe (add=%d/remove=%d) failed with %ld\n", pd->is_poll,
+							pd->is_cancel, (long) cqe->res);
+		return 1;
+	} else if (pd->is_cancel && cqe->res) {
 		printf("sqe (add=%d/remove=%d) failed with %ld\n", pd->is_poll,
 							pd->is_cancel, (long) cqe->res);
 		return 1;

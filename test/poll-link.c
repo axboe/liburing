@@ -175,8 +175,8 @@ static int test_poll_timeout(int do_connect, unsigned long timeout)
 	memset(&d, 0, sizeof(d));
 	d.timeout = timeout;
 	if (!do_connect) {
-		d.expected[0] = 0;
-		d.expected[1] = 0;
+		d.expected[0] = -ECANCELED;
+		d.expected[1] = -ETIME;
 	} else {
 		d.expected[0] = POLLIN;
 		d.is_mask[0] = 1;
