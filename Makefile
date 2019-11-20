@@ -13,7 +13,7 @@ all:
 	@$(MAKE) -C test
 	@$(MAKE) -C examples
 
-runtests:
+runtests: all
 	@$(MAKE) -C test runtests
 runtests-loop:
 	@$(MAKE) -C test runtests-loop

@@ -41,7 +41,7 @@ accept-link: XCFLAGS = -lpthread
 clean:
 	rm -f $(all_targets) $(test_objs)
 
-runtests:
+runtests: all
 	@./runtests.sh $(all_targets)
-runtests-loop:
+runtests-loop: all
 	@./runtests-loop.sh $(all_targets)
