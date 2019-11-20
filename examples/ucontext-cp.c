@@ -21,7 +21,9 @@
 #define QD	64
 #define BS	1024
 
+#ifndef SIGSTKSZ
 #define SIGSTKSZ 8192
+#endif
 
 typedef struct {
 	struct io_uring *ring;
