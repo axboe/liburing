@@ -38,10 +38,9 @@ int main(int argc, char *argv[])
 	}
 
 	sprintf(buf, "./XXXXXX");
-	mktemp(buf);
-	fd = open(buf, O_WRONLY | O_DIRECT | O_CREAT, 0644);
+	fd = mkostemp(buf, O_WRONLY | O_DIRECT | O_CREAT);
 	if (fd < 0) {
-		perror("mkstemp");
+		perror("mkostemp");
 		return 1;
 	}
 
