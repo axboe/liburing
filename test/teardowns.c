@@ -6,28 +6,33 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include <errno.h>
 
 #include "liburing.h"
 
 static void loop(void)
 {
-	int i;
+	int i, ret = 0;
 
-	for (i = 0; i < 1000; i++) {
+	for (i = 0; i < 100; i++) {
 		struct io_uring ring;
 		int fd;
 
 		memset(&ring, 0, sizeof(ring));
 		fd = io_uring_queue_init(0xa4, &ring, 0);
-		if (fd >= 0)
+		if (fd >= 0) {
 			close(fd);
+			continue;
+		}
+		if (fd != -ENOMEM)
+			ret++;
 	}
-	exit(0);
+	exit(ret);
 }
 
 int main(void)
 {
-	int i;
+	int i, ret, status;
 
 	for (i = 0; i < 12; i++) {
 		if (!fork()) {
@@ -36,6 +41,15 @@ int main(void)
 		}
 	}
 
-	sleep(20);
-	return 0;
+	ret = 0;
+	for (i = 0; i < 12; i++) {
+		if (waitpid(-1, &status, 0) < 0) {
+			perror("waitpid");
+			return 1;
+		}
+		if (WEXITSTATUS(status))
+			ret++;
+	}
+
+	return ret;
 }
