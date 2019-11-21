@@ -1,0 +1,19 @@
+Source: liburing
+Section: libs
+Priority: optional
+Maintainer: Liu Changcheng <changcheng.liu@intel.com>
+Build-Depends: debhelper (>=9)
+Standards-Version: 4.1.4
+Homepage: https://git.kernel.dk/liburing
+Vcs-Git: https://git.kernel.dk/liburing
+Vcs-Browser: https://git.kernel.dk/liburing
+
+Package: liburing1
+Architecture: linux-any
+Pre-Depends: ${misc:Pre-Depends}
+Depends: ${misc:Depends}, ${shlibs:Depends}
+Description: userspace library for using io_uring
+ io_uring is kernel feature to improve development
+ The newese Linux IO interface, io_uring could improve
+ system performance a lot. liburing is the userpace
+ library to use io_uring feature.
