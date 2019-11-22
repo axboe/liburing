@@ -364,6 +364,106 @@ err:
 	return 1;
 }
 
+/*
+ * Test attempted submit with overflown cq ring that can't get flushed
+ */
+static int test_overflow_nodrop_submit_ebusy(void)
+{
+	struct __kernel_timespec ts;
+	struct io_uring_sqe *sqe;
+	struct io_uring_params p;
+	struct io_uring ring;
+	unsigned pending;
+	int ret, i, j;
+
+	memset(&p, 0, sizeof(p));
+	ret = io_uring_queue_init_params(4, &ring, &p);
+	if (ret) {
+		fprintf(stderr, "io_uring_queue_init failed %d\n", ret);
+		return 1;
+	}
+	if (!(p.features & IORING_FEAT_NODROP)) {
+		fprintf(stdout, "FEAT_NODROP not supported, skipped\n");
+		return 0;
+	}
+
+	ts.tv_sec = 1;
+	ts.tv_nsec = 0;
+
+	/* submit 4x4 SQEs, should overflow the ring by 8 */
+	pending = 0;
+	for (i = 0; i < 4; i++) {
+		for (j = 0; j < 4; j++) {
+			sqe = io_uring_get_sqe(&ring);
+			if (!sqe) {
+				fprintf(stderr, "get sqe failed\n");
+				goto err;
+			}
+
+			io_uring_prep_timeout(sqe, &ts, -1U, 0);
+			sqe->user_data = (i * 4) + j;
+		}
+
+		ret = io_uring_submit(&ring);
+		if (ret <= 0) {
+			fprintf(stderr, "sqe submit failed: %d, %d\n", ret, pending);
+			goto err;
+		}
+		pending += ret;
+	}
+
+	/* wait for timers to fire */
+	usleep(1100000);
+
+	/*
+	 * We should have 16 pending CQEs now, 8 of them in the overflow list. Any
+	 * attempt to queue more IO should return -EBUSY
+	 */
+	sqe = io_uring_get_sqe(&ring);
+	if (!sqe) {
+		fprintf(stderr, "get sqe failed\n");
+		goto err;
+	}
+
+	io_uring_prep_nop(sqe);
+	ret = io_uring_submit(&ring);
+	if (ret != -EBUSY) {
+		fprintf(stderr, "expected sqe submit busy: %d\n", ret);
+		goto err;
+	}
+
+	/*
+	 * Now peek existing events so the CQ ring is empty, apart from the
+	 * backlog
+	 */
+	ret = reap_events(&ring, pending, 0);
+	if (ret < 0) {
+		fprintf(stderr, "ret=%d\n", ret);
+		goto err;
+	} else if (ret != 8) {
+		fprintf(stderr, "only found %d events, expected 8\n", ret);
+		goto err;
+	}
+
+	/*
+	 * We should now be able to submit our previous nop that's still
+	 * in the sq ring, as the kernel can flush the existing backlog
+	 * to the now empty CQ ring.
+	 */
+	ret = io_uring_submit(&ring);
+	if (ret != 1) {
+		fprintf(stderr, "submit got %d, expected 1\n", ret);
+		goto err;
+	}
+
+	io_uring_queue_exit(&ring);
+	return 0;
+err:
+	io_uring_queue_exit(&ring);
+	return 1;
+}
+
+
 int main(int argc, char *argv[])
 {
 	unsigned iters, drops;
@@ -379,6 +479,12 @@ int main(int argc, char *argv[])
 	ret = test_overflow_nodrop();
 	if (ret) {
 		printf("test_overflow_nodrop failed\n");
+		return ret;
+	}
+
+	ret = test_overflow_nodrop_submit_ebusy();
+	if (ret) {
+		fprintf(stderr, "test_overflow_npdrop_submit_ebusy failed\n");
 		return ret;
 	}
 
@@ -415,7 +521,6 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "test_io fault failed\n");
 		goto err;
 	}
-
 
 	unlink(".basic-rw");
 	return 0;
