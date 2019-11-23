@@ -101,16 +101,20 @@ static int __io_uring_flush_sq(struct io_uring *ring)
  * this function must never set sqe->user_data to LIBURING_UDATA_TIMEOUT!
  *
  * Note that the application need not call io_uring_submit() before calling
- * this function, as we will do that on its behalf.
+ * this function, as we will do that on its behalf. From this it also follows
+ * that this function isn't safe to use for applications that split SQ and CQ
+ * handling between two threads and expect that to work without synchronization,
+ * as this function manipulates both the SQ and CQ side.
  */
 int io_uring_wait_cqes(struct io_uring *ring, struct io_uring_cqe **cqe_ptr,
 		       unsigned wait_nr, struct __kernel_timespec *ts,
 		       sigset_t *sigmask)
 {
-	int ret;
+	unsigned to_submit = 0;
 
 	if (wait_nr && ts) {
 		struct io_uring_sqe *sqe;
+		int ret;
 
 		/*
 		 * If the SQ ring is full, we may need to submit IO first
@@ -124,16 +128,15 @@ int io_uring_wait_cqes(struct io_uring *ring, struct io_uring_cqe **cqe_ptr,
 		}
 		io_uring_prep_timeout(sqe, ts, wait_nr, 0);
 		sqe->user_data = LIBURING_UDATA_TIMEOUT;
+		to_submit = __io_uring_flush_sq(ring);
 	}
 
-	ret = __io_uring_flush_sq(ring);
-
-	return __io_uring_get_cqe(ring, cqe_ptr, ret, wait_nr, sigmask);
+	return __io_uring_get_cqe(ring, cqe_ptr, to_submit, wait_nr, sigmask);
 }
 
 /*
- * See io_uring_wait_cqes_timeout() - this function is the same, it just
- * always uses '1' as the wait_nr.
+ * See io_uring_wait_cqes() - this function is the same, it just always uses
+ * '1' as the wait_nr.
  */
 int io_uring_wait_cqe_timeout(struct io_uring *ring,
 			      struct io_uring_cqe **cqe_ptr,
