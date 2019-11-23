@@ -337,11 +337,13 @@ static int __io_uring_peek_cqe(struct io_uring *ring, struct io_uring_cqe **cqe_
 }
 
 /*
- * Return an IO completion, if one is readily available. Returns 0 with
- * cqe_ptr filled in on success, -errno on failure.
+ * Return an IO completion, waiting for 'wait_nr' completions if one isn't
+ * readily available. Returns 0 with cqe_ptr filled in on success, -errno on
+ * failure.
  */
-static inline int io_uring_peek_cqe(struct io_uring *ring,
-				    struct io_uring_cqe **cqe_ptr)
+static inline int io_uring_wait_cqe_nr(struct io_uring *ring,
+				      struct io_uring_cqe **cqe_ptr,
+				      unsigned wait_nr)
 {
 	int err;
 
@@ -349,7 +351,17 @@ static inline int io_uring_peek_cqe(struct io_uring *ring,
 	if (err)
 		return err;
 
-	return __io_uring_get_cqe(ring, cqe_ptr, 0, 0, NULL);
+	return __io_uring_get_cqe(ring, cqe_ptr, 0, wait_nr, NULL);
+}
+
+/*
+ * Return an IO completion, if one is readily available. Returns 0 with
+ * cqe_ptr filled in on success, -errno on failure.
+ */
+static inline int io_uring_peek_cqe(struct io_uring *ring,
+				    struct io_uring_cqe **cqe_ptr)
+{
+	return io_uring_wait_cqe_nr(ring, cqe_ptr, 0);
 }
 
 /*
@@ -359,13 +371,7 @@ static inline int io_uring_peek_cqe(struct io_uring *ring,
 static inline int io_uring_wait_cqe(struct io_uring *ring,
 				    struct io_uring_cqe **cqe_ptr)
 {
-	int err;
-
-	err = __io_uring_peek_cqe(ring, cqe_ptr);
-	if (err)
-		return err;
-
-	return __io_uring_get_cqe(ring, cqe_ptr, 0, 1, NULL);
+	return io_uring_wait_cqe_nr(ring, cqe_ptr, 1);
 }
 
 #ifdef __cplusplus
