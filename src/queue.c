@@ -193,16 +193,12 @@ static int __io_uring_submit(struct io_uring *ring, unsigned submitted,
 
 static int __io_uring_submit_and_wait(struct io_uring *ring, unsigned wait_nr)
 {
-	int submitted;
+	int submit;
 
-	submitted = __io_uring_flush_sq(ring);
-	if (submitted || io_uring_sq_ready(ring)) {
-		if (!submitted)
-			submitted = io_uring_sq_ready(ring);
-		return __io_uring_submit(ring, submitted, wait_nr);
-	}
-
-	return 0;
+	submit = __io_uring_flush_sq(ring);
+	if (!submit)
+		submit = *ring->sq.ktail - *ring->sq.khead;
+	return __io_uring_submit(ring, submit, wait_nr);
 }
 
 /*
