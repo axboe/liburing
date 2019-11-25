@@ -257,7 +257,6 @@ static int read_poll_link(const char *file)
 			fprintf(stderr, "wait_cqe=%d\n", ret);
 			return 1;
 		}
-		printf("%d: data=%llu, res=%d\n", i, cqe->user_data, cqe->res);
 		io_uring_cqe_seen(&ring, cqe);
 	}
 
