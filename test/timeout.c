@@ -132,7 +132,7 @@ static int test_single_timeout_nr(struct io_uring *ring)
 	io_uring_prep_nop(sqe);
 	io_uring_sqe_set_data(sqe, (void *) 1);
 
-	ret = io_uring_submit_and_wait(ring, 4);
+	ret = io_uring_submit_and_wait(ring, 3);
 	if (ret <= 0) {
 		fprintf(stderr, "%s: sqe submit failed: %d\n", __FUNCTION__, ret);
 		goto err;
