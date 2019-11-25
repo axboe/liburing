@@ -295,6 +295,13 @@ static inline void io_uring_prep_link_timeout(struct io_uring_sqe *sqe,
 	sqe->timeout_flags = flags;
 }
 
+static inline void io_uring_prep_connect(struct io_uring_sqe *sqe, int fd,
+					 struct sockaddr *addr,
+					 socklen_t addrlen)
+{
+	io_uring_prep_rw(IORING_OP_CONNECT, sqe, fd, addr, 0, addrlen);
+}
+
 static inline unsigned io_uring_sq_ready(struct io_uring *ring)
 {
 	return ring->sq.sqe_tail - ring->sq.sqe_head;
