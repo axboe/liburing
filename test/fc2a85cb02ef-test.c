@@ -86,8 +86,10 @@ uint64_t r[2] = {0xffffffffffffffff, 0xffffffffffffffff};
 int main(void)
 {
   syscall(__NR_mmap, 0x20000000ul, 0x1000000ul, 3ul, 0x32ul, -1, 0);
-  if (setup_fault())
-    printf("Test needs failslab/fail_futex/fail_page_alloc enabled\n");
+  if (setup_fault()) {
+    printf("Test needs failslab/fail_futex/fail_page_alloc enabled, skipped\n");
+    return 0;
+  }
   intptr_t res = 0;
   *(uint32_t*)0x20000000 = 0;
   *(uint32_t*)0x20000004 = 0;
