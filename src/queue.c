@@ -11,12 +11,31 @@
 #include "liburing.h"
 #include "liburing/barrier.h"
 
+/*
+ * Returns true if we're not using SQ thread (thus nobody submits but us)
+ * or if IORING_SQ_NEED_WAKEUP is set, so submit thread must be explicitly
+ * awakened. For the latter case, we set the thread wakeup flag.
+ */
+static inline bool sq_ring_needs_enter(struct io_uring *ring, unsigned *flags)
+{
+	if (!(ring->flags & IORING_SETUP_SQPOLL))
+		return true;
+	if (IO_URING_READ_ONCE(*ring->sq.kflags) & IORING_SQ_NEED_WAKEUP) {
+		*flags |= IORING_ENTER_SQ_WAKEUP;
+		return true;
+	}
+
+	return false;
+}
+
 int __io_uring_get_cqe(struct io_uring *ring, struct io_uring_cqe **cqe_ptr,
 		       unsigned submit, unsigned wait_nr, sigset_t *sigmask)
 {
 	int ret, err = 0;
 
 	do {
+		unsigned flags;
+
 		err = __io_uring_peek_cqe(ring, cqe_ptr);
 		if (err || *cqe_ptr)
 			break;
@@ -24,8 +43,11 @@ int __io_uring_get_cqe(struct io_uring *ring, struct io_uring_cqe **cqe_ptr,
 			err = -EAGAIN;
 			break;
 		}
-		ret = io_uring_enter(ring->ring_fd, submit, wait_nr,
-					IORING_ENTER_GETEVENTS, sigmask);
+		flags = IORING_ENTER_GETEVENTS;
+		if (submit)
+			sq_ring_needs_enter(ring, &flags);
+		ret = io_uring_enter(ring->ring_fd, submit, wait_nr, flags,
+					sigmask);
 		if (ret < 0)
 			err = -errno;
 		submit -= ret;
@@ -143,23 +165,6 @@ int io_uring_wait_cqe_timeout(struct io_uring *ring,
 			      struct __kernel_timespec *ts)
 {
 	return io_uring_wait_cqes(ring, cqe_ptr, 1, ts, NULL);
-}
-
-/*
- * Returns true if we're not using SQ thread (thus nobody submits but us)
- * or if IORING_SQ_NEED_WAKEUP is set, so submit thread must be explicitly
- * awakened. For the latter case, we set the thread wakeup flag.
- */
-static inline bool sq_ring_needs_enter(struct io_uring *ring, unsigned *flags)
-{
-	if (!(ring->flags & IORING_SETUP_SQPOLL))
-		return true;
-	if (IO_URING_READ_ONCE(*ring->sq.kflags) & IORING_SQ_NEED_WAKEUP) {
-		*flags |= IORING_ENTER_SQ_WAKEUP;
-		return true;
-	}
-
-	return false;
 }
 
 /*
