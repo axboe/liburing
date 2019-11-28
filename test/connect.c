@@ -16,7 +16,7 @@
 
 #include "liburing.h"
 
-int create_socket()
+static int create_socket(void)
 {
 	int fd;
 
@@ -29,32 +29,31 @@ int create_socket()
 	return fd;
 }
 
-int submit_and_wait(struct io_uring* ring, int* res)
+static int submit_and_wait(struct io_uring *ring, int *res)
 {
-	struct io_uring_cqe* cqe;
+	struct io_uring_cqe *cqe;
 	int ret;
 
 	ret = io_uring_submit_and_wait(ring, 1);
-	if (ret == -1) {
-		perror("io_uring_submit()");
-		return -1;
+	if (ret != 1) {
+		fprintf(stderr, "io_using_submit: got %d\n", ret);
+		return 1;
 	}
 
 	ret = io_uring_peek_cqe(ring, &cqe);
 	if (ret == -1) {
 		fprintf(stderr, "io_uring_peek_cqe(): no cqe returned");
-		return -1;
+		return 1;
 	}
 
 	*res = cqe->res;
 	io_uring_cqe_seen(ring, cqe);
-
 	return 0;
 }
 
-int wait_for(struct io_uring* ring, int fd, int mask)
+static int wait_for(struct io_uring *ring, int fd, int mask)
 {
-	struct io_uring_sqe* sqe;
+	struct io_uring_sqe *sqe;
 	int ret, res;
 
 	sqe = io_uring_get_sqe(ring);
@@ -67,7 +66,7 @@ int wait_for(struct io_uring* ring, int fd, int mask)
 	sqe->user_data = 2;
 
 	ret = submit_and_wait(ring, &res);
-	if (ret == -1)
+	if (ret)
 		return -1;
 
 	if (res < 0) {
@@ -78,7 +77,7 @@ int wait_for(struct io_uring* ring, int fd, int mask)
 	return res;
 }
 
-int listen_on_socket(int fd)
+static int listen_on_socket(int fd)
 {
 	struct sockaddr_in addr;
 	int ret;
@@ -103,9 +102,9 @@ int listen_on_socket(int fd)
 	return 0;
 }
 
-int connect_socket(struct io_uring* ring, int fd, int* code)
+static int connect_socket(struct io_uring *ring, int fd, int *code)
 {
-	struct io_uring_sqe* sqe;
+	struct io_uring_sqe *sqe;
 	struct sockaddr_in addr;
 	int ret, res, val = 1;
 	socklen_t code_len = sizeof(*code);
@@ -137,7 +136,7 @@ int connect_socket(struct io_uring* ring, int fd, int* code)
 	sqe->user_data = 1;
 
 	ret = submit_and_wait(ring, &res);
-	if (ret == -1)
+	if (ret)
 		return -1;
 
 	if (res != -EINPROGRESS) {
@@ -164,7 +163,7 @@ int connect_socket(struct io_uring* ring, int fd, int* code)
 	return 0;
 }
 
-int test_connect_with_no_peer(struct io_uring* ring)
+static int test_connect_with_no_peer(struct io_uring *ring)
 {
 	int connect_fd;
 	int ret, code;
@@ -190,7 +189,7 @@ err:
 	return -1;
 }
 
-int test_connect(struct io_uring* ring)
+static int test_connect(struct io_uring *ring)
 {
 	int accept_fd;
 	int connect_fd;
@@ -230,7 +229,7 @@ err1:
 	return -1;
 }
 
-int main(int argc, char* argv[])
+int main(int argc, char *argv[])
 {
 	struct io_uring ring;
 	int ret;
