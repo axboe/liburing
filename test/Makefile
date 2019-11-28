@@ -1,3 +1,8 @@
+prefix ?= /usr
+datadir ?= $(prefix)/share
+
+INSTALL=install
+
 CFLAGS ?= -g -O2
 XCFLAGS =
 override CFLAGS += -Wall -D_GNU_SOURCE -L../src/ -I../src/include/
@@ -41,6 +46,11 @@ send_recvmsg: XCFLAGS = -lpthread
 poll-link: XCFLAGS = -lpthread
 accept-link: XCFLAGS = -lpthread
 
+install: $(all_targets) runtests.sh runtests-loop.sh
+	$(INSTALL) -D -d -m 755 $(datadir)/liburing-test/
+	$(INSTALL) -D -m 755 $(all_targets) $(datadir)/liburing-test/
+	$(INSTALL) -D -m 755 runtests.sh  $(datadir)/liburing-test/
+	$(INSTALL) -D -m 755 runtests-loop.sh  $(datadir)/liburing-test/
 clean:
 	rm -f $(all_targets) $(test_objs)
 

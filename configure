@@ -24,6 +24,8 @@ for opt do
   ;;
   --mandir=*) mandir="$optarg"
   ;;
+  --datadir=*) datadir="$optarg"
+  ;;
   *)
     echo "ERROR: unkown option $opt"
     echo "Try '$0 --help' for more information"
@@ -44,6 +46,10 @@ fi
 if test -z "$mandir"; then
   mandir="$prefix/man"
 fi
+if test -z "$datadir"; then
+  datadir="$prefix/share"
+fi
+
 
 if test "$show_help" = "yes"; then
 cat <<EOF
@@ -55,6 +61,7 @@ Options: [defaults in brackets after descriptions]
   --includedir=PATH        install headers in PATH [$includedir]
   --libdir=PATH            install libraries in PATH [$libdir]
   --mandir=PATH            install man pages in PATH [$mandir]
+  --datadir=PATH           install shared data in PATH [$datadir]
 EOF
 exit 0
 fi
@@ -163,6 +170,7 @@ print_and_output_mak "prefix" "$prefix"
 print_and_output_mak "includedir" "$includedir"
 print_and_output_mak "libdir" "$libdir"
 print_and_output_mak "mandir" "$mandir"
+print_and_output_mak "datadir" "$datadir"
 
 ##########################################
 # check for __kernel_rwf_t

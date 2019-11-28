@@ -45,6 +45,9 @@ install: $(NAME).pc
 	$(INSTALL) -m 755 -d $(DESTDIR)$(mandir)/man2
 	$(INSTALL) -m 644 man/*.2 $(DESTDIR)$(mandir)/man2
 
+install-tests:
+	@$(MAKE) -C test install prefix=$(DESTDIR)$(prefix) datadir=$(DESTDIR)$(datadir)
+
 clean:
 	@rm -f config-host.mak config-host.h cscope.out $(NAME).pc
 	@$(MAKE) -C src clean
