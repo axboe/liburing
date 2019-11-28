@@ -174,7 +174,7 @@ static int __io_uring_submit(struct io_uring *ring, unsigned submitted,
 	int ret;
 
 	flags = 0;
-	if (wait_nr || sq_ring_needs_enter(ring, &flags)) {
+	if (sq_ring_needs_enter(ring, &flags) || wait_nr) {
 		if (wait_nr)
 			flags |= IORING_ENTER_GETEVENTS;
 
