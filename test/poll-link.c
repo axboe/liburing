@@ -127,7 +127,7 @@ void *recv_thread(void *arg)
 
 	assert(io_uring_submit(&ring) == 2);
 
-	for (int i = 0; i < 2; i++) {
+	for (i = 0; i < 2; i++) {
 		struct io_uring_cqe *cqe;
 		int idx;
 
