@@ -61,15 +61,6 @@ struct io_uring {
 };
 
 /*
- * System calls
- */
-extern int io_uring_setup(unsigned entries, struct io_uring_params *p);
-extern int io_uring_enter(unsigned fd, unsigned to_submit,
-	unsigned min_complete, unsigned flags, sigset_t *sig);
-extern int io_uring_register(int fd, unsigned int opcode, const void *arg,
-	unsigned int nr_args);
-
-/*
  * Library interface
  */
 extern int io_uring_queue_init_params(unsigned entries, struct io_uring *ring,

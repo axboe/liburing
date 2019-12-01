@@ -11,6 +11,7 @@
 #include <sys/time.h>
 
 #include "liburing.h"
+#include "../src/syscall.h"
 
 #define TIMEOUT_MSEC	200
 static int not_supported;
@@ -76,7 +77,8 @@ static int test_single_timeout_many(struct io_uring *ring)
 	}
 
 	gettimeofday(&tv, NULL);
-	ret = io_uring_enter(ring->ring_fd, 0, 4, IORING_ENTER_GETEVENTS, NULL);
+	ret = __sys_io_uring_enter(ring->ring_fd, 0, 4, IORING_ENTER_GETEVENTS,
+					NULL);
 	if (ret < 0) {
 		fprintf(stderr, "%s: io_uring_enter %d\n", __FUNCTION__, ret);
 		goto err;

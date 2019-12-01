@@ -11,6 +11,8 @@
 #include "liburing.h"
 #include "liburing/barrier.h"
 
+#include "syscall.h"
+
 /*
  * Returns true if we're not using SQ thread (thus nobody submits but us)
  * or if IORING_SQ_NEED_WAKEUP is set, so submit thread must be explicitly
@@ -46,8 +48,8 @@ int __io_uring_get_cqe(struct io_uring *ring, struct io_uring_cqe **cqe_ptr,
 		flags = IORING_ENTER_GETEVENTS;
 		if (submit)
 			sq_ring_needs_enter(ring, &flags);
-		ret = io_uring_enter(ring->ring_fd, submit, wait_nr, flags,
-					sigmask);
+		ret = __sys_io_uring_enter(ring->ring_fd, submit, wait_nr,
+						flags, sigmask);
 		if (ret < 0)
 			err = -errno;
 		submit -= ret;
@@ -183,8 +185,8 @@ static int __io_uring_submit(struct io_uring *ring, unsigned submitted,
 		if (wait_nr)
 			flags |= IORING_ENTER_GETEVENTS;
 
-		ret = io_uring_enter(ring->ring_fd, submitted, wait_nr, flags,
-					NULL);
+		ret = __sys_io_uring_enter(ring->ring_fd, submitted, wait_nr,
+						flags, NULL);
 		if (ret < 0)
 			return -errno;
 	} else

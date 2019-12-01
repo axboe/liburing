@@ -22,6 +22,7 @@
 #include <sys/resource.h>
 #include <limits.h>
 #include "liburing.h"
+#include "../src/syscall.h"
 
 static int pagesize;
 static rlim_t mlock_limit;
@@ -35,17 +36,17 @@ expect_fail(int fd, unsigned int opcode, void *arg,
 
 	printf("io_uring_register(%d, %u, %p, %u)\n",
 	       fd, opcode, arg, nr_args);
-	ret = io_uring_register(fd, opcode, arg, nr_args);
+	ret = __sys_io_uring_register(fd, opcode, arg, nr_args);
 	if (ret != -1) {
 		int ret2 = 0;
 
 		printf("expected %s, but call succeeded\n", strerror(error));
 		if (opcode == IORING_REGISTER_BUFFERS) {
-			ret2 = io_uring_register(fd, IORING_UNREGISTER_BUFFERS,
-						 0, 0);
+			ret2 = __sys_io_uring_register(fd,
+					IORING_UNREGISTER_BUFFERS, 0, 0);
 		} else if (opcode == IORING_REGISTER_FILES) {
-			ret2 = io_uring_register(fd, IORING_UNREGISTER_FILES,
-						 0, 0);
+			ret2 = __sys_io_uring_register(fd,
+					IORING_UNREGISTER_FILES, 0, 0);
 		}
 		if (ret2) {
 			printf("internal error: failed to unregister\n");
@@ -66,7 +67,7 @@ new_io_uring(int entries, struct io_uring_params *p)
 {
 	int fd;
 
-	fd = io_uring_setup(entries, p);
+	fd = __sys_io_uring_setup(entries, p);
 	if (fd < 0) {
 		perror("io_uring_setup");
 		exit(1);
@@ -191,8 +192,8 @@ test_max_fds(int uring_fd)
 	 */
 	nr_fds = UINT_MAX;
 	while (nr_fds) {
-		ret = io_uring_register(uring_fd, IORING_REGISTER_FILES,
-					fd_as, nr_fds);
+		ret = __sys_io_uring_register(uring_fd, IORING_REGISTER_FILES,
+						fd_as, nr_fds);
 		if (ret != 0) {
 			nr_fds /= 2;
 			continue;
@@ -202,7 +203,8 @@ test_max_fds(int uring_fd)
 		status = 0;
 		printf("io_uring_register(%d, IORING_UNREGISTER_FILES, 0, 0)...",
 		       uring_fd);
-		ret = io_uring_register(uring_fd, IORING_UNREGISTER_FILES, 0, 0);
+		ret = __sys_io_uring_register(uring_fd, IORING_UNREGISTER_FILES,
+						0, 0);
 		if (ret < 0) {
 			ret = errno;
 			printf("failed\n");
@@ -242,7 +244,7 @@ test_memlock_exceeded(int fd)
 	iov.iov_base = buf;
 
 	while (iov.iov_len) {
-		ret = io_uring_register(fd, IORING_REGISTER_BUFFERS, &iov, 1);
+		ret = __sys_io_uring_register(fd, IORING_REGISTER_BUFFERS, &iov, 1);
 		if (ret < 0) {
 			if (errno == ENOMEM) {
 				printf("io_uring_register of %zu bytes failed "
@@ -256,7 +258,8 @@ test_memlock_exceeded(int fd)
 		}
 		printf("successfully registered %zu bytes (%d).\n",
 		       iov.iov_len, ret);
-		ret = io_uring_register(fd, IORING_UNREGISTER_BUFFERS, NULL, 0);
+		ret = __sys_io_uring_register(fd, IORING_UNREGISTER_BUFFERS,
+						NULL, 0);
 		if (ret != 0) {
 			printf("error: unregister failed with %d\n", errno);
 			free(buf);
@@ -296,12 +299,12 @@ test_iovec_nr(int fd)
 	nr--;
 	printf("io_uring_register(%d, %u, %p, %u)\n",
 	       fd, IORING_REGISTER_BUFFERS, iovs, nr);
-	ret = io_uring_register(fd, IORING_REGISTER_BUFFERS, iovs, nr);
+	ret = __sys_io_uring_register(fd, IORING_REGISTER_BUFFERS, iovs, nr);
 	if (ret != 0) {
 		printf("expected success, got %d\n", errno);
 		status = 1;
 	} else
-		io_uring_register(fd, IORING_UNREGISTER_BUFFERS, 0, 0);
+		__sys_io_uring_register(fd, IORING_UNREGISTER_BUFFERS, 0, 0);
 
 	free(buf);
 	free(iovs);
@@ -356,7 +359,7 @@ test_iovec_size(int fd)
 		 */
 		iov.iov_base = buf;
 		iov.iov_len = 2*1024*1024;
-		ret = io_uring_register(fd, IORING_REGISTER_BUFFERS, &iov, 1);
+		ret = __sys_io_uring_register(fd, IORING_REGISTER_BUFFERS, &iov, 1);
 		if (ret < 0) {
 			if (errno == ENOMEM)
 				printf("Unable to test registering of a huge "
@@ -369,8 +372,8 @@ test_iovec_size(int fd)
 			}
 		} else {
 			printf("Success!\n");
-			ret = io_uring_register(fd, IORING_UNREGISTER_BUFFERS,
-						0, 0);
+			ret = __sys_io_uring_register(fd,
+					IORING_UNREGISTER_BUFFERS, 0, 0);
 			if (ret < 0) {
 				perror("io_uring_unregister");
 				status = 1;

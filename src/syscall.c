@@ -7,6 +7,7 @@
 #include <signal.h>
 #include "liburing/compat.h"
 #include "liburing/io_uring.h"
+#include "syscall.h"
 
 #ifdef __alpha__
 /*
@@ -34,19 +35,19 @@
 # endif
 #endif
 
-int io_uring_register(int fd, unsigned int opcode, const void *arg,
-		      unsigned int nr_args)
+int __sys_io_uring_register(int fd, unsigned opcode, const void *arg,
+			    unsigned nr_args)
 {
 	return syscall(__NR_io_uring_register, fd, opcode, arg, nr_args);
 }
 
-int io_uring_setup(unsigned int entries, struct io_uring_params *p)
+int __sys_io_uring_setup(unsigned entries, struct io_uring_params *p)
 {
 	return syscall(__NR_io_uring_setup, entries, p);
 }
 
-int io_uring_enter(int fd, unsigned int to_submit, unsigned int min_complete,
-		   unsigned int flags, sigset_t *sig)
+int __sys_io_uring_enter(int fd, unsigned to_submit, unsigned min_complete,
+			 unsigned flags, sigset_t *sig)
 {
 	return syscall(__NR_io_uring_enter, fd, to_submit, min_complete,
 			flags, sig, _NSIG / 8);

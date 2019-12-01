@@ -15,6 +15,8 @@
 #include <sys/sysinfo.h>
 #include "liburing.h"
 
+#include "../syscall.h"
+
 char *features_string(struct io_uring_params *p)
 {
 	static char flagstr[64];
@@ -102,7 +104,7 @@ try_io_uring_setup(unsigned entries, struct io_uring_params *p, int expect, int 
 	       entries, p, flags_string(p), features_string(p), dump_resv(p),
 	       p ? p->sq_thread_cpu : 0);
 
-	ret = io_uring_setup(entries, p);
+	ret = __sys_io_uring_setup(entries, p);
 	if (ret != expect) {
 		printf("expected %d, got %d\n", expect, ret);
 		/* if we got a valid uring, close it */
@@ -161,7 +163,7 @@ main(int argc, char **argv)
 
 	/* read/write on io_uring_fd */
 	memset(&p, 0, sizeof(p));
-	fd = io_uring_setup(1, &p);
+	fd = __sys_io_uring_setup(1, &p);
 	if (fd < 0) {
 		printf("io_uring_setup failed with %d, expected success\n",
 		       errno);

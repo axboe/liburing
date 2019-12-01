@@ -9,6 +9,8 @@
 #include "liburing/io_uring.h"
 #include "liburing.h"
 
+#include "syscall.h"
+
 static void io_uring_unmap_rings(struct io_uring_sq *sq, struct io_uring_cq *cq)
 {
 	munmap(sq->ring_ptr, sq->ring_sz);
@@ -99,7 +101,7 @@ int io_uring_queue_init_params(unsigned entries, struct io_uring *ring,
 {
 	int fd, ret;
 
-	fd = io_uring_setup(entries, p);
+	fd = __sys_io_uring_setup(entries, p);
 	if (fd < 0)
 		return -errno;
 

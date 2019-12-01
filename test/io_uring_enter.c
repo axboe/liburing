@@ -24,6 +24,7 @@
 #include <sys/time.h>
 #include "liburing.h"
 #include "liburing/barrier.h"
+#include "../src/syscall.h"
 
 #define IORING_MAX_ENTRIES 4096
 
@@ -52,7 +53,7 @@ expect_fail(int fd, unsigned int to_submit, unsigned int min_complete,
 {
 	int ret;
 
-	ret = io_uring_enter(fd, to_submit, min_complete, flags, sig);
+	ret = __sys_io_uring_enter(fd, to_submit, min_complete, flags, sig);
 	if (ret != -1) {
 		printf("expected %s, but call succeeded\n", strerror(error));
 		return 1;
@@ -79,7 +80,7 @@ try_io_uring_enter(int fd, unsigned int to_submit, unsigned int min_complete,
 		return expect_fail(fd, to_submit, min_complete,
 				   flags, sig, error);
 
-	ret = io_uring_enter(fd, to_submit, min_complete, flags, sig);
+	ret = __sys_io_uring_enter(fd, to_submit, min_complete, flags, sig);
 	if (ret != expect) {
 		printf("Expected %d, got %d\n", expect, errno);
 		return 1;
@@ -233,8 +234,8 @@ main(int argc, char **argv)
 	sq_entries = *ring.sq.kring_entries;
 	submit_io(&ring, sq_entries);
 	printf("Waiting for %u events\n", sq_entries);
-	ret = io_uring_enter(ring.ring_fd, 0, sq_entries,
-			     IORING_ENTER_GETEVENTS, NULL);
+	ret = __sys_io_uring_enter(ring.ring_fd, 0, sq_entries,
+					IORING_ENTER_GETEVENTS, NULL);
 	if (ret < 0) {
 		perror("io_uring_enter");
 		status = 1;
@@ -269,7 +270,7 @@ main(int argc, char **argv)
 	 */
 	io_uring_smp_store_release(sq->ktail, ktail);
 
-	ret = io_uring_enter(ring.ring_fd, 1, 0, 0, NULL);
+	ret = __sys_io_uring_enter(ring.ring_fd, 1, 0, 0, NULL);
 	/* now check to see if our sqe was dropped */
 	if (*sq->kdropped == dropped) {
 		printf("dropped counter did not increase\n");
