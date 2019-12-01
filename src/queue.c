@@ -136,7 +136,7 @@ int io_uring_wait_cqes(struct io_uring *ring, struct io_uring_cqe **cqe_ptr,
 		       unsigned wait_nr, struct __kernel_timespec *ts,
 		       sigset_t *sigmask)
 {
-	unsigned to_submit = 0;
+	unsigned to_submit = 0, submitted = 0;
 	int ret;
 
 	if (ts) {
@@ -151,6 +151,7 @@ int io_uring_wait_cqes(struct io_uring *ring, struct io_uring_cqe **cqe_ptr,
 			ret = io_uring_submit(ring);
 			if (ret < 0)
 				return ret;
+			submitted = ret;
 			sqe = io_uring_get_sqe(ring);
 		}
 		io_uring_prep_timeout(sqe, ts, wait_nr, 0);
@@ -162,7 +163,7 @@ int io_uring_wait_cqes(struct io_uring *ring, struct io_uring_cqe **cqe_ptr,
 	ret = __io_uring_get_cqe(ring, cqe_ptr, to_submit, wait_nr, sigmask);
 	if (ret <= 0)
 		return ret;
-	return ret - to_submit;
+	return submitted ?: ret - 1;
 }
 
 /*
