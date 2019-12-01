@@ -33,26 +33,30 @@ static inline bool sq_ring_needs_enter(struct io_uring *ring, unsigned *flags)
 int __io_uring_get_cqe(struct io_uring *ring, struct io_uring_cqe **cqe_ptr,
 		       unsigned submit, unsigned wait_nr, sigset_t *sigmask)
 {
-	int ret, err = 0;
+	int ret = 0, err;
 
 	do {
 		unsigned flags;
 
 		err = __io_uring_peek_cqe(ring, cqe_ptr);
-		if (err || *cqe_ptr)
+		if (err)
 			break;
-		if (!wait_nr) {
+		if (!*cqe_ptr && !wait_nr && !submit) {
 			err = -EAGAIN;
 			break;
 		}
-		flags = IORING_ENTER_GETEVENTS;
+		if (wait_nr)
+			flags = IORING_ENTER_GETEVENTS;
 		if (submit)
 			sq_ring_needs_enter(ring, &flags);
-		ret = __sys_io_uring_enter(ring->ring_fd, submit, wait_nr,
-						flags, sigmask);
+		if (wait_nr || submit)
+			ret = __sys_io_uring_enter(ring->ring_fd, submit,
+						   wait_nr, flags, sigmask);
 		if (ret < 0)
 			err = -errno;
 		submit -= ret;
+		if (*cqe_ptr)
+			break;
 	} while (!err);
 
 	return err;
@@ -88,14 +92,14 @@ unsigned io_uring_peek_batch_cqe(struct io_uring *ring,
 /*
  * Sync internal state with kernel ring state on the SQ side
  */
-static int __io_uring_flush_sq(struct io_uring *ring)
+static void __io_uring_flush_sq(struct io_uring *ring)
 {
 	struct io_uring_sq *sq = &ring->sq;
 	const unsigned mask = *sq->kring_mask;
 	unsigned ktail, submitted, to_submit;
 
 	if (sq->sqe_head == sq->sqe_tail)
-		return 0;
+		return;
 
 	/*
 	 * Fill in sqes that we have queued up, adding them to the kernel ring
@@ -115,8 +119,6 @@ static int __io_uring_flush_sq(struct io_uring *ring)
 	 * update.
 	 */
 	io_uring_smp_store_release(sq->ktail, ktail);
-
-	return submitted;
 }
 
 /*
@@ -135,8 +137,9 @@ int io_uring_wait_cqes(struct io_uring *ring, struct io_uring_cqe **cqe_ptr,
 		       sigset_t *sigmask)
 {
 	unsigned to_submit = 0;
+	int ret;
 
-	if (wait_nr && ts) {
+	if (ts) {
 		struct io_uring_sqe *sqe;
 		int ret;
 
@@ -152,10 +155,14 @@ int io_uring_wait_cqes(struct io_uring *ring, struct io_uring_cqe **cqe_ptr,
 		}
 		io_uring_prep_timeout(sqe, ts, wait_nr, 0);
 		sqe->user_data = LIBURING_UDATA_TIMEOUT;
-		to_submit = __io_uring_flush_sq(ring);
+		__io_uring_flush_sq(ring);
+		to_submit = *ring->sq.ktail - *ring->sq.khead;
 	}
 
-	return __io_uring_get_cqe(ring, cqe_ptr, to_submit, wait_nr, sigmask);
+	ret = __io_uring_get_cqe(ring, cqe_ptr, to_submit, wait_nr, sigmask);
+	if (ret <= 0)
+		return ret;
+	return ret - to_submit;
 }
 
 /*
@@ -199,9 +206,8 @@ static int __io_uring_submit_and_wait(struct io_uring *ring, unsigned wait_nr)
 {
 	int submit;
 
-	submit = __io_uring_flush_sq(ring);
-	if (!submit)
-		submit = *ring->sq.ktail - *ring->sq.khead;
+	__io_uring_flush_sq(ring);
+	submit = *ring->sq.ktail - *ring->sq.khead;
 	return __io_uring_submit(ring, submit, wait_nr);
 }
 
