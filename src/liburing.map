@@ -44,9 +44,6 @@ LIBURING_0.3 {
 		io_uring_submit;
 		io_uring_submit_and_wait;
 		io_uring_get_sqe;
-		io_uring_register;
-		io_uring_setup;
-		io_uring_enter;
 		io_uring_mmap;
 		io_uring_register_buffers;
 		io_uring_unregister_buffers;
@@ -67,5 +64,4 @@ LIBURING_0.3 {
 		__sys_io_uring_setup;
 		__sys_io_uring_enter;
 		__sys_io_uring_register;
-		*;
 };
