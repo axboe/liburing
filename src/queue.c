@@ -36,7 +36,7 @@ int __io_uring_get_cqe(struct io_uring *ring, struct io_uring_cqe **cqe_ptr,
 	int ret = 0, err;
 
 	do {
-		unsigned flags;
+		unsigned flags = 0;
 
 		err = __io_uring_peek_cqe(ring, cqe_ptr);
 		if (err)
