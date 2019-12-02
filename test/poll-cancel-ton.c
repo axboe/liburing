@@ -37,7 +37,7 @@ static int reap_events(struct io_uring *ring, unsigned nr_events)
 
 static int del_polls(struct io_uring *ring, int fd, int nr)
 {
-	int pending, batch, i, ret;
+	int batch, i, ret;
 	struct io_uring_sqe *sqe;
 
 	while (nr) {
@@ -58,7 +58,6 @@ static int del_polls(struct io_uring *ring, int fd, int nr)
 			return 1;
 		}
 		nr -= batch;
-		pending += batch;
 		ret = reap_events(ring, 2 * batch);
 	}
 	return 0;
