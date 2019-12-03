@@ -139,27 +139,24 @@ static int connect_socket(struct io_uring *ring, int fd, int *code)
 	if (ret)
 		return -1;
 
-	if (res != -EINPROGRESS) {
-		fprintf(stderr, "connect(): expected %d, got %d\n", EINPROGRESS, res);
-		return -1;
-	}
+	if (res == -EINPROGRESS) {
+		ret = wait_for(ring, fd, POLLOUT | POLLHUP | POLLERR);
+		if (ret == -1)
+			return -1;
 
-	ret = wait_for(ring, fd, POLLOUT | POLLHUP | POLLERR);
-	if (ret == -1)
-		return -1;
+		int ev = (ret & POLLOUT) || (ret & POLLHUP) || (ret & POLLERR);
+		if (!ev) {
+			fprintf(stderr, "poll(): returned invalid value %#x\n", ret);
+			return -1;
+		}
 
-	int ev = (ret & POLLOUT) || (ret & POLLHUP) || (ret & POLLERR);
-	if (!ev) {
-		fprintf(stderr, "poll(): returned invalid value %#x\n", ret);
-		return -1;
-	}
-
-	ret = getsockopt(fd, SOL_SOCKET, SO_ERROR, code, &code_len);
-	if (ret == -1) {
-		perror("getsockopt()");
-		return -1;
-	}
-
+		ret = getsockopt(fd, SOL_SOCKET, SO_ERROR, code, &code_len);
+		if (ret == -1) {
+			perror("getsockopt()");
+			return -1;
+		}
+	} else
+		*code = res;
 	return 0;
 }
 
@@ -176,7 +173,7 @@ static int test_connect_with_no_peer(struct io_uring *ring)
 	if (ret == -1)
 		goto err;
 
-	if (code != ECONNREFUSED) {
+	if (code != -ECONNREFUSED) {
 		fprintf(stderr, "connect failed with %d\n", code);
 		goto err;
 	}
