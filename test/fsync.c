@@ -27,7 +27,7 @@ static int test_single_fsync(struct io_uring *ring)
 
 	sqe = io_uring_get_sqe(ring);
 	if (!sqe) {
-		printf("get sqe failed\n");
+		fprintf(stderr, "get sqe failed\n");
 		goto err;
 	}
 
@@ -35,13 +35,13 @@ static int test_single_fsync(struct io_uring *ring)
 
 	ret = io_uring_submit(ring);
 	if (ret <= 0) {
-		printf("sqe submit failed: %d\n", ret);
+		fprintf(stderr, "sqe submit failed: %d\n", ret);
 		goto err;
 	}
 
 	ret = io_uring_wait_cqe(ring, &cqe);
 	if (ret < 0) {
-		printf("wait completion %d\n", ret);
+		fprintf(stderr, "wait completion %d\n", ret);
 		goto err;
 	}
 
@@ -76,7 +76,7 @@ static int test_barrier_fsync(struct io_uring *ring)
 	for (i = 0; i < 4; i++) {
 		sqe = io_uring_get_sqe(ring);
 		if (!sqe) {
-			printf("get sqe failed\n");
+			fprintf(stderr, "get sqe failed\n");
 			goto err;
 		}
 
@@ -87,7 +87,7 @@ static int test_barrier_fsync(struct io_uring *ring)
 
 	sqe = io_uring_get_sqe(ring);
 	if (!sqe) {
-		printf("get sqe failed\n");
+		fprintf(stderr, "get sqe failed\n");
 		goto err;
 	}
 
@@ -97,19 +97,17 @@ static int test_barrier_fsync(struct io_uring *ring)
 
 	ret = io_uring_submit(ring);
 	if (ret < 0) {
-		printf("sqe submit failed\n");
-		if (ret == EINVAL)
-			printf("kernel may not support barrier fsync yet\n");
+		fprintf(stderr, "sqe submit failed: %d\n", ret);
 		goto err;
 	} else if (ret < 5) {
-		printf("Submitted only %d\n", ret);
+		fprintf(stderr, "Submitted only %d\n", ret);
 		goto err;
 	}
 
 	for (i = 0; i < 5; i++) {
 		ret = io_uring_wait_cqe(ring, &cqe);
 		if (ret < 0) {
-			printf("child: wait completion %d\n", ret);
+			fprintf(stderr, "wait completion %d\n", ret);
 			goto err;
 		}
 		/* kernel doesn't support IOSQE_IO_DRAIN */
@@ -117,12 +115,12 @@ static int test_barrier_fsync(struct io_uring *ring)
 			break;
 		if (i <= 3) {
 			if (cqe->user_data) {
-				printf("Got fsync early?\n");
+				fprintf(stderr, "Got fsync early?\n");
 				goto err;
 			}
 		} else {
 			if (!cqe->user_data) {
-				printf("Got write late?\n");
+				fprintf(stderr, "Got write late?\n");
 				goto err;
 			}
 		}
@@ -143,20 +141,20 @@ int main(int argc, char *argv[])
 
 	ret = io_uring_queue_init(8, &ring, 0);
 	if (ret) {
-		printf("ring setup failed\n");
+		fprintf(stderr, "ring setup failed\n");
 		return 1;
 
 	}
 
 	ret = test_single_fsync(&ring);
 	if (ret) {
-		printf("test_single_fsync failed\n");
+		fprintf(stderr, "test_single_fsync failed\n");
 		return ret;
 	}
 
 	ret = test_barrier_fsync(&ring);
 	if (ret) {
-		printf("test_barrier_fsync failed\n");
+		fprintf(stderr, "test_barrier_fsync failed\n");
 		return ret;
 	}
 
