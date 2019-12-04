@@ -747,10 +747,6 @@ static int test_timeout_flags1(struct io_uring *ring)
 		goto err;
 	}
 
-	/*
-	 * req_2 (count=1) should return without error and req_1 (count=2)
-	 * should timeout.
-	 */
 	for (i = 0; i < 3; i++) {
 		ret = io_uring_wait_cqe(ring, &cqe);
 		if (ret < 0) {
@@ -842,10 +838,6 @@ static int test_timeout_flags2(struct io_uring *ring)
 		goto err;
 	}
 
-	/*
-	 * req_2 (count=1) should return without error and req_1 (count=2)
-	 * should timeout.
-	 */
 	for (i = 0; i < 3; i++) {
 		ret = io_uring_wait_cqe(ring, &cqe);
 		if (ret < 0) {
@@ -931,10 +923,6 @@ static int test_timeout_flags3(struct io_uring *ring)
 		goto err;
 	}
 
-	/*
-	 * req_2 (count=1) should return without error and req_1 (count=2)
-	 * should timeout.
-	 */
 	for (i = 0; i < 3; i++) {
 		ret = io_uring_wait_cqe(ring, &cqe);
 		if (ret < 0) {
