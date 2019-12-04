@@ -203,9 +203,10 @@ static int test_single_link_timeout_ception(struct io_uring *ring)
 		}
 		switch (cqe->user_data) {
 		case 1:
-			if (cqe->res != -EINVAL) {
-				fprintf(stderr, "Timeout got %d, wanted -EINVAL\n",
-						cqe->res);
+			/* newer kernels allow timeout links */
+			if (cqe->res != -EINVAL && cqe->res != -ETIME) {
+				fprintf(stderr, "Timeout got %d, wanted "
+					"-EINVAL or -ETIME\n", cqe->res);
 				goto err;
 			}
 			break;
