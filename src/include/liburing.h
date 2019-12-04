@@ -103,16 +103,15 @@ extern int __io_uring_get_cqe(struct io_uring *ring,
 
 #define LIBURING_UDATA_TIMEOUT	((__u64) -1)
 
-#define io_uring_for_each_cqe(ring, head, cqe)					\
-	/*									\
-	 * io_uring_smp_load_acquire() enforces the order of tail		\
-	 * and CQE reads.							\
-	 */									\
-	for (head = *(ring)->cq.khead;						\
-	     (cqe = (head != io_uring_smp_load_acquire((ring)->cq.ktail) ?	\
-		&(ring)->cq.cqes[head & (*(ring)->cq.kring_mask)] : NULL));	\
-	     head++)								\
-
+#define io_uring_for_each_cqe(ring, head, cqe)				\
+	/*								\
+	 * io_uring_smp_load_acquire() enforces the order of tail	\
+	 * and CQE reads.						\
+	 */								\
+	for (head = *(ring)->cq.khead;					\
+	     (cqe = (head != io_uring_smp_load_acquire((ring)->cq.ktail) ? \
+		&(ring)->cq.cqes[head & (*(ring)->cq.kring_mask)] : NULL)); \
+	     head++)							\
 
 /*
  * Must be called after io_uring_for_each_cqe()
