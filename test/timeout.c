@@ -703,6 +703,280 @@ err:
 	return 1;
 }
 
+/*
+ * Test timeout <link> timeout <drain> timeout
+ */
+static int test_timeout_flags1(struct io_uring *ring)
+{
+	struct io_uring_sqe *sqe;
+	struct io_uring_cqe *cqe;
+	struct __kernel_timespec ts;
+	int ret, i;
+
+	msec_to_ts(&ts, TIMEOUT_MSEC);
+
+	sqe = io_uring_get_sqe(ring);
+	if (!sqe) {
+		fprintf(stderr, "%s: get sqe failed\n", __FUNCTION__);
+		goto err;
+	}
+	io_uring_prep_timeout(sqe, &ts, 0, 0);
+	sqe->user_data = 1;
+	sqe->flags |= IOSQE_IO_LINK;
+
+	sqe = io_uring_get_sqe(ring);
+	if (!sqe) {
+		fprintf(stderr, "%s: get sqe failed\n", __FUNCTION__);
+		goto err;
+	}
+	io_uring_prep_timeout(sqe, &ts, 0, 0);
+	sqe->user_data = 2;
+	sqe->flags |= IOSQE_IO_DRAIN;
+
+	sqe = io_uring_get_sqe(ring);
+	if (!sqe) {
+		fprintf(stderr, "%s: get sqe failed\n", __FUNCTION__);
+		goto err;
+	}
+	io_uring_prep_timeout(sqe, &ts, 0, 0);
+	sqe->user_data = 3;
+
+	ret = io_uring_submit(ring);
+	if (ret <= 0) {
+		fprintf(stderr, "%s: sqe submit failed: %d\n", __FUNCTION__, ret);
+		goto err;
+	}
+
+	/*
+	 * req_2 (count=1) should return without error and req_1 (count=2)
+	 * should timeout.
+	 */
+	for (i = 0; i < 3; i++) {
+		ret = io_uring_wait_cqe(ring, &cqe);
+		if (ret < 0) {
+			fprintf(stderr, "%s: wait completion %d\n", __FUNCTION__, ret);
+			goto err;
+		}
+
+		if (cqe->res == -EINVAL) {
+			if (!i)
+				fprintf(stdout, "%s: timeout flags not supported\n",
+						__FUNCTION__);
+			io_uring_cqe_seen(ring, cqe);
+			continue;
+		}
+
+		switch (cqe->user_data) {
+		case 1:
+			if (cqe->res != -ETIME) {
+				fprintf(stderr, "%s: got %d, wanted %d\n",
+						__FUNCTION__, cqe->res, -ETIME);
+				goto err;
+			}
+			break;
+		case 2:
+			if (cqe->res != -ECANCELED) {
+				fprintf(stderr, "%s: got %d, wanted %d\n",
+						__FUNCTION__, cqe->res,
+						-ECANCELED);
+				goto err;
+			}
+			break;
+		case 3:
+			if (cqe->res != -ETIME) {
+				fprintf(stderr, "%s: got %d, wanted %d\n",
+						__FUNCTION__, cqe->res, -ETIME);
+				goto err;
+			}
+			break;
+		}
+		io_uring_cqe_seen(ring, cqe);
+	}
+
+	return 0;
+err:
+	return 1;
+}
+
+/*
+ * Test timeout <link> timeout <link> timeout
+ */
+static int test_timeout_flags2(struct io_uring *ring)
+{
+	struct io_uring_sqe *sqe;
+	struct io_uring_cqe *cqe;
+	struct __kernel_timespec ts;
+	int ret, i;
+
+	msec_to_ts(&ts, TIMEOUT_MSEC);
+
+	sqe = io_uring_get_sqe(ring);
+	if (!sqe) {
+		fprintf(stderr, "%s: get sqe failed\n", __FUNCTION__);
+		goto err;
+	}
+	io_uring_prep_timeout(sqe, &ts, 0, 0);
+	sqe->user_data = 1;
+	sqe->flags |= IOSQE_IO_LINK;
+
+	sqe = io_uring_get_sqe(ring);
+	if (!sqe) {
+		fprintf(stderr, "%s: get sqe failed\n", __FUNCTION__);
+		goto err;
+	}
+	io_uring_prep_timeout(sqe, &ts, 0, 0);
+	sqe->user_data = 2;
+	sqe->flags |= IOSQE_IO_LINK;
+
+	sqe = io_uring_get_sqe(ring);
+	if (!sqe) {
+		fprintf(stderr, "%s: get sqe failed\n", __FUNCTION__);
+		goto err;
+	}
+	io_uring_prep_timeout(sqe, &ts, 0, 0);
+	sqe->user_data = 3;
+
+	ret = io_uring_submit(ring);
+	if (ret <= 0) {
+		fprintf(stderr, "%s: sqe submit failed: %d\n", __FUNCTION__, ret);
+		goto err;
+	}
+
+	/*
+	 * req_2 (count=1) should return without error and req_1 (count=2)
+	 * should timeout.
+	 */
+	for (i = 0; i < 3; i++) {
+		ret = io_uring_wait_cqe(ring, &cqe);
+		if (ret < 0) {
+			fprintf(stderr, "%s: wait completion %d\n", __FUNCTION__, ret);
+			goto err;
+		}
+
+		if (cqe->res == -EINVAL) {
+			if (!i)
+				fprintf(stdout, "%s: timeout flags not supported\n",
+						__FUNCTION__);
+			io_uring_cqe_seen(ring, cqe);
+			continue;
+		}
+
+		switch (cqe->user_data) {
+		case 1:
+			if (cqe->res != -ETIME) {
+				fprintf(stderr, "%s: got %d, wanted %d\n",
+						__FUNCTION__, cqe->res, -ETIME);
+				goto err;
+			}
+			break;
+		case 2:
+		case 3:
+			if (cqe->res != -ECANCELED) {
+				fprintf(stderr, "%s: got %d, wanted %d\n",
+						__FUNCTION__, cqe->res,
+						-ECANCELED);
+				goto err;
+			}
+			break;
+		}
+		io_uring_cqe_seen(ring, cqe);
+	}
+
+	return 0;
+err:
+	return 1;
+}
+
+/*
+ * Test timeout <drain> timeout <link> timeout
+ */
+static int test_timeout_flags3(struct io_uring *ring)
+{
+	struct io_uring_sqe *sqe;
+	struct io_uring_cqe *cqe;
+	struct __kernel_timespec ts;
+	int ret, i;
+
+	msec_to_ts(&ts, TIMEOUT_MSEC);
+
+	sqe = io_uring_get_sqe(ring);
+	if (!sqe) {
+		fprintf(stderr, "%s: get sqe failed\n", __FUNCTION__);
+		goto err;
+	}
+	io_uring_prep_timeout(sqe, &ts, 0, 0);
+	sqe->user_data = 1;
+	sqe->flags |= IOSQE_IO_DRAIN;
+
+	sqe = io_uring_get_sqe(ring);
+	if (!sqe) {
+		fprintf(stderr, "%s: get sqe failed\n", __FUNCTION__);
+		goto err;
+	}
+	io_uring_prep_timeout(sqe, &ts, 0, 0);
+	sqe->user_data = 2;
+	sqe->flags |= IOSQE_IO_LINK;
+
+	sqe = io_uring_get_sqe(ring);
+	if (!sqe) {
+		fprintf(stderr, "%s: get sqe failed\n", __FUNCTION__);
+		goto err;
+	}
+	io_uring_prep_timeout(sqe, &ts, 0, 0);
+	sqe->user_data = 3;
+
+	ret = io_uring_submit(ring);
+	if (ret <= 0) {
+		fprintf(stderr, "%s: sqe submit failed: %d\n", __FUNCTION__, ret);
+		goto err;
+	}
+
+	/*
+	 * req_2 (count=1) should return without error and req_1 (count=2)
+	 * should timeout.
+	 */
+	for (i = 0; i < 3; i++) {
+		ret = io_uring_wait_cqe(ring, &cqe);
+		if (ret < 0) {
+			fprintf(stderr, "%s: wait completion %d\n", __FUNCTION__, ret);
+			goto err;
+		}
+
+		if (cqe->res == -EINVAL) {
+			if (!i)
+				fprintf(stdout, "%s: timeout flags not supported\n",
+						__FUNCTION__);
+			io_uring_cqe_seen(ring, cqe);
+			continue;
+		}
+
+		switch (cqe->user_data) {
+		case 1:
+		case 2:
+			if (cqe->res != -ETIME) {
+				fprintf(stderr, "%s: got %d, wanted %d\n",
+						__FUNCTION__, cqe->res, -ETIME);
+				goto err;
+			}
+			break;
+		case 3:
+			if (cqe->res != -ECANCELED) {
+				fprintf(stderr, "%s: got %d, wanted %d\n",
+						__FUNCTION__, cqe->res,
+						-ECANCELED);
+				goto err;
+			}
+			break;
+		}
+		io_uring_cqe_seen(ring, cqe);
+	}
+
+	return 0;
+err:
+	return 1;
+}
+
+
 int main(int argc, char *argv[])
 {
 	struct io_uring ring;
@@ -761,6 +1035,24 @@ int main(int argc, char *argv[])
 	ret = test_multi_timeout_nr(&ring);
 	if (ret) {
 		fprintf(stderr, "test_multi_timeout_nr failed\n");
+		return ret;
+	}
+
+	ret = test_timeout_flags1(&ring);
+	if (ret) {
+		fprintf(stderr, "test_timeout_flags1 failed\n");
+		return ret;
+	}
+
+	ret = test_timeout_flags2(&ring);
+	if (ret) {
+		fprintf(stderr, "test_timeout_flags2 failed\n");
+		return ret;
+	}
+
+	ret = test_timeout_flags3(&ring);
+	if (ret) {
+		fprintf(stderr, "test_timeout_flags3 failed\n");
 		return ret;
 	}
 
