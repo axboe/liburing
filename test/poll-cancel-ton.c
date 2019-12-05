@@ -14,6 +14,10 @@
 
 #include "liburing.h"
 
+#define POLL_COUNT	30000
+
+static void *sqe_index[POLL_COUNT];
+
 static int reap_events(struct io_uring *ring, unsigned nr_events)
 {
 	struct io_uring_cqe *cqe;
@@ -46,10 +50,11 @@ static int del_polls(struct io_uring *ring, int fd, int nr)
 			batch = nr;
 
 		for (i = 0; i < batch; i++) {
-			unsigned data;
+			void *data;
+
 			sqe = io_uring_get_sqe(ring);
-			data = rand() % 10001;
-			io_uring_prep_poll_remove(sqe, (void *) (unsigned long) data);
+			data = sqe_index[lrand48() % nr];
+			io_uring_prep_poll_remove(sqe, data);
 		}
 
 		ret = io_uring_submit(ring);
@@ -77,7 +82,8 @@ static int add_polls(struct io_uring *ring, int fd, int nr)
 		for (i = 0; i < batch; i++) {
 			sqe = io_uring_get_sqe(ring);
 			io_uring_prep_poll_add(sqe, fd, POLLIN);
-			sqe->user_data = ++count;
+			sqe_index[count++] = sqe;
+			sqe->user_data = (unsigned long) sqe;
 		}
 
 		ret = io_uring_submit(ring);
