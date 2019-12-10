@@ -75,6 +75,8 @@ struct io_uring_sqe {
 #define IORING_OP_ASYNC_CANCEL	14
 #define IORING_OP_LINK_TIMEOUT	15
 #define IORING_OP_CONNECT	16
+#define IORING_OP_FILES_UPDATE	17
+#define IORING_OP_FALLOCATE	18
 
 /*
  * sqe->fsync_flags
