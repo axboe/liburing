@@ -292,6 +292,19 @@ static inline void io_uring_prep_connect(struct io_uring_sqe *sqe, int fd,
 	io_uring_prep_rw(IORING_OP_CONNECT, sqe, fd, addr, 0, addrlen);
 }
 
+static inline void io_uring_prep_files_update(struct io_uring_sqe *sqe,
+					      int *fds, unsigned nr_fds)
+{
+	io_uring_prep_rw(IORING_OP_FILES_UPDATE, sqe, -1, fds, nr_fds, 0);
+}
+
+static inline void io_uring_prep_fallocate(struct io_uring_sqe *sqe, int fd,
+					   int mode, off_t offset, off_t len)
+{
+	io_uring_prep_rw(IORING_OP_FALLOCATE, sqe, fd, (const void *) len, mode,
+				offset);
+}
+
 static inline unsigned io_uring_sq_ready(struct io_uring *ring)
 {
 	return ring->sq.sqe_tail - ring->sq.sqe_head;
