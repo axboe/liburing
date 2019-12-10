@@ -11,6 +11,157 @@
 
 #include "liburing.h"
 
+static int no_hardlink;
+
+/*
+ * Timer with single nop
+ */
+static int test_single_hardlink(struct io_uring *ring)
+{
+	struct __kernel_timespec ts;
+	struct io_uring_cqe *cqe;
+	struct io_uring_sqe *sqe;
+	int ret, i;
+
+	sqe = io_uring_get_sqe(ring);
+	if (!sqe) {
+		fprintf(stderr, "get sqe failed\n");
+		goto err;
+	}
+	ts.tv_sec = 0;
+	ts.tv_nsec = 10000000ULL;
+	io_uring_prep_timeout(sqe, &ts, 0, 0);
+	sqe->flags |= IOSQE_IO_LINK | IOSQE_IO_HARDLINK;
+	sqe->user_data = 1;
+
+	sqe = io_uring_get_sqe(ring);
+	if (!sqe) {
+		fprintf(stderr, "get sqe failed\n");
+		goto err;
+	}
+	io_uring_prep_nop(sqe);
+	sqe->user_data = 2;
+
+	ret = io_uring_submit(ring);
+	if (ret <= 0) {
+		fprintf(stderr, "sqe submit failed: %d\n", ret);
+		goto err;
+	}
+
+	for (i = 0; i < 2; i++) {
+		ret = io_uring_wait_cqe(ring, &cqe);
+		if (ret < 0) {
+			fprintf(stderr, "wait completion %d\n", ret);
+			goto err;
+		}
+		if (!cqe) {
+			fprintf(stderr, "failed to get cqe\n");
+			goto err;
+		}
+		if (no_hardlink)
+			goto next;
+		if (cqe->user_data == 1 && cqe->res == -EINVAL) {
+			fprintf(stdout, "Hard links not supported, skipping\n");
+			no_hardlink = 1;
+			goto next;
+		}
+		if (cqe->user_data == 1 && cqe->res != -ETIME) {
+			fprintf(stderr, "timeout failed with %d\n", cqe->res);
+			goto err;
+		}
+		if (cqe->user_data == 2 && cqe->res) {
+			fprintf(stderr, "nop failed with %d\n", cqe->res);
+			goto err;
+		}
+next:
+		io_uring_cqe_seen(ring, cqe);
+	}
+
+	return 0;
+err:
+	return 1;
+}
+
+/*
+ * Timer -> timer -> nop
+ */
+static int test_double_hardlink(struct io_uring *ring)
+{
+	struct __kernel_timespec ts1, ts2;
+	struct io_uring_cqe *cqe;
+	struct io_uring_sqe *sqe;
+	int ret, i;
+
+	if (no_hardlink)
+		return 0;
+
+	sqe = io_uring_get_sqe(ring);
+	if (!sqe) {
+		fprintf(stderr, "get sqe failed\n");
+		goto err;
+	}
+	ts1.tv_sec = 0;
+	ts1.tv_nsec = 10000000ULL;
+	io_uring_prep_timeout(sqe, &ts1, 0, 0);
+	sqe->flags |= IOSQE_IO_LINK | IOSQE_IO_HARDLINK;
+	sqe->user_data = 1;
+
+	sqe = io_uring_get_sqe(ring);
+	if (!sqe) {
+		fprintf(stderr, "get sqe failed\n");
+		goto err;
+	}
+	ts2.tv_sec = 0;
+	ts2.tv_nsec = 15000000ULL;
+	io_uring_prep_timeout(sqe, &ts2, 0, 0);
+	sqe->flags |= IOSQE_IO_LINK | IOSQE_IO_HARDLINK;
+	sqe->user_data = 2;
+
+	sqe = io_uring_get_sqe(ring);
+	if (!sqe) {
+		fprintf(stderr, "get sqe failed\n");
+		goto err;
+	}
+	io_uring_prep_nop(sqe);
+	sqe->user_data = 3;
+
+	ret = io_uring_submit(ring);
+	if (ret <= 0) {
+		fprintf(stderr, "sqe submit failed: %d\n", ret);
+		goto err;
+	}
+
+	for (i = 0; i < 3; i++) {
+		ret = io_uring_wait_cqe(ring, &cqe);
+		if (ret < 0) {
+			fprintf(stderr, "wait completion %d\n", ret);
+			goto err;
+		}
+		if (!cqe) {
+			fprintf(stderr, "failed to get cqe\n");
+			goto err;
+		}
+		if (cqe->user_data == 1 && cqe->res != -ETIME) {
+			fprintf(stderr, "timeout failed with %d\n", cqe->res);
+			goto err;
+		}
+		if (cqe->user_data == 2 && cqe->res != -ETIME) {
+			fprintf(stderr, "timeout failed with %d\n", cqe->res);
+			goto err;
+		}
+		if (cqe->user_data == 3 && cqe->res) {
+			fprintf(stderr, "nop failed with %d\n", cqe->res);
+			goto err;
+		}
+		io_uring_cqe_seen(ring, cqe);
+	}
+
+	return 0;
+err:
+	return 1;
+
+}
+
 /*
  * Test failing head of chain, and dependent getting -ECANCELED
  */
@@ -273,6 +424,18 @@ int main(int argc, char *argv[])
 	ret = test_single_link_fail(&poll_ring);
 	if (ret) {
 		printf("test_single_link_fail failed\n");
+		return ret;
+	}
+
+	ret = test_single_hardlink(&ring);
+	if (ret) {
+		fprintf(stderr, "test_single_hardlink\n");
+		return ret;
+	}
+
+	ret = test_double_hardlink(&ring);
+	if (ret) {
+		fprintf(stderr, "test_double_hardlink\n");
 		return ret;
 	}
 
