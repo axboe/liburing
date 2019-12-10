@@ -17,7 +17,7 @@ all_targets += poll poll-cancel ring-leak fsync io_uring_setup io_uring_register
 		link-timeout cq-overflow link_drain fc2a85cb02ef-test \
 		poll-link accept-link fixed-link poll-cancel-ton teardowns \
 		poll-many b5837bd5311d-test accept-test d77a67ed5f27-test \
-		connect 7ad0e4b2f83c-test submit-reuse
+		connect 7ad0e4b2f83c-test submit-reuse fallocate
 
 include ../Makefile.quiet
 
@@ -37,7 +37,7 @@ test_srcs := poll.c poll-cancel.c ring-leak.c fsync.c io_uring_setup.c \
 	cq-overflow.c link_drain.c fc2a85cb02ef-test.c poll-link.c \
 	accept-link.c fixed-link.c poll-cancel-ton.c teardowns.c poll-many.c \
 	b5837bd5311d-test.c accept-test.c d77a67ed5f27-test.c connect.c \
-	7ad0e4b2f83c-test.c submit-reuse.c
+	7ad0e4b2f83c-test.c submit-reuse.c fallocate.c
 
 test_objs := $(patsubst %.c,%.ol,$(test_srcs))
 
