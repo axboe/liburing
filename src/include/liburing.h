@@ -305,6 +305,18 @@ static inline void io_uring_prep_fallocate(struct io_uring_sqe *sqe, int fd,
 				offset);
 }
 
+static inline void io_uring_prep_openat(struct io_uring_sqe *sqe, int dfd,
+					const char *path, int flags, mode_t mode)
+{
+	io_uring_prep_rw(IORING_OP_OPENAT, sqe, dfd, path, mode, 0);
+	sqe->open_flags = flags;
+}
+
+static inline void io_uring_prep_close(struct io_uring_sqe *sqe, int fd)
+{
+	io_uring_prep_rw(IORING_OP_CLOSE, sqe, fd, NULL, 0, 0);
+}
+
 static inline unsigned io_uring_sq_ready(struct io_uring *ring)
 {
 	return ring->sq.sqe_tail - ring->sq.sqe_head;

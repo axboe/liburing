@@ -34,6 +34,7 @@ struct io_uring_sqe {
 		__u32		timeout_flags;
 		__u32		accept_flags;
 		__u32		cancel_flags;
+		__u32		open_flags;
 	};
 	__u64	user_data;	/* data to be passed back at completion time */
 	union {
@@ -77,6 +78,8 @@ struct io_uring_sqe {
 #define IORING_OP_CONNECT	16
 #define IORING_OP_FILES_UPDATE	17
 #define IORING_OP_FALLOCATE	18
+#define IORING_OP_OPENAT	19
+#define IORING_OP_CLOSE		20
 
 /*
  * sqe->fsync_flags
