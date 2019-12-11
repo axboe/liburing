@@ -96,7 +96,7 @@ static void __io_uring_flush_sq(struct io_uring *ring)
 {
 	struct io_uring_sq *sq = &ring->sq;
 	const unsigned mask = *sq->kring_mask;
-	unsigned ktail, submitted, to_submit;
+	unsigned ktail, to_submit;
 
 	if (sq->sqe_head == sq->sqe_tail)
 		return;
@@ -104,14 +104,12 @@ static void __io_uring_flush_sq(struct io_uring *ring)
 	/*
 	 * Fill in sqes that we have queued up, adding them to the kernel ring
 	 */
-	submitted = 0;
 	ktail = *sq->ktail;
 	to_submit = sq->sqe_tail - sq->sqe_head;
 	while (to_submit--) {
 		sq->array[ktail & mask] = sq->sqe_head & mask;
 		ktail++;
 		sq->sqe_head++;
-		submitted++;
 	}
 
 	/*
