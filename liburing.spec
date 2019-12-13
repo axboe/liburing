@@ -3,8 +3,8 @@ Version: 0.2
 Release: 1%{?dist}
 Summary: Linux-native io_uring I/O access library
 License: LGPLv2+
-Source: %{name}-%{version}.tar.gz
-URL: https://git.kernel.dk/cgit/liburing/snapshot/%{name}-%{version}.tar.gz
+Source: https://git.kernel.dk/cgit/liburing/snapshot/%{name}-%{version}.tar.gz
+URL: https://git.kernel.dk/cgit/liburing/
 BuildRequires: gcc
 
 %description
@@ -13,7 +13,7 @@ manner, for both buffered and O_DIRECT.
 
 %package devel
 Summary: Development files for Linux-native io_uring I/O access library
-Requires: %{name} = %{version}-%{release}
+Requires: %{name}%{_isa} = %{version}-%{release}
 Requires: pkgconfig
 
 %description devel
@@ -24,6 +24,7 @@ for the Linux-native io_uring.
 %autosetup
 
 %build
+%set_build_flags
 ./configure --prefix=%{_prefix} --libdir=/%{_libdir} --mandir=%{_mandir} --includedir=%{_includedir}
 
 %make_build
@@ -33,13 +34,13 @@ for the Linux-native io_uring.
 
 %files
 %attr(0755,root,root) %{_libdir}/liburing.so.*
-%doc COPYING
+%license COPYING
 
 %files devel
 %{_includedir}/liburing/
 %{_includedir}/liburing.h
 %{_libdir}/liburing.so
-%{_libdir}/liburing.a
+%exclude %{_libdir}/liburing.a
 %{_libdir}/pkgconfig/*
 %{_mandir}/man2/*
 
