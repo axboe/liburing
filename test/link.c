@@ -384,6 +384,50 @@ err:
 	return 1;
 }
 
+static int test_early_fail_and_wait(void)
+{
+	struct io_uring ring;
+	struct io_uring_sqe *sqe;
+	int ret, invalid_fd = 42;
+	struct iovec iov = { .iov_base = NULL, .iov_len = 0 };
+
+	/* create a new ring as it leaves it dirty */
+	ret = io_uring_queue_init(8, &ring, 0);
+	if (ret) {
+		printf("ring setup failed\n");
+		return 1;
+	}
+
+	sqe = io_uring_get_sqe(&ring);
+	if (!sqe) {
+		printf("get sqe failed\n");
+		goto err;
+	}
+
+	io_uring_prep_readv(sqe, invalid_fd, &iov, 1, 0);
+	sqe->flags |= IOSQE_IO_LINK;
+
+	sqe = io_uring_get_sqe(&ring);
+	if (!sqe) {
+		printf("get sqe failed\n");
+		goto err;
+	}
+
+	io_uring_prep_nop(sqe);
+
+	ret = io_uring_submit_and_wait(&ring, 2);
+	if (ret <= 0 && ret != -EAGAIN) {
+		printf("sqe submit failed: %d\n", ret);
+		goto err;
+	}
+
+	io_uring_queue_exit(&ring);
+	return 0;
+err:
+	io_uring_queue_exit(&ring);
+	return 1;
+}
+
 int main(int argc, char *argv[])
 {
 	struct io_uring ring, poll_ring;
@@ -400,7 +444,6 @@ int main(int argc, char *argv[])
 	if (ret) {
 		printf("poll_ring setup failed\n");
 		return 1;
-
 	}
 
 	ret = test_single_link(&ring);
@@ -436,6 +479,12 @@ int main(int argc, char *argv[])
 	ret = test_double_hardlink(&ring);
 	if (ret) {
 		fprintf(stderr, "test_double_hardlink\n");
+		return ret;
+	}
+
+	ret = test_early_fail_and_wait();
+	if (ret) {
+		fprintf(stderr, "test_early_fail_and_wait\n");
 		return ret;
 	}
 
