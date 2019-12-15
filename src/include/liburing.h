@@ -370,7 +370,7 @@ static inline int io_uring_wait_cqe_nr(struct io_uring *ring,
 	int err;
 
 	err = __io_uring_peek_cqe(ring, cqe_ptr);
-	if (err)
+	if (err || *cqe_ptr)
 		return err;
 
 	return __io_uring_get_cqe(ring, cqe_ptr, 0, wait_nr, NULL);
