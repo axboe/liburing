@@ -162,7 +162,7 @@ static inline void io_uring_sqe_set_flags(struct io_uring_sqe *sqe,
 
 static inline void io_uring_prep_rw(int op, struct io_uring_sqe *sqe, int fd,
 				    const void *addr, unsigned len,
-				    off_t offset)
+				    __u64 offset)
 {
 	sqe->opcode = op;
 	sqe->flags = 0;
@@ -315,6 +315,16 @@ static inline void io_uring_prep_openat(struct io_uring_sqe *sqe, int dfd,
 static inline void io_uring_prep_close(struct io_uring_sqe *sqe, int fd)
 {
 	io_uring_prep_rw(IORING_OP_CLOSE, sqe, fd, NULL, 0, 0);
+}
+
+struct statx;
+static inline void io_uring_prep_statx(struct io_uring_sqe *sqe, int dfd,
+				const char *path, int flags, unsigned mask,
+				struct statx *statxbuf)
+{
+	io_uring_prep_rw(IORING_OP_STATX, sqe, dfd, path, mask,
+				(__u64) (unsigned long) statxbuf);
+	sqe->statx_flags = flags;
 }
 
 static inline unsigned io_uring_sq_ready(struct io_uring *ring)
