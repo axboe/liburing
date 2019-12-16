@@ -33,15 +33,16 @@ static inline bool sq_ring_needs_enter(struct io_uring *ring, unsigned *flags)
 int __io_uring_get_cqe(struct io_uring *ring, struct io_uring_cqe **cqe_ptr,
 		       unsigned submit, unsigned wait_nr, sigset_t *sigmask)
 {
+	struct io_uring_cqe *cqe = NULL;
 	int ret = 0, err;
 
 	do {
 		unsigned flags = 0;
 
-		err = __io_uring_peek_cqe(ring, cqe_ptr);
+		err = __io_uring_peek_cqe(ring, &cqe);
 		if (err)
 			break;
-		if (!*cqe_ptr && !wait_nr && !submit) {
+		if (!cqe && !wait_nr && !submit) {
 			err = -EAGAIN;
 			break;
 		}
@@ -55,10 +56,11 @@ int __io_uring_get_cqe(struct io_uring *ring, struct io_uring_cqe **cqe_ptr,
 		if (ret < 0)
 			err = -errno;
 		submit -= ret;
-		if (*cqe_ptr)
+		if (cqe)
 			break;
 	} while (!err);
 
+	*cqe_ptr = cqe;
 	return err;
 }
 
