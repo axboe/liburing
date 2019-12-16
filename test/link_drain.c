@@ -209,12 +209,17 @@ int main(int argc, char *argv[])
 	}
 
 	for (i = 0; i < 1000; i++) {
-		ret |= test_link_drain_one(&ring);
-		ret |= test_link_drain_multi(&ring);
+		ret = test_link_drain_one(&ring);
+		if (ret) {
+			fprintf(stderr, "test_link_drain_one failed\n");
+			break;
+		}
+		ret = test_link_drain_multi(&ring);
+		if (ret) {
+			fprintf(stderr, "test_link_drain_multi failed\n");
+			break;
+		}
 	}
 
-	if (ret)
-		return ret;
-
-	return 0;
+	return ret;
 }
