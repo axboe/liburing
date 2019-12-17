@@ -95,7 +95,8 @@ err:
 int main(int argc, char *argv[])
 {
 	struct io_uring ring;
-	int ret;
+	const char *fname;
+	int ret, do_unlink;
 
 	ret = io_uring_queue_init(8, &ring, 0);
 	if (ret) {
@@ -103,12 +104,20 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-	if (create_file("/tmp/.open.close", 4096)) {
+	if (argc > 1) {
+		fname = argv[1];
+		do_unlink = 0;
+	} else {
+		fname = "/tmp/.open.close";
+		do_unlink = 0;
+	}
+
+	if (create_file(fname, 4096)) {
 		fprintf(stderr, "file create failed\n");
 		return 1;
 	}
 
-	ret = test_openat(&ring, "/tmp/.open.close");
+	ret = test_openat(&ring, fname);
 	if (ret < 0) {
 		if (ret == -EINVAL) {
 			fprintf(stdout, "Open not supported, skipping\n");
@@ -131,9 +140,11 @@ int main(int argc, char *argv[])
 	}
 
 done:
-	unlink(".open.close");
+	if (do_unlink)
+		unlink(fname);
 	return 0;
 err:
-	unlink(".open.close");
+	if (do_unlink)
+		unlink(fname);
 	return 1;
 }
