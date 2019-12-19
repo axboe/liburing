@@ -92,16 +92,19 @@ unsigned io_uring_peek_batch_cqe(struct io_uring *ring,
 }
 
 /*
- * Sync internal state with kernel ring state on the SQ side
+ * Sync internal state with kernel ring state on the SQ side. Returns the
+ * number of pending items in the SQ ring, for the shared ring.
  */
-static void __io_uring_flush_sq(struct io_uring *ring)
+static int __io_uring_flush_sq(struct io_uring *ring)
 {
 	struct io_uring_sq *sq = &ring->sq;
 	const unsigned mask = *sq->kring_mask;
 	unsigned ktail, to_submit;
 
-	if (sq->sqe_head == sq->sqe_tail)
-		return;
+	if (sq->sqe_head == sq->sqe_tail) {
+		ktail = *sq->ktail;
+		goto out;
+	}
 
 	/*
 	 * Fill in sqes that we have queued up, adding them to the kernel ring
@@ -119,6 +122,8 @@ static void __io_uring_flush_sq(struct io_uring *ring)
 	 * update.
 	 */
 	io_uring_smp_store_release(sq->ktail, ktail);
+out:
+	return ktail - *sq->khead;
 }
 
 /*
@@ -156,8 +161,7 @@ int io_uring_wait_cqes(struct io_uring *ring, struct io_uring_cqe **cqe_ptr,
 		}
 		io_uring_prep_timeout(sqe, ts, wait_nr, 0);
 		sqe->user_data = LIBURING_UDATA_TIMEOUT;
-		__io_uring_flush_sq(ring);
-		to_submit = *ring->sq.ktail - *ring->sq.khead;
+		to_submit = __io_uring_flush_sq(ring);
 	}
 
 	return __io_uring_get_cqe(ring, cqe_ptr, to_submit, wait_nr, sigmask);
@@ -202,11 +206,8 @@ static int __io_uring_submit(struct io_uring *ring, unsigned submitted,
 
 static int __io_uring_submit_and_wait(struct io_uring *ring, unsigned wait_nr)
 {
-	int submit;
 
-	__io_uring_flush_sq(ring);
-	submit = *ring->sq.ktail - *ring->sq.khead;
-	return __io_uring_submit(ring, submit, wait_nr);
+	return __io_uring_submit(ring, __io_uring_flush_sq(ring), wait_nr);
 }
 
 /*
