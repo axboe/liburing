@@ -191,7 +191,7 @@ static int __io_uring_submit(struct io_uring *ring, unsigned submitted,
 
 	flags = 0;
 	if (sq_ring_needs_enter(ring, &flags) || wait_nr) {
-		if (wait_nr)
+		if (wait_nr || (ring->flags & IORING_SETUP_IOPOLL))
 			flags |= IORING_ENTER_GETEVENTS;
 
 		ret = __sys_io_uring_enter(ring->ring_fd, submitted, wait_nr,
