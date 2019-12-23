@@ -317,6 +317,18 @@ static inline void io_uring_prep_close(struct io_uring_sqe *sqe, int fd)
 	io_uring_prep_rw(IORING_OP_CLOSE, sqe, fd, NULL, 0, 0);
 }
 
+static inline void io_uring_prep_read(struct io_uring_sqe *sqe, int fd,
+				      void *buf, unsigned nbytes, off_t offset)
+{
+	io_uring_prep_rw(IORING_OP_READ, sqe, fd, buf, nbytes, offset);
+}
+
+static inline void io_uring_prep_write(struct io_uring_sqe *sqe, int fd,
+				       void *buf, unsigned nbytes, off_t offset)
+{
+	io_uring_prep_rw(IORING_OP_WRITE, sqe, fd, buf, nbytes, offset);
+}
+
 struct statx;
 static inline void io_uring_prep_statx(struct io_uring_sqe *sqe, int dfd,
 				const char *path, int flags, unsigned mask,
