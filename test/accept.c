@@ -21,30 +21,35 @@
 
 static int no_accept;
 
+struct data {
+	char buf[128];
+	struct iovec iov;
+};
+
 static void queue_send(struct io_uring *ring, int fd)
 {
 	struct io_uring_sqe *sqe;
-	char send_buff[128];
-	struct iovec iov;
+	struct data *d;
 
-	iov.iov_base = send_buff;
-	iov.iov_len = sizeof(send_buff);
+	d = malloc(sizeof(*d));
+	d->iov.iov_base = d->buf;
+	d->iov.iov_len = sizeof(d->buf);
 
 	sqe = io_uring_get_sqe(ring);
-	io_uring_prep_writev(sqe, fd, &iov, 1, 0);
+	io_uring_prep_writev(sqe, fd, &d->iov, 1, 0);
 }
 
 static void queue_recv(struct io_uring *ring, int fd)
 {
 	struct io_uring_sqe *sqe;
-	char recv_buff[128];
-	struct iovec iov;
+	struct data *d;
 
-	iov.iov_base = recv_buff;
-	iov.iov_len = sizeof(recv_buff);
+	d = malloc(sizeof(*d));
+	d->iov.iov_base = d->buf;
+	d->iov.iov_len = sizeof(d->buf);
 
 	sqe = io_uring_get_sqe(ring);
-	io_uring_prep_readv(sqe, fd, &iov, 1, 0);
+	io_uring_prep_readv(sqe, fd, &d->iov, 1, 0);
 }
 
 static int accept_conn(struct io_uring *ring, int fd)
