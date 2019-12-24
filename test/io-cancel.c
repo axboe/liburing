@@ -120,7 +120,7 @@ static int wait_io(struct io_uring *ring, unsigned nr_io, int do_partial)
 			goto err;
 		}
 		if (do_partial && cqe->user_data) {
-			if (!cqe->user_data & 1) {
+			if (!(cqe->user_data & 1)) {
 				if (cqe->res != BS) {
 					fprintf(stderr, "IO %d wasn't cancelled but got error %d\n", (unsigned) cqe->user_data, cqe->res);
 					goto err;
@@ -185,7 +185,7 @@ static int test_io_cancel(const char *file, int do_write, int do_partial)
 	unsigned to_wait;
 	int fd, ret;
 
-	fd = open(file, O_RDONLY | O_DIRECT);
+	fd = open(file, O_RDWR | O_DIRECT);
 	if (fd < 0) {
 		perror("file open");
 		goto err;
