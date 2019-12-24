@@ -16,4 +16,4 @@ test_objs := $(patsubst %.c,%.ol,$(test_srcs))
 	$(QUIET_CC)$(CC) $(CFLAGS) -o $@ $< -luring $(XCFLAGS)
 
 clean:
-	rm -f $(all_targets) $(test_objs)
+	@rm -f $(all_targets) $(test_objs)
