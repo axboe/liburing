@@ -22,6 +22,10 @@ all_targets += poll poll-cancel ring-leak fsync io_uring_setup io_uring_register
 
 include ../Makefile.quiet
 
+ifneq ($(MAKECMDGOALS),clean)
+include ../config-host.mak
+endif
+
 all: $(all_targets)
 
 %: %.c

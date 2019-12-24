@@ -26,6 +26,8 @@ for opt do
   ;;
   --datadir=*) datadir="$optarg"
   ;;
+  --cc=*) cc="$optarg"
+  ;;
   *)
     echo "ERROR: unkown option $opt"
     echo "Try '$0 --help' for more information"
@@ -215,3 +217,5 @@ fi
 if test "$__kernel_timespec" = "yes"; then
   output_sym "CONFIG_HAVE_KERNEL_TIMESPEC"
 fi
+
+echo "CC=$cc" >> $config_host_mak

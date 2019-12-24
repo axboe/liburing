@@ -22,6 +22,10 @@ endif
 
 include ../Makefile.quiet
 
+ifneq ($(MAKECMDGOALS),clean)
+include ../config-host.mak
+endif
+
 all: $(all_targets)
 
 liburing_srcs := setup.c queue.c syscall.c register.c
