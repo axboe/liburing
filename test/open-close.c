@@ -109,7 +109,7 @@ int main(int argc, char *argv[])
 		do_unlink = 0;
 	} else {
 		fname = "/tmp/.open.close";
-		do_unlink = 0;
+		do_unlink = 1;
 	}
 
 	if (create_file(fname, 4096)) {
