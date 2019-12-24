@@ -41,7 +41,7 @@ int main(int argc, char **argv)
 	struct addrinfo hints;
 	struct sockaddr sa;
 	socklen_t sa_size = sizeof(sa);
-	int ret, listen_fd, connect_fd, val;
+	int ret, listen_fd, connect_fd, val, i;
 
 	memset(&params, 0, sizeof(params));
 	ret = io_uring_queue_init_params(1024, &io_uring, &params);
@@ -130,7 +130,7 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
-	for (int i = 0; i < 2; i++) {
+	for (i = 0; i < 2; i++) {
 		struct io_uring_cqe *cqe = NULL;
 
 		ret = io_uring_wait_cqe(&io_uring, &cqe);
