@@ -325,6 +325,127 @@ if the timer expired and the linked request was attempted cancelled, or
 .I -ECANCELED
 if the timer got cancelled because of completion of the linked request.
 
+.TP
+.B IORING_OP_CONNECT
+Issue the equivalent of a
+.BR connect(2)
+system call.
+.I fd
+must be set to the socket file descriptor,
+.I addr
+must contains the pointer to the sockaddr structure, and
+.I len
+must contain the socklen_t addrlen field. See also
+.BR connect(2)
+for the general description of the related system call.
+
+.TP
+.B IORING_OP_FALLOCATE
+Issue the equivalent of a
+.BR fallocate(2)
+system call.
+.I fd
+must be set to the file descriptor,
+.I off
+must contain the offset on which to operate, and
+.I len
+must the length. See also
+.BR fallocate(2)
+for the general description of the related system call.
+
+.TP
+.B IORING_OP_OPENAT
+Issue the equivalent of a
+.BR openat(2)
+system call.
+.I fd
+is the
+.I dirfd
+argument,
+.I addr
+must contain a pointer to the
+.I *pathname
+argument,
+.I open_flags
+should contain any flags passed in, and
+.I mode
+is access mode of the file. See also
+.BR openat(2)
+for the general description of the related system call.
+
+.TP
+.B IORING_OP_CLOSE
+Issue the equivalent of a
+.BR close(2)
+system call.
+.I fd
+is the file descriptor to be closed. See also
+.BR close(2)
+for the general description of the related system call.
+
+.TP
+.B IORING_OP_STATX
+Issue the equivalent of a
+.BR statx(2)
+system call.
+.I fd
+is the
+.I dirfd
+argument,
+.I addr
+must contain a pointer to the
+.I *pathname
+string,
+.I statx_flags
+is the
+.I flags
+argument,
+.I len
+should be the
+.I mask
+argument, and
+.I addr
+must contain a pointer to the
+.I statxbuf
+to be filled in. See also
+.BR statx(2)
+for the general description of the related system call.
+
+.TP
+.B IORING_OP_READ IORING_OP_WRITE
+Issue the equivalent of a
+.BR read(2)
+or
+.BR write(2)
+system call.
+.I fd
+is the file descriptor to be operated on,
+.I addr
+contains the buffer in question, and
+.I len
+contains the length of the IO operation. These are non-vectored versions of the
+.B IORING_OP_READV
+and
+.B IORING_OP_WRITEV
+opcodes. See also
+.BR read(2)
+and
+.BR write(2)
+for the general description of the related system call.
+
+.TP
+.B IORING_OP_FILES_UPDATE
+This command is an alternative to using
+.B IORING_REGISTER_FILES_UPDATE
+which then works in an async fashion, like the rest of the io_uring commands.
+The arguments passed in are the same.
+.I addr
+must contain a pointer to the array of file descriptors,
+.I len
+must contain the length of the array, and
+.I off
+must contain the offset at which to operate.
+
 .PP
 The
 .I flags
