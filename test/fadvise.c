@@ -88,7 +88,7 @@ static int do_fadvise(struct io_uring *ring, int fd, off_t offset, off_t len,
 	}
 
 	ret = cqe->res;
-	if (ret == -EINVAL) {
+	if (ret == -EINVAL || ret == -EBADF) {
 		fprintf(stdout, "Fadvise not supported, skipping\n");
 		exit(0);
 	} else if (ret) {
