@@ -16,6 +16,7 @@
 #define FILE_SIZE	(128 * 1024)
 
 #define LOOPS		100
+#define MIN_LOOPS	10
 
 static unsigned long long utime_since(const struct timeval *s,
 				      const struct timeval *e)
@@ -189,6 +190,8 @@ int main(int argc, char *argv[])
 			good++;
 		else if (ret == 2)
 			bad++;
+		if (i >= MIN_LOOPS && !bad)
+			break;
 	}
 
 	if (bad > good) {
