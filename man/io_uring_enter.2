@@ -444,7 +444,10 @@ must contain a pointer to the array of file descriptors,
 .I len
 must contain the length of the array, and
 .I off
-must contain the offset at which to operate.
+must contain the offset at which to operate. Note that the array of file
+descriptors pointed to in
+.I addr
+must remain valid until this operation has completed.
 
 .PP
 The
