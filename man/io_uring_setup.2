@@ -182,11 +182,11 @@ If this flag is set, applications can specify offset == -1 with
 .B IORING_OP_READ,
 and
 .B IORING_OP_WRITE
-to mean file position, which behaves like
+to mean current file position, which behaves like
 .I preadv2(2)
 and
 .I pwritev2(2)
-with offset == -1, it'll use (and update) the current
+with offset == -1. It'll use (and update) the current
 file position. This obviously comes with the caveat that if the
 application has multiple read/writes in flight, then the end result
 will not be as expected. This is similar to threads sharing a file
