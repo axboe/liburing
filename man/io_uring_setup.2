@@ -38,7 +38,8 @@ struct io_uring_params {
     __u32 flags;
     __u32 sq_thread_cpu;
     __u32 sq_thread_idle;
-    __u32 resv[5];
+    __u32 features;
+    __u32 resv[4];
     struct io_sqring_offsets sq_off;
     struct io_cqring_offsets cq_off;
 };
@@ -148,6 +149,49 @@ The
 .I resv
 array must be initialized to zero.
 
+.I features
+is filled in by the kernel, which specifies various features supported
+by current kernel version.
+.TP
+.B IORING_FEAT_SINGLE_MMAP
+If this flag is set, the two SQ and CQ rings can be mapped with a single
+.I mmap(2)
+call. The SQEs must still be allocated separately. This brings the necessary
+.I mmap(2)
+calls down from three to two.
+.TP
+.B IORING_FEAT_NODROP
+If this flag is set, io_uring supports never dropping completion events.
+If a completion event occurs and the CQ ring is full, the kernel stores
+the event internally until such a time that the CQ ring has room for more
+entries. If this overflow condition is entered, attempting to submit more
+IO with fail with the
+.B -EBUSY
+error value, if it can't flush the overflown events to the CQ ring. If this
+happens, the application must reap events from the CQ ring and attempt the
+submit again.
+.TP
+.B IORING_FEAT_SUBMIT_STABLE
+If this flag is set, applications can be certain that any data for
+async offload has been consumed when the kernel has consumed the SQE.
+.TP
+.B IORING_FEAT_RW_CUR_POS
+If this flag is set, applications can specify offset == -1 with
+.B IORING_OP_READV,
+.B IORING_OP_WRITEV,
+.B IORING_OP_READ,
+and
+.B IORING_OP_WRITE
+to mean file position, which behaves like
+.I preadv2(2)
+and
+.I pwritev2(2)
+with offset == -1, it'll use (and update) the current
+file position. This obviously comes with the caveat that if the
+application has multiple read/writes in flight, then the end result
+will not be as expected. This is similar to threads sharing a file
+descriptor and doing IO using the current file position.
+.PP
 The rest of the fields in the
 .I struct io_uring_params
 are filled in by the kernel, and provide the information necessary to
