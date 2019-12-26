@@ -340,6 +340,20 @@ static inline void io_uring_prep_statx(struct io_uring_sqe *sqe, int dfd,
 	sqe->statx_flags = flags;
 }
 
+static inline void io_uring_prep_fadvise(struct io_uring_sqe *sqe, int fd,
+					 off_t offset, off_t len, int advice)
+{
+	io_uring_prep_rw(IORING_OP_FADVISE, sqe, fd, NULL, len, offset);
+	sqe->fadvise_advice = advice;
+}
+
+static inline void io_uring_prep_madvise(struct io_uring_sqe *sqe, void *addr,
+					 off_t length, int advice)
+{
+	io_uring_prep_rw(IORING_OP_MADVISE, sqe, -1, addr, length, 0);
+	sqe->fadvise_advice = advice;
+}
+
 static inline unsigned io_uring_sq_ready(struct io_uring *ring)
 {
 	return ring->sq.sqe_tail - ring->sq.sqe_head;
