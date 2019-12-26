@@ -100,6 +100,39 @@ err:
 	return 1;
 }
 
+static int test_sqe_update(struct io_uring *ring)
+{
+	struct io_uring_sqe *sqe;
+	struct io_uring_cqe *cqe;
+	int *fds, i, ret;
+
+	fds = malloc(sizeof(int) * 10);
+	for (i = 0; i < 10; i++)
+		fds[i] = -1;
+
+	sqe = io_uring_get_sqe(ring);
+	io_uring_prep_files_update(sqe, fds, 10, 0);
+	ret = io_uring_submit(ring);
+	if (ret != 1) {
+		fprintf(stderr, "submit: %d\n", ret);
+		return 1;
+	}
+
+	ret = io_uring_wait_cqe(ring, &cqe);
+	if (ret) {
+		fprintf(stderr, "wait: %d\n", ret);
+		return 1;
+	}
+
+	ret = cqe->res;
+	io_uring_cqe_seen(ring, cqe);
+	if (ret == -EINVAL) {
+		fprintf(stdout, "IORING_OP_FILES_UPDATE not supported, skipping\n");
+		return 0;
+	}
+	return ret != 10;
+}
+
 int main(int argc, char *argv[])
 {
 	struct io_uring r1, r2, r3;
@@ -124,6 +157,11 @@ int main(int argc, char *argv[])
 		return ret;
 	}
 
+	ret = test_sqe_update(&r1);
+	if (ret) {
+		fprintf(stderr, "test_sqe_update failed\n");
+		return ret;
+	}
 
 	return 0;
 }
