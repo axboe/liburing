@@ -477,6 +477,13 @@ This flag has no effect on previous SQE submissions, nor does it impact SQEs
 that are outside of the chain tail. This means that multiple chains can be
 executing in parallel, or chains and individual SQEs. Only members inside the
 chain are serialized.
+.TP
+.B IOSQE_IO_HARDLINK
+Like IOSQE_IO_LINK, but it doesn't sever regardless of the completion result.
+Note that the link will still sever if we fail submitting the parent request,
+hard links are only resilient in the presence of completion results for
+requests that did submit correctly. IOSQE_IO_HARDLINK implies IOSQE_IO_LINK.
+
 .PP
 .I ioprio
 specifies the I/O priority.  See
