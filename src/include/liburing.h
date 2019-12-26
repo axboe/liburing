@@ -293,9 +293,10 @@ static inline void io_uring_prep_connect(struct io_uring_sqe *sqe, int fd,
 }
 
 static inline void io_uring_prep_files_update(struct io_uring_sqe *sqe,
-					      int *fds, unsigned nr_fds)
+					      int *fds, unsigned nr_fds,
+					      int offset)
 {
-	io_uring_prep_rw(IORING_OP_FILES_UPDATE, sqe, -1, fds, nr_fds, 0);
+	io_uring_prep_rw(IORING_OP_FILES_UPDATE, sqe, -1, fds, nr_fds, offset);
 }
 
 static inline void io_uring_prep_fallocate(struct io_uring_sqe *sqe, int fd,
