@@ -65,3 +65,8 @@ LIBURING_0.3 {
 		__sys_io_uring_enter;
 		__sys_io_uring_register;
 };
+
+LIBURING_0.4 {
+	global:
+		io_uring_ring_dontfork;
+} LIBURING_0.3;

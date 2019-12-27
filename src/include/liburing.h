@@ -69,6 +69,7 @@ extern int io_uring_queue_init(unsigned entries, struct io_uring *ring,
 	unsigned flags);
 extern int io_uring_queue_mmap(int fd, struct io_uring_params *p,
 	struct io_uring *ring);
+extern int io_uring_ring_dontfork(struct io_uring *ring);
 extern void io_uring_queue_exit(struct io_uring *ring);
 unsigned io_uring_peek_batch_cqe(struct io_uring *ring,
 	struct io_uring_cqe **cqes, unsigned count);

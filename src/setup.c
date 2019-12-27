@@ -96,6 +96,38 @@ int io_uring_queue_mmap(int fd, struct io_uring_params *p, struct io_uring *ring
 	return ret;
 }
 
+/*
+ * Ensure that the mmap'ed rings aren't available to a child after a fork(2).
+ * This uses madvise(..., MADV_DONTFORK) on the mmap'ed ranges.
+ */
+int io_uring_ring_dontfork(struct io_uring *ring)
+{
+	size_t len;
+	int ret;
+
+	if (!ring->sq.ring_ptr || !ring->sq.sqes || !ring->cq.ring_ptr)
+		return -EINVAL;
+
+	len = *ring->sq.kring_entries * sizeof(struct io_uring_sqe);
+	ret = madvise(ring->sq.sqes, len, MADV_DONTFORK);
+	if (ret == -1)
+		return -errno;
+
+	len = ring->sq.ring_sz;
+	ret = madvise(ring->sq.ring_ptr, len, MADV_DONTFORK);
+	if (ret == -1)
+		return -errno;
+
+	if (ring->cq.ring_ptr != ring->sq.ring_ptr) {
+		len = ring->cq.ring_sz;
+		ret = madvise(ring->cq.ring_ptr, len, MADV_DONTFORK);
+		if (ret == -1)
+			return -errno;
+	}
+
+	return 0;
+}
+
 int io_uring_queue_init_params(unsigned entries, struct io_uring *ring,
 			       struct io_uring_params *p)
 {
