@@ -72,7 +72,7 @@ static int test_openat(struct io_uring *ring, const char *path)
 		fprintf(stderr, "get sqe failed\n");
 		goto err;
 	}
-	io_uring_prep_openat(sqe, -1, path, 0, O_RDONLY);
+	io_uring_prep_openat(sqe, -1, path, O_RDONLY, 0);
 
 	ret = io_uring_submit(ring);
 	if (ret <= 0) {
