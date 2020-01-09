@@ -61,6 +61,7 @@ struct io_uring_sqe {
 #define IORING_SETUP_SQPOLL	(1U << 1)	/* SQ poll thread */
 #define IORING_SETUP_SQ_AFF	(1U << 2)	/* sq_thread_cpu is valid */
 #define IORING_SETUP_CQSIZE	(1U << 3)	/* app defines CQ size */
+#define IORING_SETUP_CLAMP	(1U << 4)	/* clamp SQ/CQ ring sizes */
 
 enum {
 	IORING_OP_NOP,
@@ -89,6 +90,10 @@ enum {
 	IORING_OP_WRITE,
 	IORING_OP_FADVISE,
 	IORING_OP_MADVISE,
+	IORING_OP_SEND,
+	IORING_OP_RECV,
+	IORING_OP_EPOLL_CTL,
+	IORING_OP_OPENAT2,
 
 	/* this goes last, obviously */
 	IORING_OP_LAST,
@@ -189,6 +194,7 @@ struct io_uring_params {
 #define IORING_REGISTER_EVENTFD		4
 #define IORING_UNREGISTER_EVENTFD	5
 #define IORING_REGISTER_FILES_UPDATE	6
+#define IORING_REGISTER_EVENTFD_ASYNC	7
 
 struct io_uring_files_update {
 	__u32 offset;

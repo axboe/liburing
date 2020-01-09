@@ -209,6 +209,29 @@ if compile_prog "" "" "__kernel_timespec"; then
 fi
 print_config "__kernel_timespec" "$__kernel_timespec"
 
+##########################################
+# check for open_how
+open_how="no"
+cat > $TMPC << EOF
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <string.h>
+int main(int argc, char **argv)
+{
+  struct open_how how;
+  how.flags = 0;
+  how.mode = 0;
+  how.resolve = 0;
+  return 0;
+}
+EOF
+if compile_prog "" "" "open_how"; then
+  open_how="yes"
+fi
+print_config "open_how" "$open_how"
+
+
 #############################################################################
 
 if test "$__kernel_rwf_t" = "yes"; then
@@ -216,6 +239,9 @@ if test "$__kernel_rwf_t" = "yes"; then
 fi
 if test "$__kernel_timespec" = "yes"; then
   output_sym "CONFIG_HAVE_KERNEL_TIMESPEC"
+fi
+if test "$open_how" = "yes"; then
+  output_sym "CONFIG_HAVE_OPEN_HOW"
 fi
 
 echo "CC=$cc" >> $config_host_mak

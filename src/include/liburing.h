@@ -21,6 +21,15 @@ struct __kernel_timespec {
 };
 #endif
 
+#ifndef CONFIG_HAVE_OPEN_HOW
+struct open_how {
+	uint64_t	flags;
+	uint16_t	mode;
+	uint16_t	__padding[3];
+	uint64_t	resolve;
+};
+#endif
+
 /*
  * Library interface to io_uring
  */
@@ -353,6 +362,13 @@ static inline void io_uring_prep_madvise(struct io_uring_sqe *sqe, void *addr,
 {
 	io_uring_prep_rw(IORING_OP_MADVISE, sqe, -1, addr, length, 0);
 	sqe->fadvise_advice = advice;
+}
+
+static inline void io_uring_prep_openat2(struct io_uring_sqe *sqe, int dfd,
+					const char *path, struct open_how *how)
+{
+	io_uring_prep_rw(IORING_OP_OPENAT2, sqe, dfd, path, sizeof(*how),
+				(uint64_t) how);
 }
 
 static inline unsigned io_uring_sq_ready(struct io_uring *ring)
