@@ -364,6 +364,20 @@ static inline void io_uring_prep_madvise(struct io_uring_sqe *sqe, void *addr,
 	sqe->fadvise_advice = advice;
 }
 
+static inline void io_uring_prep_send(struct io_uring_sqe *sqe, int sockfd,
+				      const void *buf, size_t len, int flags)
+{
+	io_uring_prep_rw(IORING_OP_SEND, sqe, sockfd, buf, len, 0);
+	sqe->msg_flags = flags;
+}
+
+static inline void io_uring_prep_recv(struct io_uring_sqe *sqe, int sockfd,
+				      void *buf, size_t len, int flags)
+{
+	io_uring_prep_rw(IORING_OP_RECV, sqe, sockfd, buf, len, 0);
+	sqe->msg_flags = flags;
+}
+
 static inline void io_uring_prep_openat2(struct io_uring_sqe *sqe, int dfd,
 					const char *path, struct open_how *how)
 {
