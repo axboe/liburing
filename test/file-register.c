@@ -527,6 +527,60 @@ err:
 	return 1;
 }
 
+static int test_sparse_updates(void)
+{
+	struct io_uring ring;
+	int ret, i, *fds, newfd;
+
+	ret = io_uring_queue_init(8, &ring, 0);
+	if (ret) {
+		fprintf(stderr, "queue_init: %d\n", ret);
+		return ret;
+	}
+
+	fds = malloc(256 * sizeof(int));
+	for (i = 0; i < 256; i++)
+		fds[i] = -1;
+
+	ret = io_uring_register_files(&ring, fds, 256);
+	if (ret) {
+		fprintf(stderr, "file_register: %d\n", ret);
+		return ret;
+	}
+
+	newfd = 1;
+	for (i = 0; i < 256; i++) {
+		ret = io_uring_register_files_update(&ring, i, &newfd, 1);
+		if (ret != 1) {
+			fprintf(stderr, "file_update: %d\n", ret);
+			return ret;
+		}
+	}
+	io_uring_unregister_files(&ring);
+
+	for (i = 0; i < 256; i++)
+		fds[i] = 1;
+
+	ret = io_uring_register_files(&ring, fds, 256);
+	if (ret) {
+		fprintf(stderr, "file_register: %d\n", ret);
+		return ret;
+	}
+
+	newfd = -1;
+	for (i = 0; i < 256; i++) {
+		ret = io_uring_register_files_update(&ring, i, &newfd, 1);
+		if (ret != 1) {
+			fprintf(stderr, "file_update: %d\n", ret);
+			return ret;
+		}
+	}
+	io_uring_unregister_files(&ring);
+
+	io_uring_queue_exit(&ring);
+	return 0;
+}
+
 int main(int argc, char *argv[])
 {
 	struct io_uring ring;
@@ -604,6 +658,12 @@ int main(int argc, char *argv[])
 	ret = test_huge(&ring);
 	if (ret) {
 		printf("test_huge failed\n");
+		return ret;
+	}
+
+	ret = test_sparse_updates();
+	if (ret) {
+		printf("test_sparse_updates failed\n");
 		return ret;
 	}
 
