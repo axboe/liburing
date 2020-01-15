@@ -48,7 +48,7 @@ int io_uring_register_files_update(struct io_uring *ring, unsigned off,
 {
 	struct io_uring_files_update up = {
 		.offset	= off,
-		.fds	= files,
+		.fds	= (unsigned long) files,
 	};
 	int ret;
 
