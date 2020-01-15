@@ -382,7 +382,7 @@ static inline void io_uring_prep_openat2(struct io_uring_sqe *sqe, int dfd,
 					const char *path, struct open_how *how)
 {
 	io_uring_prep_rw(IORING_OP_OPENAT2, sqe, dfd, path, sizeof(*how),
-				(uint64_t) how);
+				(uint64_t) (uintptr_t) how);
 }
 
 static inline unsigned io_uring_sq_ready(struct io_uring *ring)
