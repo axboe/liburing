@@ -28,5 +28,10 @@ of this little blurb, but check /etc/security/limits.conf for user specific
 settings, or /etc/systemd/user.conf and /etc/systemd/system.conf for systemd
 setups.
 
+License
+-------
 
-Jens Axboe 2019-11-10
+All software contained within this repo is dual licensed LGPL and MIT, see
+COPYING and LICENSE.
+
+Jens Axboe 2020-01-20
