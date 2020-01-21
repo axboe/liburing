@@ -2,7 +2,7 @@ Name: liburing
 Version: 0.3
 Release: 1%{?dist}
 Summary: Linux-native io_uring I/O access library
-License: LGPLv2+
+License: LGPLv2+ / MIT
 Source: https://git.kernel.dk/cgit/liburing/snapshot/%{name}-%{version}.tar.gz
 URL: https://git.kernel.dk/cgit/liburing/
 BuildRequires: gcc
