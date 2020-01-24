@@ -98,12 +98,13 @@ int io_uring_register_eventfd(struct io_uring *ring, int event_fd)
 	return 0;
 }
 
-int io_uring_unregister_eventfd(struct io_uring *ring)
+int io_uring_register_probe(struct io_uring *ring, struct io_uring_probe *p,
+			    unsigned int nr_ops)
 {
 	int ret;
 
-	ret = __sys_io_uring_register(ring->ring_fd, IORING_UNREGISTER_EVENTFD,
-					NULL, 0);
+	ret = __sys_io_uring_register(ring->ring_fd, IORING_REGISTER_PROBE,
+					p, nr_ops);
 	if (ret < 0)
 		return -errno;
 

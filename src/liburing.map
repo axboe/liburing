@@ -69,4 +69,5 @@ LIBURING_0.3 {
 LIBURING_0.4 {
 	global:
 		io_uring_ring_dontfork;
+		io_uring_register_probe;
 } LIBURING_0.3;
