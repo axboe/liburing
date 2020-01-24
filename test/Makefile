@@ -19,7 +19,7 @@ all_targets += poll poll-cancel ring-leak fsync io_uring_setup io_uring_register
 		poll-many b5837bd5311d-test accept-test d77a67ed5f27-test \
 		connect 7ad0e4b2f83c-test submit-reuse fallocate open-close \
 		file-update statx accept-reuse poll-v-poll fadvise madvise \
-		short-read openat2
+		short-read openat2 probe
 
 include ../Makefile.quiet
 
@@ -45,7 +45,7 @@ test_srcs := poll.c poll-cancel.c ring-leak.c fsync.c io_uring_setup.c \
 	b5837bd5311d-test.c accept-test.c d77a67ed5f27-test.c connect.c \
 	7ad0e4b2f83c-test.c submit-reuse.c fallocate.c open-close.c \
 	file-update.c statx.c accept-reuse.c poll-v-poll.c fadvise.c \
-	madvise.c short-read.c openat2.c
+	madvise.c short-read.c openat2.c probe.c
 
 test_objs := $(patsubst %.c,%.ol,$(test_srcs))
 
