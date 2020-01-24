@@ -87,8 +87,8 @@ dump_resv(struct io_uring_params *p)
 	if (!p)
 		return "";
 
-	sprintf(resvstr, "0x%.8x 0x%.8x 0x%.8x 0x%.8x", p->resv[0],
-		p->resv[1], p->resv[2], p->resv[3]);
+	sprintf(resvstr, "0x%.8x 0x%.8x 0x%.8x", p->resv[0],
+		p->resv[1], p->resv[2]);
 
 	return resvstr;
 }
@@ -138,7 +138,7 @@ main(int argc, char **argv)
 
 	/* resv array is non-zero */
 	memset(&p, 0, sizeof(p));
-	p.resv[0] = p.resv[1] = p.resv[2] = p.resv[3] = 1;
+	p.resv[0] = p.resv[1] = p.resv[2] = 1;
 	status |= try_io_uring_setup(1, &p, -1, EINVAL);
 
 	/* invalid flags */

@@ -45,14 +45,27 @@ struct io_uring_sqe {
 	};
 };
 
+enum {
+	IOSQE_FIXED_FILE_BIT,
+	IOSQE_IO_DRAIN_BIT,
+	IOSQE_IO_LINK_BIT,
+	IOSQE_IO_HARDLINK_BIT,
+	IOSQE_ASYNC_BIT,
+};
+
 /*
  * sqe->flags
  */
-#define IOSQE_FIXED_FILE	(1U << 0)	/* use fixed fileset */
-#define IOSQE_IO_DRAIN		(1U << 1)	/* issue after inflight IO */
-#define IOSQE_IO_LINK		(1U << 2)	/* links next sqe */
-#define IOSQE_IO_HARDLINK	(1U << 3)	/* like LINK, but stronger */
-#define IOSQE_ASYNC		(1U << 4)	/* always go async */
+/* use fixed fileset */
+#define IOSQE_FIXED_FILE	(1U << IOSQE_FIXED_FILE_BIT)
+/* issue after inflight IO */
+#define IOSQE_IO_DRAIN		(1U << IOSQE_IO_DRAIN_BIT)
+/* links next sqe */
+#define IOSQE_IO_LINK		(1U << IOSQE_IO_LINK_BIT)
+/* like LINK, but stronger */
+#define IOSQE_IO_HARDLINK	(1U << IOSQE_IO_HARDLINK_BIT)
+/* always go async */
+#define IOSQE_ASYNC		(1U << IOSQE_ASYNC_BIT)
 
 /*
  * io_uring_setup() flags
@@ -62,6 +75,7 @@ struct io_uring_sqe {
 #define IORING_SETUP_SQ_AFF	(1U << 2)	/* sq_thread_cpu is valid */
 #define IORING_SETUP_CQSIZE	(1U << 3)	/* app defines CQ size */
 #define IORING_SETUP_CLAMP	(1U << 4)	/* clamp SQ/CQ ring sizes */
+#define IORING_SETUP_SHARED	(1U << 5)	/* share workqueue backend */
 
 enum {
 	IORING_OP_NOP,
@@ -171,7 +185,8 @@ struct io_uring_params {
 	__u32 sq_thread_cpu;
 	__u32 sq_thread_idle;
 	__u32 features;
-	__u32 resv[4];
+	__u32 id;
+	__u32 resv[3];
 	struct io_sqring_offsets sq_off;
 	struct io_cqring_offsets cq_off;
 };
@@ -195,11 +210,29 @@ struct io_uring_params {
 #define IORING_UNREGISTER_EVENTFD	5
 #define IORING_REGISTER_FILES_UPDATE	6
 #define IORING_REGISTER_EVENTFD_ASYNC	7
+#define IORING_REGISTER_PROBE		8
 
 struct io_uring_files_update {
 	__u32 offset;
 	__u32 resv;
 	__aligned_u64 /* __s32 * */ fds;
+};
+
+#define IO_URING_OP_SUPPORTED	(1U << 0)
+
+struct io_uring_probe_op {
+	__u8 op;
+	__u8 resv;
+	__u16 flags;	/* IO_URING_OP_* flags */
+	__u32 resv2;
+};
+
+struct io_uring_probe {
+	__u8 last_op;	/* last opcode supported */
+	__u8 ops_len;	/* length of ops[] array below */
+	__u16 resv;
+	__u32 resv2[3];
+	struct io_uring_probe_op ops[0];
 };
 
 #endif
