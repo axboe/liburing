@@ -17,7 +17,7 @@ static int test_attach_id_no_flag(void)
 	int ret;
 
 	memset(&p, 0, sizeof(p));
-	p.id = 1;
+	p.wq_id = 1;
 	ret = io_uring_queue_init_params(1, &ring, &p);
 	if (ret != -EINVAL) {
 		fprintf(stderr, "Attach to one: %d\n", ret);
@@ -37,7 +37,7 @@ static int test_attach_zero(void)
 
 	memset(&p, 0, sizeof(p));
 	p.flags = IORING_SETUP_ATTACH_WQ;
-	p.id = 0;
+	p.wq_id = 0;
 	ret = io_uring_queue_init_params(1, &ring, &p);
 	if (ret != -EINVAL) {
 		fprintf(stderr, "Attach to zero: %d\n", ret);
@@ -56,7 +56,7 @@ static int test_attach(struct io_uring_params *org)
 
 	memset(&p, 0, sizeof(p));
 	p.flags = IORING_SETUP_ATTACH_WQ;
-	p.id = org->id;
+	p.wq_id = org->wq_id;
 	ret = io_uring_queue_init_params(1, &ring2, &p);
 	if (ret == -EINVAL) {
 		fprintf(stdout, "Sharing not supported, skipping\n");
