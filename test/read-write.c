@@ -52,13 +52,14 @@ static int create_file(const char *file)
 }
 
 static int test_io(const char *file, int write, int buffered, int sqthread,
-		   int fixed, int mixed_fixed)
+		   int fixed, int mixed_fixed, int nonvec)
 {
 	struct io_uring_sqe *sqe;
 	struct io_uring_cqe *cqe;
 	struct io_uring ring;
 	int open_flags, ring_flags;
 	int i, fd, ret;
+	static int warned;
 
 #ifdef VERBOSE
 	fprintf(stdout, "%s: start %d/%d/%d/%d/%d: ", __FUNCTION__, write,
@@ -131,6 +132,9 @@ static int test_io(const char *file, int write, int buffered, int sqthread,
 				io_uring_prep_write_fixed(sqe, use_fd, vecs[i].iov_base,
 								vecs[i].iov_len,
 								offset, i);
+			} else if (nonvec) {
+				io_uring_prep_write(sqe, use_fd, vecs[i].iov_base,
+							vecs[i].iov_len, offset);
 			} else {
 				io_uring_prep_writev(sqe, use_fd, &vecs[i], 1,
 								offset);
@@ -147,6 +151,9 @@ static int test_io(const char *file, int write, int buffered, int sqthread,
 				io_uring_prep_read_fixed(sqe, use_fd, vecs[i].iov_base,
 								vecs[i].iov_len,
 								offset, i);
+			} else if (nonvec) {
+				io_uring_prep_read(sqe, use_fd, vecs[i].iov_base,
+							vecs[i].iov_len, offset);
 			} else {
 				io_uring_prep_readv(sqe, use_fd, &vecs[i], 1,
 								offset);
@@ -169,7 +176,13 @@ static int test_io(const char *file, int write, int buffered, int sqthread,
 			fprintf(stderr, "wait_cqe=%d\n", ret);
 			goto err;
 		}
-		if (cqe->res != BS) {
+		if (cqe->res == -EINVAL && nonvec) {
+			if (!warned) {
+				fprintf(stdout, "Non-vectored IO not "
+					"supported, skipping\n");
+				warned = 1;
+			}
+		} else if (cqe->res != BS) {
 			fprintf(stderr, "cqe res %d, wanted %d\n", cqe->res, BS);
 			goto err;
 		}
@@ -276,19 +289,20 @@ int main(int argc, char *argv[])
 		goto err;
 	}
 
-	/* 5 values, 2^5 == 32 */
-	for (i = 0; i < 32; i++) {
-		int v1, v2, v3, v4, v5;
+	/* 6 values, 2^6 == 64 */
+	for (i = 0; i < 64; i++) {
+		int v1, v2, v3, v4, v5, v6;
 
 		v1 = (i & 1) != 0;
 		v2 = (i & 2) != 0;
 		v3 = (i & 4) != 0;
 		v4 = (i & 8) != 0;
 		v5 = (i & 16) != 0;
-		ret = test_io(".basic-rw", v1, v2, v3, v4, v5);
+		v6 = (i & 32) != 0;
+		ret = test_io(".basic-rw", v1, v2, v3, v4, v5, v6);
 		if (ret) {
-			fprintf(stderr, "test_io failed %d/%d/%d/%d/%d\n",
-					v1, v2, v3, v4, v5);
+			fprintf(stderr, "test_io failed %d/%d/%d/%d/%d/%d\n",
+					v1, v2, v3, v4, v5, v6);
 			goto err;
 		}
 	}
