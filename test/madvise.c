@@ -194,10 +194,8 @@ int main(int argc, char *argv[])
 			break;
 	}
 
-	if (bad > good) {
-		fprintf(stderr, "Suspicious timings\n");
-		goto err;
-	}
+	if (bad > good)
+		fprintf(stderr, "Suspicious timings (%u > %u)\n", bad, good);
 	unlink(".madvise.tmp");
 	io_uring_queue_exit(&ring);
 	return 0;
