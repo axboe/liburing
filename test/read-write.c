@@ -276,9 +276,41 @@ static int read_poll_link(const char *file)
 	return 0;
 }
 
+static int has_nonvec_read(void)
+{
+	struct io_uring_probe *p;
+	struct io_uring ring;
+	int ret;
+
+	ret = io_uring_queue_init(1, &ring, 0);
+	if (ret) {
+		fprintf(stderr, "queue init: %d\n", ret);
+		exit(ret);
+	}
+
+	p = calloc(1, sizeof(*p) + 256 * sizeof(struct io_uring_probe_op));
+	ret = io_uring_register_probe(&ring, p, 256);
+	/* if we don't have PROBE_REGISTER, we don't have OP_READ/WRITE */
+	if (ret == -EINVAL) {
+out:
+		io_uring_queue_exit(&ring);
+		return 0;
+	} else if (ret) {
+		fprintf(stderr, "register_probe: %d\n", ret);
+		goto out;
+	}
+
+	if (p->ops_len <= IORING_OP_READ)
+		goto out;
+	if (!(p->ops[IORING_OP_READ].flags & IO_URING_OP_SUPPORTED))
+		goto out;
+	io_uring_queue_exit(&ring);
+	return 1;
+}
+
 int main(int argc, char *argv[])
 {
-	int i, ret;
+	int i, ret, nr;
 
 	if (create_file(".basic-rw")) {
 		fprintf(stderr, "file creation failed\n");
@@ -289,8 +321,13 @@ int main(int argc, char *argv[])
 		goto err;
 	}
 
-	/* 6 values, 2^6 == 64 */
-	for (i = 0; i < 64; i++) {
+	/* if we don't have nonvec read, skip testing that */
+	if (has_nonvec_read())
+		nr = 64;
+	else
+		nr = 32;
+
+	for (i = 0; i < nr; i++) {
 		int v1, v2, v3, v4, v5, v6;
 
 		v1 = (i & 1) != 0;
