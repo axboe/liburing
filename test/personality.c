@@ -129,6 +129,20 @@ err:
 	return 1;
 }
 
+static int test_invalid_unregister(struct io_uring *ring)
+{
+	int ret;
+
+	ret = io_uring_unregister_personality(ring, 2);
+	if (ret != -EINVAL) {
+		fprintf(stderr, "invalid personality unregister got: %d\n", ret);
+		goto err;
+	}
+	return 0;
+err:
+	return 1;
+}
+
 int main(int argc, char *argv[])
 {
 	struct io_uring ring;
@@ -157,6 +171,12 @@ int main(int argc, char *argv[])
 	ret = test_invalid_personality(&ring);
 	if (ret) {
 		fprintf(stderr, "test_invalid_personality failed\n");
+		return ret;
+	}
+
+	ret = test_invalid_unregister(&ring);
+	if (ret) {
+		fprintf(stderr, "test_invalid_unregister failed\n");
 		return ret;
 	}
 
