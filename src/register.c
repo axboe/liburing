@@ -110,3 +110,27 @@ int io_uring_register_probe(struct io_uring *ring, struct io_uring_probe *p,
 
 	return 0;
 }
+
+int io_uring_register_personality(struct io_uring *ring)
+{
+	int ret;
+
+	ret = __sys_io_uring_register(ring->ring_fd, IORING_REGISTER_PERSONALITY,
+					NULL, 0);
+	if (ret < 0)
+		return -errno;
+
+	return ret;
+}
+
+int io_uring_unregister_personality(struct io_uring *ring, int id)
+{
+	int ret;
+
+	ret = __sys_io_uring_register(ring->ring_fd, IORING_UNREGISTER_PERSONALITY,
+					NULL, id);
+	if (ret < 0)
+		return -errno;
+
+	return ret;
+}

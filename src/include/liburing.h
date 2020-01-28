@@ -104,6 +104,8 @@ extern int io_uring_register_eventfd(struct io_uring *ring, int fd);
 extern int io_uring_unregister_eventfd(struct io_uring *ring);
 extern int io_uring_register_probe(struct io_uring *ring,
 					struct io_uring_probe *p, unsigned nr);
+extern int io_uring_register_personality(struct io_uring *ring);
+extern int io_uring_unregister_personality(struct io_uring *ring, int id);
 
 /*
  * Helper for the peek/wait single cqe functions. Exported because of that,
