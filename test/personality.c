@@ -14,6 +14,8 @@
 #define FNAME	"/tmp/.tmp.access"
 #define USE_UID	1000
 
+static int no_personality;
+
 static int open_file(struct io_uring *ring, int cred_id)
 {
 	struct io_uring_cqe *cqe;
@@ -54,6 +56,7 @@ static int test_personality(struct io_uring *ring)
 	if (ret < 0) {
 		if (ret == -EINVAL) {
 			fprintf(stdout, "Personalities not supported, skipping\n");
+			no_personality = 1;
 			goto out;
 		}
 		fprintf(stderr, "register_personality: %d\n", ret);
@@ -112,6 +115,20 @@ err:
 	return 1;
 }
 
+static int test_invalid_personality(struct io_uring *ring)
+{
+	int ret;
+
+	ret = open_file(ring, 2);
+	if (ret != -EINVAL) {
+		fprintf(stderr, "invalid personality got: %d\n", ret);
+		goto err;
+	}
+	return 0;
+err:
+	return 1;
+}
+
 int main(int argc, char *argv[])
 {
 	struct io_uring ring;
@@ -132,6 +149,14 @@ int main(int argc, char *argv[])
 	ret = test_personality(&ring);
 	if (ret) {
 		fprintf(stderr, "test_personality failed\n");
+		return ret;
+	}
+	if (no_personality)
+		return 0;
+
+	ret = test_invalid_personality(&ring);
+	if (ret) {
+		fprintf(stderr, "test_invalid_personality failed\n");
 		return ret;
 	}
 
