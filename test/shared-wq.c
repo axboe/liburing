@@ -55,12 +55,10 @@ err:
 
 int main(int argc, char *argv[])
 {
-	struct io_uring_params p;
 	struct io_uring ring;
 	int ret;
 
-	memset(&p, 0, sizeof(p));
-	ret = io_uring_queue_init_params(8, &ring, &p);
+	ret = io_uring_queue_init(8, &ring, 0);
 	if (ret) {
 		fprintf(stderr, "ring setup failed\n");
 		return 1;
