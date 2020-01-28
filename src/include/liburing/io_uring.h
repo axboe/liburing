@@ -40,7 +40,12 @@ struct io_uring_sqe {
 	};
 	__u64	user_data;	/* data to be passed back at completion time */
 	union {
-		__u16	buf_index;	/* index into fixed buffers, if used */
+		struct {
+			/* index into fixed buffers, if used */
+			__u16	buf_index;
+			/* personality to use */
+			__u16	personality;
+		};
 		__u64	__pad2[3];
 	};
 };
@@ -51,6 +56,7 @@ enum {
 	IOSQE_IO_LINK_BIT,
 	IOSQE_IO_HARDLINK_BIT,
 	IOSQE_ASYNC_BIT,
+	IOSQE_PERSONALITY_BIT,
 };
 
 /*
@@ -66,6 +72,8 @@ enum {
 #define IOSQE_IO_HARDLINK	(1U << IOSQE_IO_HARDLINK_BIT)
 /* always go async */
 #define IOSQE_ASYNC		(1U << IOSQE_ASYNC_BIT)
+/* use specified personality */
+#define IOSQE_PERSONALITY	(1U << IOSQE_PERSONALITY_BIT)
 
 /*
  * io_uring_setup() flags
