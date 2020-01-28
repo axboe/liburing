@@ -10,26 +10,7 @@
 
 #include "liburing.h"
 
-static int test_attach_id_no_flag(void)
-{
-	struct io_uring_params p;
-	struct io_uring ring;
-	int ret;
-
-	memset(&p, 0, sizeof(p));
-	p.wq_id = 1;
-	ret = io_uring_queue_init_params(1, &ring, &p);
-	if (ret != -EINVAL) {
-		fprintf(stderr, "Attach to one: %d\n", ret);
-		goto err;
-	}
-	return 0;
-err:
-	return 1;
-}
-
-
-static int test_attach_zero(void)
+static int test_attach_invalid(int ringfd)
 {
 	struct io_uring_params p;
 	struct io_uring ring;
@@ -37,7 +18,7 @@ static int test_attach_zero(void)
 
 	memset(&p, 0, sizeof(p));
 	p.flags = IORING_SETUP_ATTACH_WQ;
-	p.wq_id = 0;
+	p.wq_fd = ringfd;
 	ret = io_uring_queue_init_params(1, &ring, &p);
 	if (ret != -EINVAL) {
 		fprintf(stderr, "Attach to zero: %d\n", ret);
@@ -48,7 +29,7 @@ err:
 	return 1;
 }
 
-static int test_attach(struct io_uring_params *org)
+static int test_attach(int ringfd)
 {
 	struct io_uring_params p;
 	struct io_uring ring2;
@@ -56,7 +37,7 @@ static int test_attach(struct io_uring_params *org)
 
 	memset(&p, 0, sizeof(p));
 	p.flags = IORING_SETUP_ATTACH_WQ;
-	p.wq_id = org->wq_id;
+	p.wq_fd = ringfd;
 	ret = io_uring_queue_init_params(1, &ring2, &p);
 	if (ret == -EINVAL) {
 		fprintf(stdout, "Sharing not supported, skipping\n");
@@ -65,12 +46,12 @@ static int test_attach(struct io_uring_params *org)
 		fprintf(stderr, "Attach to id: %d\n", ret);
 		goto err;
 	}
+	sleep(30);
 	io_uring_queue_exit(&ring2);
 	return 0;
 err:
 	return 1;
 }
-
 
 int main(int argc, char *argv[])
 {
@@ -85,19 +66,14 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-	ret = test_attach_zero();
+	/* stdout is definitely not an io_uring descriptor */
+	ret = test_attach_invalid(2);
 	if (ret) {
-		fprintf(stderr, "test_attach_zero failed\n");
+		fprintf(stderr, "test_attach_invalid failed\n");
 		return ret;
 	}
 
-	ret = test_attach_id_no_flag();
-	if (ret) {
-		fprintf(stderr, "test_attach_id_no_flag failed\n");
-		return ret;
-	}
-
-	ret = test_attach(&p);
+	ret = test_attach(ring.ring_fd);
 	if (ret) {
 		fprintf(stderr, "test_attach failed\n");
 		return ret;
