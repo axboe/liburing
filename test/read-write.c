@@ -62,9 +62,10 @@ static int test_io(const char *file, int write, int buffered, int sqthread,
 	static int warned;
 
 #ifdef VERBOSE
-	fprintf(stdout, "%s: start %d/%d/%d/%d/%d: ", __FUNCTION__, write,
+	fprintf(stdout, "%s: start %d/%d/%d/%d/%d/%d: ", __FUNCTION__, write,
 							buffered, sqthread,
-							fixed, mixed_fixed);
+							fixed, mixed_fixed,
+							nonvec);
 #endif
 	if (sqthread && geteuid()) {
 #ifdef VERBOSE
@@ -212,7 +213,7 @@ static int test_io(const char *file, int write, int buffered, int sqthread,
 	return 0;
 err:
 #ifdef VERBOSE
-	print("FAILED\n");
+	printf("FAILED\n");
 #endif
 	if (fd != -1)
 		close(fd);
