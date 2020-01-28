@@ -46,7 +46,6 @@ static int test_attach(int ringfd)
 		fprintf(stderr, "Attach to id: %d\n", ret);
 		goto err;
 	}
-	sleep(30);
 	io_uring_queue_exit(&ring2);
 	return 0;
 err:
