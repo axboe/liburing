@@ -224,7 +224,7 @@ system call.
 .I fd
 must be set to the socket file descriptor,
 .I addr
-must contains a pointer to the msghdr structure, and
+must contain a pointer to the msghdr structure, and
 .I flags
 holds the flags associated with the system call. See also
 .BR sendmsg (2).
@@ -235,6 +235,28 @@ for the general description of the related system call. Available since 5.3.
 Works just like IORING_OP_SENDMSG, except for
 .BR recvmsg(2)
 instead. See the description of IORING_OP_SENDMSG. Available since 5.3.
+
+.TP
+.B IORING_OP_SEND
+Issue the equivalent of a
+.BR send(2)
+system call.
+.I fd
+must be set to the socket file descriptor,
+.I addr
+must contain a pointer to the buffer,
+.I len
+denotes the length of the buffer to send, and
+.I flags
+holds the flags associated with the system call. See also
+.BR send(2).
+for the general description of the related system call. Available since 5.6.
+
+.TP
+.B IORING_OP_RECV
+Works just like IORING_OP_SEND, except for
+.BR recv(2)
+instead. See the description of IORING_OP_SEND. Available since 5.6.
 
 .TP
 .B IORING_OP_TIMEOUT
