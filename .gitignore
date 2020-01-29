@@ -55,6 +55,7 @@
 /test/nop
 /test/open-close
 /test/openat2
+/test/personality
 /test/poll
 /test/poll-cancel
 /test/poll-cancel-ton
