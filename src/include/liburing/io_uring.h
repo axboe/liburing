@@ -56,7 +56,6 @@ enum {
 	IOSQE_IO_LINK_BIT,
 	IOSQE_IO_HARDLINK_BIT,
 	IOSQE_ASYNC_BIT,
-	IOSQE_PERSONALITY_BIT,
 };
 
 /*
@@ -72,8 +71,6 @@ enum {
 #define IOSQE_IO_HARDLINK	(1U << IOSQE_IO_HARDLINK_BIT)
 /* always go async */
 #define IOSQE_ASYNC		(1U << IOSQE_ASYNC_BIT)
-/* use specified personality */
-#define IOSQE_PERSONALITY	(1U << IOSQE_PERSONALITY_BIT)
 
 /*
  * io_uring_setup() flags
