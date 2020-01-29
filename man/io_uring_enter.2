@@ -214,7 +214,7 @@ field holds the length in bytes, and the
 .I flags
 field holds the flags for the command. See also
 .BR sync_file_range (2).
-for the general description of the related system call.
+for the general description of the related system call. Available since 5.2.
 
 .TP
 .B IORING_OP_SENDMSG
@@ -228,13 +228,13 @@ must contains a pointer to the msghdr structure, and
 .I flags
 holds the flags associated with the system call. See also
 .BR sendmsg (2).
-for the general description of the related system call.
+for the general description of the related system call. Available since 5.3.
 
 .TP
 .B IORING_OP_RECVMSG
 Works just like IORING_OP_SENDMSG, except for
 .BR recvmsg(2)
-instead. See the description of IORING_OP_SENDMSG.
+instead. See the description of IORING_OP_SENDMSG. Available since 5.3.
 
 .TP
 .B IORING_OP_TIMEOUT
@@ -260,6 +260,7 @@ if the timeout got completed through expiration of the timer, or
 if the timeout got completed through requests completing on their own. If
 the timeout was cancelled before it expired, the request will complete with
 .I -ECANCELED.
+Available since 5.4.
 
 .TP
 .B IORING_OP_TIMEOUT_REMOVE
@@ -277,6 +278,7 @@ this request will terminate with a result value of
 If the timeout request wasn't found, the request will terminate with a result
 value of
 .I -ENOENT
+Available since 5.5.
 
 .TP
 .B IORING_OP_ACCEPT
@@ -290,7 +292,7 @@ must contains the pointer to the sockaddr structure, and
 .I addr2
 must contain a pointer to the socklen_t addrlen field. See also
 .BR accept4(2)
-for the general description of the related system call.
+for the general description of the related system call. Available since 5.5.
 
 .TP
 .B IORING_OP_ASYNC_CANCEL
@@ -308,6 +310,7 @@ will contain -ENOENT. If found and attempted cancelled, the
 field will contain -EALREADY. In this case, the request may or may not
 terminate. In general, requests that are interruptible (like socket IO) will
 get cancelled, while disk IO requests cannot be cancelled if already started.
+Available since 5.5.
 
 .TP
 .B IORING_OP_LINK_TIMEOUT
@@ -330,6 +333,7 @@ if the timer got cancelled because of completion of the linked request. Like
 .B IORING_OP_TIMEOUT
 the clock source used is
 .B CLOCK_MONOTONIC
+Available since 5.5.
 
 
 .TP
@@ -344,7 +348,7 @@ must contains the pointer to the sockaddr structure, and
 .I off
 must contain the socklen_t addrlen field. See also
 .BR connect(2)
-for the general description of the related system call.
+for the general description of the related system call. Available since 5.5.
 
 .TP
 .B IORING_OP_FALLOCATE
@@ -358,7 +362,7 @@ must contain the offset on which to operate, and
 .I len
 must the length. See also
 .BR fallocate(2)
-for the general description of the related system call.
+for the general description of the related system call. Available since 5.6.
 
 .TP
 .B IORING_OP_OPENAT
@@ -378,7 +382,7 @@ should contain any flags passed in, and
 .I mode
 is access mode of the file. See also
 .BR openat(2)
-for the general description of the related system call.
+for the general description of the related system call. Available since 5.6.
 
 .TP
 .B IORING_OP_CLOSE
@@ -388,7 +392,7 @@ system call.
 .I fd
 is the file descriptor to be closed. See also
 .BR close(2)
-for the general description of the related system call.
+for the general description of the related system call. Available since 5.6.
 
 .TP
 .B IORING_OP_STATX
@@ -416,7 +420,7 @@ must contain a pointer to the
 .I statxbuf
 to be filled in. See also
 .BR statx(2)
-for the general description of the related system call.
+for the general description of the related system call. Available since 5.6.
 
 .TP
 .B IORING_OP_READ IORING_OP_WRITE
@@ -438,7 +442,7 @@ opcodes. See also
 .BR read(2)
 and
 .BR write(2)
-for the general description of the related system call.
+for the general description of the related system call. Available since 5.6.
 
 .TP
 .B IORING_OP_FILES_UPDATE
@@ -454,7 +458,7 @@ must contain the length of the array, and
 must contain the offset at which to operate. Note that the array of file
 descriptors pointed to in
 .I addr
-must remain valid until this operation has completed.
+must remain valid until this operation has completed. Available since 5.6.
 
 .PP
 The
