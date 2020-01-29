@@ -16,34 +16,43 @@
 
 static int no_personality;
 
-static int open_file(struct io_uring *ring, int cred_id)
+static int open_file(struct io_uring *ring, int cred_id, int with_link)
 {
 	struct io_uring_cqe *cqe;
 	struct io_uring_sqe *sqe;
-	int ret;
+	int ret, i, to_submit = 1;
+
+	if (with_link) {
+		sqe = io_uring_get_sqe(ring);
+		io_uring_prep_nop(sqe);
+		sqe->flags |= IOSQE_IO_LINK;
+		sqe->user_data = 1;
+		to_submit++;
+	}
 
 	sqe = io_uring_get_sqe(ring);
 	io_uring_prep_openat(sqe, -1, FNAME, O_RDONLY, 0);
+	sqe->user_data = 2;
 
-	if (cred_id != -1) {
-		sqe->flags |= IOSQE_PERSONALITY;
+	if (cred_id != -1)
 		sqe->personality = cred_id;
-	}
 
 	ret = io_uring_submit(ring);
-	if (ret != 1) {
+	if (ret != to_submit) {
 		fprintf(stderr, "submit got: %d\n", ret);
 		goto err;
 	}
 
-	ret = io_uring_wait_cqe(ring, &cqe);
-	if (ret < 0) {
-		fprintf(stderr, "wait completion %d\n", ret);
-		goto err;
-	}
+	for (i = 0; i < to_submit; i++) {
+		ret = io_uring_wait_cqe(ring, &cqe);
+		if (ret < 0) {
+			fprintf(stderr, "wait completion %d\n", ret);
+			goto err;
+		}
 
-	ret = cqe->res;
-	io_uring_cqe_seen(ring, cqe);
+		ret = cqe->res;
+		io_uring_cqe_seen(ring, cqe);
+	}
 err:
 	return ret;
 }
@@ -73,7 +82,7 @@ static int test_personality(struct io_uring *ring)
 	close(ret);
 
 	/* verify we can open it */
-	ret = open_file(ring, -1);
+	ret = open_file(ring, -1, 0);
 	if (ret < 0) {
 		fprintf(stderr, "current open got: %d\n", ret);
 		goto err;
@@ -85,14 +94,22 @@ static int test_personality(struct io_uring *ring)
 	}
 
 	/* verify we can't open it with current credentials */
-	ret = open_file(ring, -1);
+	ret = open_file(ring, -1, 0);
 	if (ret != -EACCES) {
 		fprintf(stderr, "open got: %d\n", ret);
 		goto err;
 	}
 
 	/* verify we can open with registered credentials */
-	ret = open_file(ring, cred_id);
+	ret = open_file(ring, cred_id, 0);
+	if (ret < 0) {
+		fprintf(stderr, "credential open: %d\n", ret);
+		goto err;
+	}
+	close(ret);
+
+	/* verify we can open with registered credentials and as a link */
+	ret = open_file(ring, cred_id, 1);
 	if (ret < 0) {
 		fprintf(stderr, "credential open: %d\n", ret);
 		goto err;
@@ -119,7 +136,7 @@ static int test_invalid_personality(struct io_uring *ring)
 {
 	int ret;
 
-	ret = open_file(ring, 2);
+	ret = open_file(ring, 2, 0);
 	if (ret != -EINVAL) {
 		fprintf(stderr, "invalid personality got: %d\n", ret);
 		goto err;
