@@ -10,24 +10,9 @@
 
 #include "liburing.h"
 
-static int test_probe(struct io_uring *ring)
+static int verify_probe(struct io_uring_probe *p, int full)
 {
-	struct io_uring_probe *p;
-	size_t len;
-	int ret;
-
-	len = sizeof(*p) + 256 * sizeof(struct io_uring_probe_op);
-	p = calloc(1, len);
-	ret = io_uring_register_probe(ring, p, 0);
-	if (ret == -EINVAL) {
-		fprintf(stdout, "Probe not supported, skipping\n");
-		return 0;
-	} else if (ret) {
-		fprintf(stdout, "Probe returned %d\n", ret);
-		return 1;
-	}
-
-	if (p->ops_len) {
+	if (!full && p->ops_len) {
 		fprintf(stderr, "Got ops_len=%u\n", p->ops_len);
 		return 1;
 	}
@@ -35,18 +20,8 @@ static int test_probe(struct io_uring *ring)
 		fprintf(stderr, "Got last_op=%u\n", p->last_op);
 		return 1;
 	}
-
-	/* now grab for all entries */
-	memset(p, 0, len);
-	ret = io_uring_register_probe(ring, p, 256);
-	if (ret == -EINVAL) {
-		fprintf(stdout, "Probe not supported, skipping\n");
+	if (!full)
 		return 0;
-	} else if (ret) {
-		fprintf(stdout, "Probe returned %d\n", ret);
-		return 1;
-	}
-
 	/* check a few ops that must be supported */
 	if (!(p->ops[IORING_OP_NOP].flags & IO_URING_OP_SUPPORTED)) {
 		fprintf(stderr, "NOP not supported!?\n");
@@ -62,6 +37,48 @@ static int test_probe(struct io_uring *ring)
 	}
 
 	return 0;
+}
+
+static int test_probe(struct io_uring *ring)
+{
+	struct io_uring_probe *p;
+	size_t len;
+	int ret;
+
+	len = sizeof(*p) + 256 * sizeof(struct io_uring_probe_op);
+	p = calloc(1, len);
+	ret = io_uring_register_probe(ring, p, 0);
+	if (ret == -EINVAL) {
+		fprintf(stdout, "Probe not supported, skipping\n");
+		goto out;
+	} else if (ret) {
+		fprintf(stdout, "Probe returned %d\n", ret);
+		goto err;
+	}
+
+	if (verify_probe(p, 0))
+		goto err;
+
+	/* now grab for all entries */
+	memset(p, 0, len);
+	ret = io_uring_register_probe(ring, p, 256);
+	if (ret == -EINVAL) {
+		fprintf(stdout, "Probe not supported, skipping\n");
+		goto err;
+	} else if (ret) {
+		fprintf(stdout, "Probe returned %d\n", ret);
+		goto err;
+	}
+
+	if (verify_probe(p, 1))
+		goto err;
+
+out:
+	free(p);
+	return 0;
+err:
+	free(p);
+	return 1;
 }
 
 int main(int argc, char *argv[])
