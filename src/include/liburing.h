@@ -72,6 +72,20 @@ struct io_uring {
 /*
  * Library interface
  */
+
+/*
+ * return an allocated io_uring_probe structure, or NULL if probe fails (for
+ * example, if it is not available). The caller is responsible for freeing it
+ */
+extern struct io_uring_probe *io_uring_get_probe(struct io_uring *ring);
+
+static inline int io_uring_opcode_supported(struct io_uring_probe *p, int op)
+{
+	if (op > p->last_op)
+		return 0;
+	return (p->ops[op].flags & IO_URING_OP_SUPPORTED) != 0;
+}
+
 extern int io_uring_queue_init_params(unsigned entries, struct io_uring *ring,
 	struct io_uring_params *p);
 extern int io_uring_queue_init(unsigned entries, struct io_uring *ring,

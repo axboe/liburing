@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <string.h>
+#include <stdlib.h>
 
 #include "liburing/compat.h"
 #include "liburing/io_uring.h"
@@ -166,4 +167,22 @@ void io_uring_queue_exit(struct io_uring *ring)
 	munmap(sq->sqes, *sq->kring_entries * sizeof(struct io_uring_sqe));
 	io_uring_unmap_rings(sq, cq);
 	close(ring->ring_fd);
+}
+
+struct io_uring_probe *io_uring_get_probe(struct io_uring *ring)
+{
+	struct io_uring_probe *probe;
+	int r;
+
+	size_t len = sizeof(*probe) + 256 * sizeof(struct io_uring_probe_op);
+	probe = malloc(len);
+	memset(probe, 0, len);
+	r = io_uring_register_probe(ring, probe, 256);
+	if (r < 0)
+		goto fail;
+
+	return probe;
+fail:
+	free(probe);
+	return NULL;
 }
