@@ -10,6 +10,8 @@
 
 #include "liburing.h"
 
+static int no_probe;
+
 static int verify_probe(struct io_uring_probe *p, int full)
 {
 	if (!full && p->ops_len) {
@@ -39,6 +41,24 @@ static int verify_probe(struct io_uring_probe *p, int full)
 	return 0;
 }
 
+static int test_probe_helper(struct io_uring *ring)
+{
+	struct io_uring_probe *p;
+
+	p = io_uring_get_probe(ring);
+	if (!p) {
+		fprintf(stderr, "Failed getting probe data\n");
+		return 1;
+	}
+
+	if (verify_probe(p, 1)) {
+		free(p);
+		return 1;
+	}
+
+	return 0;
+}
+
 static int test_probe(struct io_uring *ring)
 {
 	struct io_uring_probe *p;
@@ -50,6 +70,7 @@ static int test_probe(struct io_uring *ring)
 	ret = io_uring_register_probe(ring, p, 0);
 	if (ret == -EINVAL) {
 		fprintf(stdout, "Probe not supported, skipping\n");
+		no_probe = 1;
 		goto out;
 	} else if (ret) {
 		fprintf(stdout, "Probe returned %d\n", ret);
@@ -97,6 +118,15 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "test_probe failed\n");
 		return ret;
 	}
+	if (no_probe)
+		return 0;
+
+	ret = test_probe_helper(&ring);
+	if (ret) {
+		fprintf(stderr, "test_probe failed\n");
+		return ret;
+	}
+
 
 	return 0;
 }
