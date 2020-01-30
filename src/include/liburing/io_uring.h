@@ -43,7 +43,7 @@ struct io_uring_sqe {
 		struct {
 			/* index into fixed buffers, if used */
 			__u16	buf_index;
-			/* personality to use */
+			/* personality to use, if used */
 			__u16	personality;
 		};
 		__u64	__pad2[3];
@@ -112,6 +112,7 @@ enum {
 	IORING_OP_SEND,
 	IORING_OP_RECV,
 	IORING_OP_OPENAT2,
+	IORING_OP_EPOLL_CTL,
 
 	/* this goes last, obviously */
 	IORING_OP_LAST,
@@ -202,6 +203,7 @@ struct io_uring_params {
 #define IORING_FEAT_NODROP		(1U << 1)
 #define IORING_FEAT_SUBMIT_STABLE	(1U << 2)
 #define IORING_FEAT_RW_CUR_POS		(1U << 3)
+#define IORING_FEAT_CUR_PERSONALITY	(1U << 4)
 
 /*
  * io_uring_register(2) opcodes and arguments
