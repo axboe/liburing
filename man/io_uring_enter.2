@@ -530,12 +530,12 @@ is an index into the files array registered with the io_uring instance (see the
 .B IORING_REGISTER_FILES
 section of the
 .BR io_uring_register (2)
-man page).
+man page). Available since 5.1.
 .TP
 .B IOSQE_IO_DRAIN
 When this flag is specified, the SQE will not be started before previously
 submitted SQEs have completed, and new SQEs will not be started before this
-one completes.
+one completes. Available since 5.2.
 .TP
 .B IOSQE_IO_LINK
 When this flag is specified, it forms a link with the next SQE in the
@@ -545,13 +545,22 @@ of the chain is denoted by the first SQE that does not have this flag set.
 This flag has no effect on previous SQE submissions, nor does it impact SQEs
 that are outside of the chain tail. This means that multiple chains can be
 executing in parallel, or chains and individual SQEs. Only members inside the
-chain are serialized.
+chain are serialized. Available since 5.3.
 .TP
 .B IOSQE_IO_HARDLINK
 Like IOSQE_IO_LINK, but it doesn't sever regardless of the completion result.
 Note that the link will still sever if we fail submitting the parent request,
 hard links are only resilient in the presence of completion results for
 requests that did submit correctly. IOSQE_IO_HARDLINK implies IOSQE_IO_LINK.
+Available since 5.5.
+.TP
+.B IOSQE_ASYNC
+Normal operation for io_uring is to try and issue an sqe as non-blockin first,
+and if that fails, execute it in an async manner. To support more efficient
+overlapped operation of requests that the application knows/assumes will
+always (or most of the time) block, the applocation can ask for an sqe to be
+issued async from the start. Available since 5.6.
+
 
 .PP
 .I ioprio
