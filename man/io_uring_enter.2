@@ -310,7 +310,7 @@ system call.
 .I fd
 must be set to the socket file descriptor,
 .I addr
-must contains the pointer to the sockaddr structure, and
+must contain the pointer to the sockaddr structure, and
 .I addr2
 must contain a pointer to the socklen_t addrlen field. See also
 .BR accept4(2)
@@ -366,7 +366,7 @@ system call.
 .I fd
 must be set to the socket file descriptor,
 .I addr
-must contains the pointer to the sockaddr structure, and
+must contain the pointer to the sockaddr structure, and
 .I off
 must contain the socklen_t addrlen field. See also
 .BR connect(2)
@@ -382,8 +382,39 @@ must be set to the file descriptor,
 .I off
 must contain the offset on which to operate, and
 .I len
-must the length. See also
+must contain the length. See also
 .BR fallocate(2)
+for the general description of the related system call. Available since 5.6.
+
+.TP
+.B IORING_OP_FADVISE
+Issue the equivalent of a
+.BR posix_fallocate(2)
+system call.
+.I fd
+must be set to the file descriptor,
+.I off
+must contain the offset on which to operate,
+.I len
+must contain the length, and
+.I fadvise_advice
+must contain the advice associated with the operation. See also
+.BR posix_fadvise(2)
+for the general description of the related system call. Available since 5.6.
+
+.TP
+.B IORING_OP_MADVISE
+Issue the equivalent of a
+.BR madvise(2)
+system call.
+.I addr
+must contain the address to operate on,
+.I len
+must contain the length on which to operate,
+and
+.I fadvise_advice
+must contain the advice associated with the operation. See also
+.BR madvise(2)
 for the general description of the related system call. Available since 5.6.
 
 .TP
