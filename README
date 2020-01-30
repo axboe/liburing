@@ -28,6 +28,13 @@ of this little blurb, but check /etc/security/limits.conf for user specific
 settings, or /etc/systemd/user.conf and /etc/systemd/system.conf for systemd
 setups.
 
+Regressions tests
+-----------------
+
+The bulk of liburing is actually regression/unit tests for both liburing and
+the kernel io_uring support. Please note that this suite isn't expected to
+pass on older kernels, and may even crash or hang older kernels!
+
 License
 -------
 
