@@ -136,7 +136,12 @@ struct io_uring_sqe {
     };
     __u64    user_data;     /* data to be passed back at completion time */
     union {
-        __u16    buf_index; /* index into fixed buffers, if used */
+	struct {
+	    /* index into fixed buffers, if used */
+            __u16    buf_index;
+	    /* personality to use, if used */
+	    __u16    personality;
+	};
         __u64    __pad2[3];
     };
 };
@@ -605,7 +610,12 @@ is an application-supplied value that will be copied into
 the completion queue entry (see below).
 .I buf_index
 is an index into an array of fixed buffers, and is only valid if fixed
-buffers were registered
+buffers were registered.
+.I personality
+is the credentials id to use for this operation. See
+.BR io_uring_register(2)
+for how to register personalities with io_uring. If set to 0, the current
+personality of the submitting task is used.
 .PP
 Once the submission queue entry is initialized, I/O is submitted by
 placing the index of the submission queue entry into the tail of the
