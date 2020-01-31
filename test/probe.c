@@ -45,7 +45,7 @@ static int test_probe_helper(struct io_uring *ring)
 {
 	struct io_uring_probe *p;
 
-	p = io_uring_get_probe(ring);
+	p = io_uring_get_probe_ring(ring);
 	if (!p) {
 		fprintf(stderr, "Failed getting probe data\n");
 		return 1;

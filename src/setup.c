@@ -169,7 +169,7 @@ void io_uring_queue_exit(struct io_uring *ring)
 	close(ring->ring_fd);
 }
 
-struct io_uring_probe *io_uring_get_probe(struct io_uring *ring)
+struct io_uring_probe *io_uring_get_probe_ring(struct io_uring *ring)
 {
 	struct io_uring_probe *probe;
 	int r;
@@ -185,4 +185,18 @@ struct io_uring_probe *io_uring_get_probe(struct io_uring *ring)
 fail:
 	free(probe);
 	return NULL;
+}
+
+struct io_uring_probe *io_uring_get_probe(void)
+{
+	struct io_uring ring;
+	struct io_uring_probe* probe = NULL;
+
+	int r = io_uring_queue_init(2, &ring, 0);
+	if (r < 0)
+		return NULL;
+
+	probe = io_uring_get_probe_ring(&ring);
+	io_uring_queue_exit(&ring);
+	return probe;
 }

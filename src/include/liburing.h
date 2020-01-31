@@ -77,7 +77,9 @@ struct io_uring {
  * return an allocated io_uring_probe structure, or NULL if probe fails (for
  * example, if it is not available). The caller is responsible for freeing it
  */
-extern struct io_uring_probe *io_uring_get_probe(struct io_uring *ring);
+extern struct io_uring_probe *io_uring_get_probe_ring(struct io_uring *ring);
+/* same as io_uring_get_probe_ring, but takes care of ring init and teardown */
+extern struct io_uring_probe *io_uring_get_probe(void);
 
 static inline int io_uring_opcode_supported(struct io_uring_probe *p, int op)
 {

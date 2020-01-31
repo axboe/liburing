@@ -73,4 +73,5 @@ LIBURING_0.4 {
 		io_uring_register_personality;
 		io_uring_unregister_personality;
 		io_uring_get_probe;
+		io_uring_get_probe_ring;
 } LIBURING_0.3;
