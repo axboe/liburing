@@ -9,7 +9,7 @@
 #include <fcntl.h>
 #include <sys/types.h>
 #include <sys/poll.h>
-
+#include <sys/eventfd.h>
 #include "liburing.h"
 
 #define FILE_SIZE	(128 * 1024)
@@ -309,6 +309,43 @@ out:
 	return 1;
 }
 
+static int test_eventfd_read() {
+	struct io_uring ring;
+	int fd, ret;
+	eventfd_t event;
+	struct io_uring_sqe *sqe;
+	struct io_uring_cqe *cqe;
+
+	ret = io_uring_queue_init(8, &ring, 0);
+	if (ret)
+		return ret;
+
+	fd = eventfd(1, 0);
+	if (fd < 0) {
+		perror("eventfd");
+		return 1;
+	}
+	sqe = io_uring_get_sqe(&ring);
+	io_uring_prep_read(sqe, fd, &event, sizeof(eventfd_t), 0);
+	ret = io_uring_submit(&ring);
+	if (ret != 1) {
+		fprintf(stderr, "submitted %d\n", ret);
+		return 1;
+	}
+	eventfd_write(fd, 1);
+	ret = io_uring_wait_cqe(&ring, &cqe);
+	if (ret) {
+		fprintf(stderr, "wait_cqe=%d\n", ret);
+		return 1;
+	}
+	if (cqe->res != sizeof(eventfd_t)) {
+		fprintf(stderr, "cqe res %d, wanted %ld\n", cqe->res, sizeof(eventfd_t));
+		return 1;
+	}
+	io_uring_cqe_seen(&ring, cqe);
+	return 0;
+}
+
 int main(int argc, char *argv[])
 {
 	int i, ret, nr;
@@ -343,6 +380,12 @@ int main(int argc, char *argv[])
 					v1, v2, v3, v4, v5, v6);
 			goto err;
 		}
+	}
+
+	ret = test_eventfd_read();
+	if (ret) {
+		fprintf(stderr, "test_eventfd_read failed\n");
+		goto err;
 	}
 
 	ret = read_poll_link(".basic-rw");
