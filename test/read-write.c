@@ -17,6 +17,7 @@
 #define BUFFERS		(FILE_SIZE / BS)
 
 static struct iovec *vecs;
+static int no_read;
 
 static int create_buffers(void)
 {
@@ -182,6 +183,7 @@ static int test_io(const char *file, int write, int buffered, int sqthread,
 				fprintf(stdout, "Non-vectored IO not "
 					"supported, skipping\n");
 				warned = 1;
+				no_read = 1;
 			}
 		} else if (cqe->res != BS) {
 			fprintf(stderr, "cqe res %d, wanted %d\n", cqe->res, BS);
@@ -309,13 +311,16 @@ out:
 	return 1;
 }
 
-static int test_eventfd_read() {
+static int test_eventfd_read(void)
+{
 	struct io_uring ring;
 	int fd, ret;
 	eventfd_t event;
 	struct io_uring_sqe *sqe;
 	struct io_uring_cqe *cqe;
 
+	if (no_read)
+		return 0;
 	ret = io_uring_queue_init(8, &ring, 0);
 	if (ret)
 		return ret;
