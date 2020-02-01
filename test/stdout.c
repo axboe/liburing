@@ -48,7 +48,7 @@ static int test_pipe_io_fixed(struct io_uring *ring)
 
 	sqe = io_uring_get_sqe(ring);
 	if (!sqe) {
-		printf("get sqe failed\n");
+		fprintf(stderr, "get sqe failed\n");
 		goto err;
 	}
 	vecs[1].iov_base = buffer;

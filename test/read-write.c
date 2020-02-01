@@ -69,7 +69,7 @@ static int test_io(const char *file, int write, int buffered, int sqthread,
 #endif
 	if (sqthread && geteuid()) {
 #ifdef VERBOSE
-		printf("SKIPPED (not root)\n");
+		fprintf(stdout, "SKIPPED (not root)\n");
 #endif
 		return 0;
 	}
@@ -208,12 +208,12 @@ static int test_io(const char *file, int write, int buffered, int sqthread,
 	io_uring_queue_exit(&ring);
 	close(fd);
 #ifdef VERBOSE
-	printf("PASS\n");
+	fprintf(stdout, "PASS\n");
 #endif
 	return 0;
 err:
 #ifdef VERBOSE
-	printf("FAILED\n");
+	fprintf(stderr, "FAILED\n");
 #endif
 	if (fd != -1)
 		close(fd);

@@ -53,7 +53,7 @@ static int recv_prep(struct io_uring *ring, struct iovec *iov)
 
 	ret = io_uring_submit(ring);
 	if (ret <= 0) {
-		printf("submit failed\n");
+		fprintf(stderr, "submit failed: %d\n", ret);
 		goto err;
 	}
 
@@ -69,17 +69,18 @@ static int do_recvmsg(struct io_uring *ring, struct iovec *iov)
 
 	io_uring_wait_cqe(ring, &cqe);
 	if (cqe->res < 0) {
-		printf("failed cqe: %d\n", cqe->res);
+		fprintf(stderr, "failed cqe: %d\n", cqe->res);
 		goto err;
 	}
 
 	if (cqe->res -1 != strlen(str)) {
-		printf("got wrong length\n");
+		fprintf(stderr, "got wrong length: %d/%d\n", cqe->res,
+							(int) strlen(str) + 1);
 		goto err;
 	}
 
 	if (strcmp(str, iov->iov_base)) {
-		printf("string mismatch\n");
+		fprintf(stderr, "string mismatch\n");
 		goto err;
 	}
 
@@ -124,7 +125,7 @@ static int do_sendmsg(void)
 
 	ret = io_uring_queue_init(1, &ring, 0);
 	if (ret) {
-		printf("queue init fail\n");
+		fprintf(stderr, "queue init fail: %d\n", ret);
 		return 1;
 	}
 
@@ -150,13 +151,13 @@ static int do_sendmsg(void)
 
 	ret = io_uring_submit(&ring);
 	if (ret <= 0) {
-		printf("submit failed\n");
+		fprintf(stderr, "submit failed: %d\n", ret);
 		goto err;
 	}
 
 	ret = io_uring_wait_cqe(&ring, &cqe);
 	if (cqe->res < 0) {
-		printf("failed cqe: %d\n", cqe->res);
+		fprintf(stderr, "failed cqe: %d\n", cqe->res);
 		goto err;
 	}
 

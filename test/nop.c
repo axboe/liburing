@@ -19,7 +19,7 @@ static int test_single_nop(struct io_uring *ring)
 
 	sqe = io_uring_get_sqe(ring);
 	if (!sqe) {
-		printf("get sqe failed\n");
+		fprintf(stderr, "get sqe failed\n");
 		goto err;
 	}
 
@@ -27,13 +27,13 @@ static int test_single_nop(struct io_uring *ring)
 
 	ret = io_uring_submit(ring);
 	if (ret <= 0) {
-		printf("sqe submit failed: %d\n", ret);
+		fprintf(stderr, "sqe submit failed: %d\n", ret);
 		goto err;
 	}
 
 	ret = io_uring_wait_cqe(ring, &cqe);
 	if (ret < 0) {
-		printf("wait completion %d\n", ret);
+		fprintf(stderr, "wait completion %d\n", ret);
 		goto err;
 	}
 
@@ -52,7 +52,7 @@ static int test_barrier_nop(struct io_uring *ring)
 	for (i = 0; i < 8; i++) {
 		sqe = io_uring_get_sqe(ring);
 		if (!sqe) {
-			printf("get sqe failed\n");
+			fprintf(stderr, "get sqe failed\n");
 			goto err;
 		}
 
@@ -63,17 +63,17 @@ static int test_barrier_nop(struct io_uring *ring)
 
 	ret = io_uring_submit(ring);
 	if (ret < 0) {
-		printf("sqe submit failed: %d\n", ret);
+		fprintf(stderr, "sqe submit failed: %d\n", ret);
 		goto err;
 	} else if (ret < 8) {
-		printf("Submitted only %d\n", ret);
+		fprintf(stderr, "Submitted only %d\n", ret);
 		goto err;
 	}
 
 	for (i = 0; i < 8; i++) {
 		ret = io_uring_wait_cqe(ring, &cqe);
 		if (ret < 0) {
-			printf("wait completion %d\n", ret);
+			fprintf(stderr, "wait completion %d\n", ret);
 			goto err;
 		}
 		io_uring_cqe_seen(ring, cqe);
@@ -91,20 +91,19 @@ int main(int argc, char *argv[])
 
 	ret = io_uring_queue_init(8, &ring, 0);
 	if (ret) {
-		printf("ring setup failed\n");
+		fprintf(stderr, "ring setup failed: %d\n", ret);
 		return 1;
-
 	}
 
 	ret = test_single_nop(&ring);
 	if (ret) {
-		printf("test_single_nop failed\n");
+		fprintf(stderr, "test_single_nop failed\n");
 		return ret;
 	}
 
 	ret = test_barrier_nop(&ring);
 	if (ret) {
-		printf("test_barrier_nop failed\n");
+		fprintf(stderr, "test_barrier_nop failed\n");
 		return ret;
 	}
 

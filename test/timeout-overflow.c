@@ -28,7 +28,7 @@ static int check_timeout_support()
 
 	ret = io_uring_queue_init(8, &ring, 0);
 	if (ret) {
-		printf("ring setup failed\n");
+		fprintf(stderr, "ring setup failed: %d\n", ret);
 		return 1;
 	}
 	sqe = io_uring_get_sqe(&ring);
@@ -37,19 +37,19 @@ static int check_timeout_support()
 
 	ret = io_uring_submit(&ring);
 	if (ret < 0) {
-		printf("sqe submit failed: %d\n", ret);
+		fprintf(stderr, "sqe submit failed: %d\n", ret);
 		goto err;
 	}
 
 	ret = io_uring_wait_cqe(&ring, &cqe);
 	if (ret < 0) {
-		printf("wait completion %d\n", ret);
+		fprintf(stderr, "wait completion %d\n", ret);
 		goto err;
 	}
 
 	if (cqe->res == -EINVAL) {
 		not_supported = 1;
-		printf("Timeout not supported, ignored\n");
+		fprintf(stdout, "Timeout not supported, ignored\n");
 		return 0;
 	}
 
@@ -83,7 +83,7 @@ static int test_timeout_overflow()
 
 	ret = io_uring_queue_init(16, &ring, 0);
 	if (ret) {
-		printf("ring setup failed\n");
+		fprintf(stderr, "ring setup failed: %d\n", ret);
 		return 1;
 	}
 
@@ -113,7 +113,7 @@ static int test_timeout_overflow()
 	}
 	ret = io_uring_submit(&ring);
 	if (ret < 0) {
-		printf("sqe submit failed: %d\n", ret);
+		fprintf(stderr, "sqe submit failed: %d\n", ret);
 		goto err;
 	}
 
@@ -121,7 +121,7 @@ static int test_timeout_overflow()
 	while (i < 6) {
 		ret = io_uring_wait_cqe(&ring, &cqe);
 		if (ret < 0) {
-			printf("wait completion %d\n", ret);
+			fprintf(stderr, "wait completion %d\n", ret);
 			goto err;
 		}
 
@@ -136,7 +136,7 @@ static int test_timeout_overflow()
 		case 0:
 		case 3:
 			if (io_uring_cqe_get_data(cqe) != (void *) 1) {
-				printf("nop not seen as 1 or 2\n");
+				fprintf(stderr, "nop not seen as 1 or 2\n");
 				goto err;
 			}
 			break;
@@ -144,15 +144,15 @@ static int test_timeout_overflow()
 		case 2:
 		case 4:
 			if (cqe->res == -ETIME) {
-				printf("expected not return -ETIME for the "
-				       "%d'th timeout req\n", i - 1);
+				fprintf(stderr, "expected not return -ETIME "
+					"for the %d'th timeout req\n", i - 1);
 				goto err;
 			}
 			break;
 		case 5:
 			if (cqe->res != -ETIME) {
-				printf("expected return -ETIME for the "
-				       "%d'th timeout req\n", i - 1);
+				fprintf(stderr, "expected return -ETIME for "
+					"the %d'th timeout req\n", i - 1);
 				goto err;
 			}
 			break;
@@ -172,7 +172,7 @@ int main(int argc, char *argv[])
 
 	ret = check_timeout_support();
 	if (ret) {
-		printf("ring setup failed\n");
+		fprintf(stderr, "check_timeout_support failed: %d\n", ret);
 		return 1;
 	}
 
@@ -181,7 +181,7 @@ int main(int argc, char *argv[])
 
 	ret = test_timeout_overflow();
 	if (ret) {
-		printf("test_timeout_overflow failed\n");
+		fprintf(stderr, "test_timeout_overflow failed\n");
 		return 1;
 	}
 

@@ -19,13 +19,13 @@ int main(int argc, char *argv[])
 
 	ret = io_uring_queue_init(8, &ring, 0);
 	if (ret) {
-		printf("ring setup failed\n");
+		fprintf(stderr, "ring setup failed: %d\n", ret);
 		return 1;
 
 	}
 
 	if ((s = io_uring_sq_space_left(&ring)) != 8) {
-		printf("Got %d SQEs left, expected %d\n", s, 8);
+		fprintf(stderr, "Got %d SQEs left, expected %d\n", s, 8);
 		goto err;
 	}
 
@@ -33,13 +33,13 @@ int main(int argc, char *argv[])
 	while ((sqe = io_uring_get_sqe(&ring)) != NULL) {
 		i++;
 		if ((s = io_uring_sq_space_left(&ring)) != 8 - i) {
-			printf("Got %d SQEs left, expected %d\n", s, 8 - i);
+			fprintf(stderr, "Got %d SQEs left, expected %d\n", s, 8 - i);
 			goto err;
 		}
 	}
 
 	if (i != 8) {
-		printf("Got %d SQEs, expected %d\n", i, 8);
+		fprintf(stderr, "Got %d SQEs, expected %d\n", i, 8);
 		goto err;
 	}
 

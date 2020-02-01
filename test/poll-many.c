@@ -119,7 +119,7 @@ static int arm_polls(struct io_uring *ring)
 
 		for (i = 0; i < this_arm; i++) {
 			if (arm_poll(ring, off)) {
-				printf("arm failed at %d\n", off);
+				fprintf(stderr, "arm failed at %d\n", off);
 				return 1;
 			}
 			off++;
@@ -127,7 +127,7 @@ static int arm_polls(struct io_uring *ring)
 
 		ret = io_uring_submit(ring);
 		if (ret != this_arm) {
-			printf("submitted %d, %d\n", ret, this_arm);
+			fprintf(stderr, "submitted %d, %d\n", ret, this_arm);
 			return 1;
 		}
 		to_arm -= this_arm;

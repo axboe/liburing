@@ -19,7 +19,7 @@ int main(int argc, char *argv[])
 
 	ret = io_uring_queue_init(8, &ring, 0);
 	if (ret) {
-		printf("ring setup failed\n");
+		fprintf(stderr, "ring setup failed: %d\n", ret);
 		return 1;
 
 	}
@@ -29,7 +29,7 @@ int main(int argc, char *argv[])
 		i++;
 
 	if (i != 8) {
-		printf("Got %d SQEs\n", i);
+		fprintf(stderr, "Got %d SQEs, wanted 8\n", i);
 		goto err;
 	}
 

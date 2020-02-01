@@ -104,13 +104,13 @@ int main(int argc, char *argv[])
 	int ret;
 
 	if (pipe(pipe1) != 0) {
-		printf("pipe failed\n");
+		perror("pipe");
 		return 1;
 	}
 
 	ret = io_uring_queue_init(1024, &ring, 0);
 	if (ret) {
-		printf("child: ring setup failed\n");
+		fprintf(stderr, "ring setup failed: %d\n", ret);
 		return 1;
 	}
 

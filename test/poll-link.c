@@ -99,7 +99,7 @@ void *recv_thread(void *arg)
 	} while (++i < 100);
 
 	if (i >= 100) {
-		printf("Can't find good port, skipped\n");
+		fprintf(stderr, "Can't find good port, skipped\n");
 		data->stop = 1;
 		signal_var(&recv_thread_ready);
 		goto out;

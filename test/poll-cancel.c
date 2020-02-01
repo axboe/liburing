@@ -21,7 +21,7 @@ struct poll_data {
 
 static void sig_alrm(int sig)
 {
-	printf("Timed out!\n");
+	fprintf(stderr, "Timed out!\n");
 	exit(1);
 }
 
@@ -36,13 +36,13 @@ int main(int argc, char *argv[])
 	int ret;
 
 	if (pipe(pipe1) != 0) {
-		printf("pipe failed\n");
+		perror("pipe");
 		return 1;
 	}
 
 	ret = io_uring_queue_init(2, &ring, 0);
 	if (ret) {
-		printf("child: ring setup failed\n");
+		fprintf(stderr, "ring setup failed: %d\n", ret);
 		return 1;
 	}
 
@@ -54,7 +54,7 @@ int main(int argc, char *argv[])
 
 	sqe = io_uring_get_sqe(&ring);
 	if (!sqe) {
-		printf("child: get sqe failed\n");
+		fprintf(stderr, "get sqe failed\n");
 		return 1;
 	}
 
@@ -66,13 +66,13 @@ int main(int argc, char *argv[])
 
 	ret = io_uring_submit(&ring);
 	if (ret <= 0) {
-		printf("child: sqe submit failed\n");
+		fprintf(stderr, "sqe submit failed\n");
 		return 1;
 	}
 
 	sqe = io_uring_get_sqe(&ring);
 	if (!sqe) {
-		printf("child: get sqe failed\n");
+		fprintf(stderr, "get sqe failed\n");
 		return 1;
 	}
 
@@ -83,42 +83,46 @@ int main(int argc, char *argv[])
 
 	ret = io_uring_submit(&ring);
 	if (ret <= 0) {
-		printf("child: sqe submit failed\n");
+		fprintf(stderr, "sqe submit failed: %d\n", ret);
 		return 1;
 	}
 
 	ret = io_uring_wait_cqe(&ring, &cqe);
 	if (ret < 0) {
-		printf("child: get cqe failed\n");
+		fprintf(stderr, "wait cqe failed: %d\n", ret);
 		return 1;
 	}
 
 	pd = io_uring_cqe_get_data(cqe);
 	if (pd->is_poll && cqe->res != -ECANCELED) {
-		printf("sqe (add=%d/remove=%d) failed with %ld\n", pd->is_poll,
-							pd->is_cancel, (long) cqe->res);
+		fprintf(stderr ,"sqe (add=%d/remove=%d) failed with %ld\n",
+					pd->is_poll, pd->is_cancel,
+					(long) cqe->res);
 		return 1;
 	} else if (pd->is_cancel && cqe->res) {
-		printf("sqe (add=%d/remove=%d) failed with %ld\n", pd->is_poll,
-							pd->is_cancel, (long) cqe->res);
+		fprintf(stderr, "sqe (add=%d/remove=%d) failed with %ld\n",
+					pd->is_poll, pd->is_cancel,
+					(long) cqe->res);
 		return 1;
 	}
 	io_uring_cqe_seen(&ring, cqe);
 
 	ret = io_uring_wait_cqe(&ring, &cqe);
 	if (ret < 0) {
-		printf("parent: get failed\n");
+		fprintf(stderr, "wait_cqe: %d\n", ret);
 		return 1;
 	}
 
 	pd = io_uring_cqe_get_data(cqe);
 	if (pd->is_poll && cqe->res != -ECANCELED) {
-		printf("sqe (add=%d/remove=%d) failed with %ld\n", pd->is_poll,
-							pd->is_cancel, (long) cqe->res);
+		fprintf(stderr, "sqe (add=%d/remove=%d) failed with %ld\n",
+					pd->is_poll, pd->is_cancel,
+					(long) cqe->res);
 		return 1;
 	} else if (pd->is_cancel && cqe->res) {
-		printf("sqe (add=%d/remove=%d) failed with %ld\n", pd->is_poll,
-							pd->is_cancel, (long) cqe->res);
+		fprintf(stderr, "sqe (add=%d/remove=%d) failed with %ld\n",
+					pd->is_poll, pd->is_cancel,
+					(long) cqe->res);
 		return 1;
 	}
 

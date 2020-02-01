@@ -15,7 +15,7 @@
 
 static void sig_alrm(int sig)
 {
-	printf("Timed out!\n");
+	fprintf(stderr, "Timed out!\n");
 	exit(1);
 }
 
@@ -29,21 +29,21 @@ int main(int argc, char *argv[])
 	int ret;
 
 	if (pipe(pipe1) != 0) {
-		printf("pipe failed\n");
+		perror("pipe");
 		return 1;
 	}
 
 	p = fork();
 	switch (p) {
 	case -1:
-		printf("fork failed\n");
+		perror("fork");
 		exit(2);
 	case 0: {
 		struct sigaction act;
 
 		ret = io_uring_queue_init(1, &ring, 0);
 		if (ret) {
-			printf("child: ring setup failed\n");
+			fprintf(stderr, "child: ring setup failed: %d\n", ret);
 			return 1;
 		}
 
@@ -55,7 +55,7 @@ int main(int argc, char *argv[])
 
 		sqe = io_uring_get_sqe(&ring);
 		if (!sqe) {
-			printf("child: get sqe failed\n");
+			fprintf(stderr, "get sqe failed\n");
 			return 1;
 		}
 
@@ -64,29 +64,28 @@ int main(int argc, char *argv[])
 
 		ret = io_uring_submit(&ring);
 		if (ret <= 0) {
-			printf("child: sqe submit failed\n");
+			fprintf(stderr, "child: sqe submit failed: %d\n", ret);
 			return 1;
 		}
 
 		do {
 			ret = io_uring_wait_cqe(&ring, &cqe);
 			if (ret < 0) {
-				printf("child: wait completion %d\n", ret);
+				fprintf(stderr, "child: wait completion %d\n", ret);
 				break;
 			}
 			io_uring_cqe_seen(&ring, cqe);
 		} while (ret != 0);
 
-		if (ret < 0) {
-			printf("child: completion get failed\n");
+		if (ret < 0)
 			return 1;
-		}
 		if (cqe->user_data != (unsigned long) sqe) {
-			printf("child: cqe doesn't match sqe\n");
+			fprintf(stderr, "child: cqe doesn't match sqe\n");
 			return 1;
 		}
 		if ((cqe->res & POLLIN) != POLLIN) {
-			printf("child: bad return value %ld\n", (long) cqe->res);
+			fprintf(stderr, "child: bad return value %ld\n",
+							(long) cqe->res);
 			return 1;
 		}
 		exit(0);
@@ -98,7 +97,7 @@ int main(int argc, char *argv[])
 		} while (ret == -1 && errno == EINTR);
 
 		if (ret != 3) {
-			printf("parent: bad write return %d\n", ret);
+			fprintf(stderr, "parent: bad write return %d\n", ret);
 			return 1;
 		}
 		return 0;
