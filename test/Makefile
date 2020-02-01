@@ -19,7 +19,7 @@ all_targets += poll poll-cancel ring-leak fsync io_uring_setup io_uring_register
 		poll-many b5837bd5311d-test accept-test d77a67ed5f27-test \
 		connect 7ad0e4b2f83c-test submit-reuse fallocate open-close \
 		file-update statx accept-reuse poll-v-poll fadvise madvise \
-		short-read openat2 probe shared-wq personality eventfd
+		short-read openat2 probe shared-wq personality eventfd send_recv
 
 include ../Makefile.quiet
 
@@ -52,6 +52,7 @@ test_objs := $(patsubst %.c,%.ol,$(test_srcs))
 
 35fa71a030ca-test: XCFLAGS = -lpthread
 232c93d07b74-test: XCFLAGS = -lpthread
+send_recv: XCFLAGS = -lpthread
 send_recvmsg: XCFLAGS = -lpthread
 poll-link: XCFLAGS = -lpthread
 accept-link: XCFLAGS = -lpthread

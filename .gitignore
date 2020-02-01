@@ -37,6 +37,7 @@
 /test/d77a67ed5f27-test
 /test/defer
 /test/eeed8b54e0df-test
+/test/eventfd
 /test/fadvise
 /test/fallocate
 /test/fc2a85cb02ef-test
@@ -65,6 +66,7 @@
 /test/probe
 /test/read-write
 /test/ring-leak
+/test/send_recv
 /test/send_recvmsg
 /test/shared-wq
 /test/short-read

@@ -1,5 +1,5 @@
 /*
- * Simple test case showing using sendmsg and recvmsg through io_uring
+ * Simple test case showing using send and recv through io_uring
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -12,17 +12,21 @@
 
 #include "liburing.h"
 
-static char str[] = "This is a test of sendmsg and recvmsg over io_uring!";
+static char str[] = "This is a test of send and recv over io_uring!";
 
 #define MAX_MSG	128
 
 #define PORT	10200
 #define HOST	"127.0.0.1"
 
+#if 0
+#	define io_uring_prep_send io_uring_prep_write
+#	define io_uring_prep_recv io_uring_prep_read
+#endif
+
 static int recv_prep(struct io_uring *ring, struct iovec *iov)
 {
 	struct sockaddr_in saddr;
-	struct msghdr msg;
 	struct io_uring_sqe *sqe;
 	int sockfd, ret;
 
@@ -43,13 +47,8 @@ static int recv_prep(struct io_uring *ring, struct iovec *iov)
 		goto err;
 	}
 
-	memset(&msg, 0, sizeof(msg));
-        msg.msg_namelen = sizeof(struct sockaddr_in);
-	msg.msg_iov = iov;
-	msg.msg_iovlen = 1;
-
 	sqe = io_uring_get_sqe(ring);
-	io_uring_prep_recvmsg(sqe, sockfd, &msg, 0);
+	io_uring_prep_recv(sqe, sockfd, iov->iov_base, iov->iov_len, 0);
 
 	ret = io_uring_submit(ring);
 	if (ret <= 0) {
@@ -63,7 +62,7 @@ err:
 	return 1;
 }
 
-static int do_recvmsg(struct io_uring *ring, struct iovec *iov)
+static int do_recv(struct io_uring *ring, struct iovec *iov)
 {
 	struct io_uring_cqe *cqe;
 
@@ -103,20 +102,19 @@ static void *recv_fn(void *data)
 
 	recv_prep(&ring, &iov);
 	pthread_mutex_unlock(mutex);
-	ret = do_recvmsg(&ring, &iov);
+	ret = do_recv(&ring, &iov);
 
 	io_uring_queue_exit(&ring);
 	return (void *)(intptr_t)ret;
 }
 
-static int do_sendmsg(void)
+static int do_send(void)
 {
 	struct sockaddr_in saddr;
 	struct iovec iov = {
 		.iov_base = str,
 		.iov_len = sizeof(str),
 	};
-	struct msghdr msg;
 	struct io_uring ring;
 	struct io_uring_cqe *cqe;
 	struct io_uring_sqe *sqe;
@@ -133,20 +131,20 @@ static int do_sendmsg(void)
 	saddr.sin_port = htons(PORT);
 	inet_pton(AF_INET, HOST, &saddr.sin_addr);
 
-	memset(&msg, 0, sizeof(msg));
-	msg.msg_name = &saddr;
-	msg.msg_namelen = sizeof(struct sockaddr_in);
-	msg.msg_iov = &iov;
-	msg.msg_iovlen = 1;
-
 	sockfd = socket(AF_INET, SOCK_DGRAM, 0);
 	if (sockfd < 0) {
 		perror("socket");
 		return 1;
 	}
 
+	ret = connect(sockfd, &saddr, sizeof(saddr));
+	if (ret < 0) {
+		perror("connect");
+		return 1;
+	}
+
 	sqe = io_uring_get_sqe(&ring);
-	io_uring_prep_sendmsg(sqe, sockfd, &msg, 0);
+	io_uring_prep_send(sqe, sockfd, iov.iov_base, iov.iov_len, 0);
 
 	ret = io_uring_submit(&ring);
 	if (ret <= 0) {
@@ -155,7 +153,7 @@ static int do_sendmsg(void)
 	}
 
 	ret = io_uring_wait_cqe(&ring, &cqe);
-	if (cqe->res < 0) {
+	if (cqe->res != iov.iov_len) {
 		printf("failed cqe: %d\n", cqe->res);
 		goto err;
 	}
@@ -187,7 +185,7 @@ int main(int argc, char *argv[])
 	}
 
 	pthread_mutex_lock(&mutex);
-	do_sendmsg();
+	do_send();
 	pthread_join(recv_thread, &retval);
 	ret = (int)(intptr_t)retval;
 
