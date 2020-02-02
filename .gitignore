@@ -26,6 +26,7 @@
 /test/accept-link
 /test/accept-reuse
 /test/accept-test
+/test/across-fork
 /test/b19062a56726-test
 /test/b5837bd5311d-test
 /test/connect
