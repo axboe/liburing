@@ -15,6 +15,7 @@
 
 int main(int argc, char *argv[])
 {
+	struct io_uring_params p = {};
 	struct io_uring_sqe *sqe;
 	struct io_uring_cqe *cqe;
 	struct io_uring ring;
@@ -25,10 +26,14 @@ int main(int argc, char *argv[])
 	};
 	int ret, evfd, i;
 
-	ret = io_uring_queue_init(8, &ring, 0);
+	ret = io_uring_queue_init_params(8, &ring, &p);
 	if (ret) {
 		fprintf(stderr, "ring setup failed: %d\n", ret);
 		return 1;
+	}
+	if (!(p.features & IORING_FEAT_CUR_PERSONALITY)) {
+		fprintf(stdout, "Skipping\n");
+		return 0;
 	}
 
 	evfd = eventfd(0, EFD_CLOEXEC);
