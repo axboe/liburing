@@ -19,7 +19,8 @@ all_targets += poll poll-cancel ring-leak fsync io_uring_setup io_uring_register
 		poll-many b5837bd5311d-test accept-test d77a67ed5f27-test \
 		connect 7ad0e4b2f83c-test submit-reuse fallocate open-close \
 		file-update statx accept-reuse poll-v-poll fadvise madvise \
-		short-read openat2 probe shared-wq personality eventfd send_recv
+		short-read openat2 probe shared-wq personality eventfd send_recv \
+		across-fork
 
 include ../Makefile.quiet
 
@@ -46,7 +47,7 @@ test_srcs := poll.c poll-cancel.c ring-leak.c fsync.c io_uring_setup.c \
 	7ad0e4b2f83c-test.c submit-reuse.c fallocate.c open-close.c \
 	file-update.c statx.c accept-reuse.c poll-v-poll.c fadvise.c \
 	madvise.c short-read.c openat2.c probe.c shared-wq.c \
-	personality.c eventfd.c
+	personality.c eventfd.c across-fork.c
 
 test_objs := $(patsubst %.c,%.ol,$(test_srcs))
 
@@ -58,6 +59,7 @@ poll-link: XCFLAGS = -lpthread
 accept-link: XCFLAGS = -lpthread
 submit-reuse: XCFLAGS = -lpthread
 poll-v-poll: XCFLAGS = -lpthread
+across-fork: XCFLAGS = -lpthread
 
 install: $(all_targets) runtests.sh runtests-loop.sh
 	$(INSTALL) -D -d -m 755 $(datadir)/liburing-test/
