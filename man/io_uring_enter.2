@@ -394,7 +394,7 @@ for the general description of the related system call. Available since 5.6.
 .TP
 .B IORING_OP_FADVISE
 Issue the equivalent of a
-.BR posix_fallocate(2)
+.BR posix_fadvise(2)
 system call.
 .I fd
 must be set to the file descriptor,
@@ -561,10 +561,10 @@ requests that did submit correctly. IOSQE_IO_HARDLINK implies IOSQE_IO_LINK.
 Available since 5.5.
 .TP
 .B IOSQE_ASYNC
-Normal operation for io_uring is to try and issue an sqe as non-blockin first,
+Normal operation for io_uring is to try and issue an sqe as non-blocking first,
 and if that fails, execute it in an async manner. To support more efficient
 overlapped operation of requests that the application knows/assumes will
-always (or most of the time) block, the applocation can ask for an sqe to be
+always (or most of the time) block, the application can ask for an sqe to be
 issued async from the start. Available since 5.6.
 
 
