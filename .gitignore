@@ -39,6 +39,7 @@
 /test/defer
 /test/eeed8b54e0df-test
 /test/eventfd
+/test/eventfd-ring
 /test/fadvise
 /test/fallocate
 /test/fc2a85cb02ef-test
