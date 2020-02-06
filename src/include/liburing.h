@@ -405,6 +405,14 @@ static inline void io_uring_prep_openat2(struct io_uring_sqe *sqe, int dfd,
 				(uint64_t) (uintptr_t) how);
 }
 
+struct epoll_event;
+static inline void io_uring_prep_epoll_ctl(struct io_uring_sqe *sqe, int epfd,
+					   int fd, int op,
+					   struct epoll_event *ev)
+{
+	io_uring_prep_rw(IORING_OP_EPOLL_CTL, sqe, epfd, ev, op, fd);
+}
+
 static inline unsigned io_uring_sq_ready(struct io_uring *ring)
 {
 	return ring->sq.sqe_tail - ring->sq.sqe_head;
