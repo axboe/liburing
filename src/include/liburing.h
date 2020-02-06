@@ -179,7 +179,7 @@ static inline void io_uring_sqe_set_data(struct io_uring_sqe *sqe, void *data)
 	sqe->user_data = (unsigned long) data;
 }
 
-static inline void *io_uring_cqe_get_data(struct io_uring_cqe *cqe)
+static inline void *io_uring_cqe_get_data(const struct io_uring_cqe *cqe)
 {
 	return (void *) (uintptr_t) cqe->user_data;
 }
