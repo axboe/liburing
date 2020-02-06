@@ -1,6 +1,7 @@
 prefix ?= /usr
 includedir ?= $(prefix)/include
 libdir ?= $(prefix)/lib
+libdevdir ?= $(prefix)/lib
 
 CFLAGS ?= -g -fomit-frame-pointer -O2
 override CFLAGS += -Wall -Iinclude/
@@ -56,11 +57,11 @@ install: $(all_targets)
 	install -D -m 644 include/liburing.h $(includedir)/liburing.h
 	install -D -m 644 include/liburing/compat.h $(includedir)/liburing/compat.h
 	install -D -m 644 include/liburing/barrier.h $(includedir)/liburing/barrier.h
-	install -D -m 644 liburing.a $(libdir)/liburing.a
+	install -D -m 644 liburing.a $(libdevdir)/liburing.a
 ifeq ($(ENABLE_SHARED),1)
 	install -D -m 755 $(libname) $(libdir)/$(libname)
 	ln -sf $(libname) $(libdir)/$(soname)
-	ln -sf $(libname) $(libdir)/liburing.so
+	ln -sf $(libname) $(libdevdir)/liburing.so
 endif
 
 $(liburing_objs): include/liburing.h

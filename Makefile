@@ -13,6 +13,9 @@ all:
 	@$(MAKE) -C test
 	@$(MAKE) -C examples
 
+partcheck: all
+	@echo "make partcheck => TODO add tests with out kernel support"
+
 runtests: all
 	@$(MAKE) -C test runtests
 runtests-loop:
@@ -40,8 +43,8 @@ endif
 	    $< >$@
 
 install: $(NAME).pc
-	@$(MAKE) -C src install prefix=$(DESTDIR)$(prefix) includedir=$(DESTDIR)$(includedir) libdir=$(DESTDIR)$(libdir)
-	$(INSTALL) -D -m 644 $(NAME).pc $(DESTDIR)$(libdir)/pkgconfig/$(NAME).pc
+	@$(MAKE) -C src install prefix=$(DESTDIR)$(prefix) includedir=$(DESTDIR)$(includedir) libdir=$(DESTDIR)$(libdir)  libdevdir=$(DESTDIR)$(libdevdir)
+	$(INSTALL) -D -m 644 $(NAME).pc $(DESTDIR)$(libdevdir)/pkgconfig/$(NAME).pc
 	$(INSTALL) -m 755 -d $(DESTDIR)$(mandir)/man2
 	$(INSTALL) -m 644 man/*.2 $(DESTDIR)$(mandir)/man2
 

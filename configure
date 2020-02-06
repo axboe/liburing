@@ -22,6 +22,8 @@ for opt do
   ;;
   --libdir=*) libdir="$optarg"
   ;;
+  --libdevdir=*) libdevdir="$optarg"
+  ;;
   --mandir=*) mandir="$optarg"
   ;;
   --datadir=*) datadir="$optarg"
@@ -45,6 +47,9 @@ fi
 if test -z "$libdir"; then
   libdir="$prefix/lib"
 fi
+if test -z "$libdevdir"; then
+  libdevdir="$libdir"
+fi
 if test -z "$mandir"; then
   mandir="$prefix/man"
 fi
@@ -61,7 +66,8 @@ Options: [defaults in brackets after descriptions]
   --help                   print this message
   --prefix=PATH            install in PATH [$prefix]
   --includedir=PATH        install headers in PATH [$includedir]
-  --libdir=PATH            install libraries in PATH [$libdir]
+  --libdir=PATH            install runtime libraries in PATH [$libdir]
+  --libdevdir=PATH         install developement libraries in PATH [$libdevdir]
   --mandir=PATH            install man pages in PATH [$mandir]
   --datadir=PATH           install shared data in PATH [$datadir]
 EOF
@@ -171,6 +177,7 @@ print_and_output_mak() {
 print_and_output_mak "prefix" "$prefix"
 print_and_output_mak "includedir" "$includedir"
 print_and_output_mak "libdir" "$libdir"
+print_and_output_mak "libdevdir" "$libdevdir"
 print_and_output_mak "mandir" "$mandir"
 print_and_output_mak "datadir" "$datadir"
 
