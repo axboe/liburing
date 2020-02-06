@@ -1,3 +1,9 @@
+liburing (0.4-1) stable; urgency=low
+
+  * Package liburing-0.4 using a packaging layout similar to libaio1
+
+ -- Stefan Metzmacher <metze@samba.org>  Thu, 06 Feb 2020 11:30:00 +0100
+
 liburing (0.2-1ubuntu1) stable; urgency=low
 
   * Initial release.
