@@ -197,7 +197,39 @@ static int do_fd_test(struct io_uring *ring, const char *fname, int events)
 	return 0;
 }
 
-static int do_test_epoll(struct io_uring *ring)
+static int iou_epoll_ctl(struct io_uring *ring, int epfd, int fd,
+			 struct epoll_event *ev)
+{
+	struct io_uring_sqe *sqe;
+	struct io_uring_cqe *cqe;
+	int ret;
+
+	sqe = io_uring_get_sqe(ring);
+	if (!sqe) {
+		fprintf(stderr, "Failed to get sqe\n");
+		return 1;
+	}
+
+	io_uring_prep_epoll_ctl(sqe, epfd, fd, EPOLL_CTL_ADD, ev);
+
+	ret = io_uring_submit(ring);
+	if (ret != 1) {
+		fprintf(stderr, "submit: %d\n", ret);
+		return 1;
+	}
+
+	ret = io_uring_wait_cqe(ring, &cqe);
+	if (ret) {
+		fprintf(stderr, "wait_cqe: %d\n", ret);
+		return 1;
+	}
+
+	ret = cqe->res;
+	io_uring_cqe_seen(ring, cqe);
+	return ret;
+}
+
+static int do_test_epoll(struct io_uring *ring, int iou_epoll_add)
 {
 	struct epoll_event ev;
 	struct thread_data td;
@@ -220,9 +252,14 @@ static int do_test_epoll(struct io_uring *ring)
 	ev.events = EPOLLIN;
 	ev.data.fd = pipe1[0];
 
-	if (epoll_ctl(fd, EPOLL_CTL_ADD, pipe1[0], &ev) < 0) {
-		perror("epoll_ctrl");
-		return 1;
+	if (!iou_epoll_add) {
+		if (epoll_ctl(fd, EPOLL_CTL_ADD, pipe1[0], &ev) < 0) {
+			perror("epoll_ctrl");
+			return 1;
+		}
+	} else {
+		if (iou_epoll_ctl(ring, fd, pipe1[0], &ev))
+			return 1;
 	}
 
 	td.ring = ring;
@@ -270,9 +307,15 @@ int main(int argc, char *argv[])
 		return ret;
 	}
 
-	ret = do_test_epoll(&ring);
+	ret = do_test_epoll(&ring, 0);
 	if (ret) {
-		fprintf(stderr, "epoll test failed\n");
+		fprintf(stderr, "epoll test 0 failed\n");
+		return ret;
+	}
+
+	ret = do_test_epoll(&ring, 1);
+	if (ret) {
+		fprintf(stderr, "epoll test 1 failed\n");
 		return ret;
 	}
 
