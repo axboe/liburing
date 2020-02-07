@@ -48,7 +48,7 @@ if test -z "$libdir"; then
   libdir="$prefix/lib"
 fi
 if test -z "$libdevdir"; then
-  libdevdir="$libdir"
+  libdevdir="$prefix/lib"
 fi
 if test -z "$mandir"; then
   mandir="$prefix/man"
@@ -57,6 +57,11 @@ if test -z "$datadir"; then
   datadir="$prefix/share"
 fi
 
+if test x"$libdir" = x"$libdevdir"; then
+  relativelibdir=""
+else
+  relativelibdir="$libdir/"
+fi
 
 if test "$show_help" = "yes"; then
 cat <<EOF
@@ -178,6 +183,7 @@ print_and_output_mak "prefix" "$prefix"
 print_and_output_mak "includedir" "$includedir"
 print_and_output_mak "libdir" "$libdir"
 print_and_output_mak "libdevdir" "$libdevdir"
+print_and_output_mak "relativelibdir" "$relativelibdir"
 print_and_output_mak "mandir" "$mandir"
 print_and_output_mak "datadir" "$datadir"
 

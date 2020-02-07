@@ -1,3 +1,9 @@
+liburing (0.4-2) stable; urgency=low
+
+  * Fix /usr/lib/*/liburing.so symlink to /lib/*/liburing.so.1.0.4
+
+ -- Stefan Metzmacher <metze@samba.org>  Fri, 07 Feb 2020 15:30:00 +0100
+
 liburing (0.4-1) stable; urgency=low
 
   * Package liburing-0.4 using a packaging layout similar to libaio1

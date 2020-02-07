@@ -61,7 +61,7 @@ install: $(all_targets)
 ifeq ($(ENABLE_SHARED),1)
 	install -D -m 755 $(libname) $(libdir)/$(libname)
 	ln -sf $(libname) $(libdir)/$(soname)
-	ln -sf $(libname) $(libdevdir)/liburing.so
+	ln -sf $(relativelibdir)$(libname) $(libdevdir)/liburing.so
 endif
 
 $(liburing_objs): include/liburing.h
