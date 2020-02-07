@@ -415,7 +415,9 @@ static inline void io_uring_prep_epoll_ctl(struct io_uring_sqe *sqe, int epfd,
 
 static inline unsigned io_uring_sq_ready(struct io_uring *ring)
 {
-	return ring->sq.sqe_tail - ring->sq.sqe_head;
+	if (!(ring->flags & IORING_SETUP_SQPOLL))
+		return ring->sq.sqe_tail - ring->sq.sqe_head;
+	return ring->sq.sqe_tail - *ring->sq.khead;
 }
 
 static inline unsigned io_uring_sq_space_left(struct io_uring *ring)
