@@ -30,7 +30,7 @@ static int create_file(const char *file, size_t size)
 	return ret != size;
 }
 
-static int test_openat2(struct io_uring *ring, const char *path)
+static int test_openat2(struct io_uring *ring, const char *path, int dfd)
 {
 	struct io_uring_cqe *cqe;
 	struct io_uring_sqe *sqe;
@@ -44,7 +44,7 @@ static int test_openat2(struct io_uring *ring, const char *path)
 	}
 	memset(&how, 0, sizeof(how));
 	how.flags = O_RDONLY;
-	io_uring_prep_openat2(sqe, -1, path, &how);
+	io_uring_prep_openat2(sqe, dfd, path, &how);
 
 	ret = io_uring_submit(ring);
 	if (ret <= 0) {
@@ -67,7 +67,7 @@ err:
 int main(int argc, char *argv[])
 {
 	struct io_uring ring;
-	const char *fname;
+	const char *path, *path_rel;
 	int ret, do_unlink;
 
 	ret = io_uring_queue_init(8, &ring, 0);
@@ -77,34 +77,48 @@ int main(int argc, char *argv[])
 	}
 
 	if (argc > 1) {
-		fname = argv[1];
+		path = "/tmp/.open.close";
+		path_rel = argv[1];
 		do_unlink = 0;
 	} else {
-		fname = "/tmp/.open.close";
+		path = "/tmp/.open.close";
+		path_rel = ".open.close";
 		do_unlink = 1;
 	}
 
-	if (create_file(fname, 4096)) {
+	if (create_file(path, 4096)) {
+		fprintf(stderr, "file create failed\n");
+		return 1;
+	}
+	if (do_unlink && create_file(path_rel, 4096)) {
 		fprintf(stderr, "file create failed\n");
 		return 1;
 	}
 
-	ret = test_openat2(&ring, fname);
+	ret = test_openat2(&ring, path, -1);
 	if (ret < 0) {
 		if (ret == -EINVAL) {
 			fprintf(stdout, "openat2 not supported, skipping\n");
 			goto done;
 		}
-		fprintf(stderr, "test_openat2 failed: %d\n", ret);
+		fprintf(stderr, "test_openat2 absolute failed: %d\n", ret);
+		goto err;
+	}
+
+	ret = test_openat2(&ring, path_rel, AT_FDCWD);
+	if (ret < 0) {
+		fprintf(stderr, "test_openat2 relative failed: %d\n", ret);
 		goto err;
 	}
 
 done:
+	unlink(path);
 	if (do_unlink)
-		unlink(fname);
+		unlink(path_rel);
 	return 0;
 err:
+	unlink(path);
 	if (do_unlink)
-		unlink(fname);
+		unlink(path_rel);
 	return 1;
 }
