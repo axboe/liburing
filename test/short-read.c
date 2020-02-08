@@ -34,7 +34,7 @@ static int create_file(const char *file)
 
 int main(int argc, char *argv[])
 {
-	int ret, fd;
+	int ret, fd, save_errno;
 	struct io_uring ring;
 	struct io_uring_sqe *sqe;
 	struct io_uring_cqe *cqe;
@@ -49,6 +49,9 @@ int main(int argc, char *argv[])
 	}
 
 	fd = open(".short-read", O_RDONLY);
+	save_errno = errno;
+	unlink(".short-read");
+	errno = save_errno;
 	if (fd < 0) {
 		perror("file open");
 		return 1;
