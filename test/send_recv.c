@@ -2,6 +2,7 @@
 /*
  * Simple test case showing using send and recv through io_uring
  */
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -69,6 +70,10 @@ static int do_recv(struct io_uring *ring, struct iovec *iov)
 	struct io_uring_cqe *cqe;
 
 	io_uring_wait_cqe(ring, &cqe);
+	if (cqe->res == -EINVAL) {
+		fprintf(stdout, "recv not supported, skipping\n");
+		return 0;
+	}
 	if (cqe->res < 0) {
 		fprintf(stderr, "failed cqe: %d\n", cqe->res);
 		goto err;
@@ -157,6 +162,11 @@ static int do_send(void)
 	}
 
 	ret = io_uring_wait_cqe(&ring, &cqe);
+	if (cqe->res == -EINVAL) {
+		fprintf(stdout, "send not supported, skipping\n");
+		close(sockfd);
+		return 0;
+	}
 	if (cqe->res != iov.iov_len) {
 		fprintf(stderr, "failed cqe: %d\n", cqe->res);
 		goto err;

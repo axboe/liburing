@@ -344,7 +344,9 @@ static int test_eventfd_read(void)
 		fprintf(stderr, "wait_cqe=%d\n", ret);
 		return 1;
 	}
-	if (cqe->res != sizeof(eventfd_t)) {
+	if (cqe->res == -EINVAL) {
+		fprintf(stdout, "eventfd IO not supported, skipping\n");
+	} else if (cqe->res != sizeof(eventfd_t)) {
 		fprintf(stderr, "cqe res %d, wanted %ld\n", cqe->res, sizeof(eventfd_t));
 		return 1;
 	}
