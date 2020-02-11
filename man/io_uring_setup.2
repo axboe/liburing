@@ -194,6 +194,22 @@ with
 with the caveat that if the application has multiple reads or writes in flight,
 then the end result will not be as expected. This is similar to threads sharing
 a file descriptor and doing IO using the current file position.
+.TP
+.B IORING_FEAT_CUR_PERSONALITY
+If this flag is set, then io_uring guarantees that both sync and async
+execution of a request assumes the credentials of the task that called
+.I
+io_uring_enter(2)
+to queue the requests. If this flag isn't set, then requests are issued with
+the credentials of the task that originally registered the io_uring. If only
+one task is using a ring, then this flag doesn't matter as the credentials
+will always be the same. Note that this is the default behavior, tasks can
+still register different personalities through
+.I
+io_uring_register(2)
+with
+.B IORING_REGISTER_PERSONALITY
+and specify the personality to use in the sqe.
 
 .PP
 The rest of the fields in the
