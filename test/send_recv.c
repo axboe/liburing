@@ -106,13 +106,23 @@ static void *recv_fn(void *data)
 	struct io_uring ring;
 	int ret;
 
-	io_uring_queue_init(1, &ring, 0);
+	ret = io_uring_queue_init(1, &ring, 0);
+	if (ret) {
+		fprintf(stderr, "queue init failed: %d\n", ret);
+		goto err;
+	}
 
-	recv_prep(&ring, &iov);
+	ret = recv_prep(&ring, &iov);
+	if (ret) {
+		fprintf(stderr, "recv_prep failed: %d\n", ret);
+		goto err;
+	}
 	pthread_mutex_unlock(mutex);
 	ret = do_recv(&ring, &iov);
 
 	io_uring_queue_exit(&ring);
+
+err:
 	return (void *)(intptr_t)ret;
 }
 
