@@ -288,7 +288,7 @@ static int has_nonvec_read(void)
 
 	ret = io_uring_queue_init(1, &ring, 0);
 	if (ret) {
-		fprintf(stderr, "queue init: %d\n", ret);
+		fprintf(stderr, "queue init failed: %d\n", ret);
 		exit(ret);
 	}
 

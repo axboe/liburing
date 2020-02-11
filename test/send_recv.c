@@ -130,7 +130,7 @@ static int do_send(void)
 
 	ret = io_uring_queue_init(1, &ring, 0);
 	if (ret) {
-		fprintf(stderr, "queue init fail: %d\n", ret);
+		fprintf(stderr, "queue init failed: %d\n", ret);
 		return 1;
 	}
 
