@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 /*
  * Check that IORING_OP_ACCEPT works, and send some data across to verify we
  * didn't get a junk fd.

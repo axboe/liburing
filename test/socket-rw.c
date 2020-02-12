@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 /*
  * Check that a readv on a socket queued before a writev doesn't hang
  * the processing.

@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 /*
  * Description: run various statx(2) tests
  *

@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 /*
  * Description: Check to see if accept handles addr and addrlen
  */

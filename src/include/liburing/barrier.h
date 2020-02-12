@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 #ifndef LIBURING_BARRIER_H
 #define LIBURING_BARRIER_H
 

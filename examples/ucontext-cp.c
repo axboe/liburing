@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 /*
  * gcc -Wall -O2 -D_GNU_SOURCE -o ucontext-cp ucontext-cp.c -luring
  */

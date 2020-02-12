@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 /*
  * Check that IORING_OP_CONNECT works, with and without other side
  * being open.

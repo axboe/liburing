@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 /*
  * Based on description from Al Viro - this demonstrates a leak of the
  * io_uring instance, by sending the io_uring fd over a UNIX socket.
