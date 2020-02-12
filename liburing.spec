@@ -3,7 +3,8 @@ Version: 0.4
 Release: 1%{?dist}
 Summary: Linux-native io_uring I/O access library
 License: LGPLv2+ / MIT
-Source: https://git.kernel.dk/cgit/liburing/snapshot/%{name}-%{version}.tar.gz
+Source0: https://brick.kernel.dk/snaps/%{name}-%{version}.tar.gz
+Source1: https://brick.kernel.dk/snaps/%{name}-%{version}.tar.gz.asc
 URL: https://git.kernel.dk/cgit/liburing/
 BuildRequires: gcc
 
