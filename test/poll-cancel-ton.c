@@ -19,13 +19,13 @@
 
 static void *sqe_index[POLL_COUNT];
 
-static int reap_events(struct io_uring *ring, unsigned nr_events)
+static int reap_events(struct io_uring *ring, unsigned nr_events, int nowait)
 {
 	struct io_uring_cqe *cqe;
 	int i, ret = 0;
 
 	for (i = 0; i < nr_events; i++) {
-		if (!i)
+		if (!i && !nowait)
 			ret = io_uring_wait_cqe(ring, &cqe);
 		else
 			ret = io_uring_peek_cqe(ring, &cqe);
@@ -64,7 +64,7 @@ static int del_polls(struct io_uring *ring, int fd, int nr)
 			return 1;
 		}
 		nr -= batch;
-		ret = reap_events(ring, 2 * batch);
+		ret = reap_events(ring, 2 * batch, 0);
 	}
 	return 0;
 }
@@ -94,6 +94,7 @@ static int add_polls(struct io_uring *ring, int fd, int nr)
 		}
 		nr -= batch;
 		pending += batch;
+		reap_events(ring, batch, 1);
 	}
 	return 0;
 }
