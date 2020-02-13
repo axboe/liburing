@@ -89,6 +89,10 @@ then issuing a new call to
 .BR io_uring_register ()
 with the new buffers.
 
+Note that registering buffers will wait for the ring to idle. If the application
+currently has requests in-flight, the registration will wait for those to
+finish before proceeding.
+
 An application need not unregister buffers explicitly before shutting
 down the io_uring instance. Available since 5.1.
 
@@ -116,6 +120,20 @@ member of the
 and the
 .I fd
 member is set to the index of the file in the file descriptor array.
+
+The file set may be sparse, meaning that the
+.B fd
+field in the array may be set to
+.B -1.
+See
+.B IORING_REGISTER_FILES_UPDATE
+for how to update files in place.
+
+Note that registering files will wait for the ring to idle. If the application
+currently has requests in-flight, the registration will wait for those to
+finish before proceeding. See
+.B IORING_REGISTER_FILES_UPDATE
+for how to update an existing set without that limitation.
 
 Files are automatically unregistered when the io_uring instance is
 torn down. An application need only unregister if it wishes to
