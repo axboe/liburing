@@ -69,3 +69,4 @@ $(liburing_objs): include/liburing.h
 clean:
 	@rm -f $(all_targets) $(liburing_objs) $(liburing_sobjs) $(soname).new
 	@rm -f *.so* *.a *.o
+	@rm -f include/liburing/compat.h

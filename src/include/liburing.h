@@ -15,15 +15,6 @@ extern "C" {
 #include "liburing/io_uring.h"
 #include "liburing/barrier.h"
 
-#ifndef CONFIG_HAVE_OPEN_HOW
-struct open_how {
-	uint64_t	flags;
-	uint16_t	mode;
-	uint16_t	__padding[3];
-	uint64_t	resolve;
-};
-#endif
-
 /*
  * Library interface to io_uring
  */

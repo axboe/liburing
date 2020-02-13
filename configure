@@ -259,3 +259,50 @@ if test "$open_how" = "yes"; then
 fi
 
 echo "CC=$cc" >> $config_host_mak
+
+# generate compat.h
+compat_h="src/include/liburing/compat.h"
+cat > $compat_h << EOF
+/* SPDX-License-Identifier: MIT */
+#ifndef LIBURING_COMPAT_H
+#define LIBURING_COMPAT_H
+
+EOF
+
+if test "$__kernel_rwf_t" != "yes"; then
+cat > $compat_h << EOF
+typedef int __kernel_rwf_t;
+
+EOF
+fi
+if test "$__kernel_timespec" != "yes"; then
+cat >> $compat_h << EOF
+struct __kernel_timespec {
+	int64_t		tv_sec;
+	long long	tv_nsec;
+};
+
+EOF
+else
+cat >> $compat_h << EOF
+#include <linux/time_types.h>
+
+EOF
+fi
+if test "$open_how" != "yes"; then
+cat >> $compat_h << EOF
+#include <inttypes.h>
+
+struct open_how {
+	uint64_t	flags;
+	uint16_t	mode;
+	uint16_t	__padding[3];
+	uint64_t	resolve;
+};
+
+EOF
+fi
+
+cat >> $compat_h << EOF
+#endif
+EOF
