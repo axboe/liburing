@@ -209,6 +209,7 @@ print_config "__kernel_rwf_t" "$__kernel_rwf_t"
 __kernel_timespec="no"
 cat > $TMPC << EOF
 #include <linux/time.h>
+#include <linux/time_types.h>
 int main(int argc, char **argv)
 {
   struct __kernel_timespec ts;

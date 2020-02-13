@@ -15,13 +15,6 @@ extern "C" {
 #include "liburing/io_uring.h"
 #include "liburing/barrier.h"
 
-#ifndef CONFIG_HAVE_KERNEL_TIMESPEC
-struct __kernel_timespec {
-	int64_t		tv_sec;
-	long long	tv_nsec;
-};
-#endif
-
 #ifndef CONFIG_HAVE_OPEN_HOW
 struct open_how {
 	uint64_t	flags;
