@@ -212,7 +212,7 @@ int main(int argc, char *argv[])
 	}
 
 	if (test_accept_timeout(1, 1000000000)) {
-		fprintf(stderr, "accept timeout 0 failed\n");
+		fprintf(stderr, "accept and connect timeout 0 failed\n");
 		return 1;
 	}
 
