@@ -2,6 +2,7 @@
 /*
  * Simple test case showing using send and recv through io_uring
  */
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -69,6 +70,10 @@ static int do_recv(struct io_uring *ring, struct iovec *iov)
 	struct io_uring_cqe *cqe;
 
 	io_uring_wait_cqe(ring, &cqe);
+	if (cqe->res == -EINVAL) {
+		fprintf(stdout, "recv not supported, skipping\n");
+		return 0;
+	}
 	if (cqe->res < 0) {
 		fprintf(stderr, "failed cqe: %d\n", cqe->res);
 		goto err;
@@ -101,13 +106,23 @@ static void *recv_fn(void *data)
 	struct io_uring ring;
 	int ret;
 
-	io_uring_queue_init(1, &ring, 0);
+	ret = io_uring_queue_init(1, &ring, 0);
+	if (ret) {
+		fprintf(stderr, "queue init failed: %d\n", ret);
+		goto err;
+	}
 
-	recv_prep(&ring, &iov);
+	ret = recv_prep(&ring, &iov);
+	if (ret) {
+		fprintf(stderr, "recv_prep failed: %d\n", ret);
+		goto err;
+	}
 	pthread_mutex_unlock(mutex);
 	ret = do_recv(&ring, &iov);
 
 	io_uring_queue_exit(&ring);
+
+err:
 	return (void *)(intptr_t)ret;
 }
 
@@ -125,7 +140,7 @@ static int do_send(void)
 
 	ret = io_uring_queue_init(1, &ring, 0);
 	if (ret) {
-		fprintf(stderr, "queue init fail: %d\n", ret);
+		fprintf(stderr, "queue init failed: %d\n", ret);
 		return 1;
 	}
 
@@ -157,6 +172,11 @@ static int do_send(void)
 	}
 
 	ret = io_uring_wait_cqe(&ring, &cqe);
+	if (cqe->res == -EINVAL) {
+		fprintf(stdout, "send not supported, skipping\n");
+		close(sockfd);
+		return 0;
+	}
 	if (cqe->res != iov.iov_len) {
 		fprintf(stderr, "failed cqe: %d\n", cqe->res);
 		goto err;

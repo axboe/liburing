@@ -42,7 +42,7 @@ static int submit_and_wait(struct io_uring *ring, int *res)
 	}
 
 	ret = io_uring_peek_cqe(ring, &cqe);
-	if (ret == -1) {
+	if (ret) {
 		fprintf(stderr, "io_uring_peek_cqe(): no cqe returned");
 		return 1;
 	}
@@ -233,8 +233,8 @@ int main(int argc, char *argv[])
 	int ret;
 
 	ret = io_uring_queue_init(8, &ring, 0);
-	if (ret == -1) {
-		perror("io_uring_queue_setup()");
+	if (ret) {
+		fprintf(stderr, "io_uring_queue_setup() = %d\n", ret);
 		return 1;
 	}
 

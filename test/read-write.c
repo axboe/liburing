@@ -288,7 +288,7 @@ static int has_nonvec_read(void)
 
 	ret = io_uring_queue_init(1, &ring, 0);
 	if (ret) {
-		fprintf(stderr, "queue init: %d\n", ret);
+		fprintf(stderr, "queue init failed: %d\n", ret);
 		exit(ret);
 	}
 
@@ -344,7 +344,9 @@ static int test_eventfd_read(void)
 		fprintf(stderr, "wait_cqe=%d\n", ret);
 		return 1;
 	}
-	if (cqe->res != sizeof(eventfd_t)) {
+	if (cqe->res == -EINVAL) {
+		fprintf(stdout, "eventfd IO not supported, skipping\n");
+	} else if (cqe->res != sizeof(eventfd_t)) {
 		fprintf(stderr, "cqe res %d, wanted %ld\n", cqe->res, sizeof(eventfd_t));
 		return 1;
 	}

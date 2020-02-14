@@ -259,8 +259,13 @@ static int do_test_epoll(struct io_uring *ring, int iou_epoll_add)
 			return 1;
 		}
 	} else {
-		if (iou_epoll_ctl(ring, fd, pipe1[0], &ev))
+		ret = iou_epoll_ctl(ring, fd, pipe1[0], &ev);
+		if (ret == -EINVAL) {
+			fprintf(stdout, "epoll not supported, skipping\n");
+			return 0;
+		} else if (ret < 0) {
 			return 1;
+		}
 	}
 
 	td.ring = ring;

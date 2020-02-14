@@ -176,6 +176,7 @@ static int test_accept_timeout(int do_connect, unsigned long timeout)
 	recv_thread_ready = 0;
 	recv_thread_done = 0;
 
+	memset(&d, 0, sizeof(d));
 	d.timeout = timeout;
 	if (!do_connect) {
 		d.expected[0] = -EINTR;
@@ -212,7 +213,7 @@ int main(int argc, char *argv[])
 	}
 
 	if (test_accept_timeout(1, 1000000000)) {
-		fprintf(stderr, "accept timeout 0 failed\n");
+		fprintf(stderr, "accept and connect timeout 0 failed\n");
 		return 1;
 	}
 
