@@ -176,6 +176,7 @@ static int test_accept_timeout(int do_connect, unsigned long timeout)
 	recv_thread_ready = 0;
 	recv_thread_done = 0;
 
+	memset(&d, 0, sizeof(d));
 	d.timeout = timeout;
 	if (!do_connect) {
 		d.expected[0] = -EINTR;
