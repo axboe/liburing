@@ -340,7 +340,7 @@ static inline void io_uring_prep_read(struct io_uring_sqe *sqe, int fd,
 }
 
 static inline void io_uring_prep_write(struct io_uring_sqe *sqe, int fd,
-				       void *buf, unsigned nbytes, off_t offset)
+				       const void *buf, unsigned nbytes, off_t offset)
 {
 	io_uring_prep_rw(IORING_OP_WRITE, sqe, fd, buf, nbytes, offset);
 }
