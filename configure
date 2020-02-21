@@ -270,7 +270,7 @@ cat > $compat_h << EOF
 EOF
 
 if test "$__kernel_rwf_t" != "yes"; then
-cat > $compat_h << EOF
+cat >> $compat_h << EOF
 typedef int __kernel_rwf_t;
 
 EOF
