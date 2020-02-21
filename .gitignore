@@ -75,6 +75,7 @@
 /test/short-read
 /test/socket-rw
 /test/sq-full
+/test/sq-poll-kthread
 /test/sq-space_left
 /test/statx
 /test/stdout
