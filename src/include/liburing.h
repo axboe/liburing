@@ -193,9 +193,11 @@ static inline void io_uring_prep_rw(int op, struct io_uring_sqe *sqe, int fd,
 
 static inline void io_uring_prep_readv(struct io_uring_sqe *sqe, int fd,
 				       const struct iovec *iovecs,
-				       unsigned nr_vecs, off_t offset)
+				       unsigned nr_vecs, off_t offset,
+				       unsigned flags)
 {
 	io_uring_prep_rw(IORING_OP_READV, sqe, fd, iovecs, nr_vecs, offset);
+	sqe->rw_flags = flags;
 }
 
 static inline void io_uring_prep_read_fixed(struct io_uring_sqe *sqe, int fd,
@@ -208,9 +210,11 @@ static inline void io_uring_prep_read_fixed(struct io_uring_sqe *sqe, int fd,
 
 static inline void io_uring_prep_writev(struct io_uring_sqe *sqe, int fd,
 					const struct iovec *iovecs,
-					unsigned nr_vecs, off_t offset)
+					unsigned nr_vecs, off_t offset,
+				        unsigned flags)
 {
 	io_uring_prep_rw(IORING_OP_WRITEV, sqe, fd, iovecs, nr_vecs, offset);
+	sqe->rw_flags = flags;
 }
 
 static inline void io_uring_prep_write_fixed(struct io_uring_sqe *sqe, int fd,
@@ -249,10 +253,10 @@ static inline void io_uring_prep_poll_remove(struct io_uring_sqe *sqe,
 }
 
 static inline void io_uring_prep_fsync(struct io_uring_sqe *sqe, int fd,
-				       unsigned fsync_flags)
+				       unsigned flags)
 {
 	io_uring_prep_rw(IORING_OP_FSYNC, sqe, fd, NULL, 0, 0);
-	sqe->fsync_flags = fsync_flags;
+	sqe->fsync_flags = flags;
 }
 
 static inline void io_uring_prep_nop(struct io_uring_sqe *sqe)
