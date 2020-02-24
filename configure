@@ -295,8 +295,7 @@ cat >> $compat_h << EOF
 
 struct open_how {
 	uint64_t	flags;
-	uint16_t	mode;
-	uint16_t	__padding[3];
+	uint64_t	mode;
 	uint64_t	resolve;
 };
 
