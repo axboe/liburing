@@ -168,10 +168,21 @@ err:
 
 static int test_accept_timeout(int do_connect, unsigned long timeout)
 {
+	struct io_uring ring;
+	struct io_uring_params p = {};
 	pthread_t t1, t2;
 	struct data d;
 	void *tret;
-	int ret = 0;
+	int ret, fast_poll;
+
+	ret = io_uring_queue_init_params(1, &ring, &p);
+	if (ret) {
+		fprintf(stderr, "queue_init: %d\n", ret);
+		return 1;
+	};
+
+	fast_poll = (p.features & IORING_FEAT_FAST_POLL) != 0;
+	io_uring_queue_exit(&ring);
 
 	recv_thread_ready = 0;
 	recv_thread_done = 0;
@@ -179,8 +190,13 @@ static int test_accept_timeout(int do_connect, unsigned long timeout)
 	memset(&d, 0, sizeof(d));
 	d.timeout = timeout;
 	if (!do_connect) {
-		d.expected[0] = -EINTR;
-		d.expected[1] = -EALREADY;
+		if (fast_poll) {
+			d.expected[0] = -ECANCELED;
+			d.expected[1] = -ETIME;
+		} else {
+			d.expected[0] = -EINTR;
+			d.expected[1] = -EALREADY;
+		}
 	} else {
 		d.expected[0] = -1U;
 		d.just_positive[0] = 1;
