@@ -39,7 +39,13 @@ static int copy_single(struct io_uring *ring,
 			     len, flags2);
 
 	ret = io_uring_submit(ring);
-	if (ret < 1) {
+	if (ret < 2) {
+		/* submitted just one, kernel likely doesn't support splice */
+		if (!io_uring_peek_cqe(ring, &cqe) &&
+		    cqe->res == -EINVAL) {
+			no_splice = 1;
+			return -1;
+		}
 		fprintf(stderr, "sqe submit failed: %d\n", ret);
 		return -1;
 	}
