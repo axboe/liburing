@@ -118,7 +118,8 @@ err_pipe:
 	return ret;
 }
 
-int test_sq_poll_kthread_stopped(bool do_exit) {
+int test_sq_poll_kthread_stopped(bool do_exit)
+{
 	pid_t pid;
 	int status = 0;
 
@@ -133,6 +134,7 @@ int test_sq_poll_kthread_stopped(bool do_exit) {
 	if (status != 0)
 		return WEXITSTATUS(status);
 
+	sleep(1);
 	if (system("ps --ppid 2 | grep " KTHREAD_NAME) == 0) {
 		fprintf(stderr, "%s kthread still running!\n", KTHREAD_NAME);
 		return TEST_FAILED;
