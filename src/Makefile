@@ -13,7 +13,7 @@ ENABLE_SHARED ?= 1
 
 soname=liburing.so.1
 minor=0
-micro=4
+micro=5
 libname=$(soname).$(minor).$(micro)
 all_targets += liburing.a
 
