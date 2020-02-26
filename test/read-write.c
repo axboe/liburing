@@ -241,10 +241,19 @@ static int test_io(const char *file, int write, int buffered, int sqthread,
 	struct io_uring ring;
 	int ret, ring_flags;
 
-	if (sqthread)
+	if (sqthread) {
+		if (geteuid()) {
+			static int warned;
+
+			if (!warned) {
+				fprintf(stderr, "SQPOLL requires root, skipping\n");
+				warned = 1;
+			}
+		}
 		ring_flags = IORING_SETUP_SQPOLL;
-	else
+	} else {
 		ring_flags = 0;
+	}
 
 	ret = io_uring_queue_init(64, &ring, ring_flags);
 	if (ret) {
