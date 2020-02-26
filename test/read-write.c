@@ -53,15 +53,16 @@ static int create_file(const char *file)
 	return ret != FILE_SIZE;
 }
 
-static int test_io(const char *file, int write, int buffered, int sqthread,
-		   int fixed, int mixed_fixed, int nonvec)
+static int __test_io(const char *file, struct io_uring *ring, int write, int buffered,
+		     int sqthread, int fixed, int mixed_fixed, int nonvec,
+		     int buf_select, int seq)
 {
 	struct io_uring_sqe *sqe;
 	struct io_uring_cqe *cqe;
-	struct io_uring ring;
-	int open_flags, ring_flags;
+	int open_flags;
 	int i, fd, ret;
 	static int warned;
+	off_t offset;
 
 #ifdef VERBOSE
 	fprintf(stdout, "%s: start %d/%d/%d/%d/%d/%d: ", __FUNCTION__, write,
@@ -89,40 +90,30 @@ static int test_io(const char *file, int write, int buffered, int sqthread,
 		goto err;
 	}
 
-	if (sqthread)
-		ring_flags = IORING_SETUP_SQPOLL;
-	else
-		ring_flags = 0;
-	ret = io_uring_queue_init(64, &ring, ring_flags);
-	if (ret) {
-		fprintf(stderr, "ring create failed: %d\n", ret);
-		goto err;
-	}
-
 	if (fixed) {
-		ret = io_uring_register_buffers(&ring, vecs, BUFFERS);
+		ret = io_uring_register_buffers(ring, vecs, BUFFERS);
 		if (ret) {
 			fprintf(stderr, "buffer reg failed: %d\n", ret);
 			goto err;
 		}
 	}
 	if (sqthread) {
-		ret = io_uring_register_files(&ring, &fd, 1);
+		ret = io_uring_register_files(ring, &fd, 1);
 		if (ret) {
 			fprintf(stderr, "file reg failed: %d\n", ret);
 			goto err;
 		}
 	}
 
+	offset = 0;
 	for (i = 0; i < BUFFERS; i++) {
-		off_t offset;
-
-		sqe = io_uring_get_sqe(&ring);
+		sqe = io_uring_get_sqe(ring);
 		if (!sqe) {
 			fprintf(stderr, "sqe get failed\n");
 			goto err;
 		}
-		offset = BS * (rand() % BUFFERS);
+		if (!seq)
+			offset = BS * (rand() % BUFFERS);
 		if (write) {
 			int do_fixed = fixed;
 			int use_fd = fd;
@@ -165,16 +156,24 @@ static int test_io(const char *file, int write, int buffered, int sqthread,
 		}
 		if (sqthread)
 			sqe->flags |= IOSQE_FIXED_FILE;
+		if (buf_select) {
+			sqe->addr = 0;
+			sqe->flags |= IOSQE_BUFFER_SELECT;
+			sqe->buf_group = buf_select;
+			sqe->user_data = i;
+		}
+		if (seq)
+			offset += BS;
 	}
 
-	ret = io_uring_submit(&ring);
+	ret = io_uring_submit(ring);
 	if (ret != BUFFERS) {
 		fprintf(stderr, "submit got %d, wanted %d\n", ret, BUFFERS);
 		goto err;
 	}
 
 	for (i = 0; i < BUFFERS; i++) {
-		ret = io_uring_wait_cqe(&ring, &cqe);
+		ret = io_uring_wait_cqe(ring, &cqe);
 		if (ret) {
 			fprintf(stderr, "wait_cqe=%d\n", ret);
 			goto err;
@@ -190,25 +189,39 @@ static int test_io(const char *file, int write, int buffered, int sqthread,
 			fprintf(stderr, "cqe res %d, wanted %d\n", cqe->res, BS);
 			goto err;
 		}
-		io_uring_cqe_seen(&ring, cqe);
+		if (buf_select) {
+			int bid = cqe->flags >> 16;
+			unsigned char *ptr = vecs[bid].iov_base;
+			int j;
+
+			for (j = 0; j < BS; j++) {
+				if (ptr[j] == cqe->user_data)
+					continue;
+
+				fprintf(stderr, "Data mismatch! bid=%d, "
+						"wanted=%d, got=%d\n", bid,
+						(int)cqe->user_data, ptr[j]);
+				return 1;
+			}
+		}
+		io_uring_cqe_seen(ring, cqe);
 	}
 
 	if (fixed) {
-		ret = io_uring_unregister_buffers(&ring);
+		ret = io_uring_unregister_buffers(ring);
 		if (ret) {
 			fprintf(stderr, "buffer unreg failed: %d\n", ret);
 			goto err;
 		}
 	}
 	if (sqthread) {
-		ret = io_uring_unregister_files(&ring);
+		ret = io_uring_unregister_files(ring);
 		if (ret) {
 			fprintf(stderr, "file unreg failed: %d\n", ret);
 			goto err;
 		}
 	}
 
-	io_uring_queue_exit(&ring);
 	close(fd);
 #ifdef VERBOSE
 	fprintf(stdout, "PASS\n");
@@ -221,6 +234,29 @@ err:
 	if (fd != -1)
 		close(fd);
 	return 1;
+}
+static int test_io(const char *file, int write, int buffered, int sqthread,
+		   int fixed, int mixed_fixed, int nonvec)
+{
+	struct io_uring ring;
+	int ret, ring_flags;
+
+	if (sqthread)
+		ring_flags = IORING_SETUP_SQPOLL;
+	else
+		ring_flags = 0;
+
+	ret = io_uring_queue_init(64, &ring, ring_flags);
+	if (ret) {
+		fprintf(stderr, "ring create failed: %d\n", ret);
+		return 1;
+	}
+
+	ret = __test_io(file, &ring, write, buffered, sqthread, fixed,
+			mixed_fixed, nonvec, 0, 0);
+
+	io_uring_queue_exit(&ring);
+	return ret;
 }
 
 static int read_poll_link(const char *file)
@@ -354,6 +390,69 @@ static int test_eventfd_read(void)
 	return 0;
 }
 
+static int test_buf_select(const char *filename)
+{
+	struct io_uring_sqe *sqe;
+	struct io_uring_cqe *cqe;
+	struct io_uring_probe *p;
+	struct io_uring ring;
+	int ret, i;
+
+	ret = io_uring_queue_init(64, &ring, 0);
+	if (ret) {
+		fprintf(stderr, "ring create failed: %d\n", ret);
+		return 1;
+	}
+
+	p = io_uring_get_probe_ring(&ring);
+	if (!p || !io_uring_opcode_supported(p, IORING_OP_PROVIDE_BUFFERS)) {
+		fprintf(stdout, "Buffer select not supported, skipping\n");
+		return 0;
+	}
+	free(p);
+
+	/*
+	 * Write out data with known pattern
+	 */
+	for (i = 0; i < BUFFERS; i++)
+		memset(vecs[i].iov_base, i, vecs[i].iov_len);
+
+	ret = __test_io(filename, &ring, 1, 0, 0, 0, 0, 0, 0, 1);
+	if (ret) {
+		fprintf(stderr, "failed writing data\n");
+		return 1;
+	}
+
+	for (i = 0; i < BUFFERS; i++)
+		memset(vecs[i].iov_base, 0x55, vecs[i].iov_len);
+
+	for (i = 0; i < BUFFERS; i++) {
+		sqe = io_uring_get_sqe(&ring);
+		io_uring_prep_provide_buffers(sqe, vecs[i].iov_base,
+						vecs[i].iov_len, 1, 1, i);
+	}
+
+	ret = io_uring_submit(&ring);
+	if (ret != BUFFERS) {
+		fprintf(stderr, "submit: %d\n", ret);
+		return -1;
+	}
+
+	for (i = 0; i < BUFFERS; i++) {
+		ret = io_uring_wait_cqe(&ring, &cqe);
+		if (cqe->res < 0) {
+			fprintf(stderr, "cqe->res=%d\n", cqe->res);
+			return 1;
+		}
+		io_uring_cqe_seen(&ring, cqe);
+	}
+
+	ret = __test_io(filename, &ring, 0, 0, 0, 0, 0, 1, 1, 1);
+
+	io_uring_queue_exit(&ring);
+	return ret;
+}
+
 int main(int argc, char *argv[])
 {
 	int i, ret, nr;
@@ -388,6 +487,12 @@ int main(int argc, char *argv[])
 					v1, v2, v3, v4, v5, v6);
 			goto err;
 		}
+	}
+
+	ret = test_buf_select(".basic-rw");
+	if (ret) {
+		fprintf(stderr, "test_buf_select failed\n");
+		goto err;
 	}
 
 	ret = test_eventfd_read();
