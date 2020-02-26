@@ -410,6 +410,14 @@ static inline void io_uring_prep_epoll_ctl(struct io_uring_sqe *sqe, int epfd,
 	io_uring_prep_rw(IORING_OP_EPOLL_CTL, sqe, epfd, ev, op, fd);
 }
 
+static inline void io_uring_prep_provide_buffers(struct io_uring_sqe *sqe,
+						 void *addr, int len, int nr,
+						 int gid, int bid)
+{
+	io_uring_prep_rw(IORING_OP_PROVIDE_BUFFERS, sqe, nr, addr, len, bid);
+	sqe->buf_group = gid;
+}
+
 static inline unsigned io_uring_sq_ready(struct io_uring *ring)
 {
 	if (!(ring->flags & IORING_SETUP_SQPOLL))
