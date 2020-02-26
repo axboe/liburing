@@ -46,3 +46,9 @@ LIBURING_0.4 {
 		io_uring_get_probe;
 		io_uring_get_probe_ring;
 } LIBURING_0.3;
+
+LIBURING_0.5 {
+} LIBURING_0.4;
+
+LIBURING_0.6 {
+} LIBURING_0.5;
