@@ -61,9 +61,8 @@ static void *send_thread(void *arg)
 	addr.sin_port = data->port;
 	addr.sin_addr.s_addr = 0x0100007fU;
 
-        assert(connect(s0, (struct sockaddr*)&addr, sizeof(addr)) != -1);
-
-	wait_for_var(&recv_thread_done);
+	if (connect(s0, (struct sockaddr*)&addr, sizeof(addr)) != -1)
+		wait_for_var(&recv_thread_done);
 
 	close(s0);
 	return 0;
