@@ -210,7 +210,7 @@ static int test_single_link_fail(struct io_uring *ring)
 			goto err;
 		}
 		if (i == 1 && cqe->res != -ECANCELED) {
-			printf("sqe0 failed with %d, wanted -ECANCELED\n", cqe->res);
+			printf("sqe1 failed with %d, wanted -ECANCELED\n", cqe->res);
 			goto err;
 		}
 		io_uring_cqe_seen(ring, cqe);
