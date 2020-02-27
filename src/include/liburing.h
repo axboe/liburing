@@ -197,7 +197,8 @@ static inline void io_uring_prep_splice(struct io_uring_sqe *sqe,
 					unsigned int nbytes,
 					unsigned int splice_flags)
 {
-	io_uring_prep_rw(IORING_OP_SPLICE, sqe, fd_out, (void *)off_in,
+	io_uring_prep_rw(IORING_OP_SPLICE, sqe, fd_out,
+			 (void *) (uintptr_t) off_in,
 			 nbytes, off_out);
 	sqe->splice_fd_in = fd_in;
 	sqe->splice_flags = splice_flags;
