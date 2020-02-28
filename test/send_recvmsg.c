@@ -73,6 +73,7 @@ static int recv_prep(struct io_uring *ring, struct iovec *iov, int gid)
 		goto err;
 	}
 
+	close(sockfd);
 	return 0;
 err:
 	close(sockfd);
