@@ -249,6 +249,7 @@ static int test_io(const char *file, int write, int buffered, int sqthread,
 				fprintf(stderr, "SQPOLL requires root, skipping\n");
 				warned = 1;
 			}
+			return 0;
 		}
 		ring_flags = IORING_SETUP_SQPOLL;
 	} else {
