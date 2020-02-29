@@ -40,15 +40,15 @@ static int open_tempfile(const char *dir, const char *fname)
 	return fd;
 }
 
-static int submit_write(struct io_uring *ring, int fd, const char *str)
+static int submit_write(struct io_uring *ring, int fd, const char *str,
+			int wait)
 {
 	struct io_uring_sqe *sqe;
 	struct iovec iovec;
 	int ret;
 
 	sqe = io_uring_get_sqe(ring);
-	if (!sqe)
-	{
+	if (!sqe) {
 		fprintf(stderr, "could not get sqe\n");
 		return 1;
 	}
@@ -56,8 +56,8 @@ static int submit_write(struct io_uring *ring, int fd, const char *str)
 	iovec.iov_base = (char *) str;
 	iovec.iov_len = strlen(str);
 	io_uring_prep_writev(sqe, fd, &iovec, 1, 0);
-	if ((ret = io_uring_submit(ring) < 0))
-	{
+	ret = io_uring_submit_and_wait(ring, wait);
+	if (ret < 0) {
 		fprintf(stderr, "submit failed: %s\n", strerror(-ret));
 		return 1;
 	}
@@ -70,14 +70,12 @@ static int wait_cqe(struct io_uring *ring, const char *stage)
 	struct io_uring_cqe *cqe;
 
 	io_uring_wait_cqe(ring, &cqe);
-	if (cqe->res < 0)
-	{
+	if (cqe->res < 0) {
 		fprintf(stderr, "%s cqe failed\n", stage);
 		return 1;
 	}
 
 	io_uring_cqe_seen(ring, cqe);
-
 	return 0;
 }
 
@@ -96,8 +94,7 @@ static int verify_file(const char *tmpdir, const char *fname, const char* expect
 	if (read(fd, buf, sizeof(buf) - 1) < 0)
 		return 1;
 
-	if (strcmp(buf, expect) != 0)
-	{
+	if (strcmp(buf, expect) != 0) {
 		fprintf(stderr, "content mismatch for %s\n"
 			"got:\n%s\n"
 			"expected:\n%s\n",
@@ -106,7 +103,6 @@ static int verify_file(const char *tmpdir, const char *fname, const char* expect
 	}
 
 	close(fd);
-
 	return err;
 }
 
@@ -116,20 +112,16 @@ static void cleanup(const char *tmpdir)
 
 	/* don't check errors, called during partial runs */
 
-	snprintf(buf, sizeof(buf), "%s/%s",
-		 tmpdir, "shared");
+	snprintf(buf, sizeof(buf), "%s/%s", tmpdir, "shared");
 	unlink(buf);
 
-	snprintf(buf, sizeof(buf), "%s/%s",
-		 tmpdir, "parent1");
+	snprintf(buf, sizeof(buf), "%s/%s", tmpdir, "parent1");
 	unlink(buf);
 
-	snprintf(buf, sizeof(buf), "%s/%s",
-		 tmpdir, "parent2");
+	snprintf(buf, sizeof(buf), "%s/%s", tmpdir, "parent2");
 	unlink(buf);
 
-	snprintf(buf, sizeof(buf), "%s/%s",
-		 tmpdir, "child");
+	snprintf(buf, sizeof(buf), "%s/%s", tmpdir, "child");
 	unlink(buf);
 
 	rmdir(tmpdir);
@@ -145,8 +137,7 @@ int main(int argc, char *argv[])
 
 	shmem = mmap(0, sizeof(struct forktestmem), PROT_READ|PROT_WRITE,
 		   MAP_SHARED | MAP_ANONYMOUS, 0, 0);
-	if (!shmem)
-	{
+	if (!shmem) {
 		fprintf(stderr, "mmap failed\n");
 		exit(1);
 	}
@@ -156,14 +147,12 @@ int main(int argc, char *argv[])
 	pthread_barrier_init(&shmem->barrier, &shmem->barrierattr, 2);
 
 	ret = io_uring_queue_init(10, &shmem->ring, 0);
-	if (ret < 0)
-	{
+	if (ret < 0) {
 		fprintf(stderr, "queue init failed\n");
 		exit(1);
 	}
 
-	if (mkdtemp(tmpdir) == NULL)
-	{
+	if (mkdtemp(tmpdir) == NULL) {
 		fprintf(stderr, "temp directory creation failed\n");
 		exit(1);
 	}
@@ -174,9 +163,8 @@ int main(int argc, char *argv[])
 	 * First do a write before the fork, to test whether child can
 	 * reap that
 	 */
-	if (submit_write(&shmem->ring, shared_fd, "before fork: write shared fd\n"))
+	if (submit_write(&shmem->ring, shared_fd, "before fork: write shared fd\n", 0))
 		goto errcleanup;
-
 
 	p = fork();
 	switch (p) {
@@ -197,15 +185,15 @@ int main(int argc, char *argv[])
 		parent_fd2 = open_tempfile(tmpdir, "parent2");
 
 		/* do a parent write to the shared fd */
-		if (submit_write(&shmem->ring, shared_fd, "parent: write shared fd\n"))
+		if (submit_write(&shmem->ring, shared_fd, "parent: write shared fd\n", 0))
 			goto errcleanup;
 
 		/* do a parent write to an fd where same numbered fd exists in child */
-		if (submit_write(&shmem->ring, parent_fd1, "parent: write parent fd 1\n"))
+		if (submit_write(&shmem->ring, parent_fd1, "parent: write parent fd 1\n", 0))
 			goto errcleanup;
 
 		/* do a parent write to an fd where no same numbered fd exists in child */
-		if (submit_write(&shmem->ring, parent_fd2, "parent: write parent fd 2\n"))
+		if (submit_write(&shmem->ring, parent_fd2, "parent: write parent fd 2\n", 0))
 			goto errcleanup;
 
 		/* wait to switch read/writ roles with child */
@@ -213,8 +201,7 @@ int main(int argc, char *argv[])
 
 		/* now wait for child to exit, to ensure we still can read completion */
 		waitpid(p, &wstatus, 0);
-		if (WEXITSTATUS(wstatus) != 0)
-		{
+		if (WEXITSTATUS(wstatus) != 0) {
 			fprintf(stderr, "child failed\n");
 			goto errcleanup;
 		}
@@ -251,10 +238,11 @@ int main(int argc, char *argv[])
 		/* wait to switch read/writ roles with parent */
 		pthread_barrier_wait(&shmem->barrier);
 
-		if (submit_write(&shmem->ring, child_fd, "child: write child fd\n"))
+		if (submit_write(&shmem->ring, child_fd, "child: write child fd\n", 0))
 			exit(1);
 
-		if (submit_write(&shmem->ring, shared_fd, "child: write shared fd\n"))
+		/* ensure both writes have finished before child exits */
+		if (submit_write(&shmem->ring, shared_fd, "child: write shared fd\n", 2))
 			exit(1);
 
 		exit(0);
