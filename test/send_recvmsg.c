@@ -80,12 +80,21 @@ err:
 	return 1;
 }
 
-static int do_recvmsg(struct io_uring *ring, struct iovec *iov)
+struct recv_data {
+	pthread_mutex_t *mutex;
+	int buf_select;
+	int no_buf_add;
+};
+
+static int do_recvmsg(struct io_uring *ring, struct iovec *iov,
+		      struct recv_data *rd)
 {
 	struct io_uring_cqe *cqe;
 
 	io_uring_wait_cqe(ring, &cqe);
 	if (cqe->res < 0) {
+		if (rd->no_buf_add && rd->buf_select)
+			return 0;
 		fprintf(stderr, "%s: failed cqe: %d\n", __FUNCTION__, cqe->res);
 		goto err;
 	}
@@ -95,6 +104,11 @@ static int do_recvmsg(struct io_uring *ring, struct iovec *iov)
 			fprintf(stderr, "Buffer ID mismatch %d\n", bid);
 		/* just for passing the pointer to str */
 		iov->iov_base = (void *) cqe->user_data;
+	}
+
+	if (rd->no_buf_add && rd->buf_select) {
+		fprintf(stderr, "Expected -ENOBUFS: %d\n", cqe->res);
+		goto err;
 	}
 
 	if (cqe->res -1 != strlen(str)) {
@@ -112,11 +126,6 @@ static int do_recvmsg(struct io_uring *ring, struct iovec *iov)
 err:
 	return 1;
 }
-
-struct recv_data {
-	pthread_mutex_t *mutex;
-	int buf_select;
-};
 
 static void *recv_fn(void *data)
 {
@@ -138,7 +147,7 @@ static void *recv_fn(void *data)
 		goto err;
 	}
 
-	if (rd->buf_select) {
+	if (rd->buf_select && !rd->no_buf_add) {
 		sqe = io_uring_get_sqe(&ring);
 		io_uring_prep_provide_buffers(sqe, buf, sizeof(buf) -1, 1,
 						BUF_GID, BUF_BID);
@@ -168,7 +177,7 @@ static void *recv_fn(void *data)
 	}
 
 	pthread_mutex_unlock(mutex);
-	ret = do_recvmsg(&ring, &iov);
+	ret = do_recvmsg(&ring, &iov, rd);
 
 	io_uring_queue_exit(&ring);
 
@@ -234,7 +243,7 @@ err:
 	return 1;
 }
 
-static int test(int buf_select)
+static int test(int buf_select, int no_buf_add)
 {
 	struct recv_data rd;
 	pthread_mutexattr_t attr;
@@ -250,6 +259,7 @@ static int test(int buf_select)
 
 	rd.mutex = &mutex;
 	rd.buf_select = buf_select;
+	rd.no_buf_add = no_buf_add;
 	ret = pthread_create(&recv_thread, NULL, recv_fn, &rd);
 	if (ret) {
 		fprintf(stderr, "Thread create failed\n");
@@ -268,17 +278,24 @@ int main(int argc, char *argv[])
 {
 	int ret;
 
-	ret = test(0);
+	ret = test(0, 0);
 	if (ret) {
 		fprintf(stderr, "send_recvmsg 0 failed\n");
 		return 1;
 	}
 
-	ret = test(1);
+	ret = test(1, 0);
 	if (ret) {
-		fprintf(stderr, "send_recvmsg 1 failed\n");
+		fprintf(stderr, "send_recvmsg 1 0 failed\n");
 		return 1;
 	}
+
+	ret = test(1, 1);
+	if (ret) {
+		fprintf(stderr, "send_recvmsg 1 1 failed\n");
+		return 1;
+	}
+
 
 	return 0;
 }
