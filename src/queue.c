@@ -58,7 +58,8 @@ int __io_uring_get_cqe(struct io_uring *ring, struct io_uring_cqe **cqe_ptr,
 			wait_nr = 0;
 		if (ret < 0)
 			err = -errno;
-		submit -= ret;
+		else
+			submit -= ret;
 		if (cqe)
 			break;
 	} while (!err);
