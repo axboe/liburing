@@ -5,6 +5,7 @@
 #include <string.h>
 #include <fcntl.h>
 #include <sys/mman.h>
+#include <linux/memfd.h>
 
 #include "liburing.h"
 
