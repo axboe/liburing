@@ -5,7 +5,6 @@
 #include <string.h>
 #include <fcntl.h>
 #include <sys/mman.h>
-#include <linux/memfd.h>
 
 #include "liburing.h"
 
@@ -80,7 +79,7 @@ static int test_splice(struct io_uring *ring)
 	fd_in = open("/dev/urandom", O_RDONLY);
 	if (fd_in < 0)
 		goto exit;
-	fd_out = memfd_create("splice_test_out_file", 0);
+	fd_out = open(".splice_fd_out", O_CREAT | O_WRONLY, 0644);
 	if (fd_out < 0)
 		goto exit;
 	if (ftruncate(fd_out, len) == -1)
@@ -119,8 +118,10 @@ static int test_splice(struct io_uring *ring)
 
 	ret = 0;
 exit:
-	if (fd_out >= 0)
+	if (fd_out >= 0) {
+		unlink(".splice_fd_out");
 		close(fd_out);
+	}
 	if (fd_in >= 0)
 		close(fd_in);
 	if (pipe_fds[0] >= 0) {
