@@ -35,6 +35,7 @@ int __io_uring_get_cqe(struct io_uring *ring, struct io_uring_cqe **cqe_ptr,
 		       unsigned submit, unsigned wait_nr, sigset_t *sigmask)
 {
 	struct io_uring_cqe *cqe = NULL;
+	const int to_wait = wait_nr;
 	int ret = 0, err;
 
 	do {
@@ -43,7 +44,7 @@ int __io_uring_get_cqe(struct io_uring *ring, struct io_uring_cqe **cqe_ptr,
 		err = __io_uring_peek_cqe(ring, &cqe);
 		if (err)
 			break;
-		if (!cqe && !wait_nr && !submit) {
+		if (!cqe && !to_wait && !submit) {
 			err = -EAGAIN;
 			break;
 		}
@@ -56,10 +57,14 @@ int __io_uring_get_cqe(struct io_uring *ring, struct io_uring_cqe **cqe_ptr,
 						   wait_nr, flags, sigmask);
 		if (wait_nr)
 			wait_nr = 0;
-		if (ret < 0)
+		if (ret < 0) {
 			err = -errno;
-		else
+		} else if (ret == submit) {
+			submit = 0;
+			wait_nr = 0;
+		} else {
 			submit -= ret;
+		}
 		if (cqe)
 			break;
 	} while (!err);
