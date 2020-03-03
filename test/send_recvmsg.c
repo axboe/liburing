@@ -162,7 +162,7 @@ static void *recv_fn(void *data)
 		io_uring_cqe_seen(&ring, cqe);
 		if (ret == -EINVAL) {
 			fprintf(stdout, "PROVIDE_BUFFERS not supported, skip\n");
-			ret = 0;
+			goto out;
 			goto err;
 		} else if (ret < 0) {
 			fprintf(stderr, "PROVIDER_BUFFERS %d\n", ret);
@@ -183,6 +183,10 @@ static void *recv_fn(void *data)
 
 err:
 	return (void *)(intptr_t)ret;
+out:
+	pthread_mutex_unlock(mutex);
+	io_uring_queue_exit(&ring);
+	return NULL;
 }
 
 static int do_sendmsg(void)
@@ -295,7 +299,6 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "send_recvmsg 1 1 failed\n");
 		return 1;
 	}
-
 
 	return 0;
 }
