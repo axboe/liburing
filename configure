@@ -297,6 +297,8 @@ struct open_how {
 	uint64_t	flags;
 	uint64_t	mode;
 	uint64_t	resolve;
+	int32_t		fd;
+	uint32_t	pad;
 };
 
 EOF
