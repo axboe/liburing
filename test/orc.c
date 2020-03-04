@@ -79,7 +79,7 @@ int main(int argc, char *argv[])
 
 	if (argc < 2) {
 		fprintf(stderr, "%s: <file>\n", argv[0]);
-		return 1;
+		return 0;
 	}
 
 	ret = io_uring_queue_init(8, &ring, 0);
