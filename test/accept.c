@@ -20,6 +20,8 @@
 
 #include "liburing.h"
 
+#define SOCK_SPECIFIC_FD	01000000000
+
 static int no_accept;
 
 struct data {
@@ -53,7 +55,7 @@ static void queue_recv(struct io_uring *ring, int fd)
 	io_uring_prep_readv(sqe, fd, &d->iov, 1, 0);
 }
 
-static int accept_conn(struct io_uring *ring, int fd)
+static int accept_conn(struct io_uring *ring, int fd, int select_fd)
 {
 	struct io_uring_sqe *sqe;
 	struct io_uring_cqe *cqe;
@@ -61,11 +63,19 @@ static int accept_conn(struct io_uring *ring, int fd)
 
 	sqe = io_uring_get_sqe(ring);
 	io_uring_prep_accept(sqe, fd, NULL, NULL, 0);
+	if (select_fd) {
+		sqe->len = select_fd;
+		sqe->accept_flags |= SOCK_SPECIFIC_FD;
+	}
 
 	assert(io_uring_submit(ring) != -1);
 
 	assert(!io_uring_wait_cqe(ring, &cqe));
 	ret = cqe->res;
+	if (select_fd && ret >= 0 && ret != select_fd) {
+		fprintf(stderr, "accept got fd %d, wanted %d\n", ret, select_fd);
+		ret = -1;
+	}
 	io_uring_cqe_seen(ring, cqe);
 	return ret;
 }
@@ -95,7 +105,7 @@ static int start_accept_listen(struct sockaddr_in *addr, int port_off)
 	return fd;
 }
 
-static int test(struct io_uring *ring, int accept_should_error)
+static int test(struct io_uring *ring, int accept_should_error, int select_fd)
 {
 	struct io_uring_cqe *cqe;
 	struct sockaddr_in addr;
@@ -125,7 +135,7 @@ static int test(struct io_uring *ring, int accept_should_error)
 	flags &= ~O_NONBLOCK;
 	assert(fcntl(p_fd[1], F_SETFL, flags) != -1);
 
-	p_fd[0] = accept_conn(ring, recv_s0);
+	p_fd[0] = accept_conn(ring, recv_s0, select_fd);
 	if (p_fd[0] == -EINVAL) {
 		if (accept_should_error)
 			goto out;
@@ -324,13 +334,24 @@ err:
 	return 1;
 }
 
+static int test_accept_fixed(void)
+{
+	struct io_uring m_io_uring;
+	int ret;
+
+	assert(io_uring_queue_init(32, &m_io_uring, 0) >= 0);
+	ret = test(&m_io_uring, 0, 139);
+	io_uring_queue_exit(&m_io_uring);
+	return ret;
+}
+
 static int test_accept(void)
 {
 	struct io_uring m_io_uring;
 	int ret;
 
 	assert(io_uring_queue_init(32, &m_io_uring, 0) >= 0);
-	ret = test(&m_io_uring, 0);
+	ret = test(&m_io_uring, 0, 0);
 	io_uring_queue_exit(&m_io_uring);
 	return ret;
 }
@@ -347,7 +368,7 @@ static int test_accept_sqpoll(void)
 	} else if (ret)
 		return ret;
 
-	ret = test(&m_io_uring, 1);
+	ret = test(&m_io_uring, 1, 0);
 	io_uring_queue_exit(&m_io_uring);
 	return ret;
 }
@@ -363,6 +384,12 @@ int main(int argc, char *argv[])
 	}
 	if (no_accept)
 		return 0;
+
+	ret = test_accept_fixed();
+	if (ret) {
+		fprintf(stderr, "test_accept_fixed failed\n");
+		return ret;
+	}
 
 	ret = test_accept_sqpoll();
 	if (ret) {
