@@ -55,8 +55,6 @@ int __io_uring_get_cqe(struct io_uring *ring, struct io_uring_cqe **cqe_ptr,
 		if (wait_nr || submit)
 			ret = __sys_io_uring_enter(ring->ring_fd, submit,
 						   wait_nr, flags, sigmask);
-		if (wait_nr)
-			wait_nr = 0;
 		if (ret < 0) {
 			err = -errno;
 		} else if (ret == submit) {
