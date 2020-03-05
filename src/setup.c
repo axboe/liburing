@@ -134,6 +134,9 @@ int io_uring_queue_init_params(unsigned entries, struct io_uring *ring,
 			       struct io_uring_params *p)
 {
 	int fd, ret;
+	
+	if (entries < 1)
+		return -1;
 
 	fd = __sys_io_uring_setup(entries, p);
 	if (fd < 0)
