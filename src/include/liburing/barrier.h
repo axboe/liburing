@@ -80,6 +80,10 @@ do {						\
 #define io_uring_smp_mb()	__sync_synchronize()
 #define io_uring_smp_rmb()	__sync_synchronize()
 #define io_uring_smp_wmb()	__sync_synchronize()
+
+#define io_uring_smp_store_release(p, v) \
+	__atomic_store_n(p, v, __ATOMIC_RELEASE)
+#define io_uring_smp_load_acquire(p) __atomic_load_n(p, __ATOMIC_ACQUIRE)
 #endif /* defined(__x86_64__) || defined(__i386__) */
 
 /* From tools/include/asm/barrier.h */
