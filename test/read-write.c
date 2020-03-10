@@ -19,6 +19,7 @@
 
 static struct iovec *vecs;
 static int no_read;
+static int no_buf_select;
 
 static int create_buffers(void)
 {
@@ -55,7 +56,7 @@ static int create_file(const char *file)
 
 static int __test_io(const char *file, struct io_uring *ring, int write, int buffered,
 		     int sqthread, int fixed, int mixed_fixed, int nonvec,
-		     int buf_select, int seq)
+		     int buf_select, int seq, int exp_len)
 {
 	struct io_uring_sqe *sqe;
 	struct io_uring_cqe *cqe;
@@ -157,7 +158,8 @@ static int __test_io(const char *file, struct io_uring *ring, int write, int buf
 		if (sqthread)
 			sqe->flags |= IOSQE_FIXED_FILE;
 		if (buf_select) {
-			sqe->addr = 0;
+			if (nonvec)
+				sqe->addr = 0;
 			sqe->flags |= IOSQE_BUFFER_SELECT;
 			sqe->buf_group = buf_select;
 			sqe->user_data = i;
@@ -185,11 +187,11 @@ static int __test_io(const char *file, struct io_uring *ring, int write, int buf
 				warned = 1;
 				no_read = 1;
 			}
-		} else if (cqe->res != BS) {
-			fprintf(stderr, "cqe res %d, wanted %d\n", cqe->res, BS);
+		} else if (cqe->res != exp_len) {
+			fprintf(stderr, "cqe res %d, wanted %d\n", cqe->res, exp_len);
 			goto err;
 		}
-		if (buf_select) {
+		if (buf_select && exp_len == BS) {
 			int bid = cqe->flags >> 16;
 			unsigned char *ptr = vecs[bid].iov_base;
 			int j;
@@ -263,7 +265,7 @@ static int test_io(const char *file, int write, int buffered, int sqthread,
 	}
 
 	ret = __test_io(file, &ring, write, buffered, sqthread, fixed,
-			mixed_fixed, nonvec, 0, 0);
+			mixed_fixed, nonvec, 0, 0, BS);
 
 	io_uring_queue_exit(&ring);
 	return ret;
@@ -400,7 +402,53 @@ static int test_eventfd_read(void)
 	return 0;
 }
 
-static int test_buf_select(const char *filename)
+static int test_buf_select_short(const char *filename, int nonvec)
+{
+	struct io_uring_sqe *sqe;
+	struct io_uring_cqe *cqe;
+	struct io_uring ring;
+	int ret, i, exp_len;
+
+	if (no_buf_select)
+		return 0;
+
+	ret = io_uring_queue_init(64, &ring, 0);
+	if (ret) {
+		fprintf(stderr, "ring create failed: %d\n", ret);
+		return 1;
+	}
+
+	exp_len = 0;
+	for (i = 0; i < BUFFERS; i++) {
+		sqe = io_uring_get_sqe(&ring);
+		io_uring_prep_provide_buffers(sqe, vecs[i].iov_base,
+						vecs[i].iov_len / 2, 1, 1, i);
+		if (!exp_len)
+			exp_len = vecs[i].iov_len / 2;
+	}
+
+	ret = io_uring_submit(&ring);
+	if (ret != BUFFERS) {
+		fprintf(stderr, "submit: %d\n", ret);
+		return -1;
+	}
+
+	for (i = 0; i < BUFFERS; i++) {
+		ret = io_uring_wait_cqe(&ring, &cqe);
+		if (cqe->res < 0) {
+			fprintf(stderr, "cqe->res=%d\n", cqe->res);
+			return 1;
+		}
+		io_uring_cqe_seen(&ring, cqe);
+	}
+
+	ret = __test_io(filename, &ring, 0, 0, 0, 0, 0, nonvec, 1, 1, exp_len);
+
+	io_uring_queue_exit(&ring);
+	return ret;
+}
+
+static int test_buf_select(const char *filename, int nonvec)
 {
 	struct io_uring_sqe *sqe;
 	struct io_uring_cqe *cqe;
@@ -416,6 +464,7 @@ static int test_buf_select(const char *filename)
 
 	p = io_uring_get_probe_ring(&ring);
 	if (!p || !io_uring_opcode_supported(p, IORING_OP_PROVIDE_BUFFERS)) {
+		no_buf_select = 1;
 		fprintf(stdout, "Buffer select not supported, skipping\n");
 		return 0;
 	}
@@ -427,7 +476,7 @@ static int test_buf_select(const char *filename)
 	for (i = 0; i < BUFFERS; i++)
 		memset(vecs[i].iov_base, i, vecs[i].iov_len);
 
-	ret = __test_io(filename, &ring, 1, 0, 0, 0, 0, 0, 0, 1);
+	ret = __test_io(filename, &ring, 1, 0, 0, 0, 0, 0, 0, 1, BS);
 	if (ret) {
 		fprintf(stderr, "failed writing data\n");
 		return 1;
@@ -457,7 +506,7 @@ static int test_buf_select(const char *filename)
 		io_uring_cqe_seen(&ring, cqe);
 	}
 
-	ret = __test_io(filename, &ring, 0, 0, 0, 0, 0, 1, 1, 1);
+	ret = __test_io(filename, &ring, 0, 0, 0, 0, 0, nonvec, 1, 1, BS);
 
 	io_uring_queue_exit(&ring);
 	return ret;
@@ -499,9 +548,27 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	ret = test_buf_select(".basic-rw");
+	ret = test_buf_select(".basic-rw", 1);
 	if (ret) {
-		fprintf(stderr, "test_buf_select failed\n");
+		fprintf(stderr, "test_buf_select nonvec failed\n");
+		goto err;
+	}
+
+	ret = test_buf_select(".basic-rw", 0);
+	if (ret) {
+		fprintf(stderr, "test_buf_select vec failed\n");
+		goto err;
+	}
+
+	ret = test_buf_select_short(".basic-rw", 1);
+	if (ret) {
+		fprintf(stderr, "test_buf_select_short nonvec failed\n");
+		goto err;
+	}
+
+	ret = test_buf_select_short(".basic-rw", 0);
+	if (ret) {
+		fprintf(stderr, "test_buf_select_short vec failed\n");
 		goto err;
 	}
 
