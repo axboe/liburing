@@ -21,10 +21,10 @@ static char str[] = "This is a test of sendmsg and recvmsg over io_uring!";
 #define PORT	10200
 #define HOST	"127.0.0.1"
 
-#define BUF_GID		10
+#define BUF_BGID	10
 #define BUF_BID		89
 
-static int recv_prep(struct io_uring *ring, struct iovec *iov, int gid)
+static int recv_prep(struct io_uring *ring, struct iovec *iov, int bgid)
 {
 	struct sockaddr_in saddr;
 	struct msghdr msg;
@@ -60,11 +60,11 @@ static int recv_prep(struct io_uring *ring, struct iovec *iov, int gid)
 
 	sqe = io_uring_get_sqe(ring);
 	io_uring_prep_recvmsg(sqe, sockfd, &msg, 0);
-	if (gid) {
+	if (bgid) {
 		sqe->user_data = (unsigned long) iov->iov_base;
 		iov->iov_base = NULL;
 		sqe->flags |= IOSQE_BUFFER_SELECT;
-		sqe->buf_group = gid;
+		sqe->buf_group = bgid;
 	}
 
 	ret = io_uring_submit(ring);
@@ -150,7 +150,7 @@ static void *recv_fn(void *data)
 	if (rd->buf_select && !rd->no_buf_add) {
 		sqe = io_uring_get_sqe(&ring);
 		io_uring_prep_provide_buffers(sqe, buf, sizeof(buf) -1, 1,
-						BUF_GID, BUF_BID);
+						BUF_BGID, BUF_BID);
 		ret = io_uring_submit(&ring);
 		if (ret != 1) {
 			fprintf(stderr, "submit ret=%d\n", ret);
@@ -170,7 +170,7 @@ static void *recv_fn(void *data)
 		}
 	}
 
-	ret = recv_prep(&ring, &iov, rd->buf_select ? BUF_GID : 0);
+	ret = recv_prep(&ring, &iov, rd->buf_select ? BUF_BGID : 0);
 	if (ret) {
 		fprintf(stderr, "recv_prep failed: %d\n", ret);
 		goto err;

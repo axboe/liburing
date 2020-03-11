@@ -412,10 +412,10 @@ static inline void io_uring_prep_epoll_ctl(struct io_uring_sqe *sqe, int epfd,
 
 static inline void io_uring_prep_provide_buffers(struct io_uring_sqe *sqe,
 						 void *addr, int len, int nr,
-						 int gid, int bid)
+						 int bgid, int bid)
 {
 	io_uring_prep_rw(IORING_OP_PROVIDE_BUFFERS, sqe, nr, addr, len, bid);
-	sqe->buf_group = gid;
+	sqe->buf_group = bgid;
 }
 
 static inline void io_uring_prep_remove_buffers(struct io_uring_sqe *sqe,
