@@ -418,6 +418,13 @@ static inline void io_uring_prep_provide_buffers(struct io_uring_sqe *sqe,
 	sqe->buf_group = gid;
 }
 
+static inline void io_uring_prep_remove_buffers(struct io_uring_sqe *sqe,
+						int nr, int bgid)
+{
+	io_uring_prep_rw(IORING_OP_REMOVE_BUFFERS, sqe, nr, NULL, 0, 0);
+	sqe->buf_group = bgid;
+}
+
 static inline unsigned io_uring_sq_ready(struct io_uring *ring)
 {
 	if (!(ring->flags & IORING_SETUP_SQPOLL))
