@@ -45,12 +45,13 @@ struct io_uring_sqe {
 	__u64	user_data;	/* data to be passed back at completion time */
 	union {
 		struct {
+			/* pack this to avoid bogus arm OABI complaints */
 			union {
 				/* index into fixed buffers, if used */
 				__u16	buf_index;
 				/* for grouped buffer selection */
 				__u16	buf_group;
-			};
+			} __attribute__((packed));
 			/* personality to use, if used */
 			__u16	personality;
 			__s32	splice_fd_in;
@@ -127,6 +128,7 @@ enum {
 	IORING_OP_EPOLL_CTL,
 	IORING_OP_SPLICE,
 	IORING_OP_PROVIDE_BUFFERS,
+	IORING_OP_REMOVE_BUFFERS,
 
 	/* this goes last, obviously */
 	IORING_OP_LAST,
