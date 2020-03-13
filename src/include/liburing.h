@@ -427,8 +427,7 @@ static inline void io_uring_prep_remove_buffers(struct io_uring_sqe *sqe,
 
 static inline unsigned io_uring_sq_ready(struct io_uring *ring)
 {
-	if (!(ring->flags & IORING_SETUP_SQPOLL))
-		return ring->sq.sqe_tail - ring->sq.sqe_head;
+	/* always use real head, to avoid losing sync for short submit */
 	return ring->sq.sqe_tail - *ring->sq.khead;
 }
 

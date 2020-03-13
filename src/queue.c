@@ -213,7 +213,6 @@ static int __io_uring_submit(struct io_uring *ring, unsigned submitted,
 
 static int __io_uring_submit_and_wait(struct io_uring *ring, unsigned wait_nr)
 {
-
 	return __io_uring_submit(ring, __io_uring_flush_sq(ring), wait_nr);
 }
 
