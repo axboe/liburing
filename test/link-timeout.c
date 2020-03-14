@@ -128,8 +128,9 @@ static int test_fail_two_link_timeouts(struct io_uring *ring)
 
 		switch (cqe->user_data) {
 		case 1:
-			if (cqe->res != -EFAULT) {
-				fprintf(stderr, "write got %d, wanted -EFAULT\n", cqe->res);
+			if (cqe->res != -EFAULT && cqe->res != -ECANCELED) {
+				fprintf(stderr, "write got %d, wanted -EFAULT "
+						"or -ECANCELED\n", cqe->res);
 				goto err;
 			}
 			break;
