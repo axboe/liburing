@@ -20,6 +20,7 @@
 static struct iovec *vecs;
 static int no_read;
 static int no_buf_select;
+static int warned;
 
 static int create_buffers(void)
 {
@@ -62,7 +63,6 @@ static int __test_io(const char *file, struct io_uring *ring, int write, int buf
 	struct io_uring_cqe *cqe;
 	int open_flags;
 	int i, fd, ret;
-	static int warned;
 	off_t offset;
 
 #ifdef VERBOSE
@@ -245,8 +245,6 @@ static int test_io(const char *file, int write, int buffered, int sqthread,
 
 	if (sqthread) {
 		if (geteuid()) {
-			static int warned;
-
 			if (!warned) {
 				fprintf(stderr, "SQPOLL requires root, skipping\n");
 				warned = 1;
@@ -512,6 +510,77 @@ static int test_buf_select(const char *filename, int nonvec)
 	return ret;
 }
 
+static int test_io_link(const char *file)
+{
+	const int nr_links = 100;
+	const int link_len = 100;
+	const int nr_sqes = nr_links * link_len;
+	struct io_uring_sqe *sqe;
+	struct io_uring_cqe *cqe;
+	struct io_uring ring;
+	int i, j, fd, ret;
+
+	fd = open(file, O_WRONLY);
+	if (fd < 0) {
+		perror("file open");
+		goto err;
+	}
+
+	ret = io_uring_queue_init(nr_sqes, &ring, 0);
+	if (ret) {
+		fprintf(stderr, "ring create failed: %d\n", ret);
+		goto err;
+	}
+
+	for (i = 0; i < nr_links; ++i) {
+		for (j = 0; j < link_len; ++j) {
+			sqe = io_uring_get_sqe(&ring);
+			if (!sqe) {
+				fprintf(stderr, "sqe get failed\n");
+				goto err;
+			}
+			io_uring_prep_writev(sqe, fd, &vecs[0], 1, 0);
+			sqe->flags |= IOSQE_ASYNC;
+			if (j != link_len - 1)
+				sqe->flags |= IOSQE_IO_LINK;
+		}
+	}
+
+	ret = io_uring_submit(&ring);
+	if (ret != nr_sqes) {
+		fprintf(stderr, "submit got %d, wanted %d\n", ret, nr_sqes);
+		goto err;
+	}
+
+	for (i = 0; i < nr_sqes; i++) {
+		ret = io_uring_wait_cqe(&ring, &cqe);
+		if (ret) {
+			fprintf(stderr, "wait_cqe=%d\n", ret);
+			goto err;
+		}
+		if (cqe->res == -EINVAL) {
+			if (!warned) {
+				fprintf(stdout, "Non-vectored IO not "
+					"supported, skipping\n");
+				warned = 1;
+				no_read = 1;
+			}
+		} else if (cqe->res != BS) {
+			fprintf(stderr, "cqe res %d, wanted %d\n", cqe->res, BS);
+			goto err;
+		}
+		io_uring_cqe_seen(&ring, cqe);
+	}
+
+	io_uring_queue_exit(&ring);
+	close(fd);
+	return 0;
+err:
+	if (fd != -1)
+		close(fd);
+	return 1;
+}
+
 int main(int argc, char *argv[])
 {
 	int i, ret, nr;
@@ -581,6 +650,12 @@ int main(int argc, char *argv[])
 	ret = read_poll_link(".basic-rw");
 	if (ret) {
 		fprintf(stderr, "read_poll_link failed\n");
+		goto err;
+	}
+
+	ret = test_io_link(".basic-rw");
+	if (ret) {
+		fprintf(stderr, "test_io_link failed\n");
 		goto err;
 	}
 
