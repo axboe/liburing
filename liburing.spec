@@ -26,7 +26,7 @@ for the Linux-native io_uring.
 
 %build
 %set_build_flags
-./configure --prefix=%{_prefix} --libdir=/%{_libdir} --mandir=%{_mandir} --includedir=%{_includedir}
+./configure --prefix=%{_prefix} --libdir=/%{_libdir} --libdevdir=/%{_libdir} --mandir=%{_mandir} --includedir=%{_includedir}
 
 %make_build
 
