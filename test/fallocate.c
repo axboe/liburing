@@ -8,6 +8,7 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/resource.h>
 #include <stdlib.h>
 #include <string.h>
 #include <fcntl.h>
@@ -15,6 +16,68 @@
 #include "liburing.h"
 
 static int no_fallocate;
+
+static int test_fallocate_rlimit(struct io_uring *ring)
+{
+	struct io_uring_cqe *cqe;
+	struct io_uring_sqe *sqe;
+	struct rlimit rlim;
+	char buf[32];
+	int fd, ret;
+
+	if (getrlimit(RLIMIT_FSIZE, &rlim) < 0) {
+		perror("getrlimit");
+		return 1;
+	}
+	rlim.rlim_cur = 64 * 1024;
+	rlim.rlim_max = 64 * 1024;
+	if (setrlimit(RLIMIT_FSIZE, &rlim) < 0) {
+		perror("setrlimit");
+		return 1;
+	}
+
+	sprintf(buf, "./XXXXXX");
+	fd = mkstemp(buf);
+	if (fd < 0) {
+		perror("open");
+		return 1;
+	}
+
+	sqe = io_uring_get_sqe(ring);
+	if (!sqe) {
+		fprintf(stderr, "get sqe failed\n");
+		goto err;
+	}
+	io_uring_prep_fallocate(sqe, fd, 0, 0, 128*1024);
+
+	ret = io_uring_submit(ring);
+	if (ret <= 0) {
+		fprintf(stderr, "sqe submit failed: %d\n", ret);
+		goto err;
+	}
+
+	ret = io_uring_wait_cqe(ring, &cqe);
+	if (ret < 0) {
+		fprintf(stderr, "wait completion %d\n", ret);
+		goto err;
+	}
+
+	if (cqe->res == -EINVAL) {
+		fprintf(stdout, "Fallocate not supported, skipping\n");
+		no_fallocate = 1;
+		goto out;
+	} else if (cqe->res != -EFBIG) {
+		fprintf(stderr, "Expected -EFBIG: %d\n", cqe->res);
+		goto err;
+	}
+	io_uring_cqe_seen(ring, cqe);
+out:
+	unlink(buf);
+	return 0;
+err:
+	unlink(buf);
+	return 1;
+}
 
 static int test_fallocate(struct io_uring *ring)
 {
@@ -173,6 +236,12 @@ int main(int argc, char *argv[])
 	ret = test_fallocate_fsync(&ring);
 	if (ret) {
 		fprintf(stderr, "test_fallocate_fsync failed\n");
+		return ret;
+	}
+
+	ret = test_fallocate_rlimit(&ring);
+	if (ret) {
+		fprintf(stderr, "test_fallocate_rlimit failed\n");
 		return ret;
 	}
 
