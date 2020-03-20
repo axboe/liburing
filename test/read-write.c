@@ -11,6 +11,7 @@
 #include <sys/types.h>
 #include <sys/poll.h>
 #include <sys/eventfd.h>
+#include <sys/resource.h>
 #include "liburing.h"
 
 #define FILE_SIZE	(128 * 1024)
@@ -581,6 +582,86 @@ err:
 	return 1;
 }
 
+static int test_write_efbig(void)
+{
+	struct io_uring_sqe *sqe;
+	struct io_uring_cqe *cqe;
+	struct io_uring ring;
+	struct rlimit rlim;
+	int i, fd, ret;
+	loff_t off;
+
+	if (getrlimit(RLIMIT_FSIZE, &rlim) < 0) {
+		perror("getrlimit");
+		return 1;
+	}
+	rlim.rlim_cur = 64 * 1024;
+	rlim.rlim_max = 64 * 1024;
+	if (setrlimit(RLIMIT_FSIZE, &rlim) < 0) {
+		perror("setrlimit");
+		return 1;
+	}
+
+	fd = open(".efbig", O_WRONLY | O_CREAT, 0644);
+	if (fd < 0) {
+		perror("file open");
+		goto err;
+	}
+
+	ret = io_uring_queue_init(32, &ring, 0);
+	if (ret) {
+		fprintf(stderr, "ring create failed: %d\n", ret);
+		goto err;
+	}
+
+	off = 0;
+	for (i = 0; i < 32; i++) {
+		sqe = io_uring_get_sqe(&ring);
+		if (!sqe) {
+			fprintf(stderr, "sqe get failed\n");
+			goto err;
+		}
+		io_uring_prep_writev(sqe, fd, &vecs[i], 1, off);
+		off += BS;
+	}
+
+	ret = io_uring_submit(&ring);
+	if (ret != 32) {
+		fprintf(stderr, "submit got %d, wanted %d\n", ret, 32);
+		goto err;
+	}
+
+	for (i = 0; i < 32; i++) {
+		ret = io_uring_wait_cqe(&ring, &cqe);
+		if (ret) {
+			fprintf(stderr, "wait_cqe=%d\n", ret);
+			goto err;
+		}
+		if (i < 16) {
+			if (cqe->res != BS) {
+				fprintf(stderr, "bad write: %d\n", cqe->res);
+				goto err;
+			}
+		} else {
+			if (cqe->res != -EFBIG) {
+				fprintf(stderr, "Expected -EFBIG: %d\n", cqe->res);
+				goto err;
+			}
+		}
+		io_uring_cqe_seen(&ring, cqe);
+	}
+
+	io_uring_queue_exit(&ring);
+	close(fd);
+	unlink(".efbig");
+	return 0;
+err:
+	if (fd != -1)
+		close(fd);
+	unlink(".efbig");
+	return 1;
+}
+
 int main(int argc, char *argv[])
 {
 	int i, ret, nr;
@@ -656,6 +737,12 @@ int main(int argc, char *argv[])
 	ret = test_io_link(".basic-rw");
 	if (ret) {
 		fprintf(stderr, "test_io_link failed\n");
+		goto err;
+	}
+
+	ret = test_write_efbig();
+	if (ret) {
+		fprintf(stderr, "test_write_efbig failed\n");
 		goto err;
 	}
 
