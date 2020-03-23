@@ -549,6 +549,11 @@ static int test_io_link(const char *file)
 
 	ret = io_uring_submit(&ring);
 	if (ret != nr_sqes) {
+		ret = io_uring_peek_cqe(&ring, &cqe);
+		if (!ret && cqe->res == -EINVAL) {
+			fprintf(stdout, "IOSQE_ASYNC not supported, skipped\n");
+			goto out;
+		}
 		fprintf(stderr, "submit got %d, wanted %d\n", ret, nr_sqes);
 		goto err;
 	}
@@ -573,6 +578,7 @@ static int test_io_link(const char *file)
 		io_uring_cqe_seen(&ring, cqe);
 	}
 
+out:
 	io_uring_queue_exit(&ring);
 	close(fd);
 	return 0;
