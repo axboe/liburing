@@ -74,6 +74,7 @@
 /test/shared-wq
 /test/short-read
 /test/socket-rw
+/test/splice
 /test/sq-full
 /test/sq-poll-kthread
 /test/sq-space_left
