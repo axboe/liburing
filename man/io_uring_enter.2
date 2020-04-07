@@ -813,3 +813,10 @@ does not refer to an io_uring instance.
 .B EOPNOTSUPP
 .I opcode
 is valid, but not supported by this kernel.
+.TP
+.B EINTR
+The operation was interrupted by a delivery of a signal before it could
+complete; see
+.BR signal(7).
+Can happen while waiting for events with
+.B IORING_ENTER_GETEVENTS.
