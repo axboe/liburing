@@ -21,8 +21,9 @@ static const mode_t OPEN_MODE = S_IRUSR | S_IWUSR;
 static int do_write(struct io_uring *ring, int fd, off_t offset)
 {
 	char buf[] = "some test write buf";
-	int res;
 	struct io_uring_sqe *sqe;
+	struct io_uring_cqe *cqe;
+	int res, ret;
 
 	sqe = io_uring_get_sqe(ring);
 	if (!sqe) {
@@ -30,13 +31,12 @@ static int do_write(struct io_uring *ring, int fd, off_t offset)
 		return 1;
 	}
 	io_uring_prep_write(sqe, fd, buf, sizeof(buf), offset);
-	int ret = io_uring_submit(ring);
+
+	ret = io_uring_submit(ring);
 	if (ret < 0) {
 		fprintf(stderr, "failed to submit write: %s\n", strerror(-ret));
 		return 1;
 	}
-
-	struct io_uring_cqe *cqe;
 
 	ret = io_uring_wait_cqe(ring, &cqe);
 	if (ret < 0) {
@@ -57,22 +57,22 @@ static int do_write(struct io_uring *ring, int fd, off_t offset)
 static int test_open_write(struct io_uring *ring, int dfd, const char *fn)
 {
 	struct io_uring_sqe *sqe;
-	int fd = -1;
+	struct io_uring_cqe *cqe;
+	int ret, fd = -1;
 
 	sqe = io_uring_get_sqe(ring);
 	if (!sqe) {
 		fprintf(stderr, "failed to get sqe\n");
 		return 1;
 	}
-
 	io_uring_prep_openat(sqe, dfd, fn, OPEN_FLAGS, OPEN_MODE);
-	int ret = io_uring_submit(ring);
+
+	ret = io_uring_submit(ring);
 	if (ret < 0) {
 		fprintf(stderr, "failed to submit openat: %s\n", strerror(-ret));
 		return 1;
 	}
 
-	struct io_uring_cqe *cqe;
 	ret = io_uring_wait_cqe(ring, &cqe);
 	if (ret < 0) {
 		fprintf(stderr, "wait_cqe failed: %s\n", strerror(-ret));
@@ -91,15 +91,16 @@ static int test_open_write(struct io_uring *ring, int dfd, const char *fn)
 
 int main(int argc, char *argv[])
 {
-	int dfd = open("/tmp", O_RDONLY | O_DIRECTORY);
-	if (dfd < 0) {
-		DIE("open /tmp: %s\n", strerror(errno));
-	}
 	struct io_uring ring;
-	int ret = io_uring_queue_init(RSIZE, &ring, 0);
-	if (ret < 0) {
+	int dfd, ret;
+
+	dfd = open("/tmp", O_RDONLY | O_DIRECTORY);
+	if (dfd < 0)
+		DIE("open /tmp: %s\n", strerror(errno));
+
+	ret = io_uring_queue_init(RSIZE, &ring, 0);
+	if (ret < 0)
 		DIE("failed to init io_uring: %s\n", strerror(-ret));
-	}
 
 	ret = test_open_write(&ring, dfd, "io_uring_openat_write_test1");
 

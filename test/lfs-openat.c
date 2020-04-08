@@ -22,21 +22,24 @@ static const mode_t OPEN_MODE = S_IRUSR | S_IWUSR;
 static int open_io_uring(struct io_uring *ring, int dfd, const char *fn)
 {
 	struct io_uring_sqe *sqe;
+	struct io_uring_cqe *cqe;
+	int ret, fd;
+
 	sqe = io_uring_get_sqe(ring);
 	if (!sqe) {
 		fprintf(stderr, "failed to get sqe\n");
 		return 1;
 	}
 	io_uring_prep_openat(sqe, dfd, fn, OPEN_FLAGS, OPEN_MODE);
-	int ret = io_uring_submit(ring);
+
+	ret = io_uring_submit(ring);
 	if (ret < 0) {
 		fprintf(stderr, "failed to submit openat: %s\n", strerror(-ret));
 		return 1;
 	}
 
-	struct io_uring_cqe *cqe;
 	ret = io_uring_wait_cqe(ring, &cqe);
-	int fd = cqe->res;
+	fd = cqe->res;
 	io_uring_cqe_seen(ring, cqe);
 	if (ret < 0) {
 		fprintf(stderr, "wait_cqe failed: %s\n", strerror(-ret));
@@ -50,18 +53,21 @@ static int open_io_uring(struct io_uring *ring, int dfd, const char *fn)
 	return 0;
 }
 
-int prepare_file(int dfd, const char* fn)
+static int prepare_file(int dfd, const char* fn)
 {
 	const char buf[] = "foo";
-	int fd = openat(dfd, fn, OPEN_FLAGS, OPEN_MODE);
+	int fd, res;
+
+	fd = openat(dfd, fn, OPEN_FLAGS, OPEN_MODE);
 	if (fd < 0) {
 		fprintf(stderr, "prepare/open: %s\n", strerror(errno));
 		return -1;
 	}
-	int res = pwrite(fd, buf, sizeof(buf), 1ull << 32);
-	if (res < 0) {
+
+	res = pwrite(fd, buf, sizeof(buf), 1ull << 32);
+	if (res < 0)
 		fprintf(stderr, "prepare/pwrite: %s\n", strerror(errno));
-	}
+
 	close(fd);
 	return res < 0 ? res : 0;
 }
@@ -70,14 +76,15 @@ int main(int argc, char *argv[])
 {
 	const char *fn = "io_uring_openat_test";
 	int dfd = open("/tmp", O_RDONLY | O_DIRECTORY);
-	if (dfd < 0) {
-		DIE("open /tmp: %s\n", strerror(errno));
-	}
 	struct io_uring ring;
-	int ret = io_uring_queue_init(RSIZE, &ring, 0);
-	if (ret < 0) {
+	int ret;
+
+	if (dfd < 0)
+		DIE("open /tmp: %s\n", strerror(errno));
+
+	ret = io_uring_queue_init(RSIZE, &ring, 0);
+	if (ret < 0)
 		DIE("failed to init io_uring: %s\n", strerror(-ret));
-	}
 
 	if (prepare_file(dfd, fn))
 		return 1;
