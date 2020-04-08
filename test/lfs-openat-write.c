@@ -107,5 +107,5 @@ int main(int argc, char *argv[])
 	io_uring_queue_exit(&ring);
 	close(dfd);
 	unlink("/tmp/io_uring_openat_write_test1");
-	return 0;
+	return ret;
 }
