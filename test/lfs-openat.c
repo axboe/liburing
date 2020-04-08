@@ -86,6 +86,6 @@ int main(int argc, char *argv[])
 
 	io_uring_queue_exit(&ring);
 	close(dfd);
-	unlink(fn);
+	unlink("/tmp/io_uring_openat_test");
 	return ret;
 }
