@@ -272,7 +272,7 @@ field must contain a pointer to a struct timespec64 structure,
 must contain 1 to signify one timespec64 structure,
 .I timeout_flags
 may contain IORING_TIMEOUT_ABS
-for an absolutel timeout value, or 0 for a relative timeout.
+for an absolute timeout value, or 0 for a relative timeout.
 .I off
 may contain a completion event count. If not set, this defaults to 1. A timeout
 will trigger a wakeup event on the completion ring for anyone waiting for
@@ -328,7 +328,7 @@ Attempt to cancel an already issued request.
 must contain the
 .I user_data
 field of the request that should be cancelled. The cancellation request will
-complete with one of the following results codes. I found, the
+complete with one of the following results codes. If found, the
 .I res
 field of the cqe will contain 0. If not found,
 .I res
