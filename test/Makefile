@@ -18,7 +18,7 @@ all_targets += poll poll-cancel ring-leak fsync io_uring_setup io_uring_register
 		poll-link accept-link fixed-link poll-cancel-ton teardowns \
 		poll-many b5837bd5311d-test accept-test d77a67ed5f27-test \
 		connect 7ad0e4b2f83c-test submit-reuse fallocate open-close \
-		file-update statx accept-reuse poll-v-poll fadvise madvise \
+		file-update accept-reuse poll-v-poll fadvise madvise \
 		short-read openat2 probe shared-wq personality eventfd \
 		send_recv eventfd-ring across-fork sq-poll-kthread splice \
 		lfs-openat lfs-openat-write
@@ -27,6 +27,10 @@ include ../Makefile.quiet
 
 ifneq ($(MAKECMDGOALS),clean)
 include ../config-host.mak
+endif
+
+ifdef CONFIG_HAVE_STATX
+all_targets += statx
 endif
 
 all: $(all_targets)
@@ -46,10 +50,14 @@ test_srcs := poll.c poll-cancel.c ring-leak.c fsync.c io_uring_setup.c \
 	accept-link.c fixed-link.c poll-cancel-ton.c teardowns.c poll-many.c \
 	b5837bd5311d-test.c accept-test.c d77a67ed5f27-test.c connect.c \
 	7ad0e4b2f83c-test.c submit-reuse.c fallocate.c open-close.c \
-	file-update.c statx.c accept-reuse.c poll-v-poll.c fadvise.c \
+	file-update.c accept-reuse.c poll-v-poll.c fadvise.c \
 	madvise.c short-read.c openat2.c probe.c shared-wq.c \
 	personality.c eventfd.c eventfd-ring.c across-fork.c sq-poll-kthread.c \
 	splice.c lfs-openat.c lfs-openat-write.c
+
+ifdef CONFIG_HAVE_STATX
+test_srcs += statx.c
+endif
 
 test_objs := $(patsubst %.c,%.ol,$(test_srcs))
 

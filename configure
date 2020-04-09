@@ -245,6 +245,27 @@ if compile_prog "" "" "open_how"; then
 fi
 print_config "open_how" "$open_how"
 
+##########################################
+# check for statx
+statx="no"
+cat > $TMPC << EOF
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <string.h>
+#include <linux/stat.h>
+int main(int argc, char **argv)
+{
+  struct statx x;
+
+  return memset(&x, 0, sizeof(x)) != NULL;
+}
+EOF
+if compile_prog "" "" "statx"; then
+  statx="yes"
+fi
+print_config "statx" "$statx"
 
 #############################################################################
 
@@ -256,6 +277,9 @@ if test "$__kernel_timespec" = "yes"; then
 fi
 if test "$open_how" = "yes"; then
   output_sym "CONFIG_HAVE_OPEN_HOW"
+fi
+if test "$statx" = "yes"; then
+  output_sym "CONFIG_HAVE_STATX"
 fi
 
 echo "CC=$cc" >> $config_host_mak
