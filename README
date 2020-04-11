@@ -39,6 +39,8 @@ License
 -------
 
 All software contained within this repo is dual licensed LGPL and MIT, see
-COPYING and LICENSE.
+COPYING and LICENSE, except for a header coming from the kernel which is
+dual licensed GPL with a Linux-syscall-note exception and MIT, see
+COPYING.GPL and <https://spdx.org/licenses/Linux-syscall-note.html>.
 
 Jens Axboe 2020-01-20
