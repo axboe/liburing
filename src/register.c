@@ -99,6 +99,19 @@ int io_uring_register_eventfd(struct io_uring *ring, int event_fd)
 	return 0;
 }
 
+int io_uring_register_eventfd_async(struct io_uring *ring, int event_fd)
+{
+	int ret;
+
+	ret = __sys_io_uring_register(ring->ring_fd, IORING_REGISTER_EVENTFD_ASYNC,
+			&event_fd, 1);
+	if (ret < 0)
+		return -errno;
+
+	return 0;
+}
+
+
 int io_uring_unregister_eventfd(struct io_uring *ring)
 {
 	int ret;
