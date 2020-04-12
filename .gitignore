@@ -52,6 +52,8 @@
 /test/io_uring_register
 /test/io_uring_setup
 /test/io-cancel
+/test/lfs-openat
+/test/lfs-openat-write
 /test/link
 /test/link-timeout
 /test/link_drain
