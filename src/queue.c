@@ -19,9 +19,10 @@
  * or if IORING_SQ_NEED_WAKEUP is set, so submit thread must be explicitly
  * awakened. For the latter case, we set the thread wakeup flag.
  */
-static inline bool sq_ring_needs_enter(struct io_uring *ring, unsigned *flags)
+static inline bool sq_ring_needs_enter(struct io_uring *ring,
+				unsigned submitted, unsigned *flags)
 {
-	if (!(ring->flags & IORING_SETUP_SQPOLL))
+	if (!(ring->flags & IORING_SETUP_SQPOLL) && submitted)
 		return true;
 	if (IO_URING_READ_ONCE(*ring->sq.kflags) & IORING_SQ_NEED_WAKEUP) {
 		*flags |= IORING_ENTER_SQ_WAKEUP;
@@ -51,7 +52,7 @@ int __io_uring_get_cqe(struct io_uring *ring, struct io_uring_cqe **cqe_ptr,
 		if (wait_nr)
 			flags = IORING_ENTER_GETEVENTS;
 		if (submit)
-			sq_ring_needs_enter(ring, &flags);
+			sq_ring_needs_enter(ring, submit, &flags);
 		if (wait_nr || submit)
 			ret = __sys_io_uring_enter(ring->ring_fd, submit,
 						   wait_nr, flags, sigmask);
@@ -197,7 +198,7 @@ static int __io_uring_submit(struct io_uring *ring, unsigned submitted,
 	int ret;
 
 	flags = 0;
-	if (sq_ring_needs_enter(ring, &flags) || wait_nr) {
+	if (sq_ring_needs_enter(ring, submitted, &flags) || wait_nr) {
 		if (wait_nr || (ring->flags & IORING_SETUP_IOPOLL))
 			flags |= IORING_ENTER_GETEVENTS;
 
