@@ -82,11 +82,20 @@ static int setup_fault()
 #define __NR_io_uring_setup 425
 #endif
 
+/* We can use the same syscall, because our offset is 0. */
+#if defined(__NR_mmap)
+#define SYSCALL_mmap __NR_mmap
+#elif defined(__NR_mmap2)
+#define SYSCALL_mmap __NR_mmap2
+#else
+#error Missing mmap syscall.
+#endif
+
 uint64_t r[2] = {0xffffffffffffffff, 0xffffffffffffffff};
 
 int main(void)
 {
-  syscall(__NR_mmap, 0x20000000ul, 0x1000000ul, 3ul, 0x32ul, -1, 0);
+  syscall(SYSCALL_mmap, 0x20000000ul, 0x1000000ul, 3ul, 0x32ul, -1, 0);
   if (setup_fault()) {
     printf("Test needs failslab/fail_futex/fail_page_alloc enabled, skipped\n");
     return 0;

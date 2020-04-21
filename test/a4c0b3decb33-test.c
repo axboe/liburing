@@ -170,10 +170,19 @@ static void sig_int(int sig)
 	exit(0);
 }
 
+/* We can use the same syscall, because our offset is 0. */
+#if defined(__NR_mmap)
+#define SYSCALL_mmap __NR_mmap
+#elif defined(__NR_mmap2)
+#define SYSCALL_mmap __NR_mmap2
+#else
+#error Missing mmap syscall.
+#endif
+
 int main(void)
 {
 	signal(SIGINT, sig_int);
-	syscall(__NR_mmap, 0x20000000, 0x1000000, 3, 0x32, -1, 0);
+	syscall(SYSCALL_mmap, 0x20000000, 0x1000000, 3, 0x32, -1, 0);
 	loop();
 	return 0;
 }

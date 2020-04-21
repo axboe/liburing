@@ -17,11 +17,20 @@
 #define __NR_io_uring_setup 425
 #endif
 
+/* We can use the same syscall, because our offset is 0. */
+#if defined(__NR_mmap)
+#define SYSCALL_mmap __NR_mmap
+#elif defined(__NR_mmap2)
+#define SYSCALL_mmap __NR_mmap2
+#else
+#error Missing mmap syscall.
+#endif
+
 uint64_t r[1] = {0xffffffffffffffff};
 
 int main(void)
 {
-  syscall(__NR_mmap, 0x20000000, 0x1000000, 3, 0x32, -1, 0);
+  syscall(SYSCALL_mmap, 0x20000000, 0x1000000, 3, 0x32, -1, 0);
   intptr_t res = 0;
   *(uint32_t*)0x20000080 = 0;
   *(uint32_t*)0x20000084 = 0;
