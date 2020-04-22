@@ -259,8 +259,5 @@ struct io_uring_sqe *io_uring_get_sqe(struct io_uring *ring)
 {
 	struct io_uring_sq *sq = &ring->sq;
 
-	if (!(ring->flags & IORING_SETUP_SQPOLL))
-		return __io_uring_get_sqe(sq, sq->sqe_head);
-
 	return __io_uring_get_sqe(sq, io_uring_smp_load_acquire(sq->khead));
 }
