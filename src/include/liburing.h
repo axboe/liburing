@@ -330,8 +330,9 @@ static inline void io_uring_prep_files_update(struct io_uring_sqe *sqe,
 static inline void io_uring_prep_fallocate(struct io_uring_sqe *sqe, int fd,
 					   int mode, off_t offset, off_t len)
 {
-	io_uring_prep_rw(IORING_OP_FALLOCATE, sqe, fd, (const void *) len, mode,
-				offset);
+
+	io_uring_prep_rw(IORING_OP_FALLOCATE, sqe, fd,
+			(const uintptr_t *) (unsigned long) len, mode, offset);
 }
 
 static inline void io_uring_prep_openat(struct io_uring_sqe *sqe, int dfd,

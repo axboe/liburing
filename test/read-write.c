@@ -394,7 +394,8 @@ static int test_eventfd_read(void)
 	if (cqe->res == -EINVAL) {
 		fprintf(stdout, "eventfd IO not supported, skipping\n");
 	} else if (cqe->res != sizeof(eventfd_t)) {
-		fprintf(stderr, "cqe res %d, wanted %ld\n", cqe->res, sizeof(eventfd_t));
+		fprintf(stderr, "cqe res %d, wanted %d\n", cqe->res,
+						(int) sizeof(eventfd_t));
 		return 1;
 	}
 	io_uring_cqe_seen(&ring, cqe);

@@ -103,7 +103,7 @@ static int do_recvmsg(struct io_uring *ring, struct iovec *iov,
 		if (bid != BUF_BID)
 			fprintf(stderr, "Buffer ID mismatch %d\n", bid);
 		/* just for passing the pointer to str */
-		iov->iov_base = (void *) cqe->user_data;
+		iov->iov_base = (void *) (uintptr_t) cqe->user_data;
 	}
 
 	if (rd->no_buf_add && rd->buf_select) {
