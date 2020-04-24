@@ -8,6 +8,7 @@
 #include <string.h>
 #include <sys/syscall.h>
 #include <sys/types.h>
+#include <sys/mman.h>
 #include <unistd.h>
 
 #ifndef __NR_io_uring_register
@@ -21,7 +22,7 @@ uint64_t r[1] = {0xffffffffffffffff};
 
 int main(void)
 {
-  syscall(__NR_mmap, 0x20000000, 0x1000000, 3, 0x32, -1, 0);
+  mmap((void *) 0x20000000, 0x1000000, 3, 0x32, -1, 0);
   intptr_t res = 0;
   *(uint32_t*)0x20000080 = 0;
   *(uint32_t*)0x20000084 = 0;

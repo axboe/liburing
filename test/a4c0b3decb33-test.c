@@ -17,6 +17,7 @@
 #include <sys/syscall.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <sys/mman.h>
 #include <time.h>
 #include <unistd.h>
 
@@ -173,7 +174,7 @@ static void sig_int(int sig)
 int main(void)
 {
 	signal(SIGINT, sig_int);
-	syscall(__NR_mmap, 0x20000000, 0x1000000, 3, 0x32, -1, 0);
+	mmap((void *) 0x20000000, 0x1000000, 3, 0x32, -1, 0);
 	loop();
 	return 0;
 }

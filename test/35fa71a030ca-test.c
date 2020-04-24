@@ -20,6 +20,7 @@
 #include <sys/wait.h>
 #include <time.h>
 #include <unistd.h>
+#include <sys/mman.h>
 
 #include <linux/futex.h>
 
@@ -260,9 +261,6 @@ static void loop(void)
 #ifndef __NR_io_uring_setup
 #define __NR_io_uring_setup 425
 #endif
-#ifndef __NR_mmap
-#define __NR_mmap 192
-#endif
 
 uint64_t r[1] = {0xffffffffffffffff};
 
@@ -320,7 +318,7 @@ static void sig_int(int sig)
 int main(void)
 {
   signal(SIGINT, sig_int);
-  syscall(__NR_mmap, 0x20000000, 0x1000000, 3, 0x32, -1, 0);
+  mmap((void *) 0x20000000, 0x1000000, 3, 0x32, -1, 0);
   loop();
   return 0;
 }

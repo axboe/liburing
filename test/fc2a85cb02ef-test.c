@@ -13,6 +13,7 @@
 #include <sys/socket.h>
 #include <sys/syscall.h>
 #include <sys/types.h>
+#include <sys/mman.h>
 #include <unistd.h>
 
 static bool write_file(const char* file, const char* what, ...)
@@ -86,7 +87,7 @@ uint64_t r[2] = {0xffffffffffffffff, 0xffffffffffffffff};
 
 int main(void)
 {
-  syscall(__NR_mmap, 0x20000000ul, 0x1000000ul, 3ul, 0x32ul, -1, 0);
+  mmap((void *) 0x20000000ul, 0x1000000ul, 3ul, 0x32ul, -1, 0);
   if (setup_fault()) {
     printf("Test needs failslab/fail_futex/fail_page_alloc enabled, skipped\n");
     return 0;
