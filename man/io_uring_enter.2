@@ -441,6 +441,26 @@ is access mode of the file. See also
 for the general description of the related system call. Available since 5.6.
 
 .TP
+.B IORING_OP_OPENAT2
+Issue the equivalent of a
+.BR openat2(2)
+system call.
+.I fd
+is the
+.I dirfd
+argument,
+.I addr
+must contain a pointer to the
+.I *pathname
+argument,
+.I len
+should contain the size of the open_how structure, and
+.I off
+should be set to the address of the open_how structure. See also
+.BR openat2(2)
+for the general description of the related system call. Available since 5.6.
+
+.TP
 .B IORING_OP_CLOSE
 Issue the equivalent of a
 .BR close(2)
