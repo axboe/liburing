@@ -88,6 +88,61 @@ err:
 	return -1;
 }
 
+static int test_statx_fd(struct io_uring *ring, const char *path)
+{
+	struct io_uring_cqe *cqe;
+	struct io_uring_sqe *sqe;
+	struct statx x1;
+#if defined(__x86_64)
+	struct statx x2;
+#endif
+	int ret, fd;
+
+	fd = open(path, O_RDONLY);
+	if (fd < 0) {
+		perror("open");
+		return 1;
+	}
+
+	memset(&x1, 0, sizeof(x1));
+
+	sqe = io_uring_get_sqe(ring);
+	if (!sqe) {
+		fprintf(stderr, "get sqe failed\n");
+		goto err;
+	}
+	io_uring_prep_statx(sqe, fd, "", AT_EMPTY_PATH, STATX_ALL, &x1);
+
+	ret = io_uring_submit(ring);
+	if (ret <= 0) {
+		fprintf(stderr, "sqe submit failed: %d\n", ret);
+		goto err;
+	}
+
+	ret = io_uring_wait_cqe(ring, &cqe);
+	if (ret < 0) {
+		fprintf(stderr, "wait completion %d\n", ret);
+		goto err;
+	}
+	ret = cqe->res;
+	io_uring_cqe_seen(ring, cqe);
+	if (ret)
+		return ret;
+#if defined(__x86_64)
+	memset(&x2, 0, sizeof(x2));
+	ret = do_statx(fd, "", AT_EMPTY_PATH, STATX_ALL, &x2);
+	if (ret < 0)
+		return -1;
+	if (memcmp(&x1, &x2, sizeof(x1))) {
+		fprintf(stderr, "Miscompare between io_uring and statx\n");
+		goto err;
+	}
+#endif
+	return 0;
+err:
+	return -1;
+}
+
 int main(int argc, char *argv[])
 {
 	struct io_uring ring;
@@ -117,6 +172,12 @@ int main(int argc, char *argv[])
 			goto done;
 		}
 		fprintf(stderr, "test_statx failed: %d\n", ret);
+		goto err;
+	}
+
+	ret = test_statx_fd(&ring, fname);
+	if (ret) {
+		fprintf(stderr, "test_statx_fd failed: %d\n", ret);
 		goto err;
 	}
 done:
