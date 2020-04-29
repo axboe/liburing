@@ -301,6 +301,8 @@ EOF
 fi
 if test "$__kernel_timespec" != "yes"; then
 cat >> $compat_h << EOF
+#include <stdint.h>
+
 struct __kernel_timespec {
 	int64_t		tv_sec;
 	long long	tv_nsec;
