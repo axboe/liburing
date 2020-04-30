@@ -8,6 +8,7 @@ extern "C" {
 
 #include <sys/socket.h>
 #include <sys/uio.h>
+#include <sys/stat.h>
 #include <signal.h>
 #include <inttypes.h>
 #include <time.h>
