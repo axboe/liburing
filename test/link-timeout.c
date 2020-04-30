@@ -598,7 +598,8 @@ static int test_timeout_link_chain1(struct io_uring *ring)
 			}
 			break;
 		case 2:
-			if (cqe->res != -EALREADY) {
+			/* FASTPOLL kernels can cancel successfully */
+			if (cqe->res != -EALREADY && cqe->res != -ETIME) {
 				fprintf(stderr, "Req %llu got %d\n", cqe->user_data,
 						cqe->res);
 				goto err;
