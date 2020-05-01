@@ -206,6 +206,24 @@ will contain
 .B -ENOENT.
 
 .TP
+.B IORING_OP_EPOLL_CTL
+Add, remove or modify entries in the interest list of 
+.BR epoll (7).
+See
+.BR epoll_ctl (2)
+for details of the system call.
+.I fd
+holds the file descriptor that represents the epoll instance,
+.I addr
+holds the file descriptor to add, remove or modify,
+.I len
+holds the operation (EPOLL_CTL_ADD, EPOLL_CTL_DEL, EPOLL_CTL_MOD) to perform and,
+.I off
+holds a pointer to the
+.I epoll_events
+structure. Available since 5.6.
+
+.TP
 .B IORING_OP_SYNC_FILE_RANGE
 Issue the equivalent of a \fBsync_file_range\fR (2) on the file descriptor. The
 .I fd
