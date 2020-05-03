@@ -116,17 +116,28 @@ static void queue_write(struct io_uring *ring, struct io_data *data)
 	io_uring_submit(ring);
 }
 
+static int queue_fsync(struct io_uring *ring)
+{
+	struct io_uring_sqe *sqe;
+
+	sqe = io_uring_get_sqe(ring);
+	assert(sqe);
+
+	io_uring_prep_fsync(sqe, outfd, 0);
+	return io_uring_submit(ring);
+}
+
 static int copy_file(struct io_uring *ring, off_t insize)
 {
 	unsigned long reads, writes;
 	struct io_uring_cqe *cqe;
-	off_t write_left, offset;
+	off_t written_left, offset;
 	int ret;
 
-	write_left = insize;
+	written_left = insize;
 	writes = reads = offset = 0;
 
-	while (insize || write_left) {
+	while (insize || written_left) {
 		int had_reads, got_comp;
 	
 		/*
@@ -163,7 +174,7 @@ static int copy_file(struct io_uring *ring, off_t insize)
 		 * Queue is full at this point. Find at least one completion.
 		 */
 		got_comp = 0;
-		while (write_left) {
+		while (written_left) {
 			struct io_data *data;
 
 			if (!got_comp) {
@@ -195,6 +206,8 @@ static int copy_file(struct io_uring *ring, off_t insize)
 						strerror(-cqe->res));
 				return 1;
 			} else if (cqe->res != data->iov.iov_len) {
+				if (!data->read)
+					written_left -= cqe->res;
 				/* Short read/write, adjust and requeue */
 				data->iov.iov_base += cqe->res;
 				data->iov.iov_len -= cqe->res;
@@ -210,10 +223,10 @@ static int copy_file(struct io_uring *ring, off_t insize)
 			 */
 			if (data->read) {
 				queue_write(ring, data);
-				write_left -= data->first_len;
 				reads--;
 				writes++;
 			} else {
+				written_left -= cqe->res;
 				free(data);
 				writes--;
 			}
@@ -221,6 +234,20 @@ static int copy_file(struct io_uring *ring, off_t insize)
 		}
 	}
 
+	ret = queue_fsync(ring);
+	if (ret < 0) {
+		fprintf(stderr, "io_uring_submit: %s\n", strerror(-ret));
+		return ret;
+	}
+
+	ret = io_uring_wait_cqe(ring, &cqe);
+	if (cqe->res < 0) {
+		fprintf(stderr, "cqe failed: %s\n",
+				strerror(-cqe->res));
+		io_uring_cqe_seen(ring, cqe);
+		return 1;
+	}
+	io_uring_cqe_seen(ring, cqe);
 	return 0;
 }
 
