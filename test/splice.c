@@ -144,7 +144,7 @@ static int do_splice_op(struct io_uring *ring,
 	struct io_uring_sqe *sqe;
 	int ret = -1;
 
-	while (len) {
+	do {
 		sqe = io_uring_get_sqe(ring);
 		if (!sqe) {
 			fprintf(stderr, "get sqe failed\n");
@@ -179,7 +179,7 @@ static int do_splice_op(struct io_uring *ring,
 		if (off_out != -1)
 			off_out += cqe->res;
 		io_uring_cqe_seen(ring, cqe);
-	}
+	} while (len);
 
 	return 0;
 }
@@ -213,6 +213,21 @@ static void check_tee_support(struct io_uring *ring, struct test_ctx *ctx)
 
 	ret = do_tee(ring, -1, -1, BUF_SIZE);
 	has_tee = (ret == -EBADF);
+}
+
+static int check_zero_splice(struct io_uring *ring, struct test_ctx *ctx)
+{
+	int ret;
+
+	ret = do_splice(ring, ctx->fd_in, -1, ctx->pipe1[1], -1, 0);
+	if (ret)
+		return ret;
+
+	ret = do_splice(ring, ctx->pipe2[0], -1, ctx->pipe1[1], -1, 0);
+	if (ret)
+		return ret;
+
+	return 0;
 }
 
 static int splice_to_pipe(struct io_uring *ring, struct test_ctx *ctx)
@@ -349,11 +364,23 @@ static int check_tee(struct io_uring *ring, struct test_ctx *ctx)
 	return 0;
 }
 
+static int check_zero_tee(struct io_uring *ring, struct test_ctx *ctx)
+{
+	return do_tee(ring, ctx->pipe2[0], ctx->pipe1[1], 0);
+}
+
 static int test_splice(struct io_uring *ring, struct test_ctx *ctx)
 {
 	int ret;
 
 	if (has_splice) {
+		ret = check_zero_splice(ring, ctx);
+		if (ret) {
+			fprintf(stderr, "check_zero_splice failed %i %i\n",
+				ret, errno);
+			return ret;
+		}
+
 		ret = splice_to_pipe(ring, ctx);
 		if (ret) {
 			fprintf(stderr, "splice_to_pipe failed %i %i\n",
@@ -384,6 +411,13 @@ static int test_splice(struct io_uring *ring, struct test_ctx *ctx)
 	}
 
 	if (has_tee) {
+		ret = check_zero_tee(ring, ctx);
+		if (ret) {
+			fprintf(stderr, "check_zero_tee() failed %i %i\n",
+				ret, errno);
+			return ret;
+		}
+
 		ret = fail_tee_nonpipe(ring, ctx);
 		if (ret) {
 			fprintf(stderr, "fail_tee_nonpipe() failed %i %i\n",
