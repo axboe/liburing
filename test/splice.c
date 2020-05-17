@@ -29,6 +29,7 @@ struct test_ctx {
 static unsigned int splice_flags = 0;
 static unsigned int sqe_flags = 0;
 static int has_splice = 0;
+static int has_tee = 0;
 
 static int read_buf(int fd, void *buf, int len)
 {
@@ -133,10 +134,11 @@ static int init_splice_ctx(struct test_ctx *ctx)
 	return 0;
 }
 
-static int do_splice(struct io_uring *ring,
-			   int fd_in, loff_t off_in,
-			   int fd_out, loff_t off_out,
-			   unsigned int len)
+static int do_splice_op(struct io_uring *ring,
+			int fd_in, loff_t off_in,
+			int fd_out, loff_t off_out,
+			unsigned int len,
+			__u8 opcode)
 {
 	struct io_uring_cqe *cqe;
 	struct io_uring_sqe *sqe;
@@ -152,6 +154,7 @@ static int do_splice(struct io_uring *ring,
 				     len, splice_flags);
 		sqe->flags |= sqe_flags;
 		sqe->user_data = 42;
+		sqe->opcode = opcode;
 
 		ret = io_uring_submit(ring);
 		if (ret != 1) {
@@ -181,12 +184,35 @@ static int do_splice(struct io_uring *ring,
 	return 0;
 }
 
+static int do_splice(struct io_uring *ring,
+			int fd_in, loff_t off_in,
+			int fd_out, loff_t off_out,
+			unsigned int len)
+{
+	return do_splice_op(ring, fd_in, off_in, fd_out, off_out, len,
+			    IORING_OP_SPLICE);
+}
+
+static int do_tee(struct io_uring *ring, int fd_in, int fd_out, 
+		  unsigned int len)
+{
+	return do_splice_op(ring, fd_in, 0, fd_out, 0, len, IORING_OP_TEE);
+}
+
 static void check_splice_support(struct io_uring *ring, struct test_ctx *ctx)
 {
 	int ret;
 
 	ret = do_splice(ring, -1, 0, -1, 0, BUF_SIZE);
 	has_splice = (ret == -EBADF);
+}
+
+static void check_tee_support(struct io_uring *ring, struct test_ctx *ctx)
+{
+	int ret;
+
+	ret = do_tee(ring, -1, -1, BUF_SIZE);
+	has_tee = (ret == -EBADF);
 }
 
 static int splice_to_pipe(struct io_uring *ring, struct test_ctx *ctx)
@@ -267,37 +293,119 @@ static int fail_splice_pipe_offset(struct io_uring *ring, struct test_ctx *ctx)
 	return 0;
 }
 
+static int fail_tee_nonpipe(struct io_uring *ring, struct test_ctx *ctx)
+{
+	int ret;
+
+	ret = do_tee(ring, ctx->fd_in, ctx->pipe1[1], BUF_SIZE);
+	if (ret != -ESPIPE && ret != -EINVAL)
+		return ret;
+
+	return 0;
+}
+
+static int fail_tee_offset(struct io_uring *ring, struct test_ctx *ctx)
+{
+	int ret;
+
+	ret = do_splice_op(ring, ctx->pipe2[0], -1, ctx->pipe1[1], 0,
+			   BUF_SIZE, IORING_OP_TEE);
+	if (ret != -ESPIPE && ret != -EINVAL)
+		return ret;
+
+	ret = do_splice_op(ring, ctx->pipe2[0], 0, ctx->pipe1[1], -1,
+			   BUF_SIZE, IORING_OP_TEE);
+	if (ret != -ESPIPE && ret != -EINVAL)
+		return ret;
+
+	return 0;
+}
+
+static int check_tee(struct io_uring *ring, struct test_ctx *ctx)
+{
+	int ret;
+
+	ret = write_buf(ctx->real_pipe1[1], ctx->buf_in, BUF_SIZE);
+	if (ret)
+		return ret;
+	ret = do_tee(ring, ctx->pipe1[0], ctx->pipe2[1], BUF_SIZE);
+	if (ret)
+		return ret;
+
+	ret = check_content(ctx->real_pipe1[0], ctx->buf_out, BUF_SIZE,
+				ctx->buf_in);
+	if (ret) {
+		fprintf(stderr, "tee(), invalid src data\n");
+		return ret;
+	}
+
+	ret = check_content(ctx->real_pipe2[0], ctx->buf_out, BUF_SIZE,
+				ctx->buf_in);
+	if (ret) {
+		fprintf(stderr, "tee(), invalid dst data\n");
+		return ret;
+	}
+
+	return 0;
+}
+
 static int test_splice(struct io_uring *ring, struct test_ctx *ctx)
 {
 	int ret;
 
-	ret = splice_to_pipe(ring, ctx);
-	if (ret) {
-		fprintf(stderr, "splice_to_pipe failed %i %i\n",
-			ret, errno);
-		return ret;
+	if (has_splice) {
+		ret = splice_to_pipe(ring, ctx);
+		if (ret) {
+			fprintf(stderr, "splice_to_pipe failed %i %i\n",
+				ret, errno);
+			return ret;
+		}
+
+		ret = splice_from_pipe(ring, ctx);
+		if (ret) {
+			fprintf(stderr, "splice_from_pipe failed %i %i\n",
+				ret, errno);
+			return ret;
+		}
+
+		ret = splice_pipe_to_pipe(ring, ctx);
+		if (ret) {
+			fprintf(stderr, "splice_pipe_to_pipe failed %i %i\n",
+				ret, errno);
+			return ret;
+		}
+
+		ret = fail_splice_pipe_offset(ring, ctx);
+		if (ret) {
+			fprintf(stderr, "fail_splice_pipe_offset failed %i %i\n",
+				ret, errno);
+			return ret;
+		}
 	}
 
-	ret = splice_from_pipe(ring, ctx);
-	if (ret) {
-		fprintf(stderr, "splice_from_pipe failed %i %i\n",
-			ret, errno);
-		return ret;
+	if (has_tee) {
+		ret = fail_tee_nonpipe(ring, ctx);
+		if (ret) {
+			fprintf(stderr, "fail_tee_nonpipe() failed %i %i\n",
+				ret, errno);
+			return ret;
+		}
+
+		ret = fail_tee_offset(ring, ctx);
+		if (ret) {
+			fprintf(stderr, "fail_tee_offset failed %i %i\n",
+				ret, errno);
+			return ret;
+		}
+
+		ret = check_tee(ring, ctx);
+		if (ret) {
+			fprintf(stderr, "check_tee() failed %i %i\n",
+				ret, errno);
+			return ret;
+		}
 	}
 
-	ret = splice_pipe_to_pipe(ring, ctx);
-	if (ret) {
-		fprintf(stderr, "splice_pipe_to_pipe failed %i %i\n",
-			ret, errno);
-		return ret;
-	}
-
-	ret = fail_splice_pipe_offset(ring, ctx);
-	if (ret) {
-		fprintf(stderr, "fail_splice_pipe_offset failed %i %i\n",
-			ret, errno);
-		return ret;
-	}
 	return 0;
 }
 
@@ -321,10 +429,11 @@ int main(int argc, char *argv[])
 	}
 
 	check_splice_support(&ring, &ctx);
-	if (!has_splice) {
+	if (!has_splice)
 		fprintf(stdout, "skip, doesn't support splice()\n");
-		return 0;
-	}
+	check_tee_support(&ring, &ctx);
+	if (!has_tee)
+		fprintf(stdout, "skip, doesn't support tee()\n");
 
 	ret = test_splice(&ring, &ctx);
 	if (ret) {
