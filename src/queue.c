@@ -49,6 +49,8 @@ int __io_uring_get_cqe(struct io_uring *ring, struct io_uring_cqe **cqe_ptr,
 			err = -EAGAIN;
 			break;
 		}
+		if (wait_nr && cqe)
+			wait_nr--;
 		if (wait_nr)
 			flags = IORING_ENTER_GETEVENTS;
 		if (submit)
