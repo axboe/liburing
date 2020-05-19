@@ -563,6 +563,24 @@ See also
 for the general description of the related system call. Available since 5.7.
 
 .TP
+.B IORING_OP_TEE
+Issue the equivalent of a
+.BR tee(2)
+system call.
+.I splice_fd_in
+is the file descriptor to read from,
+.I fd
+is the file descriptor to write to,
+.I len
+contains the number of bytes to copy, and
+.I splice_flags
+contains a bit mask for the flag field associated with the system call.
+Please note that both of the file descriptors must refer to a pipe.
+See also
+.BR tee(2)
+for the general description of the related system call. Available since 5.8.
+
+.TP
 .B IORING_OP_FILES_UPDATE
 This command is an alternative to using
 .B IORING_REGISTER_FILES_UPDATE
