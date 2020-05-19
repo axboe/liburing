@@ -32,6 +32,33 @@ static inline bool sq_ring_needs_enter(struct io_uring *ring,
 	return false;
 }
 
+static int __io_uring_peek_cqe(struct io_uring *ring,
+			       struct io_uring_cqe **cqe_ptr)
+{
+	struct io_uring_cqe *cqe;
+	unsigned head;
+	int err = 0;
+
+	do {
+		io_uring_for_each_cqe(ring, head, cqe)
+			break;
+		if (cqe) {
+			if (cqe->user_data == LIBURING_UDATA_TIMEOUT) {
+				if (cqe->res < 0)
+					err = cqe->res;
+				io_uring_cq_advance(ring, 1);
+				if (!err)
+					continue;
+				cqe = NULL;
+			}
+		}
+		break;
+	} while (1);
+
+	*cqe_ptr = cqe;
+	return err;
+}
+
 int __io_uring_get_cqe(struct io_uring *ring, struct io_uring_cqe **cqe_ptr,
 		       unsigned submit, unsigned wait_nr, sigset_t *sigmask)
 {
