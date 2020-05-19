@@ -60,7 +60,14 @@ int __io_uring_get_cqe(struct io_uring *ring, struct io_uring_cqe **cqe_ptr,
 			err = -errno;
 		} else if (ret == (int)submit) {
 			submit = 0;
-			wait_nr = 0;
+			/*
+			 * When SETUP_IOPOLL is set, __sys_io_uring enter()
+			 * must be called to reap new completions but the call
+			 * won't be made if both wait_nr and submit are zero
+			 * so preserve wait_nr.
+			 */
+			if (!(ring->flags & IORING_SETUP_IOPOLL))
+				wait_nr = 0;
 		} else {
 			submit -= ret;
 		}
