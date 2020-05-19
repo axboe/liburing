@@ -48,6 +48,9 @@ int main(int argc, char *argv[])
 	struct io_uring ring;
 	int i, ret;
 
+	if (argc > 1)
+		return 0;
+
 	memset(&p, 0, sizeof(p));
 	ret = io_uring_queue_init_params(4, &ring, &p);
 	if (ret) {

@@ -135,6 +135,9 @@ int main(int argc, char *argv[])
 	int ret;
 	pid_t p;
 
+	if (argc > 1)
+		return 0;
+
 	shmem = mmap(0, sizeof(struct forktestmem), PROT_READ|PROT_WRITE,
 		   MAP_SHARED | MAP_ANONYMOUS, 0, 0);
 	if (!shmem) {

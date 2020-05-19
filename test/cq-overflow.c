@@ -471,6 +471,9 @@ int main(int argc, char *argv[])
 	unsigned long usecs;
 	int ret;
 
+	if (argc > 1)
+		return 0;
+
 	ret = test_overflow();
 	if (ret) {
 		printf("test_overflow failed\n");

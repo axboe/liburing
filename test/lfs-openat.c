@@ -82,6 +82,9 @@ int main(int argc, char *argv[])
 	struct io_uring ring;
 	int ret;
 
+	if (argc > 1)
+		return 0;
+
 	if (dfd < 0)
 		DIE("open /tmp: %s\n", strerror(errno));
 

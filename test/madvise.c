@@ -173,6 +173,9 @@ int main(int argc, char *argv[])
 	struct io_uring ring;
 	int ret, i, good, bad;
 
+	if (argc > 1)
+		return 0;
+
 	if (create_file(".madvise.tmp")) {
 		fprintf(stderr, "file creation failed\n");
 		goto err;

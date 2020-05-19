@@ -282,6 +282,9 @@ int main(int argc, char *argv[])
 {
 	int ret;
 
+	if (argc > 1)
+		return 0;
+
 	ret = test(0, 0);
 	if (ret) {
 		fprintf(stderr, "send_recvmsg 0 failed\n");

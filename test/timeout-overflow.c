@@ -171,6 +171,9 @@ int main(int argc, char *argv[])
 {
 	int ret;
 
+	if (argc > 1)
+		return 0;
+
 	ret = check_timeout_support();
 	if (ret) {
 		fprintf(stderr, "check_timeout_support failed: %d\n", ret);

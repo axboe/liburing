@@ -197,6 +197,9 @@ int main(int argc, char *argv[])
 	int ret;
 	void *retval;
 
+	if (argc > 1)
+		return 0;
+
 	pthread_mutexattr_init(&attr);
 	pthread_mutexattr_setpshared(&attr, 1);
 	pthread_mutex_init(&mutex, &attr);
