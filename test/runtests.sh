@@ -16,6 +16,12 @@ TEST_DIR=$(dirname $0)
 TEST_FILES=""
 if [ -f "$TEST_DIR/config" ]; then
 	. $TEST_DIR/config
+	for dev in $TEST_FILES; do
+		if [ ! -e "$dev" ]; then
+			echo "Test file $dev not valid"
+			exit 1
+		fi
+	done
 fi
 
 run_test()
