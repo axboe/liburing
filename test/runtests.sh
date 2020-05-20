@@ -12,27 +12,45 @@ if ! [ $(id -u) = 0 ]; then
 	do_kmsg="no"
 fi
 
-for t in $TESTS; do
+TEST_DIR=$(dirname $0)
+TEST_FILES=""
+if [ -f "$TEST_DIR/config" ]; then
+	. $TEST_DIR/config
+fi
+
+run_test()
+{
+	T="$1"
+	D="$2"
 	if [ "$do_kmsg" = "yes" ]; then
-		echo Running test $t | tee /dev/kmsg
+		echo Running test $T $D | tee /dev/kmsg
 	else
-		echo Running test $t
+		echo Running test $T $D
 	fi
-	timeout --preserve-status -s INT $TIMEOUT ./$t
+	timeout --preserve-status -s INT $TIMEOUT ./$T $D
 	r=$?
 	if [ "${r}" -eq 124 ]; then
-		echo "Test $t timed out (may not be a failure)"
+		echo "Test $T timed out (may not be a failure)"
 	elif [ "${r}" -ne 0 ]; then
-		echo "Test $t failed with ret ${r}"
-		FAILED="$FAILED $t"
+		echo "Test $T failed with ret ${r}"
+		FAILED="$FAILED $T"
 		RET=1
-	else
+	elif [ ! -z "$D" ]; then
 		sleep .1
 		ps aux | grep "\[io_wq_manager\]" > /dev/null
 		R="$?"
 		if [ "$R" -eq 0 ]; then
-			MAYBE_FAILED="$MAYBE_FAILED $t"
+			MAYBE_FAILED="$MAYBE_FAILED $T"
 		fi
+	fi
+}
+
+for t in $TESTS; do
+	run_test $t
+	if [ ! -z "$TEST_FILES" ]; then
+		for dev in $TEST_FILES; do
+			run_test $t $dev
+		done
 	fi
 done
 
