@@ -19,6 +19,7 @@
 #define BUFFERS		(FILE_SIZE / BS)
 
 static struct iovec *vecs;
+static int no_buf_select;
 
 static int create_buffers(void)
 {
@@ -53,14 +54,52 @@ static int create_file(const char *file)
 	return ret != FILE_SIZE;
 }
 
+static int provide_buffers(struct io_uring *ring)
+{
+	struct io_uring_sqe *sqe;
+	struct io_uring_cqe *cqe;
+	int ret, i;
+
+	for (i = 0; i < BUFFERS; i++) {
+		sqe = io_uring_get_sqe(ring);
+		io_uring_prep_provide_buffers(sqe, vecs[i].iov_base,
+						vecs[i].iov_len, 1, 1, i);
+	}
+
+	ret = io_uring_submit(ring);
+	if (ret != BUFFERS) {
+		fprintf(stderr, "submit: %d\n", ret);
+		return 1;
+	}
+
+	for (i = 0; i < BUFFERS; i++) {
+		ret = io_uring_wait_cqe(ring, &cqe);
+		if (cqe->res < 0) {
+			fprintf(stderr, "cqe->res=%d\n", cqe->res);
+			return 1;
+		}
+		io_uring_cqe_seen(ring, cqe);
+	}
+
+	return 0;
+}
+
 static int __test_io(const char *file, struct io_uring *ring, int write, int sqthread,
-		     int fixed)
+		     int fixed, int buf_select)
 {
 	struct io_uring_sqe *sqe;
 	struct io_uring_cqe *cqe;
 	int open_flags;
 	int i, fd, ret;
 	off_t offset;
+
+	if (buf_select && write)
+		write = 0;
+	if (buf_select && fixed)
+		fixed = 0;
+
+	if (buf_select && provide_buffers(ring))
+		return 1;
 
 	if (write)
 		open_flags = O_WRONLY;
@@ -133,6 +172,11 @@ static int __test_io(const char *file, struct io_uring *ring, int write, int sqt
 		}
 		if (sqthread)
 			sqe->flags |= IOSQE_FIXED_FILE;
+		if (buf_select) {
+			sqe->flags |= IOSQE_BUFFER_SELECT;
+			sqe->buf_group = buf_select;
+			sqe->user_data = i;
+		}
 	}
 
 	ret = io_uring_submit(ring);
@@ -182,7 +226,8 @@ err:
 	return 1;
 }
 
-static int test_io(const char *file, int write, int sqthread, int fixed)
+static int test_io(const char *file, int write, int sqthread, int fixed,
+		   int buf_select)
 {
 	struct io_uring ring;
 	int ret, ring_flags;
@@ -197,21 +242,46 @@ static int test_io(const char *file, int write, int sqthread, int fixed)
 		return 1;
 	}
 
-	ret = __test_io(file, &ring, write, sqthread, fixed);
+	ret = __test_io(file, &ring, write, sqthread, fixed, buf_select);
 
 	io_uring_queue_exit(&ring);
 	return ret;
 }
 
+static int probe_buf_select(void)
+{
+	struct io_uring_probe *p;
+	struct io_uring ring;
+	int ret;
+
+	ret = io_uring_queue_init(1, &ring, 0);
+	if (ret) {
+		fprintf(stderr, "ring create failed: %d\n", ret);
+		return 1;
+	}
+
+	p = io_uring_get_probe_ring(&ring);
+	if (!p || !io_uring_opcode_supported(p, IORING_OP_PROVIDE_BUFFERS)) {
+		no_buf_select = 1;
+		fprintf(stdout, "Buffer select not supported, skipping\n");
+		return 0;
+	}
+	free(p);
+	return 0;
+}
+
 int main(int argc, char *argv[])
 {
-	int i, ret;
+	int i, ret, nr;
 	char *fname;
 
 	if (geteuid()) {
 		fprintf(stdout, "iopoll requires root, skipping\n");
 		return 0;
 	}
+
+	if (probe_buf_select())
+		return 1;
 
 	if (argc > 1) {
 		fname = argv[1];
@@ -228,15 +298,19 @@ int main(int argc, char *argv[])
 		goto err;
 	}
 
-	for (i = 0; i < 16; i++) {
-		int v1, v2, v3;
+	nr = 16;
+	if (no_buf_select)
+		nr = 8;
+	for (i = 0; i < nr; i++) {
+		int v1, v2, v3, v4;
 
 		v1 = (i & 1) != 0;
 		v2 = (i & 2) != 0;
 		v3 = (i & 4) != 0;
-		ret = test_io(fname, v1, v2, v3);
+		v4 = (i & 8) != 0;
+		ret = test_io(fname, v1, v2, v3, v4);
 		if (ret) {
-			fprintf(stderr, "test_io failed %d/%d/%d\n", v1, v2, v3);
+			fprintf(stderr, "test_io failed %d/%d/%d/%d\n", v1, v2, v3, v4);
 			goto err;
 		}
 	}
