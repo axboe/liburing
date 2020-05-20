@@ -27,6 +27,9 @@ int main(int argc, char *argv[])
 	};
 	int ret, evfd, i;
 
+	if (argc > 1)
+		return 0;
+
 	ret = io_uring_queue_init_params(64, &ring, &p);
 	if (ret) {
 		fprintf(stderr, "ring setup failed: %d\n", ret);
