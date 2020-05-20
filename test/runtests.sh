@@ -14,8 +14,8 @@ fi
 
 TEST_DIR=$(dirname $0)
 TEST_FILES=""
-if [ -f "$TEST_DIR/config" ]; then
-	. $TEST_DIR/config
+if [ -f "$TEST_DIR/config.local" ]; then
+	. $TEST_DIR/config.local
 	for dev in $TEST_FILES; do
 		if [ ! -e "$dev" ]; then
 			echo "Test file $dev not valid"

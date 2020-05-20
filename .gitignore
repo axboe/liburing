@@ -86,6 +86,7 @@
 /test/teardowns
 /test/timeout
 /test/timeout-overflow
+/test/config.local
 
 config-host.h
 config-host.mak
