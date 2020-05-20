@@ -76,6 +76,8 @@ err:
 	cq->kring_entries = cq->ring_ptr + p->cq_off.ring_entries;
 	cq->koverflow = cq->ring_ptr + p->cq_off.overflow;
 	cq->cqes = cq->ring_ptr + p->cq_off.cqes;
+	if (p->cq_off.flags)
+		cq->kflags = cq->ring_ptr + p->cq_off.flags;
 	return 0;
 }
 

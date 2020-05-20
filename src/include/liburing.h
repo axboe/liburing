@@ -41,6 +41,7 @@ struct io_uring_cq {
 	unsigned *ktail;
 	unsigned *kring_mask;
 	unsigned *kring_entries;
+	unsigned *kflags;
 	unsigned *koverflow;
 	struct io_uring_cqe *cqes;
 
