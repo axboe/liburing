@@ -9,7 +9,9 @@ extern "C" {
 #include <sys/socket.h>
 #include <sys/uio.h>
 #include <sys/stat.h>
+#include <errno.h>
 #include <signal.h>
+#include <stdbool.h>
 #include <inttypes.h>
 #include <time.h>
 #include "liburing/compat.h"
@@ -443,6 +445,37 @@ static inline unsigned io_uring_sq_space_left(struct io_uring *ring)
 static inline unsigned io_uring_cq_ready(struct io_uring *ring)
 {
 	return io_uring_smp_load_acquire(ring->cq.ktail) - *ring->cq.khead;
+}
+
+static inline bool io_uring_cq_eventfd_enabled(struct io_uring *ring)
+{
+	if (!ring->cq.kflags)
+		return true;
+
+	return !(*ring->cq.kflags & IORING_CQ_EVENTFD_DISABLED);
+}
+
+static inline int io_uring_cq_eventfd_toggle(struct io_uring *ring,
+					     bool enabled)
+{
+	uint32_t flags;
+
+	if (!!enabled == io_uring_cq_eventfd_enabled(ring))
+		return 0;
+
+	if (!ring->cq.kflags)
+		return -EOPNOTSUPP;
+
+	flags = *ring->cq.kflags;
+
+	if (enabled)
+		flags &= ~IORING_CQ_EVENTFD_DISABLED;
+	else
+		flags |= IORING_CQ_EVENTFD_DISABLED;
+
+	IO_URING_WRITE_ONCE(*ring->cq.kflags, flags);
+
+	return 0;
 }
 
 /*
