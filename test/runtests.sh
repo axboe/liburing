@@ -39,7 +39,7 @@ run_test()
 		echo "Test $T timed out (may not be a failure)"
 	elif [ "${r}" -ne 0 ]; then
 		echo "Test $T failed with ret ${r}"
-		FAILED="$FAILED $T"
+		FAILED="$FAILED <$T $D>"
 		RET=1
 	elif [ ! -z "$D" ]; then
 		sleep .1
