@@ -20,6 +20,7 @@
 
 static struct iovec *vecs;
 static int no_buf_select;
+static int no_iopoll;
 
 static int create_buffers(void)
 {
@@ -190,6 +191,10 @@ static int __test_io(const char *file, struct io_uring *ring, int write, int sqt
 		if (ret) {
 			fprintf(stderr, "wait_cqe=%d\n", ret);
 			goto err;
+		} else if (cqe->res == -EOPNOTSUPP) {
+			fprintf(stdout, "File/device/fs doesn't support polled IO\n");
+			no_iopoll = 1;
+			break;
 		} else if (cqe->res != BS) {
 			fprintf(stderr, "cqe res %d, wanted %d\n", cqe->res, BS);
 			goto err;
@@ -313,6 +318,8 @@ int main(int argc, char *argv[])
 			fprintf(stderr, "test_io failed %d/%d/%d/%d\n", v1, v2, v3, v4);
 			goto err;
 		}
+		if (no_iopoll)
+			break;
 	}
 
 	if (fname != argv[1])
