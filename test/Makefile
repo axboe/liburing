@@ -22,7 +22,7 @@ all_targets += poll poll-cancel ring-leak fsync io_uring_setup io_uring_register
 		short-read openat2 probe shared-wq personality eventfd \
 		send_recv eventfd-ring across-fork sq-poll-kthread splice \
 		lfs-openat lfs-openat-write iopoll d4ae271dfaae-test \
-		eventfd-disable
+		eventfd-disable close-opath
 
 include ../Makefile.quiet
 
@@ -55,7 +55,7 @@ test_srcs := poll.c poll-cancel.c ring-leak.c fsync.c io_uring_setup.c \
 	madvise.c short-read.c openat2.c probe.c shared-wq.c \
 	personality.c eventfd.c eventfd-ring.c across-fork.c sq-poll-kthread.c \
 	splice.c lfs-openat.c lfs-openat-write.c iopoll.c d4ae271dfaae-test.c \
-	eventfd-disable.c
+	eventfd-disable.c close-opath.c
 
 ifdef CONFIG_HAVE_STATX
 test_srcs += statx.c
