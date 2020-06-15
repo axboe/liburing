@@ -7,9 +7,9 @@ TIMEOUT=30
 FAILED=""
 MAYBE_FAILED=""
 
-do_kmsg="yes"
+do_kmsg="1"
 if ! [ $(id -u) = 0 ]; then
-	do_kmsg="no"
+	do_kmsg="0"
 fi
 
 TEST_DIR=$(dirname $0)
@@ -24,13 +24,51 @@ if [ -f "$TEST_DIR/config.local" ]; then
 	done
 fi
 
+_check_dmesg()
+{
+	local dmesg_marker="$1"
+	local seqres="$2.seqres"
+
+	if [[ $do_kmsg -eq 0 ]]; then
+		return 0
+	fi
+
+	dmesg | bash -c "$DMESG_FILTER" | grep -A 9999 "$dmesg_marker" >"${seqres}.dmesg"
+	grep -q -e "kernel BUG at" \
+	     -e "WARNING:" \
+	     -e "BUG:" \
+	     -e "Oops:" \
+	     -e "possible recursive locking detected" \
+	     -e "Internal error" \
+	     -e "INFO: suspicious RCU usage" \
+	     -e "INFO: possible circular locking dependency detected" \
+	     -e "general protection fault:" \
+	     -e "blktests failure" \
+	     "${seqres}.dmesg"
+	# shellcheck disable=SC2181
+	if [[ $? -eq 0 ]]; then
+		return 1
+	else
+		rm -f "${seqres}.dmesg"
+		return 0
+	fi
+}
+
 run_test()
 {
 	T="$1"
 	D="$2"
-	if [ "$do_kmsg" = "yes" ]; then
-		echo Running test $T $D | tee /dev/kmsg
+	DMESG_FILTER="cat"
+
+	if [ "$do_kmsg" -eq 1 ]; then
+		if [ -z "$D" ]; then
+			local dmesg_marker="Running test $T:"
+		else
+			local dmesg_marker="Running test $T $D:"
+		fi
+		echo $dmesg_marker | tee /dev/kmsg
 	else
+		local dmesg_marker=""
 		echo Running test $T $D
 	fi
 	timeout --preserve-status -s INT $TIMEOUT ./$T $D
@@ -39,6 +77,14 @@ run_test()
 		echo "Test $T timed out (may not be a failure)"
 	elif [ "${r}" -ne 0 ]; then
 		echo "Test $T failed with ret ${r}"
+		if [ -z "$D" ]; then
+			FAILED="$FAILED <$T>"
+		else
+			FAILED="$FAILED <$T $D>"
+		fi
+		RET=1
+	elif ! _check_dmesg "$dmesg_marker" "$T"; then
+		echo "Test $T failed dmesg check"
 		if [ -z "$D" ]; then
 			FAILED="$FAILED <$T>"
 		else
