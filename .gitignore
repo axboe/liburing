@@ -87,6 +87,7 @@
 /test/teardowns
 /test/timeout
 /test/timeout-overflow
+/test/iopoll
 /test/config.local
 /test/*.dmesg
 
