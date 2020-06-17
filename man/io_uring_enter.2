@@ -125,7 +125,8 @@ struct io_uring_sqe {
     union {
         __kernel_rwf_t  rw_flags;
         __u32    fsync_flags;
-        __u16    poll_events;
+        __u16    poll_events;   /* compatibility */
+        __u32    poll32_events; /* word-reversed for BE */
         __u32    sync_range_flags;
         __u32    msg_flags;
         __u32    timeout_flags;

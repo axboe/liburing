@@ -14,6 +14,7 @@ extern "C" {
 #include <stdbool.h>
 #include <inttypes.h>
 #include <time.h>
+#include <linux/swab.h>
 #include "liburing/compat.h"
 #include "liburing/io_uring.h"
 #include "liburing/barrier.h"
@@ -253,10 +254,13 @@ static inline void io_uring_prep_sendmsg(struct io_uring_sqe *sqe, int fd,
 }
 
 static inline void io_uring_prep_poll_add(struct io_uring_sqe *sqe, int fd,
-					  short poll_mask)
+					  unsigned poll_mask)
 {
 	io_uring_prep_rw(IORING_OP_POLL_ADD, sqe, fd, NULL, 0, 0);
-	sqe->poll_events = poll_mask;
+#if __BYTE_ORDER == __BIG_ENDIAN
+	poll_mask = __swahw32(poll_mask);
+#endif
+	sqe->poll32_events = poll_mask;
 }
 
 static inline void io_uring_prep_poll_remove(struct io_uring_sqe *sqe,
