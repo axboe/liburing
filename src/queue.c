@@ -273,16 +273,18 @@ int io_uring_submit_and_wait(struct io_uring *ring, unsigned wait_nr)
 	return __io_uring_submit_and_wait(ring, wait_nr);
 }
 
-#define __io_uring_get_sqe(sq, __head) ({				\
-	unsigned __next = (sq)->sqe_tail + 1;				\
-	struct io_uring_sqe *__sqe = NULL;				\
-									\
-	if (__next - __head <= *(sq)->kring_entries) {			\
-		__sqe = &(sq)->sqes[(sq)->sqe_tail & *(sq)->kring_mask];\
-		(sq)->sqe_tail = __next;				\
-	}								\
-	__sqe;								\
-})
+static inline struct io_uring_sqe *
+__io_uring_get_sqe(struct io_uring_sq *sq, unsigned int __head)
+{
+	unsigned int __next = (sq)->sqe_tail + 1;
+	struct io_uring_sqe *__sqe = NULL;
+
+	if (__next - __head <= *(sq)->kring_entries) {
+		__sqe = &(sq)->sqes[(sq)->sqe_tail & *(sq)->kring_mask];
+		(sq)->sqe_tail = __next;
+	}
+	return __sqe;
+}
 
 /*
  * Return an sqe to fill. Application must later call io_uring_submit()
