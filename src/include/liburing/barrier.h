@@ -2,6 +2,8 @@
 #ifndef LIBURING_BARRIER_H
 #define LIBURING_BARRIER_H
 
+#include <stdatomic.h>
+
 /*
 From the kernel documentation file refcount-vs-atomic.rst:
 
@@ -21,40 +23,14 @@ after the acquire operation executes. This is implemented using
 :c:func:`smp_acquire__after_ctrl_dep`.
 */
 
-/* From tools/include/linux/compiler.h */
-/* Optimization barrier */
-/* The "volatile" is due to gcc bugs */
-#define io_uring_barrier()	__asm__ __volatile__("": : :"memory")
+#define IO_URING_WRITE_ONCE(var, val)				\
+	atomic_store_explicit(&(var), (val), memory_order_relaxed)
+#define IO_URING_READ_ONCE(var)					\
+	atomic_load_explicit(&(var), memory_order_relaxed)
 
-/* From tools/virtio/linux/compiler.h */
-#define IO_URING_WRITE_ONCE(var, val) \
-	(*((volatile __typeof(val) *)(&(var))) = (val))
-#define IO_URING_READ_ONCE(var) (*((volatile __typeof(var) *)(&(var))))
-
-
-#if defined(__x86_64__) || defined(__i386__)
-/* Adapted from arch/x86/include/asm/barrier.h */
-#define io_uring_smp_store_release(p, v)	\
-do {						\
-	io_uring_barrier();			\
-	IO_URING_WRITE_ONCE(*(p), (v));		\
-} while (0)
-
-#define io_uring_smp_load_acquire(p)			\
-({							\
-	__typeof(*p) ___p1 = IO_URING_READ_ONCE(*(p));	\
-	io_uring_barrier();				\
-	___p1;						\
-})
-
-#else /* defined(__x86_64__) || defined(__i386__) */
-/*
- * Add arch appropriate definitions. Use built-in atomic operations for
- * archs we don't have support for.
- */
-#define io_uring_smp_store_release(p, v) \
-	__atomic_store_n(p, v, __ATOMIC_RELEASE)
-#define io_uring_smp_load_acquire(p) __atomic_load_n(p, __ATOMIC_ACQUIRE)
-#endif /* defined(__x86_64__) || defined(__i386__) */
+#define io_uring_smp_store_release(p, v)			\
+	atomic_store_explicit((p), (v), memory_order_release)
+#define io_uring_smp_load_acquire(p)				\
+	atomic_load_explicit((p), memory_order_acquire)
 
 #endif /* defined(LIBURING_BARRIER_H) */
