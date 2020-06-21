@@ -4,7 +4,8 @@ libdir ?= $(prefix)/lib
 libdevdir ?= $(prefix)/lib
 
 CFLAGS ?= -g -fomit-frame-pointer -O2
-override CFLAGS += -Wall -Iinclude/ -include ../config-host.h
+override CFLAGS += -Wall -Wextra -Wno-unused-parameter -Wno-sign-compare\
+	-Iinclude/ -include ../config-host.h
 SO_CFLAGS=-shared -fPIC $(CFLAGS)
 L_CFLAGS=$(CFLAGS)
 LINK_FLAGS=
