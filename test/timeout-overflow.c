@@ -146,14 +146,14 @@ static int test_timeout_overflow()
 		case 4:
 			if (cqe->res == -ETIME) {
 				fprintf(stderr, "expected not return -ETIME "
-					"for the %d'th timeout req\n", i - 1);
+					"for the #%d timeout req\n", i - 1);
 				goto err;
 			}
 			break;
 		case 5:
 			if (cqe->res != -ETIME) {
 				fprintf(stderr, "expected return -ETIME for "
-					"the %d'th timeout req\n", i - 1);
+					"the #%d timeout req\n", i - 1);
 				goto err;
 			}
 			break;
