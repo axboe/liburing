@@ -6,7 +6,7 @@ libdevdir ?= $(prefix)/lib
 CFLAGS ?= -g -fomit-frame-pointer -O2
 override CFLAGS += -Wall -Wextra -Wno-unused-parameter -Wno-sign-compare\
 	-Iinclude/ -include ../config-host.h
-SO_CFLAGS=-shared -fPIC $(CFLAGS)
+SO_CFLAGS=-fPIC $(CFLAGS)
 L_CFLAGS=$(CFLAGS)
 LINK_FLAGS=
 LINK_FLAGS+=$(LDFLAGS)
@@ -51,7 +51,7 @@ liburing.a: $(liburing_objs)
 	$(QUIET_RANLIB)$(RANLIB) liburing.a
 
 $(libname): $(liburing_sobjs) liburing.map
-	$(QUIET_CC)$(CC) $(SO_CFLAGS) -Wl,--version-script=liburing.map -Wl,-soname=$(soname) -o $@ $(liburing_sobjs) $(LINK_FLAGS)
+	$(QUIET_CC)$(CC) $(SO_CFLAGS) -shared -Wl,--version-script=liburing.map -Wl,-soname=$(soname) -o $@ $(liburing_sobjs) $(LINK_FLAGS)
 
 install: $(all_targets)
 	install -D -m 644 include/liburing/io_uring.h $(includedir)/liburing/io_uring.h
