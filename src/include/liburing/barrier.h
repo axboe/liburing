@@ -2,8 +2,6 @@
 #ifndef LIBURING_BARRIER_H
 #define LIBURING_BARRIER_H
 
-#include <stdatomic.h>
-
 /*
 From the kernel documentation file refcount-vs-atomic.rst:
 
@@ -23,6 +21,40 @@ after the acquire operation executes. This is implemented using
 :c:func:`smp_acquire__after_ctrl_dep`.
 */
 
+#ifdef __cplusplus
+#include <atomic>
+
+template <typename T>
+static inline void IO_URING_WRITE_ONCE(T &var, T val)
+{
+	std::atomic_store_explicit(reinterpret_cast<std::atomic<T> *>(&var),
+				   val, std::memory_order_relaxed);
+}
+template <typename T>
+static inline T IO_URING_READ_ONCE(const T &var)
+{
+	return std::atomic_load_explicit(
+		reinterpret_cast<const std::atomic<T> *>(&var),
+		std::memory_order_relaxed);
+}
+
+template <typename T>
+static inline void io_uring_smp_store_release(T *p, T v)
+{
+	std::atomic_store_explicit(reinterpret_cast<std::atomic<T> *>(p), v,
+				   std::memory_order_release);
+}
+
+template <typename T>
+static inline T io_uring_smp_load_acquire(const T *p)
+{
+	return std::atomic_load_explicit(
+		reinterpret_cast<const std::atomic<T> *>(p),
+		std::memory_order_acquire);
+}
+#else
+#include <stdatomic.h>
+
 #define IO_URING_WRITE_ONCE(var, val)				\
 	atomic_store_explicit((_Atomic typeof(var) *)&(var),	\
 			      (val), memory_order_relaxed)
@@ -36,5 +68,6 @@ after the acquire operation executes. This is implemented using
 #define io_uring_smp_load_acquire(p)				\
 	atomic_load_explicit((_Atomic typeof(*(p)) *)(p),	\
 			     memory_order_acquire)
+#endif
 
 #endif /* defined(LIBURING_BARRIER_H) */

@@ -11,6 +11,10 @@
 #include <linux/fs.h>
 #include <linux/types.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /*
  * IO submission data structure (Submission Queue Entry)
  */
@@ -288,5 +292,9 @@ struct io_uring_probe {
 	__u32 resv2[3];
 	struct io_uring_probe_op ops[0];
 };
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

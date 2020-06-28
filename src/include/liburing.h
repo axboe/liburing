@@ -2,10 +2,6 @@
 #ifndef LIB_URING_H
 #define LIB_URING_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include <sys/socket.h>
 #include <sys/uio.h>
 #include <sys/stat.h>
@@ -18,6 +14,10 @@ extern "C" {
 #include "liburing/compat.h"
 #include "liburing/io_uring.h"
 #include "liburing/barrier.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /*
  * Library interface to io_uring
