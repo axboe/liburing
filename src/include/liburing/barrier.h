@@ -24,13 +24,17 @@ after the acquire operation executes. This is implemented using
 */
 
 #define IO_URING_WRITE_ONCE(var, val)				\
-	atomic_store_explicit(&(var), (val), memory_order_relaxed)
+	atomic_store_explicit((_Atomic typeof(var) *)&(var),	\
+			      (val), memory_order_relaxed)
 #define IO_URING_READ_ONCE(var)					\
-	atomic_load_explicit(&(var), memory_order_relaxed)
+	atomic_load_explicit((_Atomic typeof(var) *)&(var),	\
+			     memory_order_relaxed)
 
 #define io_uring_smp_store_release(p, v)			\
-	atomic_store_explicit((p), (v), memory_order_release)
+	atomic_store_explicit((_Atomic typeof(*(p)) *)(p), (v), \
+			      memory_order_release)
 #define io_uring_smp_load_acquire(p)				\
-	atomic_load_explicit((p), memory_order_acquire)
+	atomic_load_explicit((_Atomic typeof(*(p)) *)(p),	\
+			     memory_order_acquire)
 
 #endif /* defined(LIBURING_BARRIER_H) */
