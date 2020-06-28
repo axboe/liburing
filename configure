@@ -9,8 +9,8 @@ else
     TMPDIR1="/tmp"
 fi
 
-cc=gcc
-cxx=g++
+cc=${CC:-gcc}
+cxx=${CXX:-g++}
 
 for opt do
   optarg=$(expr "x$opt" : 'x[^=]*=\(.*\)')
@@ -315,7 +315,9 @@ if test "$has_cxx" = "yes"; then
 fi
 
 echo "CC=$cc" >> $config_host_mak
+print_config "CC" "$cc"
 echo "CXX=$cxx" >> $config_host_mak
+print_config "CXX" "$cxx"
 
 # generate compat.h
 compat_h="src/include/liburing/compat.h"
