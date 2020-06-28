@@ -8,6 +8,7 @@ XCFLAGS =
 override CFLAGS += -Wall -Wextra -Wno-unused-parameter -Wno-sign-compare\
 	-D_GNU_SOURCE -D__SANE_USERSPACE_TYPES__ -L../src/ \
 	-I../src/include/ -include ../config-host.h
+CXXFLAGS += $(CFLAGS) -std=c++11
 
 all_targets += poll poll-cancel ring-leak fsync io_uring_setup io_uring_register \
 	       io_uring_enter nop sq-full cq-full 35fa71a030ca-test \
@@ -36,10 +37,17 @@ ifdef CONFIG_HAVE_STATX
 all_targets += statx
 endif
 
+ifdef CONFIG_HAVE_CXX
+all_targets += sq-full-cpp
+endif
+
 all: $(all_targets)
 
 %: %.c
 	$(QUIET_CC)$(CC) $(CFLAGS) -o $@ $< -luring $(XCFLAGS)
+
+%: %.cc
+	$(QUIET_CC)$(CXX) $(CXXFLAGS) -o $@ $< -luring $(XCFLAGS)
 
 test_srcs := poll.c poll-cancel.c ring-leak.c fsync.c io_uring_setup.c \
 	io_uring_register.c io_uring_enter.c nop.c sq-full.c cq-full.c \
@@ -61,6 +69,10 @@ test_srcs := poll.c poll-cancel.c ring-leak.c fsync.c io_uring_setup.c \
 
 ifdef CONFIG_HAVE_STATX
 test_srcs += statx.c
+endif
+
+ifdef CONFIG_HAVE_CXX
+test_srcs += sq-full-cpp
 endif
 
 test_objs := $(patsubst %.c,%.ol,$(test_srcs))
