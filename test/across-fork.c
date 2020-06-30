@@ -68,10 +68,15 @@ static int submit_write(struct io_uring *ring, int fd, const char *str,
 static int wait_cqe(struct io_uring *ring, const char *stage)
 {
 	struct io_uring_cqe *cqe;
+	int ret;
 
-	io_uring_wait_cqe(ring, &cqe);
+	ret = io_uring_wait_cqe(ring, &cqe);
+	if (ret) {
+		fprintf(stderr, "%s wait_cqe failed %d\n", stage, ret);
+		return 1;
+	}
 	if (cqe->res < 0) {
-		fprintf(stderr, "%s cqe failed\n", stage);
+		fprintf(stderr, "%s cqe failed %d\n", stage, cqe->res);
 		return 1;
 	}
 

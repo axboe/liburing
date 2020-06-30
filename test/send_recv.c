@@ -79,8 +79,13 @@ err:
 static int do_recv(struct io_uring *ring, struct iovec *iov)
 {
 	struct io_uring_cqe *cqe;
+	int ret;
 
-	io_uring_wait_cqe(ring, &cqe);
+	ret = io_uring_wait_cqe(ring, &cqe);
+	if (ret) {
+		fprintf(stdout, "wait_cqe: %d\n", ret);
+		goto err;
+	}
 	if (cqe->res == -EINVAL) {
 		fprintf(stdout, "recv not supported, skipping\n");
 		return 0;
