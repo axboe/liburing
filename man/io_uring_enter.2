@@ -549,11 +549,13 @@ system call.
 .I splice_fd_in
 is the file descriptor to read from,
 .I splice_off_in
-is a pointer to an offset to read from,
+is an offset to read from,
 .I fd
 is the file descriptor to write to,
 .I off
-is a pointer to an offset to from which to start writing to.
+is an offset from which to start writing to. A sentinel value of -1 is used
+to pass the equivalent of a NULL for the offsets to
+.BR splice(2).
 .I len
 contains the number of bytes to copy.
 .I splice_flags
