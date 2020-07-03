@@ -43,6 +43,9 @@ int main(int argc, char *argv[])
 	char buf[8] = {0, 0, 0, 0, 0, 0, 1};
 	pthread_t tid;
 
+	if (argc > 1)
+		return 0;
+
 	/* Create an eventfd to be registered with the loop to be
 	 * notified of events being ready
 	 */
