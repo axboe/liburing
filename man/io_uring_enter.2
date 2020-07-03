@@ -208,7 +208,7 @@ will contain
 
 .TP
 .B IORING_OP_EPOLL_CTL
-Add, remove or modify entries in the interest list of 
+Add, remove or modify entries in the interest list of
 .BR epoll (7).
 See
 .BR epoll_ctl (2)
@@ -291,11 +291,12 @@ must contain 1 to signify one timespec64 structure,
 may contain IORING_TIMEOUT_ABS
 for an absolute timeout value, or 0 for a relative timeout.
 .I off
-may contain a completion event count. If not set, this defaults to 1. A timeout
+may contain a completion event count. A timeout
 will trigger a wakeup event on the completion ring for anyone waiting for
 events. A timeout condition is met when either the specified timeout expires,
 or the specified number of events have completed. Either condition will
-trigger the event. io_uring timeouts use the
+trigger the event. If set to 0, completed events are not counted, which
+effectively acts like a timer. io_uring timeouts use the
 .B CLOCK_MONOTONIC
 clock source. The request will complete with
 .I -ETIME
