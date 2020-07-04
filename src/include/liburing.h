@@ -322,7 +322,7 @@ static inline void io_uring_prep_link_timeout(struct io_uring_sqe *sqe,
 }
 
 static inline void io_uring_prep_connect(struct io_uring_sqe *sqe, int fd,
-					 struct sockaddr *addr,
+					 const struct sockaddr *addr,
 					 socklen_t addrlen)
 {
 	io_uring_prep_rw(IORING_OP_CONNECT, sqe, fd, addr, 0, addrlen);
