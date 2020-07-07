@@ -168,6 +168,7 @@ static int iocb_to_sqe(struct io_context *ctx, struct io_uring_sqe *sqe,
 	switch (iocb->aio_lio_opcode) {
 	case IO_CMD_PREAD:
 		is_write = 0;
+		/* fallthrough */
 	case IO_CMD_PWRITE: {
 		vec->iov_base = iocb->u.c.buf;
 		vec->iov_len = iocb->u.c.nbytes;
@@ -184,6 +185,7 @@ static int iocb_to_sqe(struct io_context *ctx, struct io_uring_sqe *sqe,
 		}
 	case IO_CMD_FDSYNC:
 		fsync_flags = IORING_FSYNC_DATASYNC;
+		/* fallthrough */
 	case IO_CMD_FSYNC:
 		io_uring_prep_fsync(sqe, iocb->aio_fildes, fsync_flags);
 		break;
@@ -196,6 +198,7 @@ static int iocb_to_sqe(struct io_context *ctx, struct io_uring_sqe *sqe,
 		return -EINVAL;
 	case IO_CMD_PREADV:
 		is_write = 0;
+		/* fallthrough */
 	case IO_CMD_PWRITEV:
 		if (is_write)
 			io_uring_prep_writev(sqe, iocb->aio_fildes,
