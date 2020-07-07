@@ -265,6 +265,7 @@ static int __io_getevents(struct io_context *ctx, long min_nr, long nr,
 	struct io_uring *ring = &ctx->ring;
 	struct io_uring_cqe *cqe;
 	int ret, total = 0;
+	struct io_completion *ic;
 
 	if (!nr)
 		return 0;
@@ -273,6 +274,7 @@ static int __io_getevents(struct io_context *ctx, long min_nr, long nr,
 
 	pthread_mutex_lock(&ctx->complete_lock);
 	ret = 0;
+	ic = malloc(sizeof(*ic));
 	while (nr) {
 		struct io_event *ev = &events[total];
 
@@ -286,8 +288,9 @@ static int __io_getevents(struct io_context *ctx, long min_nr, long nr,
 				break;
 		}
 
-		ev->data = NULL;
-		ev->obj = io_uring_cqe_get_data(cqe);
+		ic = io_uring_cqe_get_data(cqe);
+		ev->data = ic->data;
+		ev->obj = ic->iocb;
 		ev->res = cqe->res;
 		ev->res2 = 0;
 		io_uring_cqe_seen(ring, cqe);
@@ -296,7 +299,7 @@ static int __io_getevents(struct io_context *ctx, long min_nr, long nr,
 		if (min_nr)
 			min_nr--;
 	};
-
+	free(ic);
 	pthread_mutex_unlock(&ctx->complete_lock);
 	return total ? total : ret;
 }
