@@ -81,7 +81,7 @@ int main(int argc, char *argv[])
 		i++;
 	} while (1);
 
-	if (i != 8 ||
+	if (i < 8 ||
 	    ((*ring.cq.koverflow != 4) && !(p.features & IORING_FEAT_NODROP))) {
 		printf("CQ overflow fail: %d completions, %u overflow\n", i,
 				*ring.cq.koverflow);
