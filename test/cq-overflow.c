@@ -441,7 +441,7 @@ static int test_overflow_nodrop_submit_ebusy(void)
 	if (ret < 0) {
 		fprintf(stderr, "ret=%d\n", ret);
 		goto err;
-	} else if (ret != 8) {
+	} else if (ret < 8) {
 		fprintf(stderr, "only found %d events, expected 8\n", ret);
 		goto err;
 	}
