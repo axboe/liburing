@@ -34,7 +34,7 @@ for opt do
   --cxx=*) cxx="$optarg"
   ;;
   *)
-    echo "ERROR: unkown option $opt"
+    echo "ERROR: unknown option $opt"
     echo "Try '$0 --help' for more information"
     exit 1
   ;;
@@ -75,7 +75,7 @@ Options: [defaults in brackets after descriptions]
   --prefix=PATH            install in PATH [$prefix]
   --includedir=PATH        install headers in PATH [$includedir]
   --libdir=PATH            install runtime libraries in PATH [$libdir]
-  --libdevdir=PATH         install developement libraries in PATH [$libdevdir]
+  --libdevdir=PATH         install development libraries in PATH [$libdevdir]
   --mandir=PATH            install man pages in PATH [$mandir]
   --datadir=PATH           install shared data in PATH [$datadir]
 EOF
