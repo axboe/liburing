@@ -32,6 +32,11 @@ static inline bool sq_ring_needs_enter(struct io_uring *ring,
 	return false;
 }
 
+static inline bool cq_ring_needs_flush(struct io_uring *ring)
+{
+	return IO_URING_READ_ONCE(*ring->sq.kflags) & IORING_SQ_CQ_OVERFLOW;
+}
+
 static int __io_uring_peek_cqe(struct io_uring *ring,
 			       struct io_uring_cqe **cqe_ptr)
 {
@@ -67,22 +72,26 @@ int __io_uring_get_cqe(struct io_uring *ring, struct io_uring_cqe **cqe_ptr,
 	int ret = 0, err;
 
 	do {
+		bool cq_overflow_flush = false;
 		unsigned flags = 0;
 
 		err = __io_uring_peek_cqe(ring, &cqe);
 		if (err)
 			break;
 		if (!cqe && !to_wait && !submit) {
-			err = -EAGAIN;
-			break;
+			if (!cq_ring_needs_flush(ring)) {
+				err = -EAGAIN;
+				break;
+			}
+			cq_overflow_flush = true;
 		}
 		if (wait_nr && cqe)
 			wait_nr--;
-		if (wait_nr)
+		if (wait_nr || cq_overflow_flush)
 			flags = IORING_ENTER_GETEVENTS;
 		if (submit)
 			sq_ring_needs_enter(ring, submit, &flags);
-		if (wait_nr || submit)
+		if (wait_nr || submit || cq_overflow_flush)
 			ret = __sys_io_uring_enter(ring->ring_fd, submit,
 						   wait_nr, flags, sigmask);
 		if (ret < 0) {
