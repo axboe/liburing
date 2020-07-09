@@ -116,6 +116,7 @@ extern int io_uring_unregister_personality(struct io_uring *ring, int id);
 extern int io_uring_register_restrictions(struct io_uring *ring,
 					  struct io_uring_restriction *res,
 					  unsigned int nr_res);
+extern int io_uring_enable_rings(struct io_uring *ring);
 
 /*
  * Helper for the peek/wait single cqe functions. Exported because of that,

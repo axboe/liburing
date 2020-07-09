@@ -173,3 +173,15 @@ int io_uring_register_restrictions(struct io_uring *ring,
 
 	return 0;
 }
+
+int io_uring_enable_rings(struct io_uring *ring)
+{
+	int ret;
+
+	ret = __sys_io_uring_register(ring->ring_fd,
+				      IORING_REGISTER_ENABLE_RINGS, NULL, 0);
+	if (ret < 0)
+		return -errno;
+
+	return ret;
+}
