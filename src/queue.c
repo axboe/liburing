@@ -125,7 +125,9 @@ unsigned io_uring_peek_batch_cqe(struct io_uring *ring,
 				 struct io_uring_cqe **cqes, unsigned count)
 {
 	unsigned ready;
+	bool overflow_checked = false;
 
+again:
 	ready = io_uring_cq_ready(ring);
 	if (ready) {
 		unsigned head = *ring->cq.khead;
@@ -141,6 +143,17 @@ unsigned io_uring_peek_batch_cqe(struct io_uring *ring,
 		return count;
 	}
 
+	if (overflow_checked)
+		goto done;
+
+	if (cq_ring_needs_flush(ring)) {
+		__sys_io_uring_enter(ring->ring_fd, 0, 0,
+				     IORING_ENTER_GETEVENTS, NULL);
+		overflow_checked = true;
+		goto again;
+	}
+
+done:
 	return 0;
 }
 
