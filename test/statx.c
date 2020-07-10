@@ -51,7 +51,7 @@ static int create_file(const char *file, size_t size)
 
 static int statx_syscall_supported(void)
 {
-	return errno == EOPNOTSUPP ? 0 : -1;
+	return errno == ENOSYS ? 0 : -1;
 }
 
 static int test_statx(struct io_uring *ring, const char *path)
