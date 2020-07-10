@@ -15,11 +15,20 @@
 
 #include "liburing.h"
 
+#ifdef __NR_statx
 static int do_statx(int dfd, const char *path, int flags, unsigned mask,
 		    struct statx *statxbuf)
 {
 	return syscall(__NR_statx, dfd, path, flags, mask, statxbuf);
 }
+#else
+static int do_statx(int dfd, const char *path, int flags, unsigned mask,
+		    struct statx *statxbuf)
+{
+	errno = ENOSYS;
+	return -1;
+}
+#endif
 
 static int create_file(const char *file, size_t size)
 {
