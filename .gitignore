@@ -92,6 +92,7 @@
 /test/timeout
 /test/timeout-overflow
 /test/iopoll
+/test/cq-overflow-peek
 /test/config.local
 /test/*.dmesg
 
