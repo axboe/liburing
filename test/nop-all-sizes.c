@@ -100,6 +100,7 @@ int main(int argc, char *argv[])
 			return ret;
 		}
 		depth <<= 1;
+		io_uring_queue_exit(&ring);
 	}
 
 	return 0;
