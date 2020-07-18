@@ -137,6 +137,24 @@ Create the completion queue with
 entries.  The value must be greater than
 .IR entries ,
 and may be rounded up to the next power-of-two.
+.TP
+.B IORING_SETUP_CLAMP
+If this flag is specified, and if
+.IR entries
+exceeds
+.B IORING_MAX_ENTRIES ,
+then
+.IR entries
+will be clamped at
+.B IORING_MAX_ENTRIES .
+If the flag
+.BR IORING_SETUP_SQPOLL
+is set, and if the value of
+.IR "struct io_uring_params.cq_entries"
+exceeds
+.B IORING_MAX_CQ_ENTRIES ,
+then it will be clamped at
+.B IORING_MAX_CQ_ENTRIES .
 .PP
 If no flags are specified, the io_uring instance is setup for
 interrupt driven I/O.  I/O may be submitted using
