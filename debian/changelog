@@ -1,3 +1,10 @@
+liburing (0.7-1) stable; urgency=low
+
+  * Update to 0.7
+  * Fix library symlinks
+
+ -- Stefan Metzmacher <metze@samba.org>  Thu, 23 Jul 2020 00:23:00 +0200
+
 liburing (0.4-2) stable; urgency=low
 
   * Fix /usr/lib/*/liburing.so symlink to /lib/*/liburing.so.1.0.4

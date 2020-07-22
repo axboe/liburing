@@ -6,6 +6,7 @@ liburing.so.1 liburing1 #MINVER#
  io_uring_queue_mmap@LIBURING_0.1 0.1-1
  io_uring_register_buffers@LIBURING_0.1 0.1-1
  io_uring_register_eventfd@LIBURING_0.1 0.1-1
+ io_uring_register_eventfd_async@LIBURING_0.6 0.6-1
  io_uring_register_files@LIBURING_0.1 0.1-1
  io_uring_submit@LIBURING_0.1 0.1-1
  io_uring_submit_and_wait@LIBURING_0.1 0.1-1
@@ -20,6 +21,9 @@ liburing.so.1 liburing1 #MINVER#
  io_uring_wait_cqes@LIBURING_0.2 0.2-1
  (symver)LIBURING_0.3 0.3-1
  (symver)LIBURING_0.4 0.4-1
+ (symver)LIBURING_0.5 0.5-1
+ (symver)LIBURING_0.6 0.6-1
+ (symver)LIBURING_0.7 0.7-1
  io_uring_get_probe@LIBURING_0.4 0.4-1
  io_uring_get_probe_ring@LIBURING_0.4 0.4-1
  io_uring_register_personality@LIBURING_0.4 0.4-1
