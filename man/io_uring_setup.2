@@ -155,6 +155,14 @@ exceeds
 .B IORING_MAX_CQ_ENTRIES ,
 then it will be clamped at
 .B IORING_MAX_CQ_ENTRIES .
+.TP
+.B IORING_SETUP_ATTACH_WQ
+This flag should be set in conjunction with 
+.IR "struct io_uring_params.wq_fd"
+being set to an existing io_uring ring file descriptor. When set, the
+io_uring instance being created will share the asynchronous worker
+thread backend of the specified io_uring ring, rather than create a new
+separate thread pool.
 .PP
 If no flags are specified, the io_uring instance is setup for
 interrupt driven I/O.  I/O may be submitted using
