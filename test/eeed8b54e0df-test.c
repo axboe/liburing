@@ -105,7 +105,7 @@ int main(int argc, char *argv[])
 		goto err;
 	}
 
-	if (cqe->res != -EAGAIN) {
+	if (cqe->res != -EAGAIN && cqe->res != 4096) {
 		printf("cqe error: %d\n", cqe->res);
 		goto err;
 	}
