@@ -26,7 +26,7 @@ all_targets += poll poll-cancel ring-leak fsync io_uring_setup io_uring_register
 		send_recv eventfd-ring across-fork sq-poll-kthread splice \
 		lfs-openat lfs-openat-write iopoll d4ae271dfaae-test \
 		eventfd-disable close-opath ce593a6c480a-test cq-overflow-peek \
-		nop-all-sizes
+		nop-all-sizes wakeup-hang
 
 include ../Makefile.quiet
 
@@ -67,7 +67,7 @@ test_srcs := poll.c poll-cancel.c ring-leak.c fsync.c io_uring_setup.c \
 	personality.c eventfd.c eventfd-ring.c across-fork.c sq-poll-kthread.c \
 	splice.c lfs-openat.c lfs-openat-write.c iopoll.c d4ae271dfaae-test.c \
 	eventfd-disable.c close-opath.c ce593a6c480a-test.c cq-overflow-peek.c \
-	nop-all-sizes.c
+	nop-all-sizes.c wakeup-hang.c
 
 ifdef CONFIG_HAVE_STATX
 test_srcs += statx.c
@@ -89,6 +89,7 @@ submit-reuse: XCFLAGS = -lpthread
 poll-v-poll: XCFLAGS = -lpthread
 across-fork: XCFLAGS = -lpthread
 ce593a6c480a-test: XCFLAGS = -lpthread
+wakeup-hang: XCFLAGS = -lpthread
 
 install: $(all_targets) runtests.sh runtests-loop.sh
 	$(INSTALL) -D -d -m 755 $(datadir)/liburing-test/
