@@ -142,6 +142,9 @@ int main(int argc, char *argv[])
 {
 	int ret;
 
+	if (argc > 1)
+		return 0;
+
 	ret = test_pipes();
 	if (ret) {
 		fprintf(stderr, "test_pipe failed\n");
