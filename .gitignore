@@ -94,6 +94,7 @@
 /test/timeout-overflow
 /test/iopoll
 /test/cq-overflow-peek
+/test/wakeup-hang
 /test/config.local
 /test/*.dmesg
 
