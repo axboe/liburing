@@ -95,6 +95,8 @@
 /test/iopoll
 /test/cq-overflow-peek
 /test/wakeup-hang
+/test/files-exit-hang-poll
+/test/files-exit-hang-timeout
 /test/config.local
 /test/*.dmesg
 
