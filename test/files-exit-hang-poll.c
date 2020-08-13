@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 /*
  * Based on a test case from Josef Grieb - test that we can exit without
  * hanging if we have the task file table pinned by a request that is linked
@@ -62,6 +63,9 @@ int main(int argc, char *argv[])
 	struct io_uring_cqe *cqe;
 	int ret, sock_listen_fd;
 	const int val = 1;
+
+	if (argc > 1)
+		return 0;
 
 	sock_listen_fd = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, 0);
 	if (sock_listen_fd < 0) {
