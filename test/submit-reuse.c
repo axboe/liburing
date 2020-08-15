@@ -133,10 +133,14 @@ int main(int argc, char *argv[])
 	int fd1, fd2, ret, i;
 	struct timeval tv;
 	pthread_t thread;
+	char *fname1 = ".reuse.1";
+	int do_unlink = 1;
 	void *tret;
 
-	if (argc > 1)
-		return 0;
+	if (argc > 1) {
+		fname1 = argv[1];
+		do_unlink = 0;
+	}
 
 	ret = io_uring_queue_init(32, &ring, 0);
 	if (ret) {
@@ -144,7 +148,7 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-	if (create_file(".reuse.1")) {
+	if (do_unlink && create_file(fname1)) {
 		fprintf(stderr, "file creation failed\n");
 		goto err;
 	}
@@ -153,7 +157,7 @@ int main(int argc, char *argv[])
 		goto err;
 	}
 
-	fd1 = open(".reuse.1", O_RDONLY);
+	fd1 = open(fname1, O_RDONLY);
 	fd2 = open(".reuse.2", O_RDONLY);
 
 	data.fd1 = fd1;
@@ -189,12 +193,14 @@ int main(int argc, char *argv[])
 	close(fd2);
 	close(fd1);
 	io_uring_queue_exit(&ring);
-	unlink(".reuse.1");
+	if (do_unlink)
+		unlink(fname1);
 	unlink(".reuse.2");
 	return 0;
 err:
 	io_uring_queue_exit(&ring);
-	unlink(".reuse.1");
+	if (do_unlink)
+		unlink(fname1);
 	unlink(".reuse.2");
 	return 1;
 }
