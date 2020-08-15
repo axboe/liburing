@@ -97,6 +97,7 @@
 /test/wakeup-hang
 /test/files-exit-hang-poll
 /test/files-exit-hang-timeout
+/test/double-poll-crash
 /test/config.local
 /test/*.dmesg
 

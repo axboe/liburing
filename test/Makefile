@@ -27,7 +27,7 @@ all_targets += poll poll-cancel ring-leak fsync io_uring_setup io_uring_register
 		lfs-openat lfs-openat-write iopoll d4ae271dfaae-test \
 		eventfd-disable close-opath ce593a6c480a-test cq-overflow-peek \
 		nop-all-sizes wakeup-hang files-exit-hang-poll \
-		files-exit-hang-timeout
+		files-exit-hang-timeout double-poll-crash
 
 include ../Makefile.quiet
 
@@ -69,7 +69,7 @@ test_srcs := poll.c poll-cancel.c ring-leak.c fsync.c io_uring_setup.c \
 	splice.c lfs-openat.c lfs-openat-write.c iopoll.c d4ae271dfaae-test.c \
 	eventfd-disable.c close-opath.c ce593a6c480a-test.c cq-overflow-peek.c \
 	nop-all-sizes.c wakeup-hang.c files-exit-hang-poll.c \
-	files-exit-hang-timeout.c
+	files-exit-hang-timeout.c double-poll-crash.c
 
 ifdef CONFIG_HAVE_STATX
 test_srcs += statx.c
