@@ -144,8 +144,12 @@ static long syz_open_dev(volatile long a0, volatile long a1, volatile long a2)
 
 uint64_t r[4] = {0xffffffffffffffff, 0x0, 0x0, 0xffffffffffffffff};
 
-int main(void)
+int main(int argc, char *argv[])
 {
+
+  if (argc > 1)
+    return 0;
+
   syscall(__NR_mmap, 0x1ffff000ul, 0x1000ul, 0ul, 0x32ul, -1, 0ul);
   syscall(__NR_mmap, 0x20000000ul, 0x1000000ul, 7ul, 0x32ul, -1, 0ul);
   syscall(__NR_mmap, 0x21000000ul, 0x1000ul, 0ul, 0x32ul, -1, 0ul);
