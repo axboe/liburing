@@ -209,10 +209,10 @@ test_srcs += statx.c
 endif
 
 ifdef CONFIG_HAVE_CXX
-test_srcs += sq-full-cpp
+test_srcs += sq-full-cpp.cc
 endif
 
-test_objs := $(patsubst %.c,%.ol,$(test_srcs))
+test_objs := $(patsubst %.c,%.ol,$(patsubst %.cc,%.ol,$(test_srcs)))
 
 35fa71a030ca-test: XCFLAGS = -lpthread
 232c93d07b74-test: XCFLAGS = -lpthread
