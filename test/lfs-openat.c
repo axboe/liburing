@@ -75,6 +75,60 @@ static int prepare_file(int dfd, const char* fn)
 	return res < 0 ? res : 0;
 }
 
+static int test_linked_files(int dfd, const char *fn, bool async)
+{
+	struct io_uring ring;
+	struct io_uring_sqe *sqe;
+	char buffer[128];
+	struct iovec iov = {.iov_base = buffer, .iov_len = sizeof(buffer), };
+	int ret, fd;
+	int fds[2];
+
+	ret = io_uring_queue_init(10, &ring, 0);
+	if (ret < 0)
+		DIE("failed to init io_uring: %s\n", strerror(-ret));
+
+	if (pipe(fds)) {
+		perror("pipe");
+		return 1;
+	}
+
+	sqe = io_uring_get_sqe(&ring);
+	if (!sqe) {
+		printf("get sqe failed\n");
+		return -1;
+	}
+	io_uring_prep_readv(sqe, fds[0], &iov, 1, 0);
+	sqe->flags |= IOSQE_IO_LINK;
+	if (async)
+		sqe->flags |= IOSQE_ASYNC;
+
+	sqe = io_uring_get_sqe(&ring);
+	if (!sqe) {
+		fprintf(stderr, "failed to get sqe\n");
+		return 1;
+	}
+	io_uring_prep_openat(sqe, dfd, fn, OPEN_FLAGS, OPEN_MODE);
+
+	ret = io_uring_submit(&ring);
+	if (ret != 2) {
+		fprintf(stderr, "failed to submit openat: %s\n", strerror(-ret));
+		return 1;
+	}
+
+	fd = dup(ring.ring_fd);
+	if (fd < 0) {
+		fprintf(stderr, "dup() failed: %s\n", strerror(-fd));
+		return 1;
+	}
+
+	/* io_uring->flush() */
+	close(fd);
+
+	io_uring_queue_exit(&ring);
+	return 0;
+}
+
 int main(int argc, char *argv[])
 {
 	const char *fn = "io_uring_openat_test";
@@ -96,7 +150,24 @@ int main(int argc, char *argv[])
 		return 1;
 
 	ret = open_io_uring(&ring, dfd, fn);
+	if (ret) {
+		fprintf(stderr, "open_io_uring() failed\n");
+		goto out;
+	}
 
+	ret = test_linked_files(dfd, fn, false);
+	if (ret) {
+		fprintf(stderr, "test_linked_files() !async failed\n");
+		goto out;
+	}
+
+	ret = test_linked_files(dfd, fn, true);
+	if (ret) {
+		fprintf(stderr, "test_linked_files() async failed\n");
+		goto out;
+	}
+
+out:
 	io_uring_queue_exit(&ring);
 	close(dfd);
 	unlink("/tmp/io_uring_openat_test");
