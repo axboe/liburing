@@ -10,7 +10,7 @@ override CFLAGS += -Wall -Wextra -Wno-unused-parameter -Wno-sign-compare\
 	-I../src/include/ -include ../config-host.h
 CXXFLAGS += $(CFLAGS) -std=c++11
 
-all_targets += \
+test_targets += \
 	232c93d07b74-test \
 	35fa71a030ca-test \
 	500f9fbadef8-test \
@@ -96,6 +96,8 @@ all_targets += \
 	wakeup-hang \
 	# EOL
 
+all_targets += $(test_targets)
+
 include ../Makefile.quiet
 
 ifneq ($(MAKECMDGOALS),clean)
@@ -103,14 +105,16 @@ include ../config-host.mak
 endif
 
 ifdef CONFIG_HAVE_STATX
-all_targets += statx
+test_targets += statx
 endif
+all_targets += statx
 
 ifdef CONFIG_HAVE_CXX
-all_targets += sq-full-cpp
+test_targets += sq-full-cpp
 endif
+all_targets += sq-full-cpp
 
-all: $(all_targets)
+all: $(test_targets)
 
 %: %.c
 	$(QUIET_CC)$(CC) $(CFLAGS) -o $@ $< -luring $(XCFLAGS)
@@ -193,9 +197,11 @@ test_srcs := \
 	sigfd-deadlock.c \
 	socket-rw.c \
 	splice.c \
+	sq-full-cpp.cc \
 	sq-full.c \
 	sq-poll-kthread.c \
 	sq-space_left.c \
+	statx.c \
 	stdout.c \
 	submit-reuse.c \
 	teardowns.c \
@@ -203,14 +209,6 @@ test_srcs := \
 	timeout.c \
 	wakeup-hang.c \
 	# EOL
-
-ifdef CONFIG_HAVE_STATX
-test_srcs += statx.c
-endif
-
-ifdef CONFIG_HAVE_CXX
-test_srcs += sq-full-cpp.cc
-endif
 
 test_objs := $(patsubst %.c,%.ol,$(patsubst %.cc,%.ol,$(test_srcs)))
 
@@ -227,15 +225,15 @@ ce593a6c480a-test: XCFLAGS = -lpthread
 wakeup-hang: XCFLAGS = -lpthread
 pipe-eof: XCFLAGS = -lpthread
 
-install: $(all_targets) runtests.sh runtests-loop.sh
+install: $(test_targets) runtests.sh runtests-loop.sh
 	$(INSTALL) -D -d -m 755 $(datadir)/liburing-test/
-	$(INSTALL) -D -m 755 $(all_targets) $(datadir)/liburing-test/
+	$(INSTALL) -D -m 755 $(test_targets) $(datadir)/liburing-test/
 	$(INSTALL) -D -m 755 runtests.sh  $(datadir)/liburing-test/
 	$(INSTALL) -D -m 755 runtests-loop.sh  $(datadir)/liburing-test/
 clean:
 	@rm -f $(all_targets) $(test_objs)
 
 runtests: all
-	@./runtests.sh $(all_targets)
+	@./runtests.sh $(test_targets)
 runtests-loop: all
-	@./runtests-loop.sh $(all_targets)
+	@./runtests-loop.sh $(test_targets)
