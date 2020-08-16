@@ -116,7 +116,7 @@ all: $(all_targets)
 	$(QUIET_CC)$(CC) $(CFLAGS) -o $@ $< -luring $(XCFLAGS)
 
 %: %.cc
-	$(QUIET_CC)$(CXX) $(CXXFLAGS) -o $@ $< -luring $(XCFLAGS)
+	$(QUIET_CXX)$(CXX) $(CXXFLAGS) -o $@ $< -luring $(XCFLAGS)
 
 test_srcs := \
 	232c93d07b74-test.c \
