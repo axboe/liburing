@@ -242,6 +242,8 @@ static int test_io_uring_submit_enters(const char *file)
 {
 	struct io_uring ring;
 	int fd, i, ret, ring_flags, open_flags;
+	unsigned head;
+	struct io_uring_cqe *cqe;
 
 	ring_flags = IORING_SETUP_IOPOLL;
 	ret = io_uring_queue_init(64, &ring, ring_flags);
@@ -258,38 +260,36 @@ static int test_io_uring_submit_enters(const char *file)
 	}
 
 	for (i = 0; i < BUFFERS; i++) {
-	    struct io_uring_sqe *sqe;
-	    off_t offset = BS * (rand() % BUFFERS);
+		struct io_uring_sqe *sqe;
+		off_t offset = BS * (rand() % BUFFERS);
 
 		sqe = io_uring_get_sqe(&ring);
-	    io_uring_prep_writev(sqe, fd, &vecs[i], 1, offset);
-	    sqe->user_data = 1;
+		io_uring_prep_writev(sqe, fd, &vecs[i], 1, offset);
+		sqe->user_data = 1;
 	}
 
 	/* submit manually to avoid adding IORING_ENTER_GETEVENTS */
 	ret = __sys_io_uring_enter(ring.ring_fd, __io_uring_flush_sq(&ring), 0,
 						0, NULL);
 	if (ret < 0)
-	   goto err;
+		goto err;
 
 	for (i = 0; i < 500; i++) {
-	    ret = io_uring_submit(&ring);
-	    if (ret != 0) {
-	        fprintf(stderr, "still had %d sqes to submit, this is unexpected", ret);
-	        goto err;
-	    }
+		ret = io_uring_submit(&ring);
+		if (ret != 0) {
+			fprintf(stderr, "still had %d sqes to submit, this is unexpected", ret);
+			goto err;
+		}
 
-	    unsigned head;
-	    struct io_uring_cqe *cqe;
-	    io_uring_for_each_cqe(&ring, head, cqe) {
-	        /* runs after test_io so should not have happened */
-	        if (cqe->res == -EOPNOTSUPP) {
-	            fprintf(stdout, "File/device/fs doesn't support polled IO\n");
-	            goto err;
-	        }
-	        goto ok;
-	    }
-	    usleep(10000);
+		io_uring_for_each_cqe(&ring, head, cqe) {
+			/* runs after test_io so should not have happened */
+			if (cqe->res == -EOPNOTSUPP) {
+				fprintf(stdout, "File/device/fs doesn't support polled IO\n");
+				goto err;
+			}
+			goto ok;
+		}
+		usleep(10000);
 	}
 err:
 	ret = 1;
