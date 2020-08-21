@@ -311,8 +311,16 @@ static int test_io(const char *file, int write, int sqthread, int fixed,
 	int ret, ring_flags;
 
 	ring_flags = IORING_SETUP_IOPOLL;
-	if (sqthread)
-		ring_flags |= IORING_SETUP_SQPOLL;
+	if (sqthread) {
+		static int warned;
+
+		if (geteuid()) {
+			if (!warned)
+				fprintf(stdout, "SQPOLL requires root, skipping\n");
+			warned = 1;
+			return 0;
+		}
+	}
 
 	ret = io_uring_queue_init(64, &ring, ring_flags);
 	if (ret) {
@@ -352,11 +360,6 @@ int main(int argc, char *argv[])
 {
 	int i, ret, nr;
 	char *fname;
-
-	if (geteuid()) {
-		fprintf(stdout, "iopoll requires root, skipping\n");
-		return 0;
-	}
 
 	if (probe_buf_select())
 		return 1;
