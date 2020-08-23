@@ -992,6 +992,106 @@ err:
 	return 1;
 }
 
+static int test_write_after_timeout_hangs(struct io_uring *ring)
+{
+	struct __kernel_timespec ts;
+	struct io_uring_cqe *cqe;
+	struct io_uring_sqe *sqe;
+	int fd, ret, i;
+	char *file;
+	struct iovec iov;
+	char buffer[128];
+
+	file = ".test_timeout_hangs";
+	fd = open(file, O_WRONLY | O_CREAT, 0644);
+	if (fd < 0) {
+		perror("open file");
+		goto err;
+	}
+	sqe = io_uring_get_sqe(ring);
+	if (!sqe) {
+		printf("get sqe failed\n");
+		goto err;
+	}
+
+	iov.iov_base = buffer;
+	iov.iov_len = sizeof(buffer);
+	io_uring_prep_writev(sqe, fd, &iov, 1, 0);
+	sqe->flags |= IOSQE_IO_LINK;
+	sqe->user_data = 1;
+
+	ts.tv_sec = 0;
+	ts.tv_nsec = 1;
+
+	sqe = io_uring_get_sqe(ring);
+	if (!sqe) {
+		printf("get sqe failed\n");
+		goto err;
+	}
+	io_uring_prep_link_timeout(sqe, &ts, 0);
+	sqe->user_data = 2;
+
+	ret = io_uring_submit(ring);
+	if (ret != 2) {
+		printf("sqe submit failed: %d\n", ret);
+		goto err;
+	}
+
+	for (i = 0; i < 2; i++) {
+		ret = io_uring_wait_cqe(ring, &cqe);
+		if (ret < 0) {
+			printf("wait completion %d\n", ret);
+			goto err;
+		}
+
+		switch (cqe->user_data) {
+		case 1:
+			if (cqe->res != -ECANCELED) {
+				fprintf(stderr, "write got %d, wanted -ECANCELED\n", cqe->res);
+				goto err;
+			}
+			break;
+		case 2:
+			if (cqe->res != -ETIME) {
+				fprintf(stderr, "got %d, wanted -ETIME\n", cqe->res);
+				goto err;
+			}
+			break;
+		}
+		io_uring_cqe_seen(ring, cqe);
+	}
+
+	fprintf(stderr, "timeout + write were completed\n");
+	/* repeat same write but without timeout */
+	sqe = io_uring_get_sqe(ring);
+	if (!sqe) {
+		printf("get sqe failed\n");
+		goto err;
+	}
+	io_uring_prep_writev(sqe, fd, &iov, 1, 0);
+	sqe->user_data = 3;
+
+	ret = io_uring_submit(ring);
+	if (ret != 1) {
+		printf("sqe submit failed: %d\n", ret);
+		goto err;
+	}
+	ret = io_uring_wait_cqe(ring, &cqe);
+	if (ret < 0) {
+	  printf("wait completion %d\n", ret);
+	  goto err;
+	}
+	if (cqe->res != 128) {
+	  fprintf(stderr, "write got %d, wanted %d\n", cqe->res, 128);
+	  goto err;
+	}
+	unlink(file);
+	return 0;
+err:
+	unlink(file);
+	return 1;
+}
+
 int main(int argc, char *argv[])
 {
 	struct io_uring ring;
@@ -1089,6 +1189,10 @@ int main(int argc, char *argv[])
 		printf("test_fail_two_link_timeouts failed\n");
 		return ret;
 	}
-
+	ret = test_write_after_timeout_hangs(&ring);
+	if (ret) {
+		printf("test_write_after_timeout_hangs failed\n");
+		return ret;
+	}
 	return 0;
 }
