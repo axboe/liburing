@@ -2,6 +2,10 @@
 #ifndef LIBURING_SYSCALL_H
 #define LIBURING_SYSCALL_H
 
+#include <signal.h>
+
+struct io_uring_params;
+
 /*
  * System calls
  */
