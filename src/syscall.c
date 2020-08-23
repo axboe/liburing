@@ -5,7 +5,6 @@
 #include <unistd.h>
 #include <sys/syscall.h>
 #include <sys/uio.h>
-#include <signal.h>
 #include "liburing/compat.h"
 #include "liburing/io_uring.h"
 #include "syscall.h"
