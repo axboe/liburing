@@ -20,7 +20,7 @@ enum {
 	TEST_FAILED
 };
 
-int test_restrictions_sqe_op()
+static int test_restrictions_sqe_op(void)
 {
 	struct io_uring_restriction res[2];
 	struct io_uring_sqe *sqe;
@@ -41,6 +41,8 @@ int test_restrictions_sqe_op()
 
 	ret = io_uring_queue_init(8, &ring, IORING_SETUP_R_DISABLED);
 	if (ret) {
+		if (ret == -EINVAL)
+			return TEST_SKIPPED;
 		fprintf(stderr, "ring setup failed: %d\n", ret);
 		return TEST_FAILED;
 	}
@@ -109,7 +111,7 @@ int test_restrictions_sqe_op()
 	return TEST_OK;
 }
 
-int test_restrictions_register_op()
+static int test_restrictions_register_op(void)
 {
 	struct io_uring_restriction res[1];
 	struct io_uring ring;
@@ -166,7 +168,7 @@ int test_restrictions_register_op()
 	return TEST_OK;
 }
 
-int test_restrictions_fixed_file()
+static int test_restrictions_fixed_file(void)
 {
 	struct io_uring_restriction res[4];
 	struct io_uring_sqe *sqe;
@@ -279,7 +281,7 @@ int test_restrictions_fixed_file()
 	return TEST_OK;
 }
 
-int test_restrictions_flags()
+static int test_restrictions_flags(void)
 {
 	struct io_uring_restriction res[3];
 	struct io_uring_sqe *sqe;
@@ -428,7 +430,7 @@ int test_restrictions_flags()
 	return TEST_OK;
 }
 
-int test_restrictions_empty()
+static int test_restrictions_empty(void)
 {
 	struct io_uring_restriction res[0];
 	struct io_uring_sqe *sqe;
@@ -506,7 +508,7 @@ int test_restrictions_empty()
 	return TEST_OK;
 }
 
-int test_restrictions_rings_not_disabled()
+static int test_restrictions_rings_not_disabled(void)
 {
 	struct io_uring_restriction res[1];
 	struct io_uring ring;
@@ -542,6 +544,7 @@ int main(int argc, char *argv[])
 	ret = test_restrictions_sqe_op();
 	if (ret == TEST_SKIPPED) {
 		printf("test_restrictions_sqe_op: skipped\n");
+		return 0;
 	} else if (ret == TEST_FAILED) {
 		fprintf(stderr, "test_restrictions_sqe_op failed\n");
 		return ret;
