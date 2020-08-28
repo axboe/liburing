@@ -159,3 +159,29 @@ int io_uring_unregister_personality(struct io_uring *ring, int id)
 
 	return ret;
 }
+
+int io_uring_register_restrictions(struct io_uring *ring,
+				   struct io_uring_restriction *res,
+				   unsigned int nr_res)
+{
+	int ret;
+
+	ret = __sys_io_uring_register(ring->ring_fd, IORING_REGISTER_RESTRICTIONS,
+				      res, nr_res);
+	if (ret < 0)
+		return -errno;
+
+	return 0;
+}
+
+int io_uring_enable_rings(struct io_uring *ring)
+{
+	int ret;
+
+	ret = __sys_io_uring_register(ring->ring_fd,
+				      IORING_REGISTER_ENABLE_RINGS, NULL, 0);
+	if (ret < 0)
+		return -errno;
+
+	return ret;
+}
