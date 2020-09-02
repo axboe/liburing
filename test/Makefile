@@ -71,7 +71,7 @@ test_srcs := poll.c poll-cancel.c ring-leak.c fsync.c io_uring_setup.c \
 	eventfd-disable.c close-opath.c ce593a6c480a-test.c cq-overflow-peek.c \
 	nop-all-sizes.c wakeup-hang.c files-exit-hang-poll.c \
 	files-exit-hang-timeout.c double-poll-crash.c pipe-eof.c \
-	register-restrictions.c sigfd-deadlock.
+	register-restrictions.c sigfd-deadlock.c
 
 ifdef CONFIG_HAVE_STATX
 test_srcs += statx.c
