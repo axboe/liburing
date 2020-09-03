@@ -5,7 +5,6 @@
  *
  * fd7d6de22414 ("io_uring: don't recurse on tsk->sighand->siglock with signalfd")
  */
-#include <libaio.h>
 #include <unistd.h>
 #include <sys/signalfd.h>
 #include <sys/epoll.h>
