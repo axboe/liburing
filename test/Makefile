@@ -83,6 +83,7 @@ test_targets += \
 	send_recvmsg \
 	shared-wq \
 	short-read \
+	shutdown \
 	sigfd-deadlock \
 	socket-rw \
 	socket-rw-eagain \
@@ -196,6 +197,7 @@ test_srcs := \
 	send_recvmsg.c \
 	shared-wq.c \
 	short-read.c \
+	shutdown.c \
 	sigfd-deadlock.c \
 	socket-rw.c \
 	socket-rw-eagain.c \
