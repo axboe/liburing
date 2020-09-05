@@ -338,16 +338,22 @@ static int test_accept(void)
 static int test_accept_sqpoll(void)
 {
 	struct io_uring m_io_uring;
-	int ret;
+	struct io_uring_params p = { };
+	int ret, should_fail;
 
-	ret = io_uring_queue_init(32, &m_io_uring, IORING_SETUP_SQPOLL);
+	p.flags = IORING_SETUP_SQPOLL;
+	ret = io_uring_queue_init_params(32, &m_io_uring, &p);
 	if (ret && geteuid()) {
 		printf("%s: skipped, not root\n", __FUNCTION__);
 		return 0;
 	} else if (ret)
 		return ret;
 
-	ret = test(&m_io_uring, 1);
+	should_fail = 1;
+	if (p.features & IORING_FEAT_SQPOLL_NONFIXED)
+		should_fail = 0;
+
+	ret = test(&m_io_uring, should_fail);
 	io_uring_queue_exit(&m_io_uring);
 	return ret;
 }
