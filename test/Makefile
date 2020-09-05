@@ -87,6 +87,7 @@ test_targets += \
 	socket-rw \
 	sq-full \
 	sq-poll-kthread \
+	sq-poll-share \
 	sq-space_left \
 	stdout \
 	submit-reuse \
@@ -200,6 +201,7 @@ test_srcs := \
 	sq-full-cpp.cc \
 	sq-full.c \
 	sq-poll-kthread.c \
+	sq-poll-share.c \
 	sq-space_left.c \
 	statx.c \
 	stdout.c \
