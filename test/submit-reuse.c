@@ -61,24 +61,42 @@ static char str2[STR_SIZE];
 
 static struct io_uring ring;
 
-static int prep(int fd, char *str)
+static int prep(int fd, char *str, int split, int async)
 {
 	struct io_uring_sqe *sqe;
-	struct iovec iov = {
-		.iov_base = str,
-		.iov_len = STR_SIZE,
-	};
-	int ret;
+	struct iovec iovs[16];
+	int ret, i;
+
+	if (split) {
+		int vsize = STR_SIZE / 16;
+		void *ptr = str;
+
+		for (i = 0; i < 16; i++) {
+			iovs[i].iov_base = ptr;
+			iovs[i].iov_len = vsize;
+			ptr += vsize;
+		}
+	} else {
+		iovs[0].iov_base = str;
+		iovs[0].iov_len = STR_SIZE;
+	}
 
 	sqe = io_uring_get_sqe(&ring);
-	io_uring_prep_readv(sqe, fd, &iov, 1, 0);
+	io_uring_prep_readv(sqe, fd, iovs, split ? 16 : 1, 0);
 	sqe->user_data = fd;
+	if (async)
+		sqe->flags = IOSQE_ASYNC;
 	ret = io_uring_submit(&ring);
 	if (ret != 1) {
 		fprintf(stderr, "submit got %d\n", ret);
 		return 1;
 	}
-	iov.iov_base = NULL;
+	if (split) {
+		for (i = 0; i < 16; i++)
+			iovs[i].iov_base = NULL;
+	} else {
+		iovs[0].iov_base = NULL;
+	}
 	return 0;
 }
 
@@ -127,7 +145,7 @@ static unsigned long long mtime_since_now(struct timeval *tv)
 	return mtime_since(tv, &end);
 }
 
-int main(int argc, char *argv[])
+static int test_reuse(int argc, char *argv[], int split, int async)
 {
 	struct thread_data data;
 	int fd1, fd2, ret, i;
@@ -168,12 +186,12 @@ int main(int argc, char *argv[])
 
 	gettimeofday(&tv, NULL);
 	for (i = 0; i < 1000; i++) {
-		ret = prep(fd1, str1);
+		ret = prep(fd1, str1, split, async);
 		if (ret) {
 			fprintf(stderr, "prep1 failed: %d\n", ret);
 			goto err;
 		}
-		ret = prep(fd2, str2);
+		ret = prep(fd2, str2, split, async);
 		if (ret) {
 			fprintf(stderr, "prep1 failed: %d\n", ret);
 			goto err;
@@ -203,4 +221,25 @@ err:
 		unlink(fname1);
 	unlink(".reuse.2");
 	return 1;
+
+}
+
+int main(int argc, char *argv[])
+{
+	int ret, i;
+
+	for (i = 0; i < 4; i++) {
+		int split, async;
+
+		split = (i & 1) != 0;
+		async = (i & 2) != 0;
+
+		ret = test_reuse(argc, argv, split, async);
+		if (ret) {
+			fprintf(stderr, "test_reuse %d %d failed\n", split, async);
+			return ret;
+		}
+	}
+
+	return 0;
 }
