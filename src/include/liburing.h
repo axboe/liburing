@@ -440,12 +440,19 @@ static inline void io_uring_prep_remove_buffers(struct io_uring_sqe *sqe,
 	sqe->buf_group = bgid;
 }
 
+/*
+ * Returns number of unconsumed (if SQPOLL) or unsubmitted entries exist in
+ * the SQ ring
+ */
 static inline unsigned io_uring_sq_ready(struct io_uring *ring)
 {
 	/* always use real head, to avoid losing sync for short submit */
 	return ring->sq.sqe_tail - *ring->sq.khead;
 }
 
+/*
+ * Returns how much space is left in the SQ ring.
+ */
 static inline unsigned io_uring_sq_space_left(struct io_uring *ring)
 {
 	return *ring->sq.kring_entries - io_uring_sq_ready(ring);
@@ -468,11 +475,17 @@ static inline int io_uring_sqring_wait(struct io_uring *ring)
 	return __io_uring_sqring_wait(ring);
 }
 
+/*
+ * Returns how many unconsumed entries are ready in the CQ ring
+ */
 static inline unsigned io_uring_cq_ready(struct io_uring *ring)
 {
 	return io_uring_smp_load_acquire(ring->cq.ktail) - *ring->cq.khead;
 }
 
+/*
+ * Returns true if the eventfd notification is currently enabled
+ */
 static inline bool io_uring_cq_eventfd_enabled(struct io_uring *ring)
 {
 	if (!ring->cq.kflags)
@@ -481,6 +494,10 @@ static inline bool io_uring_cq_eventfd_enabled(struct io_uring *ring)
 	return !(*ring->cq.kflags & IORING_CQ_EVENTFD_DISABLED);
 }
 
+/*
+ * Toggle eventfd notification on or off, if an eventfd is registered with
+ * the ring.
+ */
 static inline int io_uring_cq_eventfd_toggle(struct io_uring *ring,
 					     bool enabled)
 {
