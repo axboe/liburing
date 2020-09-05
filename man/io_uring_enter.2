@@ -613,6 +613,47 @@ descriptors pointed to in
 .I addr
 must remain valid until this operation has completed. Available since 5.6.
 
+.TP
+.B IORING_OP_PROVIDE_BUFFERS
+This command allows an application to register a group of buffers to be used
+by commands that read/receive data. Using buffers in this manner can eliminate
+the need to separate the poll + read, which provides a convenient point in
+time to allocate a buffer for a given request. It's often infeasible to have
+as many buffers available as pending reads or receive. With this feature, the
+application can have its pool of buffers ready in the kernel, and when the
+file or socket is ready to read/receive data, a buffer can be selected for the
+operation.
+.I fd
+must contain the number of buffers to provide,
+.I addr
+must contain the starting address to add buffers from,
+.I len
+must contain the length of each buffer to add from the range,
+.I buf_group
+must contain the group ID of this range of buffers, and
+.I off
+must contain the starting buffer ID of this range of buffers. Buffers are
+grouped by the group ID, and each buffer within this group will be identical
+in size according to the above arguments. This allows the application to
+provide different groups of buffers, and this is often used to have differently
+sized buffers available depending on what the expectations are of the individual
+request. When submitting a request that should use a provided buffer, the
+.B IOSQE_BUFFER_SELECT
+flag must be set, and
+.I buf_group
+must be set to the desired buffer group ID where the buffer should be selected
+from. Available since 5.7.
+
+.TP
+.B IORING_OP_REMOVE_BUFFERS
+Remove buffers previously registered with
+.B IORING_OP_PROVIDE_BUFFERS.
+.I fd
+must contain the number of buffers to remove, and
+.I buf_group
+must contain the buffer group ID from which to remove the buffers. Available
+since 5.7.
+
 .PP
 The
 .I flags
@@ -661,7 +702,25 @@ and if that fails, execute it in an async manner. To support more efficient
 overlapped operation of requests that the application knows/assumes will
 always (or most of the time) block, the application can ask for an sqe to be
 issued async from the start. Available since 5.6.
-
+.TP
+.B IOSQE_BUFFER_SELECT
+Used in conjunction with the
+.B IORING_OP_PROVIDE_BUFFERS
+command, which registers a pool of buffers to be used by commands that read
+or receive data. When buffers are registered for this use case, and this
+flag is set in the command, io_uring will grab a buffer from this pool when
+the request is ready to receive or read data. If succesful, the resulting CQE
+will have
+.B IORING_CQE_F_BUFFER
+set in the flags part of the struct, and the upper
+.B IORING_CQE_BUFFER_SHIFT
+bits will contain the ID of the selected buffers. This allows the application
+to know exactly which buffer was selected for the operation. If no buffers
+are available and this flag is set, then the request will fail with
+.B -ENOBUFS
+as the error code. Once a buffer has been used, it is no longer available in
+the kernel pool. The application must re-register the given buffer again when
+it is ready to recycle it (eg has completed using it). Available since 5.7.
 
 .PP
 .I ioprio
