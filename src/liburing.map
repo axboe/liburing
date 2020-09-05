@@ -56,4 +56,6 @@ LIBURING_0.6 {
 } LIBURING_0.5;
 
 LIBURING_0.7 {
+	global:
+		__io_uring_sqring_wait;
 } LIBURING_0.6;

@@ -117,6 +117,7 @@ extern int io_uring_register_restrictions(struct io_uring *ring,
 					  struct io_uring_restriction *res,
 					  unsigned int nr_res);
 extern int io_uring_enable_rings(struct io_uring *ring);
+extern int __io_uring_sqring_wait(struct io_uring *ring);
 
 /*
  * Helper for the peek/wait single cqe functions. Exported because of that,
@@ -448,6 +449,23 @@ static inline unsigned io_uring_sq_ready(struct io_uring *ring)
 static inline unsigned io_uring_sq_space_left(struct io_uring *ring)
 {
 	return *ring->sq.kring_entries - io_uring_sq_ready(ring);
+}
+
+/*
+ * Only applicable when using SQPOLL - allows the caller to wait for space
+ * to free up in the SQ ring, which happens when the kernel side thread has
+ * consumed one or more entries. If the SQ ring is currently non-full, no
+ * action is taken. Note: may return -EINVAL if the kernel doesn't support
+ * this feature.
+ */
+static inline int io_uring_sqring_wait(struct io_uring *ring)
+{
+	if (!(ring->flags & IORING_SETUP_SQPOLL))
+		return 0;
+	if (io_uring_sq_space_left(ring))
+		return 0;
+
+	return __io_uring_sqring_wait(ring);
 }
 
 static inline unsigned io_uring_cq_ready(struct io_uring *ring)

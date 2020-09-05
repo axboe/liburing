@@ -320,3 +320,14 @@ struct io_uring_sqe *io_uring_get_sqe(struct io_uring *ring)
 
 	return __io_uring_get_sqe(sq, io_uring_smp_load_acquire(sq->khead));
 }
+
+int __io_uring_sqring_wait(struct io_uring *ring)
+{
+	int ret;
+
+	ret = __sys_io_uring_enter(ring->ring_fd, 0, 0, IORING_ENTER_SQ_WAIT,
+					NULL);
+	if (ret < 0)
+		ret = -errno;
+	return ret;
+}
