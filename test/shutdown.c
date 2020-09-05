@@ -18,6 +18,10 @@
 
 #include "liburing.h"
 
+static void sig_pipe(int sig)
+{
+}
+
 int main(int argc, char *argv[])
 {
 	int p_fd[2];
@@ -61,6 +65,8 @@ int main(int argc, char *argv[])
 
 	p_fd[0] = accept(recv_s0, NULL, NULL);
 	assert(p_fd[0] != -1);
+
+	signal(SIGPIPE, sig_pipe);
 
 	while (1) {
 		int32_t code;
