@@ -129,6 +129,95 @@ static int test_linked_files(int dfd, const char *fn, bool async)
 	return 0;
 }
 
+static int test_drained_files(int dfd, const char *fn, bool linked, bool prepend)
+{
+	struct io_uring ring;
+	struct io_uring_sqe *sqe;
+	struct io_uring_cqe *cqe;
+	char buffer[128];
+	struct iovec iov = {.iov_base = buffer, .iov_len = sizeof(buffer), };
+	int i, ret, fd, fds[2], to_cancel = 0;
+
+	ret = io_uring_queue_init(10, &ring, 0);
+	if (ret < 0)
+		DIE("failed to init io_uring: %s\n", strerror(-ret));
+
+	if (pipe(fds)) {
+		perror("pipe");
+		return 1;
+	}
+
+	sqe = io_uring_get_sqe(&ring);
+	if (!sqe) {
+		printf("get sqe failed\n");
+		return -1;
+	}
+	io_uring_prep_readv(sqe, fds[0], &iov, 1, 0);
+	sqe->user_data = 0;
+
+	if (prepend) {
+		sqe = io_uring_get_sqe(&ring);
+		if (!sqe) {
+			fprintf(stderr, "failed to get sqe\n");
+			return 1;
+		}
+		io_uring_prep_nop(sqe);
+		sqe->flags |= IOSQE_IO_DRAIN;
+		to_cancel++;
+		sqe->user_data = to_cancel;
+	}
+
+	if (linked) {
+		sqe = io_uring_get_sqe(&ring);
+		if (!sqe) {
+			fprintf(stderr, "failed to get sqe\n");
+			return 1;
+		}
+		io_uring_prep_nop(sqe);
+		sqe->flags |= IOSQE_IO_DRAIN | IOSQE_IO_LINK;
+		to_cancel++;
+		sqe->user_data = to_cancel;
+	}
+
+	sqe = io_uring_get_sqe(&ring);
+	if (!sqe) {
+		fprintf(stderr, "failed to get sqe\n");
+		return 1;
+	}
+	io_uring_prep_openat(sqe, dfd, fn, OPEN_FLAGS, OPEN_MODE);
+	sqe->flags |= IOSQE_IO_DRAIN;
+	to_cancel++;
+	sqe->user_data = to_cancel;
+
+
+	ret = io_uring_submit(&ring);
+	if (ret != 1 + to_cancel) {
+		fprintf(stderr, "failed to submit openat: %s\n", strerror(-ret));
+		return 1;
+	}
+
+	fd = dup(ring.ring_fd);
+	if (fd < 0) {
+		fprintf(stderr, "dup() failed: %s\n", strerror(-fd));
+		return 1;
+	}
+
+	/* io_uring->flush() */
+	close(fd);
+
+	for (i = 0; i < to_cancel; i++) {
+		ret = io_uring_wait_cqe(&ring, &cqe);
+		if (cqe->res != -ECANCELED) {
+			fprintf(stderr, "fail cqe->res=%d\n", cqe->res);
+			return 1;
+		}
+		io_uring_cqe_seen(&ring, cqe);
+	}
+
+	io_uring_queue_exit(&ring);
+	return 0;
+}
+
 int main(int argc, char *argv[])
 {
 	const char *fn = "io_uring_openat_test";
@@ -167,6 +256,23 @@ int main(int argc, char *argv[])
 		goto out;
 	}
 
+	ret = test_drained_files(dfd, fn, false, false);
+	if (ret) {
+		fprintf(stderr, "test_drained_files() failed\n");
+		goto out;
+	}
+
+	ret = test_drained_files(dfd, fn, false, true);
+	if (ret) {
+		fprintf(stderr, "test_drained_files() middle failed\n");
+		goto out;
+	}
+
+	ret = test_drained_files(dfd, fn, true, false);
+	if (ret) {
+		fprintf(stderr, "test_drained_files() linked failed\n");
+		goto out;
+	}
 out:
 	io_uring_queue_exit(&ring);
 	close(dfd);
