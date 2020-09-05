@@ -59,6 +59,11 @@ static int recv_prep(struct io_uring *ring, struct iovec *iov, int bgid)
 	msg.msg_iovlen = 1;
 
 	sqe = io_uring_get_sqe(ring);
+	if (!sqe) {
+		fprintf(stderr, "io_uring_get_sqe failed\n");
+		return 1;
+	}
+
 	io_uring_prep_recvmsg(sqe, sockfd, &msg, 0);
 	if (bgid) {
 		sqe->user_data = (unsigned long) iov->iov_base;
