@@ -85,6 +85,7 @@ test_targets += \
 	short-read \
 	sigfd-deadlock \
 	socket-rw \
+	socket-rw-eagain \
 	sq-full \
 	sq-poll-kthread \
 	sq-poll-share \
@@ -197,6 +198,7 @@ test_srcs := \
 	short-read.c \
 	sigfd-deadlock.c \
 	socket-rw.c \
+	socket-rw-eagain.c \
 	splice.c \
 	sq-full-cpp.cc \
 	sq-full.c \
