@@ -165,10 +165,12 @@ static int test(struct io_uring *ring, int accept_should_error)
 out:
 	close(p_fd[0]);
 	close(p_fd[1]);
+	close(recv_s0);
 	return 0;
 err:
 	close(p_fd[0]);
 	close(p_fd[1]);
+	close(recv_s0);
 	return 1;
 }
 
