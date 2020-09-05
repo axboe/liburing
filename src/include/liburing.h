@@ -440,6 +440,12 @@ static inline void io_uring_prep_remove_buffers(struct io_uring_sqe *sqe,
 	sqe->buf_group = bgid;
 }
 
+static inline void io_uring_prep_shutdown(struct io_uring_sqe *sqe, int fd,
+					  int how)
+{
+	io_uring_prep_rw(IORING_OP_SHUTDOWN, sqe, fd, NULL, how, 0);
+}
+
 /*
  * Returns number of unconsumed (if SQPOLL) or unsubmitted entries exist in
  * the SQ ring
