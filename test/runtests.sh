@@ -71,7 +71,7 @@ run_test()
 		local dmesg_marker=""
 		echo Running test $T $D
 	fi
-	timeout --preserve-status -s INT $TIMEOUT ./$T $D
+	timeout --preserve-status -s INT -k $TIMEOUT $TIMEOUT ./$T $D
 	r=$?
 	if [ "${r}" -eq 124 ]; then
 		echo "Test $T timed out (may not be a failure)"

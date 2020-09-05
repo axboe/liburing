@@ -10,25 +10,93 @@ override CFLAGS += -Wall -Wextra -Wno-unused-parameter -Wno-sign-compare\
 	-I../src/include/ -include ../config-host.h
 CXXFLAGS += $(CFLAGS) -std=c++11
 
-all_targets += poll poll-cancel ring-leak fsync io_uring_setup io_uring_register \
-	       io_uring_enter nop sq-full cq-full 35fa71a030ca-test \
-		917257daa0fe-test b19062a56726-test eeed8b54e0df-test link \
-		send_recvmsg a4c0b3decb33-test 500f9fbadef8-test timeout \
-		sq-space_left stdout cq-ready cq-peek-batch file-register \
-		cq-size 8a9973408177-test a0908ae19763-test 232c93d07b74-test \
-		socket-rw accept timeout-overflow defer read-write io-cancel \
-		link-timeout cq-overflow link_drain fc2a85cb02ef-test \
-		poll-link accept-link fixed-link poll-cancel-ton teardowns \
-		poll-many b5837bd5311d-test accept-test d77a67ed5f27-test \
-		connect 7ad0e4b2f83c-test submit-reuse fallocate open-close \
-		file-update accept-reuse poll-v-poll fadvise madvise \
-		short-read openat2 probe shared-wq personality eventfd \
-		send_recv eventfd-ring across-fork sq-poll-kthread splice \
-		lfs-openat lfs-openat-write iopoll d4ae271dfaae-test \
-		eventfd-disable close-opath ce593a6c480a-test cq-overflow-peek \
-		nop-all-sizes wakeup-hang files-exit-hang-poll \
-		files-exit-hang-timeout double-poll-crash pipe-eof \
-		register-restrictions sigfd-deadlock
+test_targets += \
+	232c93d07b74-test \
+	35fa71a030ca-test \
+	500f9fbadef8-test \
+	7ad0e4b2f83c-test \
+	8a9973408177-test \
+	917257daa0fe-test \
+	a0908ae19763-test \
+	a4c0b3decb33-test \
+	accept \
+	accept-link \
+	accept-reuse \
+	accept-test \
+	across-fork splice \
+	b19062a56726-test \
+	b5837bd5311d-test \
+	ce593a6c480a-test \
+	close-opath \
+	connect \
+	cq-full \
+	cq-overflow \
+	cq-overflow-peek \
+	cq-peek-batch \
+	cq-ready \
+	cq-size \
+	d4ae271dfaae-test \
+	d77a67ed5f27-test \
+	defer \
+	double-poll-crash \
+	eeed8b54e0df-test \
+	eventfd \
+	eventfd-disable \
+	eventfd-ring \
+	fadvise \
+	fallocate \
+	fc2a85cb02ef-test \
+	file-register \
+	file-update \
+	files-exit-hang-poll \
+	files-exit-hang-timeout \
+	fixed-link \
+	fsync \
+	io-cancel \
+	io_uring_enter \
+	io_uring_register \
+	io_uring_setup \
+	iopoll \
+	lfs-openat \
+	lfs-openat-write \
+	link \
+	link-timeout \
+	link_drain \
+	madvise \
+	nop \
+	nop-all-sizes \
+	open-close \
+	openat2 \
+	personality \
+	pipe-eof \
+	poll \
+	poll-cancel \
+	poll-cancel-ton \
+	poll-link \
+	poll-many \
+	poll-v-poll \
+	probe \
+	read-write \
+	register-restrictions \
+	ring-leak \
+	send_recv \
+	send_recvmsg \
+	shared-wq \
+	short-read \
+	sigfd-deadlock \
+	socket-rw \
+	sq-full \
+	sq-poll-kthread \
+	sq-space_left \
+	stdout \
+	submit-reuse \
+	teardowns \
+	timeout \
+	timeout-overflow \
+	wakeup-hang \
+	# EOL
+
+all_targets += $(test_targets)
 
 include ../Makefile.quiet
 
@@ -37,51 +105,112 @@ include ../config-host.mak
 endif
 
 ifdef CONFIG_HAVE_STATX
-all_targets += statx
+test_targets += statx
 endif
+all_targets += statx
 
 ifdef CONFIG_HAVE_CXX
-all_targets += sq-full-cpp
+test_targets += sq-full-cpp
 endif
+all_targets += sq-full-cpp
 
-all: $(all_targets)
+all: $(test_targets)
 
 %: %.c
 	$(QUIET_CC)$(CC) $(CFLAGS) -o $@ $< -luring $(XCFLAGS)
 
 %: %.cc
-	$(QUIET_CC)$(CXX) $(CXXFLAGS) -o $@ $< -luring $(XCFLAGS)
+	$(QUIET_CXX)$(CXX) $(CXXFLAGS) -o $@ $< -luring $(XCFLAGS)
 
-test_srcs := poll.c poll-cancel.c ring-leak.c fsync.c io_uring_setup.c \
-	io_uring_register.c io_uring_enter.c nop.c sq-full.c cq-full.c \
-	35fa71a030ca-test.c 917257daa0fe-test.c b19062a56726-test.c \
-	eeed8b54e0df-test.c link.c send_recvmsg.c a4c0b3decb33-test.c \
-	500f9fbadef8-test.c timeout.c sq-space_left.c stdout.c cq-ready.c\
-	cq-peek-batch.c file-register.c cq-size.c 8a9973408177-test.c \
-	a0908ae19763-test.c 232c93d07b74-test.c socket-rw.c accept.c \
-	timeout-overflow.c defer.c read-write.c io-cancel.c link-timeout.c \
-	cq-overflow.c link_drain.c fc2a85cb02ef-test.c poll-link.c \
-	accept-link.c fixed-link.c poll-cancel-ton.c teardowns.c poll-many.c \
-	b5837bd5311d-test.c accept-test.c d77a67ed5f27-test.c connect.c \
-	7ad0e4b2f83c-test.c submit-reuse.c fallocate.c open-close.c \
-	file-update.c accept-reuse.c poll-v-poll.c fadvise.c \
-	madvise.c short-read.c openat2.c probe.c shared-wq.c \
-	personality.c eventfd.c eventfd-ring.c across-fork.c sq-poll-kthread.c \
-	splice.c lfs-openat.c lfs-openat-write.c iopoll.c d4ae271dfaae-test.c \
-	eventfd-disable.c close-opath.c ce593a6c480a-test.c cq-overflow-peek.c \
-	nop-all-sizes.c wakeup-hang.c files-exit-hang-poll.c \
-	files-exit-hang-timeout.c double-poll-crash.c pipe-eof.c \
-	register-restrictions.c sigfd-deadlock.c
+test_srcs := \
+	232c93d07b74-test.c \
+	35fa71a030ca-test.c \
+	500f9fbadef8-test.c \
+	7ad0e4b2f83c-test.c \
+	8a9973408177-test.c \
+	917257daa0fe-test.c \
+	a0908ae19763-test.c \
+	a4c0b3decb33-test.c \
+	accept-link.c \
+	accept-reuse.c \
+	accept-test.c \
+	accept.c \
+	across-fork.c \
+	b19062a56726-test.c \
+	b5837bd5311d-test.c \
+	ce593a6c480a-test.c \
+	close-opath.c \
+	connect.c \
+	cq-full.c \
+	cq-overflow-peek.c \
+	cq-overflow.c \
+	cq-peek-batch.c \
+	cq-ready.c\
+	cq-size.c \
+	d4ae271dfaae-test.c \
+	d77a67ed5f27-test.c \
+	defer.c \
+	double-poll-crash.c \
+	eeed8b54e0df-test.c \
+	eventfd-disable.c \
+	eventfd-ring.c \
+	eventfd.c \
+	fadvise.c \
+	fallocate.c \
+	fc2a85cb02ef-test.c \
+	file-register.c \
+	file-update.c \
+	files-exit-hang-poll.c \
+	files-exit-hang-timeout.c \
+	fixed-link.c \
+	fsync.c \
+	io-cancel.c \
+	io_uring_enter.c \
+	io_uring_register.c \
+	io_uring_setup.c \
+	iopoll.c \
+	lfs-openat-write.c \
+	lfs-openat.c \
+	link-timeout.c \
+	link.c \
+	link_drain.c \
+	madvise.c \
+	nop-all-sizes.c \
+	nop.c \
+	open-close.c \
+	openat2.c \
+	personality.c \
+	pipe-eof.c \
+	poll-cancel-ton.c \
+	poll-cancel.c \
+	poll-link.c \
+	poll-many.c \
+	poll-v-poll.c \
+	poll.c \
+	probe.c \
+	read-write.c \
+	register-restrictions.c \
+	ring-leak.c \
+	send_recvmsg.c \
+	shared-wq.c \
+	short-read.c \
+	sigfd-deadlock.c \
+	socket-rw.c \
+	splice.c \
+	sq-full-cpp.cc \
+	sq-full.c \
+	sq-poll-kthread.c \
+	sq-space_left.c \
+	statx.c \
+	stdout.c \
+	submit-reuse.c \
+	teardowns.c \
+	timeout-overflow.c \
+	timeout.c \
+	wakeup-hang.c \
+	# EOL
 
-ifdef CONFIG_HAVE_STATX
-test_srcs += statx.c
-endif
-
-ifdef CONFIG_HAVE_CXX
-test_srcs += sq-full-cpp
-endif
-
-test_objs := $(patsubst %.c,%.ol,$(test_srcs))
+test_objs := $(patsubst %.c,%.ol,$(patsubst %.cc,%.ol,$(test_srcs)))
 
 35fa71a030ca-test: XCFLAGS = -lpthread
 232c93d07b74-test: XCFLAGS = -lpthread
@@ -96,15 +225,15 @@ ce593a6c480a-test: XCFLAGS = -lpthread
 wakeup-hang: XCFLAGS = -lpthread
 pipe-eof: XCFLAGS = -lpthread
 
-install: $(all_targets) runtests.sh runtests-loop.sh
+install: $(test_targets) runtests.sh runtests-loop.sh
 	$(INSTALL) -D -d -m 755 $(datadir)/liburing-test/
-	$(INSTALL) -D -m 755 $(all_targets) $(datadir)/liburing-test/
+	$(INSTALL) -D -m 755 $(test_targets) $(datadir)/liburing-test/
 	$(INSTALL) -D -m 755 runtests.sh  $(datadir)/liburing-test/
 	$(INSTALL) -D -m 755 runtests-loop.sh  $(datadir)/liburing-test/
 clean:
 	@rm -f $(all_targets) $(test_objs)
 
 runtests: all
-	@./runtests.sh $(all_targets)
+	@./runtests.sh $(test_targets)
 runtests-loop: all
-	@./runtests-loop.sh $(all_targets)
+	@./runtests-loop.sh $(test_targets)
