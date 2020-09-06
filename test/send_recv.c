@@ -26,11 +26,12 @@ static char str[] = "This is a test of send and recv over io_uring!";
 #	define io_uring_prep_recv io_uring_prep_read
 #endif
 
-static int recv_prep(struct io_uring *ring, struct iovec *iov, int *sock)
+static int recv_prep(struct io_uring *ring, struct iovec *iov, int *sock,
+		     int registerfiles)
 {
 	struct sockaddr_in saddr;
 	struct io_uring_sqe *sqe;
-	int sockfd, ret, val;
+	int sockfd, ret, val, use_fd;
 
 	memset(&saddr, 0, sizeof(saddr));
 	saddr.sin_family = AF_INET;
@@ -52,15 +53,21 @@ static int recv_prep(struct io_uring *ring, struct iovec *iov, int *sock)
 		goto err;
 	}
 
-	ret = io_uring_register_files(ring, &sockfd, 1);
-	if (ret) {
-		fprintf(stderr, "file reg failed\n");
-		goto err;
+	if (registerfiles) {
+		ret = io_uring_register_files(ring, &sockfd, 1);
+		if (ret) {
+			fprintf(stderr, "file reg failed\n");
+			goto err;
+		}
+		use_fd = 0;
+	} else {
+		use_fd = sockfd;
 	}
 
 	sqe = io_uring_get_sqe(ring);
-	io_uring_prep_recv(sqe, 0, iov->iov_base, iov->iov_len, 0);
-	sqe->flags |= IOSQE_FIXED_FILE;
+	io_uring_prep_recv(sqe, use_fd, iov->iov_base, iov->iov_len, 0);
+	if (registerfiles)
+		sqe->flags |= IOSQE_FIXED_FILE;
 	sqe->user_data = 2;
 
 	ret = io_uring_submit(ring);
@@ -114,6 +121,7 @@ err:
 struct recv_data {
 	pthread_mutex_t mutex;
 	int use_sqthread;
+	int registerfiles;
 };
 
 static void *recv_fn(void *data)
@@ -132,11 +140,23 @@ static void *recv_fn(void *data)
 		p.flags = IORING_SETUP_SQPOLL;
 	ret = io_uring_queue_init_params(1, &ring, &p);
 	if (ret) {
+		if (rd->use_sqthread && geteuid()) {
+			fprintf(stdout, "Skipping SQPOLL variant\n");
+			return 0;
+		}
 		fprintf(stderr, "queue init failed: %d\n", ret);
 		goto err;
 	}
 
-	ret = recv_prep(&ring, &iov, &sock);
+	if (rd->use_sqthread && !rd->registerfiles) {
+		if (!(p.features & IORING_FEAT_SQPOLL_NONFIXED)) {
+			fprintf(stdout, "Non-registered SQPOLL not available, skipping");
+			io_uring_queue_exit(&ring);
+			return 0;
+		}
+	}
+
+	ret = recv_prep(&ring, &iov, &sock, rd->registerfiles);
 	if (ret) {
 		fprintf(stderr, "recv_prep failed: %d\n", ret);
 		goto err;
@@ -213,7 +233,7 @@ err:
 	return 1;
 }
 
-static int test(int use_sqthread)
+static int test(int use_sqthread, int regfiles)
 {
 	pthread_mutexattr_t attr;
 	pthread_t recv_thread;
@@ -226,6 +246,7 @@ static int test(int use_sqthread)
 	pthread_mutex_init(&rd.mutex, &attr);
 	pthread_mutex_lock(&rd.mutex);
 	rd.use_sqthread = use_sqthread;
+	rd.registerfiles = regfiles;
 
 	ret = pthread_create(&recv_thread, NULL, recv_fn, &rd);
 	if (ret) {
@@ -246,20 +267,21 @@ int main(int argc, char *argv[])
 	if (argc > 1)
 		return 0;
 
-	ret = test(0);
+	ret = test(0, 0);
 	if (ret) {
 		fprintf(stderr, "test sqthread=0 failed\n");
 		return ret;
 	}
 
-	if (geteuid()) {
-		fprintf(stdout, "%s: skipping SQPOLL variant\n", argv[0]);
-		return 0;
+	ret = test(1, 1);
+	if (ret) {
+		fprintf(stderr, "test sqthread=1 reg=1 failed\n");
+		return ret;
 	}
 
-	ret = test(1);
+	ret = test(1, 0);
 	if (ret) {
-		fprintf(stderr, "test sqthread=1 failed\n");
+		fprintf(stderr, "test sqthread=1 reg=0 failed\n");
 		return ret;
 	}
 
