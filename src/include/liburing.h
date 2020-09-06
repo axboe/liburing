@@ -458,6 +458,13 @@ static inline void io_uring_prep_shutdown(struct io_uring_sqe *sqe, int fd,
  */
 static inline unsigned io_uring_sq_ready(struct io_uring *ring)
 {
+	/*
+	 * Without a barrier, we could miss an update and think the SQ wasn't ready.
+	 * We don't need the load acquire for non-SQPOLL since then we drive updates.
+	 */
+	if (ring->flags & IORING_SETUP_SQPOLL)
+		return ring->sq.sqe_tail - io_uring_smp_load_acquire(ring->sq.khead);
+
 	/* always use real head, to avoid losing sync for short submit */
 	return ring->sq.sqe_tail - *ring->sq.khead;
 }
