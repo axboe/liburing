@@ -12,9 +12,9 @@ LINK_FLAGS=
 LINK_FLAGS+=$(LDFLAGS)
 ENABLE_SHARED ?= 1
 
-soname=liburing.so.1
+soname=liburing.so.2
 minor=0
-micro=7
+micro=0
 libname=$(soname).$(minor).$(micro)
 all_targets += liburing.a
 

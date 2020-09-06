@@ -37,6 +37,8 @@ struct io_uring_sq {
 
 	size_t ring_sz;
 	void *ring_ptr;
+
+	unsigned pad[4];
 };
 
 struct io_uring_cq {
@@ -50,6 +52,8 @@ struct io_uring_cq {
 
 	size_t ring_sz;
 	void *ring_ptr;
+
+	unsigned pad[4];
 };
 
 struct io_uring {
@@ -57,6 +61,8 @@ struct io_uring {
 	struct io_uring_cq cq;
 	unsigned flags;
 	int ring_fd;
+
+	unsigned pad[4];
 };
 
 /*
