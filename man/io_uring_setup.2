@@ -98,7 +98,8 @@ call with the following code sequence:
 .EX
 /*
  * Ensure that the wakeup flag is read after the tail pointer has been
- * written.
+ * written. Without this memory barrier the kernel thread may miss the
+ * latest SQ tail and go back to sleep, starving the application's I/O.
  */
 smp_mb();
 if (*sq_ring->flags & IORING_SQ_NEED_WAKEUP)
