@@ -61,6 +61,10 @@ static int wait_io(struct io_uring *ring, int nr_ios)
 
 	while (nr_ios) {
 		io_uring_wait_cqe(ring, &cqe);
+		if (cqe->res != BS) {
+			fprintf(stderr, "Unexpected ret %d\n", cqe->res);
+			return 1;
+		}
 		io_uring_cqe_seen(ring, cqe);
 		nr_ios--;
 	}
@@ -134,6 +138,11 @@ int main(int argc, char *argv[])
 			fprintf(stderr, "queue_init: %d/%d\n", ret, i);
 			goto err;
 		}
+		/* no sharing for non-fixed either */
+		if (!(p.features & IORING_FEAT_SQPOLL_NONFIXED)) {
+			fprintf(stdout, "No SQPOLL sharing, skipping\n");
+			return 0;
+		}
 	}
 
 	ios = 0;
@@ -144,8 +153,10 @@ int main(int argc, char *argv[])
 				goto err;
 			rets[i] = ret;
 		}
-		for (i = 0; i < NR_RINGS; i++)
-			wait_io(&rings[i], rets[i]);
+		for (i = 0; i < NR_RINGS; i++) {
+			if (wait_io(&rings[i], rets[i]))
+				goto err;
+		}
 		ios += BUFFERS;
 	}
 
