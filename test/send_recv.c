@@ -142,7 +142,9 @@ static void *recv_fn(void *data)
 	if (ret) {
 		if (rd->use_sqthread && geteuid()) {
 			fprintf(stdout, "Skipping SQPOLL variant\n");
-			return 0;
+			pthread_mutex_unlock(&rd->mutex);
+			ret = 0;
+			goto err;
 		}
 		fprintf(stderr, "queue init failed: %d\n", ret);
 		goto err;
@@ -150,9 +152,9 @@ static void *recv_fn(void *data)
 
 	if (rd->use_sqthread && !rd->registerfiles) {
 		if (!(p.features & IORING_FEAT_SQPOLL_NONFIXED)) {
-			fprintf(stdout, "Non-registered SQPOLL not available, skipping");
-			io_uring_queue_exit(&ring);
-			return 0;
+			fprintf(stdout, "Non-registered SQPOLL not available, skipping\n");
+			pthread_mutex_unlock(&rd->mutex);
+			goto err;
 		}
 	}
 
