@@ -69,6 +69,7 @@ test_targets += \
 	openat2 \
 	personality \
 	pipe-eof \
+	pipe-reuse \
 	poll \
 	poll-cancel \
 	poll-cancel-ton \
@@ -184,6 +185,7 @@ test_srcs := \
 	openat2.c \
 	personality.c \
 	pipe-eof.c \
+	pipe-reuse.c \
 	poll-cancel-ton.c \
 	poll-cancel.c \
 	poll-link.c \
