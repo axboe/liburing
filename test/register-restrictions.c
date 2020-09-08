@@ -524,7 +524,7 @@ static int test_restrictions_rings_not_disabled(void)
 	res[0].sqe_op = IORING_OP_WRITEV;
 
 	ret = io_uring_register_restrictions(&ring, res, 1);
-	if (ret != -EINVAL) {
+	if (ret != -EBADFD) {
 		fprintf(stderr, "io_uring_register_restrictions ret: %d\n",
 			ret);
 		return TEST_FAILED;
