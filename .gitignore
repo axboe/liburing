@@ -74,6 +74,7 @@
 /test/openat2
 /test/personality
 /test/pipe-eof
+/test/pipe-reuse
 /test/poll
 /test/poll-cancel
 /test/poll-cancel-ton
