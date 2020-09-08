@@ -88,12 +88,15 @@
 /test/send_recvmsg
 /test/shared-wq
 /test/short-read
+/test/shutdown
 /test/sigfd-deadlock
 /test/socket-rw
+/test/socket-rw-eagain
 /test/splice
 /test/sq-full
 /test/sq-full-cpp
 /test/sq-poll-kthread
+/test/sq-poll-share
 /test/sq-space_left
 /test/statx
 /test/stdout
