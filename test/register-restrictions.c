@@ -534,6 +534,31 @@ static int test_restrictions_rings_not_disabled(void)
 	return TEST_OK;
 }
 
+static int test_restrictions_rings_disabled(void)
+{
+	struct io_uring_sqe *sqe;
+	struct io_uring ring;
+	int ret;
+
+	ret = io_uring_queue_init(8, &ring, IORING_SETUP_R_DISABLED);
+	if (ret) {
+		fprintf(stderr, "ring setup failed: %d\n", ret);
+		return TEST_FAILED;
+	}
+
+	sqe = io_uring_get_sqe(&ring);
+	io_uring_prep_nop(sqe);
+
+	ret = io_uring_submit(&ring);
+	if (ret != -EBADFD) {
+		fprintf(stderr, "submit: %d\n", ret);
+		return TEST_FAILED;
+	}
+
+	io_uring_queue_exit(&ring);
+	return TEST_OK;
+}
+
 int main(int argc, char *argv[])
 {
 	int ret;
@@ -587,6 +612,14 @@ int main(int argc, char *argv[])
 		printf("test_restrictions_rings_not_disabled: skipped\n");
 	} else if (ret == TEST_FAILED) {
 		fprintf(stderr, "test_restrictions_rings_not_disabled failed\n");
+		return ret;
+	}
+
+	ret = test_restrictions_rings_disabled();
+	if (ret == TEST_SKIPPED) {
+		printf("test_restrictions_rings_disabled: skipped\n");
+	} else if (ret == TEST_FAILED) {
+		fprintf(stderr, "test_restrictions_rings_disabled failed\n");
 		return ret;
 	}
 
