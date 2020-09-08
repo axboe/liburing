@@ -2,18 +2,18 @@
 
 TESTS="$@"
 RET=0
-
 TIMEOUT=60
+DMESG_FILTER="cat"
+TEST_DIR=$(dirname $0)
+TEST_FILES=""
 FAILED=""
 MAYBE_FAILED=""
 
-do_kmsg="1"
-if ! [ $(id -u) = 0 ]; then
-	do_kmsg="0"
-fi
+# Only use /dev/kmsg if running as root
+DO_KMSG="1"
+[ "$(id -u)" != "0" ] && DO_KMSG="0"
 
-TEST_DIR=$(dirname $0)
-TEST_FILES=""
+# Include config.local if exists and check TEST_FILES for valid devices
 if [ -f "$TEST_DIR/config.local" ]; then
 	. $TEST_DIR/config.local
 	for dev in $TEST_FILES; do
@@ -29,7 +29,7 @@ _check_dmesg()
 	local dmesg_marker="$1"
 	local seqres="$2.seqres"
 
-	if [[ $do_kmsg -eq 0 ]]; then
+	if [ $DO_KMSG -eq 0 ]; then
 		return 0
 	fi
 
@@ -56,56 +56,55 @@ _check_dmesg()
 
 run_test()
 {
-	T="$1"
-	D="$2"
-	DMESG_FILTER="cat"
+	local test_name="$1"
+	local dev="$2"
 
-	if [ "$do_kmsg" -eq 1 ]; then
-		if [ -z "$D" ]; then
-			local dmesg_marker="Running test $T:"
+	if [ "$DO_KMSG" -eq 1 ]; then
+		if [ -z "$dev" ]; then
+			local dmesg_marker="Running test $test_name:"
 		else
-			local dmesg_marker="Running test $T $D:"
+			local dmesg_marker="Running test $test_name $dev:"
 		fi
 		echo $dmesg_marker | tee /dev/kmsg
 	else
 		local dmesg_marker=""
-		echo Running test $T $D
+		echo Running test $test_name $dev
 	fi
-	timeout --preserve-status -s INT -k $TIMEOUT $TIMEOUT ./$T $D
-	r=$?
-	if [ "${r}" -eq 124 ]; then
-		echo "Test $T timed out (may not be a failure)"
-	elif [ "${r}" -ne 0 ]; then
-		echo "Test $T failed with ret ${r}"
-		if [ -z "$D" ]; then
-			FAILED="$FAILED <$T>"
+	timeout --preserve-status -s INT -k $TIMEOUT $TIMEOUT ./$test_name $dev
+	local status=$?
+	if [ "$status" -eq 124 ]; then
+		echo "Test $test_name timed out (may not be a failure)"
+	elif [ "$status" -ne 0 ]; then
+		echo "Test $test_name failed with ret $status"
+		if [ -z "$dev" ]; then
+			FAILED="$FAILED <$test_name>"
 		else
-			FAILED="$FAILED <$T $D>"
+			FAILED="$FAILED <$test_name $dev>"
 		fi
 		RET=1
-	elif ! _check_dmesg "$dmesg_marker" "$T"; then
-		echo "Test $T failed dmesg check"
-		if [ -z "$D" ]; then
-			FAILED="$FAILED <$T>"
+	elif ! _check_dmesg "$dmesg_marker" "$test_name"; then
+		echo "Test $test_name failed dmesg check"
+		if [ -z "$dev" ]; then
+			FAILED="$FAILED <$test_name>"
 		else
-			FAILED="$FAILED <$T $D>"
+			FAILED="$FAILED <$test_name $dev>"
 		fi
 		RET=1
-	elif [ ! -z "$D" ]; then
+	elif [ ! -z "$dev" ]; then
 		sleep .1
 		ps aux | grep "\[io_wq_manager\]" > /dev/null
-		R="$?"
-		if [ "$R" -eq 0 ]; then
-			MAYBE_FAILED="$MAYBE_FAILED $T"
+		if [ $? -eq 0 ]; then
+			MAYBE_FAILED="$MAYBE_FAILED $test_name"
 		fi
 	fi
 }
 
-for t in $TESTS; do
-	run_test $t
+# Run all specified tests
+for tst in $TESTS; do
+	run_test $tst
 	if [ ! -z "$TEST_FILES" ]; then
 		for dev in $TEST_FILES; do
-			run_test $t $dev
+			run_test $tst $dev
 		done
 	fi
 done
@@ -116,8 +115,7 @@ if [ "${RET}" -ne 0 ]; then
 else
 	sleep 1
 	ps aux | grep "\[io_wq_manager\]" > /dev/null
-	R="$?"
-	if [ "$R" -ne 0 ]; then
+	if [ $? -ne 0 ]; then
 		MAYBE_FAILED=""
 	fi
 	if [ ! -z "$MAYBE_FAILED" ]; then
