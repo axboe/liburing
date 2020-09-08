@@ -1,4 +1,7 @@
-# Define raw test devices (or files) for test cases, if any
-# Copy this to config.local, and uncomment + define test files
+# Copy this to config.local, uncomment and define values
 #
+# Define tests to exclude from running
+# TEST_EXCLUDE=""
+#
+# Define raw test devices (or files) for test cases, if any
 # TEST_FILES="/dev/nvme0n1p2 /data/file"

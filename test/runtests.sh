@@ -7,6 +7,7 @@ DMESG_FILTER="cat"
 TEST_DIR=$(dirname $0)
 TEST_FILES=""
 FAILED=""
+SKIPPED=""
 MAYBE_FAILED=""
 
 # Only use /dev/kmsg if running as root
@@ -58,43 +59,50 @@ run_test()
 {
 	local test_name="$1"
 	local dev="$2"
+	local test_string=$test_name
 
+	# Specify test string to print
+	if [ -n "$dev" ]; then
+		test_string="$test_name $dev"
+	fi
+
+	# Log start of the test
 	if [ "$DO_KMSG" -eq 1 ]; then
-		if [ -z "$dev" ]; then
-			local dmesg_marker="Running test $test_name:"
-		else
-			local dmesg_marker="Running test $test_name $dev:"
-		fi
+		local dmesg_marker="Running test $test_string:"
 		echo $dmesg_marker | tee /dev/kmsg
 	else
 		local dmesg_marker=""
 		echo Running test $test_name $dev
 	fi
+
+	# Do we have to exclude the test ?
+	echo $TEST_EXCLUDE | grep -w "$test_name" > /dev/null 2>&1
+	if [ $? -eq 0 ]; then
+		echo "Test skipped"
+		SKIPPED="$SKIPPED <$test_string>"
+		return
+	fi
+
+	# Run the test
 	timeout --preserve-status -s INT -k $TIMEOUT $TIMEOUT ./$test_name $dev
 	local status=$?
+
+	# Check test status
 	if [ "$status" -eq 124 ]; then
 		echo "Test $test_name timed out (may not be a failure)"
 	elif [ "$status" -ne 0 ]; then
 		echo "Test $test_name failed with ret $status"
-		if [ -z "$dev" ]; then
-			FAILED="$FAILED <$test_name>"
-		else
-			FAILED="$FAILED <$test_name $dev>"
-		fi
+		FAILED="$FAILED <$test_string>"
 		RET=1
 	elif ! _check_dmesg "$dmesg_marker" "$test_name"; then
 		echo "Test $test_name failed dmesg check"
-		if [ -z "$dev" ]; then
-			FAILED="$FAILED <$test_name>"
-		else
-			FAILED="$FAILED <$test_name $dev>"
-		fi
+		FAILED="$FAILED <$test_string>"
 		RET=1
-	elif [ ! -z "$dev" ]; then
+	elif [ -n "$dev" ]; then
 		sleep .1
 		ps aux | grep "\[io_wq_manager\]" > /dev/null
 		if [ $? -eq 0 ]; then
-			MAYBE_FAILED="$MAYBE_FAILED $test_name"
+			MAYBE_FAILED="$MAYBE_FAILED $test_string"
 		fi
 	fi
 }
@@ -109,8 +117,12 @@ for tst in $TESTS; do
 	fi
 done
 
+if [ -n "$SKIPPED" ]; then
+	echo "Tests skipped: $SKIPPED"
+fi
+
 if [ "${RET}" -ne 0 ]; then
-	echo "Tests $FAILED failed"
+	echo "Tests failed: $FAILED"
 	exit $RET
 else
 	sleep 1
