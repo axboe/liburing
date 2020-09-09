@@ -72,16 +72,10 @@ static int wait_io(struct io_uring *ring, int nr_ios)
 	return 0;
 }
 
-static int queue_io(struct io_uring *ring, const char *fname, int nr_ios)
+static int queue_io(struct io_uring *ring, int fd, int nr_ios)
 {
 	unsigned long off;
-	int fd, ret, i;
-
-	fd = open(fname, O_RDONLY | O_DIRECT);
-	if (fd < 0) {
-		perror("open");
-		return -1;
-	}
+	int i;
 
 	i = 0;
 	off = 0;
@@ -97,9 +91,7 @@ static int queue_io(struct io_uring *ring, const char *fname, int nr_ios)
 		off += BS;
 	}
 
-	ret = io_uring_submit(ring);
-	close(fd);
-	return ret;
+	return io_uring_submit(ring);
 }
 
 int main(int argc, char *argv[])
@@ -107,7 +99,7 @@ int main(int argc, char *argv[])
 	struct io_uring rings[NR_RINGS];
 	int rets[NR_RINGS];
 	unsigned long ios;
-	int i, ret;
+	int i, ret, fd;
 	char *fname;
 
 	if (argc > 1) {
@@ -123,6 +115,12 @@ int main(int argc, char *argv[])
 	if (create_buffers()) {
 		fprintf(stderr, "file creation failed\n");
 		goto err;
+	}
+
+	fd = open(fname, O_RDONLY | O_DIRECT);
+	if (fd < 0) {
+		perror("open");
+		return -1;
 	}
 
 	for (i = 0; i < NR_RINGS; i++) {
@@ -148,7 +146,7 @@ int main(int argc, char *argv[])
 	ios = 0;
 	while (ios < (FILE_SIZE / BS)) {
 		for (i = 0; i < NR_RINGS; i++) {
-			ret = queue_io(&rings[i], fname, BUFFERS);
+			ret = queue_io(&rings[i], fd, BUFFERS);
 			if (ret < 0)
 				goto err;
 			rets[i] = ret;
