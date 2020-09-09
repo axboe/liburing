@@ -2,6 +2,7 @@ LIBURING_2.0 {
 	global:
 		io_uring_get_probe;
 		io_uring_get_probe_ring;
+		io_uring_free_probe;
 		io_uring_get_sqe;
 		io_uring_peek_batch_cqe;
 		io_uring_queue_exit;
