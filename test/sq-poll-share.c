@@ -91,7 +91,8 @@ static int queue_io(struct io_uring *ring, int fd, int nr_ios)
 		off += BS;
 	}
 
-	return io_uring_submit(ring);
+	io_uring_submit(ring);
+	return i;
 }
 
 int main(int argc, char *argv[])

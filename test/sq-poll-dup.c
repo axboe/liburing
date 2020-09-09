@@ -93,8 +93,8 @@ static int queue_io(struct io_uring *ring, int fd, int nr_ios)
 		off += BS;
 	}
 
-	ret = io_uring_submit(ring);
-	return ret;
+	io_uring_submit(ring);
+	return i;
 }
 
 static int do_io(int fd, int ring_start, int ring_end)
