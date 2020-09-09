@@ -89,6 +89,7 @@ test_targets += \
 	socket-rw \
 	socket-rw-eagain \
 	sq-full \
+	sq-poll-dup \
 	sq-poll-kthread \
 	sq-poll-share \
 	sq-space_left \
@@ -206,6 +207,7 @@ test_srcs := \
 	splice.c \
 	sq-full-cpp.cc \
 	sq-full.c \
+	sq-poll-dup.c \
 	sq-poll-kthread.c \
 	sq-poll-share.c \
 	sq-space_left.c \
