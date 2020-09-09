@@ -121,7 +121,7 @@ err:
 	return 1;
 }
 
-static int test(int fd, int do_dup_and_close)
+static int test(int fd, int do_dup_and_close, int close_ring)
 {
 	int i, ret, ring_fd;
 
@@ -129,6 +129,7 @@ static int test(int fd, int do_dup_and_close)
 		struct io_uring_params p = { };
 
 		p.flags = IORING_SETUP_SQPOLL;
+		p.sq_thread_idle = 100;
 		if (i) {
 			p.wq_fd = rings[0].ring_fd;
 			p.flags |= IORING_SETUP_ATTACH_WQ;
@@ -151,7 +152,8 @@ static int test(int fd, int do_dup_and_close)
 
 	/* dup and close original ring fd */
 	ring_fd = dup(rings[0].ring_fd);
-	close(rings[0].ring_fd);
+	if (close_ring)
+		close(rings[0].ring_fd);
 	rings[0].ring_fd = ring_fd;
 	if (do_dup_and_close)
 		goto done;
@@ -163,6 +165,14 @@ static int test(int fd, int do_dup_and_close)
 	/* test closed one */
 	if (do_io(fd, 0, 1))
 		goto err;
+
+	/* make sure thread is idle so we enter the kernel */
+	usleep(200000);
+
+	/* test closed one */
+	if (do_io(fd, 0, 1))
+		goto err;
+
 
 done:
 	for (i = 0; i < NR_RINGS; i++)
@@ -199,15 +209,22 @@ int main(int argc, char *argv[])
 		return -1;
 	}
 
-	ret = test(fd, 0);
+	ret = test(fd, 0, 0);
 	if (ret) {
-		fprintf(stderr, "test 0 failed\n");
+		fprintf(stderr, "test 0 0 failed\n");
 		goto err;
 	}
 
-	ret = test(fd, 1);
+	ret = test(fd, 0, 1);
 	if (ret) {
-		fprintf(stderr, "test 1 failed\n");
+		fprintf(stderr, "test 0 1 failed\n");
+		goto err;
+	}
+
+
+	ret = test(fd, 1, 0);
+	if (ret) {
+		fprintf(stderr, "test 1 0 failed\n");
 		goto err;
 	}
 
