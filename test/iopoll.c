@@ -250,7 +250,7 @@ static int test_io_uring_submit_enters(const char *file)
 		return 1;
 	}
 
-	open_flags = O_WRONLY | O_DIRECT | O_TRUNC;
+	open_flags = O_WRONLY | O_DIRECT;
 	fd = open(file, open_flags);
 	if (fd < 0) {
 		perror("file open");
