@@ -77,6 +77,12 @@ extern struct io_uring_probe *io_uring_get_probe_ring(struct io_uring *ring);
 /* same as io_uring_get_probe_ring, but takes care of ring init and teardown */
 extern struct io_uring_probe *io_uring_get_probe(void);
 
+/*
+ * frees a probe allocated through io_uring_get_probe() or
+ * io_uring_get_probe_ring()
+ */
+extern void io_uring_free_probe(struct io_uring_probe *probe);
+
 static inline int io_uring_opcode_supported(struct io_uring_probe *p, int op)
 {
 	if (op > p->last_op)

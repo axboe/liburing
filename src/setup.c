@@ -203,3 +203,8 @@ struct io_uring_probe *io_uring_get_probe(void)
 	io_uring_queue_exit(&ring);
 	return probe;
 }
+
+void io_uring_free_probe(struct io_uring_probe *probe)
+{
+	free(probe);
+}
