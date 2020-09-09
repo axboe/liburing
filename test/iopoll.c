@@ -195,7 +195,7 @@ static int __test_io(const char *file, struct io_uring *ring, int write, int sqt
 		} else if (cqe->res == -EOPNOTSUPP) {
 			fprintf(stdout, "File/device/fs doesn't support polled IO\n");
 			no_iopoll = 1;
-			break;
+			goto out;
 		} else if (cqe->res != BS) {
 			fprintf(stderr, "cqe res %d, wanted %d\n", cqe->res, BS);
 			goto err;
@@ -218,15 +218,10 @@ static int __test_io(const char *file, struct io_uring *ring, int write, int sqt
 		}
 	}
 
+out:
 	close(fd);
-#ifdef VERBOSE
-	fprintf(stdout, "PASS\n");
-#endif
 	return 0;
 err:
-#ifdef VERBOSE
-	fprintf(stderr, "FAILED\n");
-#endif
 	if (fd != -1)
 		close(fd);
 	return 1;
@@ -244,6 +239,9 @@ static int test_io_uring_submit_enters(const char *file)
 	int fd, i, ret, ring_flags, open_flags;
 	unsigned head;
 	struct io_uring_cqe *cqe;
+
+	if (no_iopoll)
+		return 0;
 
 	ring_flags = IORING_SETUP_IOPOLL;
 	ret = io_uring_queue_init(64, &ring, ring_flags);
@@ -293,9 +291,6 @@ static int test_io_uring_submit_enters(const char *file)
 	}
 err:
 	ret = 1;
-#ifdef VERBOSE
-	fprintf(stderr, "FAILED\n");
-#endif
 	if (fd != -1)
 		close(fd);
 
@@ -309,6 +304,9 @@ static int test_io(const char *file, int write, int sqthread, int fixed,
 {
 	struct io_uring ring;
 	int ret, ring_flags;
+
+	if (no_iopoll)
+		return 0;
 
 	ring_flags = IORING_SETUP_IOPOLL;
 	if (sqthread) {
