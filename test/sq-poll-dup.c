@@ -77,7 +77,7 @@ static int wait_io(struct io_uring *ring, int nr_ios)
 static int queue_io(struct io_uring *ring, int fd, int nr_ios)
 {
 	unsigned long off;
-	int ret, i;
+	int i;
 
 	i = 0;
 	off = 0;
