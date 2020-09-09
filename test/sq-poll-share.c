@@ -160,6 +160,8 @@ int main(int argc, char *argv[])
 		ios += BUFFERS;
 	}
 
+	if (fname != argv[1])
+		unlink(fname);
 	return 0;
 err:
 	if (fname != argv[1])
