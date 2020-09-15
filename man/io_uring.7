@@ -154,9 +154,8 @@ three
 .BR mmap(2) 
 calls are required.
 .PP
-.in +4n
 .EX
-int app_setup_uring() {
+int app_setup_uring(void) {
     struct io_uring_params p;
     void *sq_ptr, *cq_ptr;
 
@@ -169,28 +168,28 @@ int app_setup_uring() {
     }
 
     /*
-    * io_uring communication happens via 2 shared kernel-user space ring buffers,
-    * which can be jointly mapped with a single mmap() call in kernels >= 5.4.
-    * */
+     * io_uring communication happens via 2 shared kernel-user space ring
+     * buffers, which can be jointly mapped with a single mmap() call in
+     * kernels >= 5.4.
+     */
 
     int sring_sz = p.sq_off.array + p.sq_entries * sizeof(unsigned);
     int cring_sz = p.cq_off.cqes + p.cq_entries * sizeof(struct io_uring_cqe);
 
     /* Rather than check for kernel version, the recommended way is to
-    * check the features field of the io_uring_params structure, which is a 
-    * bitmask. If IORING_FEAT_SINGLE_MMAP is set, we can do away with the second
-    * mmap() call to map in the completion ring separately.
-    * */
+     * check the features field of the io_uring_params structure, which is a 
+     * bitmask. If IORING_FEAT_SINGLE_MMAP is set, we can do away with the
+     * second mmap() call to map in the completion ring separately.
+     */
     if (p.features & IORING_FEAT_SINGLE_MMAP) {
-        if (cring_sz > sring_sz) {
+        if (cring_sz > sring_sz)
             sring_sz = cring_sz;
-        }
         cring_sz = sring_sz;
     }
 
     /* Map in the submission and completion queue ring buffers.
-    *  Kernels < 5.4 only map in the submission queue, though.
-    * */
+     *  Kernels < 5.4 only map in the submission queue, though.
+     */
     sq_ptr = mmap(0, sring_sz, PROT_READ | PROT_WRITE,
                   MAP_SHARED | MAP_POPULATE,
                   ring_fd, IORING_OFF_SQ_RING);
@@ -202,7 +201,7 @@ int app_setup_uring() {
     if (p.features & IORING_FEAT_SINGLE_MMAP) {
         cq_ptr = sq_ptr;
     } else {
-        /* Map in the completion queue ring buffer in kernels < 5.4 separately */
+        /* Map in the completion queue ring buffer in older kernels separately */
         cq_ptr = mmap(0, cring_sz, PROT_READ | PROT_WRITE,
                       MAP_SHARED | MAP_POPULATE,
                       ring_fd, IORING_OFF_CQ_RING);
@@ -348,9 +347,7 @@ describe_io(sqe);
 /* fill the sqe index into the SQ ring array */
 sqring->array[index] = index;
 tail++;
-write_barrier();
-*sqring->tail = tail;
-write_barrier();
+atomic_store_release(sqring->tail, tail);
 .EE
 .in
 .PP
@@ -468,8 +465,7 @@ as follows:
 .EX
 unsigned head;
 head = *cqring->head;
-read_barrier();
-if (head != cqring->tail) {
+if (head != atomic_load_acquire(cqring->tail)) {
     struct io_uring_cqe *cqe;
     unsigned index;
     index = head & (cqring->mask);
@@ -479,8 +475,7 @@ if (head != cqring->tail) {
     /* CQE consumption complete */
     head++;
 }
-*cqring->head = head;
-write_barrier();
+atomic_store_release(cqring->head, head);
 .EE
 .in
 .PP
