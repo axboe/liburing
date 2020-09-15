@@ -109,11 +109,14 @@ right after the return from
 It is important to remember that I/O requests submitted to the kernel can
 complete in any order. It is not necessary for the kernel to process one
 request after another,
-in the order you placed them.
-When more than one request is in flight,
-it is not possible to determine which one will complete first.
-When you dequeue CQEs off the CQ,
-you should always check which submitted request it corresponds to.
+in the order you placed them. Given that the interface is a ring, the requests
+are attempted in order, however that doesn't imply any sort of ordering on the
+completion of them. When more than one request is in flight, it is not possible
+to determine which one will complete first. When you dequeue CQEs off the CQ,
+you should always check which submitted request it corresponds to. The most
+common method for doing so is utilizing the
+.I user_data
+field in the request, which is passed back on the completion side.
 .PP
 Adding to and reading from the queues:
 .IP \(bu
