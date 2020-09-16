@@ -44,6 +44,7 @@ for the Linux-native io_uring.
 %exclude %{_libdir}/liburing.a
 %{_libdir}/pkgconfig/*
 %{_mandir}/man2/*
+%{_mandir}/man3/*
 
 %changelog
 * Thu Oct 31 2019 Jeff Moyer <jmoyer@redhat.com> - 0.2-1
