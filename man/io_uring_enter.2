@@ -632,12 +632,21 @@ must contain the length of each buffer to add from the range,
 .I buf_group
 must contain the group ID of this range of buffers, and
 .I off
-must contain the starting buffer ID of this range of buffers. Buffers are
-grouped by the group ID, and each buffer within this group will be identical
-in size according to the above arguments. This allows the application to
-provide different groups of buffers, and this is often used to have differently
-sized buffers available depending on what the expectations are of the individual
-request. When submitting a request that should use a provided buffer, the
+must contain the starting buffer ID of this range of buffers. With that set,
+the kernel adds buffers starting with the memory address in
+.I addr,
+each with a length of
+.I len.
+Hence the application should provide
+.I len * fd
+worth of memory in
+.I addr.
+Buffers are grouped by the group ID, and each buffer within this group will be
+identical in size according to the above arguments. This allows the application
+to provide different groups of buffers, and this is often used to have
+differently sized buffers available depending on what the expectations are of
+the individual request. When submitting a request that should use a provided
+buffer, the
 .B IOSQE_BUFFER_SELECT
 flag must be set, and
 .I buf_group
