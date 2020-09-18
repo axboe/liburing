@@ -824,7 +824,10 @@ will need to access upon completion of this particular I/O.  The
 .I flags
 is reserved for future use.
 .I res
-is the operation-specific result.
+is the operation-specific result, but io_uring-specific errors
+(e.g. flags or opcode invalid) are returned through this field.
+They are described in section
+.B CQE ERRORS.
 .PP
 For read and write opcodes, the
 return values match those documented in the
@@ -840,9 +843,12 @@ description of the opcodes above.
 returns the number of I/Os successfully consumed.  This can be zero
 if
 .I to_submit
-was zero or if the submission queue was empty. The errors below that refer to
-an error in a submission queue entry will be returned though a completion queue
-entry, rather than through the system call itself.
+was zero or if the submission queue was empty.
+
+The errors related to a submission queue entry will be returned through a
+completion queue entry (see section
+.B CQE ERRORS),
+rather than through the system call itself.
 
 Errors that occur not on behalf of a submission queue entry are returned via the
 system call directly. On such an error, -1 is returned and
@@ -850,17 +856,53 @@ system call directly. On such an error, -1 is returned and
 is set appropriately.
 .PP
 .SH ERRORS
+These are the errors returned by
+.BR io_uring_enter ()
+system call.
 .TP
 .B EAGAIN
 The kernel was unable to allocate memory for the request, or otherwise ran out
 of resources to handle it. The application should wait for some completions and
 try again.
 .TP
+.B EBADF
+.I fd
+is not a valid file descriptor.
+.TP
 .B EBUSY
 The application is attempting to overcommit the number of requests it can have
 pending. The application should wait for some completions and try again. May
 occur if the application tries to queue more requests than we have room for in
 the CQ ring.
+.TP
+.B EINVAL
+Some bits in the
+.I flags
+argument are invalid.
+.TP
+.B EFAULT
+An invalid user space address was specified for the
+.I sig
+argument.
+.TP
+.B ENXIO
+The io_uring instance is in the process of being torn down.
+.TP
+.B EOPNOTSUPP
+.I fd
+does not refer to an io_uring instance.
+.TP
+.B EINTR
+The operation was interrupted by a delivery of a signal before it could
+complete; see
+.BR signal(7).
+Can happen while waiting for events with
+.B IORING_ENTER_GETEVENTS.
+
+.SH CQE ERRORS
+These io_uring-specific errors are returned as a negative value in the
+.I res
+field of the completion queue entry.
 .TP
 .B EBADF
 The
@@ -890,15 +932,20 @@ does not fit within the buffer registered at
 .TP
 .B EINVAL
 The
-.I index
-member of the submission queue entry is invalid.
-.TP
-.B EINVAL
-The
 .I flags
 field or
 .I opcode
 in a submission queue entry is invalid.
+.TP
+.B EINVAL
+The
+.I buf_index
+member of the submission queue entry is invalid.
+.TP
+.B EINVAL
+The
+.I personality
+field in a submission queue entry is invalid.
 .TP
 .B EINVAL
 .B IORING_OP_NOP
@@ -964,20 +1011,14 @@ field of the submission queue entry, and the
 .I addr
 field was non-zero.
 .TP
-.B ENXIO
-The io_uring instance is in the process of being torn down.
-.TP
-.B EOPNOTSUPP
-.I fd
-does not refer to an io_uring instance.
-.TP
 .B EOPNOTSUPP
 .I opcode
 is valid, but not supported by this kernel.
 .TP
-.B EINTR
-The operation was interrupted by a delivery of a signal before it could
-complete; see
-.BR signal(7).
-Can happen while waiting for events with
-.B IORING_ENTER_GETEVENTS.
+.B EOPNOTSUPP
+.B IOSQE_BUFFER_SELECT
+was set in the
+.I flags
+field of the submission queue entry, but the
+.I opcode
+doesn't support buffer selection.
