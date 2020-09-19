@@ -96,6 +96,7 @@
 /test/splice
 /test/sq-full
 /test/sq-full-cpp
+/test/sq-poll-dup
 /test/sq-poll-kthread
 /test/sq-poll-share
 /test/sq-space_left
