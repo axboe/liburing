@@ -3,9 +3,10 @@ includedir ?= $(prefix)/include
 libdir ?= $(prefix)/lib
 libdevdir ?= $(prefix)/lib
 
+CPPFLAGS ?=
+override CPPFLAGS += -Iinclude/ -include ../config-host.h
 CFLAGS ?= -g -fomit-frame-pointer -O2
-override CFLAGS += -Wall -Wextra -Wno-unused-parameter -Wno-sign-compare\
-	-Iinclude/ -include ../config-host.h
+override CFLAGS += -Wall -Wextra -Wno-unused-parameter -Wno-sign-compare
 SO_CFLAGS=-fPIC $(CFLAGS)
 L_CFLAGS=$(CFLAGS)
 LINK_FLAGS=
@@ -38,10 +39,10 @@ liburing_sobjs := $(patsubst %.c,%.os,$(liburing_srcs))
 $(liburing_objs) $(liburing_sobjs): include/liburing/io_uring.h
 
 %.os: %.c
-	$(QUIET_CC)$(CC) $(SO_CFLAGS) -c -o $@ $<
+	$(QUIET_CC)$(CC) $(CPPFLAGS) $(SO_CFLAGS) -c -o $@ $<
 
 %.ol: %.c
-	$(QUIET_CC)$(CC) $(L_CFLAGS) -c -o $@ $<
+	$(QUIET_CC)$(CC) $(CPPFLAGS) $(L_CFLAGS) -c -o $@ $<
 
 AR ?= ar
 RANLIB ?= ranlib
