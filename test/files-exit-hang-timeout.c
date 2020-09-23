@@ -69,6 +69,7 @@ int main(int argc, char *argv[])
 	struct io_uring_cqe *cqe;
 	int ret, sock_listen_fd;
 	const int val = 1;
+	int i;
 
 	if (argc > 1)
 		return 0;
@@ -83,13 +84,24 @@ int main(int argc, char *argv[])
 
 	memset(&serv_addr, 0, sizeof(serv_addr));
 	serv_addr.sin_family = AF_INET;
-	serv_addr.sin_port = htons(PORT);
 	serv_addr.sin_addr.s_addr = INADDR_ANY;
 
-	if (bind(sock_listen_fd, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0) {
-		perror("Error binding socket\n");
-		return 1;
+	for (i = 0; i < 100; i++) {
+		serv_addr.sin_port = htons(PORT + i);
+
+		ret = bind(sock_listen_fd, (struct sockaddr *)&serv_addr, sizeof(serv_addr));
+		if (!ret)
+			break;
+		if (errno != EADDRINUSE) {
+			fprintf(stderr, "bind: %s\n", strerror(errno));
+			return 1;
+		}
+		if (i == 99) {
+			printf("Gave up on finding a port, skipping\n");
+			goto out;
+		}
 	}
+
 	if (listen(sock_listen_fd, BACKLOG) < 0) {
 		perror("Error listening on socket\n");
 		return 1;
@@ -116,6 +128,7 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
+out:
 	io_uring_queue_exit(&ring);
 	return 0;
 }
