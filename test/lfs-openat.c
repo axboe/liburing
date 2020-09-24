@@ -221,13 +221,13 @@ static int test_drained_files(int dfd, const char *fn, bool linked, bool prepend
 int main(int argc, char *argv[])
 {
 	const char *fn = "io_uring_openat_test";
-	int dfd = open("/tmp", O_PATH);
 	struct io_uring ring;
-	int ret;
+	int ret, dfd;
 
 	if (argc > 1)
 		return 0;
 
+	dfd = open("/tmp", O_PATH);
 	if (dfd < 0)
 		DIE("open /tmp: %s\n", strerror(errno));
 
