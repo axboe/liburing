@@ -226,6 +226,17 @@ static inline void io_uring_prep_splice(struct io_uring_sqe *sqe,
 	sqe->splice_flags = splice_flags;
 }
 
+static inline void io_uring_prep_tee(struct io_uring_sqe *sqe,
+				     int fd_in, int fd_out,
+				     unsigned int nbytes,
+				     unsigned int splice_flags)
+{
+	io_uring_prep_rw(IORING_OP_TEE, sqe, fd_out, NULL, nbytes, 0);
+	sqe->splice_off_in = 0;
+	sqe->splice_fd_in = fd_in;
+	sqe->splice_flags = splice_flags;
+}
+
 static inline void io_uring_prep_readv(struct io_uring_sqe *sqe, int fd,
 				       const struct iovec *iovecs,
 				       unsigned nr_vecs, off_t offset)
