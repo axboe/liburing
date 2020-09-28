@@ -13,6 +13,9 @@ all:
 	@$(MAKE) -C test
 	@$(MAKE) -C examples
 
+.PHONY: all install default clean test
+.PHONY: FORCE cscope
+
 partcheck: all
 	@echo "make partcheck => TODO add tests with out kernel support"
 
