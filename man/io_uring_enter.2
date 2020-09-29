@@ -869,6 +869,13 @@ try again.
 .I fd
 is not a valid file descriptor.
 .TP
+.B EBADFD
+.I fd
+is a valid file descriptor, but the io_uring ring is not in the right state
+(enabled). See
+.BR io_uring_register (2)
+for details on how to enable the ring.
+.TP
 .B EBUSY
 The application is attempting to overcommit the number of requests it can have
 pending. The application should wait for some completions and try again. May
@@ -903,6 +910,16 @@ Can happen while waiting for events with
 These io_uring-specific errors are returned as a negative value in the
 .I res
 field of the completion queue entry.
+.TP
+.B EACCES
+The
+.I flags
+field or
+.I opcode
+in a submission queue entry is not allowed due to registered restrictions.
+See
+.BR io_uring_register (2)
+for details on how restrictions work.
 .TP
 .B EBADF
 The
