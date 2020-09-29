@@ -173,6 +173,13 @@ being set to an existing io_uring ring file descriptor. When set, the
 io_uring instance being created will share the asynchronous worker
 thread backend of the specified io_uring ring, rather than create a new
 separate thread pool.
+.TP
+.B IORING_SETUP_R_DISABLED
+If this flag is specified, the io_uring ring starts in a disabled state.
+In this state, restrictions can be registered, but submissions are not allowed.
+See
+.BR io_uring_register (2)
+for details on how to enable the ring. Available since 5.10.
 .PP
 If no flags are specified, the io_uring instance is setup for
 interrupt driven I/O.  I/O may be submitted using
