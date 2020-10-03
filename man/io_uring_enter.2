@@ -206,7 +206,10 @@ specified in the
 field.  Unlike poll or epoll without
 .BR EPOLLONESHOT ,
 this interface always works in one shot mode.  That is, once the poll
-operation is completed, it will have to be resubmitted.
+operation is completed, it will have to be resubmitted. This command works like
+an async
+.BR poll(2)
+and the completion event result is the returned mask of events.
 
 .TP
 .B IORING_OP_POLL_REMOVE
