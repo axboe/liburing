@@ -3,12 +3,15 @@ datadir ?= $(prefix)/share
 
 INSTALL=install
 
+CPPFLAGS ?=
+override CPPFLAGS += -D_GNU_SOURCE -D__SANE_USERSPACE_TYPES__ \
+	-I../src/include/ -include ../config-host.h
 CFLAGS ?= -g -O2
 XCFLAGS =
-override CFLAGS += -Wall -Wextra -Wno-unused-parameter -Wno-sign-compare\
-	-D_GNU_SOURCE -D__SANE_USERSPACE_TYPES__ -L../src/ \
-	-I../src/include/ -include ../config-host.h
-CXXFLAGS += $(CFLAGS) -std=c++11
+override CFLAGS += -Wall -Wextra -Wno-unused-parameter -Wno-sign-compare \
+	-L../src/
+CXXFLAGS ?=
+override CXXFLAGS += $(CFLAGS) -std=c++11
 
 test_targets += \
 	232c93d07b74-test \
@@ -122,10 +125,10 @@ all_targets += sq-full-cpp
 all: $(test_targets)
 
 %: %.c
-	$(QUIET_CC)$(CC) $(CFLAGS) -o $@ $< -luring $(XCFLAGS)
+	$(QUIET_CC)$(CC) $(CPPFLAGS) $(CFLAGS) -o $@ $< -luring $(XCFLAGS)
 
 %: %.cc
-	$(QUIET_CXX)$(CXX) $(CXXFLAGS) -o $@ $< -luring $(XCFLAGS)
+	$(QUIET_CXX)$(CXX) $(CPPFLAGS) $(CXXFLAGS) -o $@ $< -luring $(XCFLAGS)
 
 test_srcs := \
 	232c93d07b74-test.c \
