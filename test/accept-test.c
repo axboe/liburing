@@ -55,11 +55,23 @@ int main(int argc, char *argv[])
 	}
 
 	ret = io_uring_wait_cqe_timeout(&ring, &cqe, &ts);
-	if (ret != -ETIME) {
+	if (!ret) {
+		if (cqe->res == -EBADF || cqe->res == -EINVAL) {
+			fprintf(stdout, "Accept not supported, skipping\n");
+			goto out;
+		} else if (cqe->res < 0) {
+			fprintf(stderr, "cqe error %d\n", cqe->res);
+			goto err;
+		}
+	} else if (ret != -ETIME) {
 		fprintf(stderr, "accept() failed to use addr & addrlen parameters!\n");
 		return 1;
 	}
 
+out:
 	io_uring_queue_exit(&ring);
 	return 0;
+err:
+	io_uring_queue_exit(&ring);
+	return 1;
 }
