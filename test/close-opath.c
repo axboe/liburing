@@ -58,7 +58,7 @@ static int test_io_uring_close(struct io_uring *ring, int fd)
 	ret = cqe->res;
 	io_uring_cqe_seen(ring, cqe);
 
-	if (ret < 0 && ret != -EOPNOTSUPP) {
+	if (ret < 0 && ret != -EOPNOTSUPP && ret != -EINVAL && ret != -EBADF) {
 		fprintf(stderr, "io_uring close() failed, errno %d: %s\n",
 			-ret, strerror(-ret));
 		return ret;
