@@ -62,14 +62,20 @@ int main(int argc, char *argv[])
 {
 	int ret;
 	struct io_uring ring;
+	struct io_uring_params p = { };
 
 	if (argc > 1)
 		return 0;
 
-	ret = io_uring_queue_init(16, &ring, 0);
+	ret = io_uring_queue_init_params(16, &ring, &p);
 	if (ret) {
 		fprintf(stderr, "ring setup failed: %d\n", ret);
 		return 1;
+	}
+
+	if (!(p.features & IORING_FEAT_NODROP)) {
+		fprintf(stdout, "No overflow protection, skipped\n");
+		return 0;
 	}
 
 	ret = test_cq_overflow(&ring);
