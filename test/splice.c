@@ -446,6 +446,7 @@ static int test_splice(struct io_uring *ring, struct test_ctx *ctx)
 int main(int argc, char *argv[])
 {
 	struct io_uring ring;
+	struct io_uring_params p = { };
 	struct test_ctx ctx;
 	int ret;
 	int reg_fds[6];
@@ -453,10 +454,14 @@ int main(int argc, char *argv[])
 	if (argc > 1)
 		return 0;
 
-	ret = io_uring_queue_init(8, &ring, 0);
+	ret = io_uring_queue_init_params(8, &ring, &p);
 	if (ret) {
 		fprintf(stderr, "ring setup failed\n");
 		return 1;
+	}
+	if (!(p.features & IORING_FEAT_FAST_POLL)) {
+		fprintf(stdout, "No splice support, skipping\n");
+		return 0;
 	}
 
 	ret = init_splice_ctx(&ctx);
