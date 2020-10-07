@@ -17,6 +17,7 @@ int main(int argc, char *argv[])
 {
 	char buf[BUFSIZE], wbuf[BUFSIZE];
 	struct iovec iov[BUFFERS];
+	struct io_uring_params p = { };
 	struct io_uring ring;
 	struct io_uring_sqe *sqe;
 	struct io_uring_cqe *cqe;
@@ -37,7 +38,15 @@ int main(int argc, char *argv[])
 		ptr += bsize;
 	}
 
-	io_uring_queue_init(8, &ring, 0);
+	ret = io_uring_queue_init_params(8, &ring, &p);
+	if (ret) {
+		fprintf(stderr, "queue_init: %d\n", ret);
+		return 1;
+	}
+	if (!(p.features & IORING_FEAT_SUBMIT_STABLE)) {
+		fprintf(stdout, "FEAT_SUBMIT_STABLE not there, skipping\n");
+		return 0;
+	}
 
 	ptr = wbuf;
 	memset(ptr, 0x11, sizeof(wbuf) / 2);

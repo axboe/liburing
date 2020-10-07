@@ -62,6 +62,8 @@ static char str2[STR_SIZE];
 
 static struct io_uring ring;
 
+static int no_stable;
+
 static int prep(int fd, char *str, int split, int async)
 {
 	struct io_uring_sqe *sqe;
@@ -149,6 +151,7 @@ static unsigned long long mtime_since_now(struct timeval *tv)
 static int test_reuse(int argc, char *argv[], int split, int async)
 {
 	struct thread_data data;
+	struct io_uring_params p = { };
 	int fd1, fd2, ret, i;
 	struct timeval tv;
 	pthread_t thread;
@@ -161,10 +164,16 @@ static int test_reuse(int argc, char *argv[], int split, int async)
 		do_unlink = 0;
 	}
 
-	ret = io_uring_queue_init(32, &ring, 0);
+	ret = io_uring_queue_init_params(32, &ring, &p);
 	if (ret) {
 		fprintf(stderr, "io_uring_queue_init: %d\n", ret);
 		return 1;
+	}
+
+	if (!(p.features & IORING_FEAT_SUBMIT_STABLE)) {
+		fprintf(stdout, "FEAT_SUBMIT_STABLE not there, skipping\n");
+		no_stable = 1;
+		return 0;
 	}
 
 	if (do_unlink && create_file(fname1)) {
@@ -240,6 +249,8 @@ int main(int argc, char *argv[])
 			fprintf(stderr, "test_reuse %d %d failed\n", split, async);
 			return ret;
 		}
+		if (no_stable)
+			break;
 	}
 
 	return 0;
