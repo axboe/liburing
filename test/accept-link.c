@@ -144,6 +144,11 @@ void *recv_thread(void *arg)
 		if (cqe->res != data->expected[idx]) {
 			if (cqe->res > 0 && data->just_positive[idx])
 				goto ok;
+			if (cqe->res == -EBADF) {
+				fprintf(stdout, "Accept not supported, skipping\n");
+				data->stop = 1;
+				goto out;
+			}
 			fprintf(stderr, "cqe %llu got %d, wanted %d\n",
 					cqe->user_data, cqe->res,
 					data->expected[idx]);
