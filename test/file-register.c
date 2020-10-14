@@ -346,15 +346,23 @@ err:
 	return 1;
 }
 
-static int test_basic(struct io_uring *ring)
+static int test_basic(struct io_uring *ring, int fail)
 {
 	int *files;
 	int ret;
 
-	files = open_files(100, 0, 0);
+	files = open_files(fail ? 10 : 100, 0, 0);
 	ret = io_uring_register_files(ring, files, 100);
 	if (ret) {
+		if (fail) {
+			if (ret == -EBADF || ret == -EFAULT)
+				return 0;
+		}
 		fprintf(stderr, "%s: register %d\n", __FUNCTION__, ret);
+		goto err;
+	}
+	if (fail) {
+		fprintf(stderr, "Registration succeeded, but expected fail\n");
 		goto err;
 	}
 	ret = io_uring_unregister_files(ring);
@@ -610,7 +618,13 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-	ret = test_basic(&ring);
+	ret = test_basic(&ring, 0);
+	if (ret) {
+		printf("test_basic failed\n");
+		return ret;
+	}
+
+	ret = test_basic(&ring, 1);
 	if (ret) {
 		printf("test_basic failed\n");
 		return ret;
