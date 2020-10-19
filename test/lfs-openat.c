@@ -133,10 +133,9 @@ static int test_drained_files(int dfd, const char *fn, bool linked, bool prepend
 {
 	struct io_uring ring;
 	struct io_uring_sqe *sqe;
-	struct io_uring_cqe *cqe;
 	char buffer[128];
 	struct iovec iov = {.iov_base = buffer, .iov_len = sizeof(buffer), };
-	int i, ret, fd, fds[2], to_cancel = 0;
+	int ret, fd, fds[2], to_cancel = 0;
 
 	ret = io_uring_queue_init(10, &ring, 0);
 	if (ret < 0)
@@ -202,18 +201,11 @@ static int test_drained_files(int dfd, const char *fn, bool linked, bool prepend
 		return 1;
 	}
 
-	/* io_uring->flush() */
+	/*
+	 * close(), which triggers ->flush(), and io_uring_queue_exit()
+	 * should successfully return and not hang.
+	 */
 	close(fd);
-
-	for (i = 0; i < to_cancel; i++) {
-		ret = io_uring_wait_cqe(&ring, &cqe);
-		if (cqe->res != -ECANCELED) {
-			fprintf(stderr, "fail cqe->res=%d\n", cqe->res);
-			return 1;
-		}
-		io_uring_cqe_seen(&ring, cqe);
-	}
-
 	io_uring_queue_exit(&ring);
 	return 0;
 }
