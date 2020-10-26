@@ -186,7 +186,15 @@ static int test_reuse(int argc, char *argv[], int split, int async)
 	}
 
 	fd1 = open(fname1, O_RDONLY);
+	if (fd1 < 0) {
+		perror("open fname1");
+		goto err;
+	}
 	fd2 = open(".reuse.2", O_RDONLY);
+	if (fd2 < 0) {
+		perror("open .reuse.2");
+		goto err;
+	}
 
 	data.fd1 = fd1;
 	data.fd2 = fd2;
