@@ -37,8 +37,10 @@ int main(int argc, char *argv[])
 	addr.sun_family = AF_UNIX;
 	memcpy(addr.sun_path, "\0sock", 6);
 
-	assert(bind(fd, (struct sockaddr *)&addr, addrlen) != -1);
-	assert(listen(fd, 128) != -1);
+	ret = bind(fd, (struct sockaddr *)&addr, addrlen);
+	assert(ret != -1);
+	ret = listen(fd, 128);
+	assert(ret != -1);
 
 	sqe = io_uring_get_sqe(&ring);
 	if (!sqe) {
