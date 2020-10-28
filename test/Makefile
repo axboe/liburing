@@ -82,6 +82,7 @@ test_targets += \
 	probe \
 	read-write \
 	register-restrictions \
+	rename \
 	ring-leak \
 	send_recv \
 	send_recvmsg \
@@ -101,6 +102,7 @@ test_targets += \
 	teardowns \
 	timeout \
 	timeout-overflow \
+	unlink \
 	wakeup-hang \
 	# EOL
 
@@ -199,6 +201,7 @@ test_srcs := \
 	probe.c \
 	read-write.c \
 	register-restrictions.c \
+	rename.c \
 	ring-leak.c \
 	send_recvmsg.c \
 	shared-wq.c \
@@ -220,6 +223,7 @@ test_srcs := \
 	teardowns.c \
 	timeout-overflow.c \
 	timeout.c \
+	unlink.c \
 	wakeup-hang.c \
 	# EOL
 
