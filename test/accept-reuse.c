@@ -48,7 +48,7 @@ int main(int argc, char **argv)
 		return 0;
 
 	memset(&params, 0, sizeof(params));
-	ret = io_uring_queue_init_params(1024, &io_uring, &params);
+	ret = io_uring_queue_init_params(4, &io_uring, &params);
 	if (ret) {
 		fprintf(stderr, "io_uring_init_failed: %d\n", ret);
 		return 1;
