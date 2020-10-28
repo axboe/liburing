@@ -469,6 +469,22 @@ static inline void io_uring_prep_shutdown(struct io_uring_sqe *sqe, int fd,
 	io_uring_prep_rw(IORING_OP_SHUTDOWN, sqe, fd, NULL, how, 0);
 }
 
+static inline void io_uring_prep_unlinkat(struct io_uring_sqe *sqe, int dfd,
+					  const char *path, int flags)
+{
+	io_uring_prep_rw(IORING_OP_UNLINKAT, sqe, dfd, path, 0, 0);
+	sqe->unlink_flags = flags;
+}
+
+static inline void io_uring_prep_renameat(struct io_uring_sqe *sqe, int olddfd,
+					  const char *oldpath, int newdfd,
+					  const char *newpath, int flags)
+{
+	io_uring_prep_rw(IORING_OP_RENAMEAT, sqe, olddfd, oldpath, newdfd,
+				(uint64_t) (uintptr_t) newpath);
+	sqe->rename_flags = flags;
+}
+
 /*
  * Returns number of unconsumed (if SQPOLL) or unsubmitted entries exist in
  * the SQ ring
