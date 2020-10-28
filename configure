@@ -287,6 +287,24 @@ if compile_prog_cxx "" "" "C++"; then
 fi
 print_config "C++" "$has_cxx"
 
+##########################################
+# check for ucontext support
+has_ucontext="no"
+cat > $TMPC << EOF
+#include <ucontext.h>
+int main(int argc, char **argv)
+{
+  ucontext_t ctx;
+  getcontext(&ctx);
+  return 0;
+}
+EOF
+if compile_prog "" "" "has_ucontext"; then
+  has_ucontext="yes"
+fi
+print_config "has_ucontext" "$has_ucontext"
+
+
 #############################################################################
 
 if test "$__kernel_rwf_t" = "yes"; then
@@ -303,6 +321,9 @@ if test "$statx" = "yes"; then
 fi
 if test "$has_cxx" = "yes"; then
   output_sym "CONFIG_HAVE_CXX"
+fi
+if test "$has_ucontext" = "yes"; then
+  output_sym "CONFIG_HAVE_UCONTEXT"
 fi
 
 echo "CC=$cc" >> $config_host_mak

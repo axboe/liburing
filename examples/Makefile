@@ -10,7 +10,11 @@ ifneq ($(MAKECMDGOALS),clean)
 include ../config-host.mak
 endif
 
-all_targets += io_uring-test io_uring-cp link-cp ucontext-cp
+all_targets += io_uring-test io_uring-cp link-cp
+
+ifdef CONFIG_HAVE_UCONTEXT
+all_targets += ucontext-cp
+endif
 
 all: $(all_targets)
 
