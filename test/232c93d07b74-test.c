@@ -60,20 +60,25 @@ static void *rcv(void *arg)
 {
 	struct params *p = arg;
 	int s0;
+	int res;
 
 	if (p->tcp) {
 		int val = 1;
+                
 
 		s0 = socket(AF_INET, SOCK_STREAM | SOCK_CLOEXEC, IPPROTO_TCP);
-		assert(setsockopt(s0, SOL_SOCKET, SO_REUSEPORT, &val, sizeof(val)) != -1);
-		assert(setsockopt(s0, SOL_SOCKET, SO_REUSEADDR, &val, sizeof(val)) != -1);
+		res = setsockopt(s0, SOL_SOCKET, SO_REUSEPORT, &val, sizeof(val));
+		assert(res != -1);
+		res = setsockopt(s0, SOL_SOCKET, SO_REUSEADDR, &val, sizeof(val));
+		assert(res != -1);
 
 		struct sockaddr_in addr;
 
 		addr.sin_family = AF_INET;
 		addr.sin_port = PORT;
 		addr.sin_addr.s_addr = 0x0100007fU;
-		assert(bind(s0, (struct sockaddr *) &addr, sizeof(addr)) != -1);
+		res = bind(s0, (struct sockaddr *) &addr, sizeof(addr));
+		assert(res != -1);
 	} else {
 		s0 = socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0);
 		assert(s0 != -1);
@@ -83,10 +88,11 @@ static void *rcv(void *arg)
 
 		addr.sun_family = AF_UNIX;
 		memcpy(addr.sun_path, "\0sock", 6);
-		assert(bind(s0, (struct sockaddr *) &addr, sizeof(addr)) != -1);
+		res = bind(s0, (struct sockaddr *) &addr, sizeof(addr));
+		assert(res != -1);
 	}
-
-	assert(listen(s0, 128) != -1);
+	res = listen(s0, 128);
+	assert(res != -1);
 
 	set_rcv_ready();
 
@@ -98,13 +104,15 @@ static void *rcv(void *arg)
 		assert(flags != -1);
 
 		flags |= O_NONBLOCK;
-		assert(fcntl(s1, F_SETFL, flags) != -1);
+		res = fcntl(s1, F_SETFL, flags);
+		assert(res != -1);
 	}
 
 	struct io_uring m_io_uring;
 	void *ret = NULL;
 
-	assert(io_uring_queue_init(32, &m_io_uring, 0) >= 0);
+	res = io_uring_queue_init(32, &m_io_uring, 0);
+	assert(res >= 0);
 
 	int bytes_read = 0;
 	int expected_byte = 0;
@@ -122,7 +130,8 @@ static void *rcv(void *arg)
 
 		io_uring_prep_readv(sqe, s1, &iov, 1, 0);
 
-		assert(io_uring_submit(&m_io_uring) != -1);
+		res = io_uring_submit(&m_io_uring);
+		assert(res != -1);
 
 		struct io_uring_cqe *cqe;
 		unsigned head;
@@ -167,6 +176,7 @@ static void *snd(void *arg)
 {
 	struct params *p = arg;
 	int s0;
+	int ret;
 
 	wait_for_rcv_ready();
 
@@ -174,14 +184,16 @@ static void *snd(void *arg)
 		int val = 1;
 
 		s0 = socket(AF_INET, SOCK_STREAM | SOCK_CLOEXEC, IPPROTO_TCP);
-		assert(setsockopt(s0, IPPROTO_TCP, TCP_NODELAY, &val, sizeof(val)) != -1);
+		ret = setsockopt(s0, IPPROTO_TCP, TCP_NODELAY, &val, sizeof(val));
+		assert(ret != -1);
 
 		struct sockaddr_in addr;
 
 		addr.sin_family = AF_INET;
 		addr.sin_port = PORT;
 		addr.sin_addr.s_addr = 0x0100007fU;
-		assert(connect(s0, (struct sockaddr*) &addr, sizeof(addr)) != -1);
+		ret = connect(s0, (struct sockaddr*) &addr, sizeof(addr));
+		assert(ret != -1);
 	} else {
 		s0 = socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0);
 		assert(s0 != -1);
@@ -191,7 +203,8 @@ static void *snd(void *arg)
 
 		addr.sun_family = AF_UNIX;
 		memcpy(addr.sun_path, "\0sock", 6);
-		assert(connect(s0, (struct sockaddr*) &addr, sizeof(addr)) != -1);
+		ret = connect(s0, (struct sockaddr*) &addr, sizeof(addr));
+		assert(ret != -1);
 	}
 
 	if (p->non_blocking) {
@@ -199,12 +212,14 @@ static void *snd(void *arg)
 		assert(flags != -1);
 
 		flags |= O_NONBLOCK;
-		assert(fcntl(s0, F_SETFL, flags) != -1);
+		ret = fcntl(s0, F_SETFL, flags);
+		assert(ret != -1);
 	}
 
 	struct io_uring m_io_uring;
 
-	assert(io_uring_queue_init(32, &m_io_uring, 0) >= 0);
+	ret = io_uring_queue_init(32, &m_io_uring, 0);
+	assert(ret >= 0);
 
 	int bytes_written = 0;
 	int done = 0;
@@ -226,7 +241,8 @@ static void *snd(void *arg)
 
 		io_uring_prep_writev(sqe, s0, &iov, 1, 0);
 
-		assert(io_uring_submit(&m_io_uring) != -1);
+		ret = io_uring_submit(&m_io_uring);
+		assert(ret != -1);
 
 		struct io_uring_cqe *cqe;
 		unsigned head;

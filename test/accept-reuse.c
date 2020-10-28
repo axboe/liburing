@@ -1,5 +1,4 @@
 /* SPDX-License-Identifier: MIT */
-#include <assert.h>
 #include <liburing.h>
 #include <netdb.h>
 #include <string.h>
