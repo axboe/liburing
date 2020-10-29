@@ -12,6 +12,8 @@
 
 #include "liburing.h"
 
+static int no_rename;
+
 static int test_rename(struct io_uring *ring, const char *old, const char *new)
 {
 	struct io_uring_cqe *cqe;
@@ -44,7 +46,8 @@ static int test_rename(struct io_uring *ring, const char *old, const char *new)
 	}
 	if (cqe->res < 0) {
 		if (cqe->res == -EBADF || cqe->res == -EINVAL) {
-			fprintf(stdout, "Rename not supported, skiping\n");
+			fprintf(stdout, "Rename not supported, skipping\n");
+			no_rename = 1;
 			goto out;
 		}
 		fprintf(stderr, "rename: %s\n", strerror(-cqe->res));
@@ -112,6 +115,10 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "test_rename failed\n");
 		return ret;
 	}
+	if (no_rename) {
+		unlink(src);
+		goto out;
+	}
 
 	if (stat_file(src) != ENOENT) {
 		fprintf(stderr, "stat got %s\n", strerror(ret));
@@ -123,6 +130,7 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
+out:
 	unlink(dst);
 	return 0;
 }

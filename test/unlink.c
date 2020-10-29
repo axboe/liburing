@@ -12,6 +12,8 @@
 
 #include "liburing.h"
 
+static int no_unlink;
+
 static int test_unlink(struct io_uring *ring, const char *old)
 {
 	struct io_uring_cqe *cqe;
@@ -38,7 +40,8 @@ static int test_unlink(struct io_uring *ring, const char *old)
 	}
 	if (cqe->res < 0) {
 		if (cqe->res == -EBADF || cqe->res == -EINVAL) {
-			fprintf(stdout, "Unlink not supported, skiping\n");
+			fprintf(stdout, "Unlink not supported, skipping\n");
+			no_unlink = 1;
 			goto out;
 		}
 		fprintf(stderr, "rename: %s\n", strerror(-cqe->res));
@@ -93,6 +96,10 @@ int main(int argc, char *argv[])
 	if (ret) {
 		fprintf(stderr, "test_rename failed\n");
 		return ret;
+	}
+	if (no_unlink) {
+		unlink(buf);
+		return 0;
 	}
 
 	ret = stat_file(buf);
