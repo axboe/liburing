@@ -1,4 +1,6 @@
 /* SPDX-License-Identifier: MIT */
+#define _DEFAULT_SOURCE
+
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
@@ -6,6 +8,7 @@
 #include <errno.h>
 #include <string.h>
 #include <stdlib.h>
+#include <signal.h>
 
 #include "liburing/compat.h"
 #include "liburing/io_uring.h"

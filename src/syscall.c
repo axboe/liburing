@@ -1,4 +1,6 @@
 /* SPDX-License-Identifier: MIT */
+#define _DEFAULT_SOURCE
+
 /*
  * Will go away once libc support is there
  */
