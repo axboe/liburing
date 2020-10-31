@@ -86,6 +86,7 @@
 /test/register-restrictions
 /test/rename
 /test/ring-leak
+/test/self
 /test/send_recv
 /test/send_recvmsg
 /test/shared-wq

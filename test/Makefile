@@ -84,6 +84,7 @@ test_targets += \
 	register-restrictions \
 	rename \
 	ring-leak \
+	self \
 	send_recv \
 	send_recvmsg \
 	shared-wq \
@@ -203,6 +204,7 @@ test_srcs := \
 	register-restrictions.c \
 	rename.c \
 	ring-leak.c \
+	self.c \
 	send_recvmsg.c \
 	shared-wq.c \
 	short-read.c \
