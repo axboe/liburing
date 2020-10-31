@@ -84,6 +84,7 @@
 /test/probe
 /test/read-write
 /test/register-restrictions
+/test/rename
 /test/ring-leak
 /test/send_recv
 /test/send_recvmsg
@@ -106,6 +107,7 @@
 /test/teardowns
 /test/timeout
 /test/timeout-overflow
+/test/unlink
 /test/wakeup-hang
 /test/*.dmesg
 
