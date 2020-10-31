@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: MIT */
 /*
- * Description: run various openat(2) tests
+ * Description: test that pathname resolution works from async context when
+ * using /proc/self/ which should be the original submitting task, not the
+ * async worker.
  *
  */
 #include <errno.h>
@@ -12,7 +14,7 @@
 
 #include "liburing.h"
 
-static int test_openat2(struct io_uring *ring, const char *path, int dfd)
+static int io_openat2(struct io_uring *ring, const char *path, int dfd)
 {
 	struct io_uring_cqe *cqe;
 	struct io_uring_sqe *sqe;
@@ -52,19 +54,19 @@ int main(int argc, char *argv[])
 	char buf[64];
 	int ret;
 
-	ret = io_uring_queue_init(8, &ring, 0);
+	ret = io_uring_queue_init(1, &ring, 0);
 	if (ret) {
 		fprintf(stderr, "ring setup failed\n");
 		return 1;
 	}
 
-	ret = test_openat2(&ring, "/proc/self/comm", -1);
+	ret = io_openat2(&ring, "/proc/self/comm", -1);
 	if (ret < 0) {
 		if (ret == -EINVAL) {
 			fprintf(stdout, "openat2 not supported, skipping\n");
 			return 0;
 		}
-		fprintf(stderr, "test_openat2 failed: %s\n", strerror(-ret));
+		fprintf(stderr, "openat2 failed: %s\n", strerror(-ret));
 		return 1;
 	}
 
