@@ -133,7 +133,7 @@ int __io_uring_get_cqe(struct io_uring *ring, struct io_uring_cqe **cqe_ptr,
 	struct get_data data = {
 		.submit		= submit,
 		.wait_nr 	= wait_nr,
-		.extra_flags	= 0,
+		.get_flags	= 0,
 		.sz		= _NSIG / 8,
 		.arg		= sigmask,
 	};
@@ -217,7 +217,7 @@ out:
 }
 
 /*
- * If we have kernel suppor for IORING_ENTER_GETEVENTS_TIMEOUT, then we can
+ * If we have kernel support for IORING_ENTERSIG_IS_DATA, then we can
  * use that more efficiently than queueing an internal timeout command.
  */
 static int io_uring_wait_cqes_new(struct io_uring *ring,
@@ -233,7 +233,7 @@ static int io_uring_wait_cqes_new(struct io_uring *ring,
 	struct get_data data = {
 		.submit		= __io_uring_flush_sq(ring),
 		.wait_nr	= wait_nr,
-		.extra_flags	= ts ? IORING_ENTER_GETEVENTS_TIMEOUT : 0,
+		.get_flags	= ts ? IORING_ENTER_SIG_IS_DATA : 0,
 		.sz		= sizeof(arg),
 		.arg		= &arg
 	};
@@ -258,7 +258,7 @@ int io_uring_wait_cqes(struct io_uring *ring, struct io_uring_cqe **cqe_ptr,
 {
 	unsigned to_submit = 0;
 
-	if (ring->features & IORING_FEAT_GETEVENTS_TIMEOUT)
+	if (ring->features & IORING_FEAT_SIG_IS_DATA)
 		return io_uring_wait_cqes_new(ring, cqe_ptr, wait_nr, ts, sigmask);
 
 	if (ts) {
