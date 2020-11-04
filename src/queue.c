@@ -217,6 +217,31 @@ out:
 }
 
 /*
+ * If we have kernel suppor for IORING_ENTER_GETEVENTS_TIMEOUT, then we can
+ * use that more efficiently than queueing an internal timeout command.
+ */
+static int io_uring_wait_cqes_new(struct io_uring *ring,
+				  struct io_uring_cqe **cqe_ptr,
+				  unsigned wait_nr, struct __kernel_timespec *ts,
+				  sigset_t *sigmask)
+{
+	struct io_uring_getevents_arg arg = {
+		.sigmask	= (unsigned long) sigmask,
+		.sigmask_sz	= _NSIG / 8,
+		.ts		= (unsigned long) ts
+	};
+	struct get_data data = {
+		.submit		= __io_uring_flush_sq(ring),
+		.wait_nr	= wait_nr,
+		.extra_flags	= ts ? IORING_ENTER_GETEVENTS_TIMEOUT : 0,
+		.sz		= sizeof(arg),
+		.arg		= &arg
+	};
+
+	return _io_uring_get_cqe(ring, cqe_ptr, &data);
+}
+
+/*
  * Like io_uring_wait_cqe(), except it accepts a timeout value as well. Note
  * that an sqe is used internally to handle the timeout. Applications using
  * this function must never set sqe->user_data to LIBURING_UDATA_TIMEOUT!
@@ -232,6 +257,9 @@ int io_uring_wait_cqes(struct io_uring *ring, struct io_uring_cqe **cqe_ptr,
 		       sigset_t *sigmask)
 {
 	unsigned to_submit = 0;
+
+	if (ring->features & IORING_FEAT_GETEVENTS_TIMEOUT)
+		return io_uring_wait_cqes_new(ring, cqe_ptr, wait_nr, ts, sigmask);
 
 	if (ts) {
 		struct io_uring_sqe *sqe;
