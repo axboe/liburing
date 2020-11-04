@@ -217,8 +217,8 @@ out:
 }
 
 /*
- * If we have kernel support for IORING_ENTERSIG_IS_DATA, then we can
- * use that more efficiently than queueing an internal timeout command.
+ * If we have kernel support for IORING_ENTER_EXT_ARG, then we can use that
+ * more efficiently than queueing an internal timeout command.
  */
 static int io_uring_wait_cqes_new(struct io_uring *ring,
 				  struct io_uring_cqe **cqe_ptr,
@@ -233,7 +233,7 @@ static int io_uring_wait_cqes_new(struct io_uring *ring,
 	struct get_data data = {
 		.submit		= __io_uring_flush_sq(ring),
 		.wait_nr	= wait_nr,
-		.get_flags	= ts ? IORING_ENTER_SIG_IS_DATA : 0,
+		.get_flags	= IORING_ENTER_EXT_ARG,
 		.sz		= sizeof(arg),
 		.arg		= &arg
 	};
@@ -258,12 +258,13 @@ int io_uring_wait_cqes(struct io_uring *ring, struct io_uring_cqe **cqe_ptr,
 {
 	unsigned to_submit = 0;
 
-	if (ring->features & IORING_FEAT_SIG_IS_DATA)
-		return io_uring_wait_cqes_new(ring, cqe_ptr, wait_nr, ts, sigmask);
-
 	if (ts) {
 		struct io_uring_sqe *sqe;
 		int ret;
+
+		if (ring->features & IORING_FEAT_EXT_ARG)
+			return io_uring_wait_cqes_new(ring, cqe_ptr, wait_nr,
+							ts, sigmask);
 
 		/*
 		 * If the SQ ring is full, we may need to submit IO first
