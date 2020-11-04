@@ -65,11 +65,19 @@ static int __io_uring_peek_cqe(struct io_uring *ring,
 	return err;
 }
 
-int __io_uring_get_cqe(struct io_uring *ring, struct io_uring_cqe **cqe_ptr,
-		       unsigned submit, unsigned wait_nr, sigset_t *sigmask)
+struct get_data {
+	unsigned submit;
+	unsigned wait_nr;
+	unsigned get_flags;
+	int sz;
+	void *arg;
+};
+
+static int _io_uring_get_cqe(struct io_uring *ring, struct io_uring_cqe **cqe_ptr,
+			     struct get_data *data)
 {
 	struct io_uring_cqe *cqe = NULL;
-	const int to_wait = wait_nr;
+	const int to_wait = data->wait_nr;
 	int ret = 0, err;
 
 	do {
@@ -79,26 +87,27 @@ int __io_uring_get_cqe(struct io_uring *ring, struct io_uring_cqe **cqe_ptr,
 		err = __io_uring_peek_cqe(ring, &cqe);
 		if (err)
 			break;
-		if (!cqe && !to_wait && !submit) {
+		if (!cqe && !to_wait && !data->submit) {
 			if (!cq_ring_needs_flush(ring)) {
 				err = -EAGAIN;
 				break;
 			}
 			cq_overflow_flush = true;
 		}
-		if (wait_nr && cqe)
-			wait_nr--;
-		if (wait_nr || cq_overflow_flush)
-			flags = IORING_ENTER_GETEVENTS;
-		if (submit)
+		if (data->wait_nr && cqe)
+			data->wait_nr--;
+		if (data->wait_nr || cq_overflow_flush)
+			flags = IORING_ENTER_GETEVENTS | data->get_flags;
+		if (data->submit)
 			sq_ring_needs_enter(ring, &flags);
-		if (wait_nr || submit || cq_overflow_flush)
-			ret = __sys_io_uring_enter(ring->ring_fd, submit,
-						   wait_nr, flags, sigmask);
+		if (data->wait_nr || data->submit || cq_overflow_flush)
+			ret = __sys_io_uring_enter2(ring->ring_fd, data->submit,
+					data->wait_nr, flags, data->arg,
+					data->sz);
 		if (ret < 0) {
 			err = -errno;
-		} else if (ret == (int)submit) {
-			submit = 0;
+		} else if (ret == (int)data->submit) {
+			data->submit = 0;
 			/*
 			 * When SETUP_IOPOLL is set, __sys_io_uring enter()
 			 * must be called to reap new completions but the call
@@ -106,9 +115,9 @@ int __io_uring_get_cqe(struct io_uring *ring, struct io_uring_cqe **cqe_ptr,
 			 * so preserve wait_nr.
 			 */
 			if (!(ring->flags & IORING_SETUP_IOPOLL))
-				wait_nr = 0;
+				data->wait_nr = 0;
 		} else {
-			submit -= ret;
+			data->submit -= ret;
 		}
 		if (cqe)
 			break;
@@ -116,6 +125,20 @@ int __io_uring_get_cqe(struct io_uring *ring, struct io_uring_cqe **cqe_ptr,
 
 	*cqe_ptr = cqe;
 	return err;
+}
+
+int __io_uring_get_cqe(struct io_uring *ring, struct io_uring_cqe **cqe_ptr,
+		       unsigned submit, unsigned wait_nr, sigset_t *sigmask)
+{
+	struct get_data data = {
+		.submit		= submit,
+		.wait_nr 	= wait_nr,
+		.extra_flags	= 0,
+		.sz		= _NSIG / 8,
+		.arg		= sigmask,
+	};
+
+	return _io_uring_get_cqe(ring, cqe_ptr, &data);
 }
 
 /*
