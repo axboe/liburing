@@ -24,6 +24,10 @@
 
 #include <linux/futex.h>
 
+#if !defined(SYS_futex) && defined(SYS_futex_time64)
+# define SYS_futex SYS_futex_time64
+#endif
+
 static void sleep_ms(uint64_t ms)
 {
   usleep(ms * 1000);
