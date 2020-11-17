@@ -191,8 +191,8 @@ static int test_fallocate_fsync(struct io_uring *ring)
 			goto err;
 		}
 		if (cqe->res) {
-			fprintf(stderr, "cqe->res=%d,data=%llu\n", cqe->res,
-							cqe->user_data);
+			fprintf(stderr, "cqe->res=%d,data=%" PRIu64 "\n", cqe->res,
+							(uint64_t) cqe->user_data);
 			goto err;
 		}
 		io_uring_cqe_seen(ring, cqe);

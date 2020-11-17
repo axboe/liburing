@@ -406,8 +406,8 @@ static int test_restrictions_flags(void)
 		case 2: /* writev - flags = IOSQE_FIXED_FILE | IOSQE_ASYNC */
 		case 3: /* writev - flags = IOSQE_FIXED_FILE | IOSQE_IO_LINK */
 			if (cqe->res != sizeof(ptr)) {
-				fprintf(stderr, "write res: %d user_data %lld \n",
-					cqe->res, cqe->user_data);
+				fprintf(stderr, "write res: %d user_data %" PRIu64 "\n",
+					cqe->res, (uint64_t) cqe->user_data);
 				return TEST_FAILED;
 			}
 
@@ -417,8 +417,8 @@ static int test_restrictions_flags(void)
 		case 6: /* writev - flags = IOSQE_ASYNC */
 		case 7: /* writev - flags = 0 */
 			if (cqe->res != -EACCES) {
-				fprintf(stderr, "write res: %d user_data %lld \n",
-					cqe->res, cqe->user_data);
+				fprintf(stderr, "write res: %d user_data %" PRIu64 "\n",
+					cqe->res, (uint64_t) cqe->user_data);
 				return TEST_FAILED;
 			}
 			break;

@@ -142,13 +142,13 @@ void *recv_thread(void *arg)
 		}
 		idx = cqe->user_data - 1;
 		if (data->is_mask[idx] && !(data->expected[idx] & cqe->res)) {
-			fprintf(stderr, "cqe %llu got %x, wanted mask %x\n",
-					cqe->user_data, cqe->res,
+			fprintf(stderr, "cqe %" PRIu64 " got %x, wanted mask %x\n",
+					(uint64_t) cqe->user_data, cqe->res,
 					data->expected[idx]);
 			goto err;
 		} else if (!data->is_mask[idx] && cqe->res != data->expected[idx]) {
-			fprintf(stderr, "cqe %llu got %d, wanted %d\n",
-					cqe->user_data, cqe->res,
+			fprintf(stderr, "cqe %" PRIu64 " got %d, wanted %d\n",
+					(uint64_t) cqe->user_data, cqe->res,
 					data->expected[idx]);
 			goto err;
 		}

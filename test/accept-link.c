@@ -156,8 +156,8 @@ void *recv_thread(void *arg)
 				data->stop = 1;
 				goto out;
 			}
-			fprintf(stderr, "cqe %llu got %d, wanted %d\n",
-					cqe->user_data, cqe->res,
+			fprintf(stderr, "cqe %" PRIu64 " got %d, wanted %d\n",
+					(uint64_t) cqe->user_data, cqe->res,
 					data->expected[idx]);
 			goto err;
 		}
