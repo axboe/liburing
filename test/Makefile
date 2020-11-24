@@ -97,6 +97,7 @@ test_targets += \
 	sq-poll-dup \
 	sq-poll-kthread \
 	sq-poll-share \
+	sqpoll-sleep \
 	sq-space_left \
 	stdout \
 	submit-reuse \
@@ -218,6 +219,7 @@ test_srcs := \
 	sq-poll-dup.c \
 	sq-poll-kthread.c \
 	sq-poll-share.c \
+	sqpoll-sleep.c \
 	sq-space_left.c \
 	statx.c \
 	stdout.c \
