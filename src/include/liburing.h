@@ -326,6 +326,15 @@ static inline void io_uring_prep_timeout_remove(struct io_uring_sqe *sqe,
 	sqe->timeout_flags = flags;
 }
 
+static inline void io_uring_prep_timeout_update(struct io_uring_sqe *sqe,
+						struct __kernel_timespec *ts,
+						__u64 user_data, unsigned flags)
+{
+	io_uring_prep_rw(IORING_OP_TIMEOUT_REMOVE, sqe, -1,
+				(void *)(unsigned long)user_data, 0, (__u64)ts);
+	sqe->timeout_flags = flags | IORING_TIMEOUT_UPDATE;
+}
+
 static inline void io_uring_prep_accept(struct io_uring_sqe *sqe, int fd,
 					struct sockaddr *addr,
 					socklen_t *addrlen, int flags)
