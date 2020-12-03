@@ -39,29 +39,38 @@ static inline bool cq_ring_needs_flush(struct io_uring *ring)
 }
 
 static int __io_uring_peek_cqe(struct io_uring *ring,
-			       struct io_uring_cqe **cqe_ptr)
+			       struct io_uring_cqe **cqe_ptr,
+			       unsigned *nr_available)
 {
 	struct io_uring_cqe *cqe;
-	unsigned head;
 	int err = 0;
+	unsigned available;
+	unsigned mask = *ring->cq.kring_mask;
 
 	do {
-		io_uring_for_each_cqe(ring, head, cqe)
+		unsigned tail = io_uring_smp_load_acquire(ring->cq.ktail);
+		unsigned head = *ring->cq.khead;
+
+		cqe = NULL;
+		available = tail - head;
+		if (!available)
 			break;
-		if (cqe) {
-			if (cqe->user_data == LIBURING_UDATA_TIMEOUT) {
-				if (cqe->res < 0)
-					err = cqe->res;
-				io_uring_cq_advance(ring, 1);
-				if (!err)
-					continue;
-				cqe = NULL;
-			}
+
+		cqe = &ring->cq.cqes[head & mask];
+		if (cqe->user_data == LIBURING_UDATA_TIMEOUT) {
+			if (cqe->res < 0)
+				err = cqe->res;
+			io_uring_cq_advance(ring, 1);
+			if (!err)
+				continue;
+			cqe = NULL;
 		}
+
 		break;
 	} while (1);
 
 	*cqe_ptr = cqe;
+	*nr_available = available;
 	return err;
 }
 
@@ -83,8 +92,9 @@ static int _io_uring_get_cqe(struct io_uring *ring, struct io_uring_cqe **cqe_pt
 	do {
 		bool cq_overflow_flush = false;
 		unsigned flags = 0;
+		unsigned nr_available;
 
-		err = __io_uring_peek_cqe(ring, &cqe);
+		err = __io_uring_peek_cqe(ring, &cqe, &nr_available);
 		if (err)
 			break;
 		if (!cqe && !to_wait && !data->submit) {
@@ -100,7 +110,8 @@ static int _io_uring_get_cqe(struct io_uring *ring, struct io_uring_cqe **cqe_pt
 			flags = IORING_ENTER_GETEVENTS | data->get_flags;
 		if (data->submit)
 			sq_ring_needs_enter(ring, &flags);
-		if (data->wait_nr || data->submit || cq_overflow_flush)
+		if (data->wait_nr > nr_available || data->submit ||
+		    cq_overflow_flush)
 			ret = __sys_io_uring_enter2(ring->ring_fd, data->submit,
 					data->wait_nr, flags, data->arg,
 					data->sz);
