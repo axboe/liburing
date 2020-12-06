@@ -56,8 +56,8 @@ static int create_file(const char *file)
 	return ret != FILE_SIZE;
 }
 
-static int __test_io(const char *file, struct io_uring *ring, int write, int buffered,
-		     int sqthread, int fixed, int mixed_fixed, int nonvec,
+static int __test_io(const char *file, struct io_uring *ring, int write,
+		     int buffered, int sqthread, int fixed, int nonvec,
 		     int buf_select, int seq, int exp_len)
 {
 	struct io_uring_sqe *sqe;
@@ -67,10 +67,9 @@ static int __test_io(const char *file, struct io_uring *ring, int write, int buf
 	off_t offset;
 
 #ifdef VERBOSE
-	fprintf(stdout, "%s: start %d/%d/%d/%d/%d/%d: ", __FUNCTION__, write,
+	fprintf(stdout, "%s: start %d/%d/%d/%d/%d: ", __FUNCTION__, write,
 							buffered, sqthread,
-							fixed, mixed_fixed,
-							nonvec);
+							fixed, nonvec);
 #endif
 	if (sqthread && geteuid()) {
 #ifdef VERBOSE
@@ -239,7 +238,7 @@ err:
 	return 1;
 }
 static int test_io(const char *file, int write, int buffered, int sqthread,
-		   int fixed, int mixed_fixed, int nonvec)
+		   int fixed, int nonvec)
 {
 	struct io_uring ring;
 	int ret, ring_flags;
@@ -263,8 +262,8 @@ static int test_io(const char *file, int write, int buffered, int sqthread,
 		return 1;
 	}
 
-	ret = __test_io(file, &ring, write, buffered, sqthread, fixed,
-			mixed_fixed, nonvec, 0, 0, BS);
+	ret = __test_io(file, &ring, write, buffered, sqthread, fixed, nonvec,
+			0, 0, BS);
 
 	io_uring_queue_exit(&ring);
 	return ret;
@@ -442,7 +441,7 @@ static int test_buf_select_short(const char *filename, int nonvec)
 		io_uring_cqe_seen(&ring, cqe);
 	}
 
-	ret = __test_io(filename, &ring, 0, 0, 0, 0, 0, nonvec, 1, 1, exp_len);
+	ret = __test_io(filename, &ring, 0, 0, 0, 0, nonvec, 1, 1, exp_len);
 
 	io_uring_queue_exit(&ring);
 	return ret;
@@ -476,7 +475,7 @@ static int test_buf_select(const char *filename, int nonvec)
 	for (i = 0; i < BUFFERS; i++)
 		memset(vecs[i].iov_base, i, vecs[i].iov_len);
 
-	ret = __test_io(filename, &ring, 1, 0, 0, 0, 0, 0, 0, 1, BS);
+	ret = __test_io(filename, &ring, 1, 0, 0, 0, 0, 0, 1, BS);
 	if (ret) {
 		fprintf(stderr, "failed writing data\n");
 		return 1;
@@ -506,7 +505,7 @@ static int test_buf_select(const char *filename, int nonvec)
 		io_uring_cqe_seen(&ring, cqe);
 	}
 
-	ret = __test_io(filename, &ring, 0, 0, 0, 0, 0, nonvec, 1, 1, BS);
+	ret = __test_io(filename, &ring, 0, 0, 0, 0, nonvec, 1, 1, BS);
 
 	io_uring_queue_exit(&ring);
 	return ret;
@@ -690,25 +689,19 @@ int main(int argc, char *argv[])
 	}
 
 	/* if we don't have nonvec read, skip testing that */
-	if (has_nonvec_read())
-		nr = 64;
-	else
-		nr = 32;
+	nr = has_nonvec_read() ? 32 : 16;
 
 	for (i = 0; i < nr; i++) {
 		int write = (i & 1) != 0;
 		int buffered = (i & 2) != 0;
 		int sqthread = (i & 4) != 0;
 		int fixed = (i & 8) != 0;
-		int mixed_fixed = (i & 16) != 0;
-		int nonvec = (i & 32) != 0;
+		int nonvec = (i & 16) != 0;
 
-		ret = test_io(fname, write, buffered, sqthread, fixed,
-			      mixed_fixed, nonvec);
+		ret = test_io(fname, write, buffered, sqthread, fixed, nonvec);
 		if (ret) {
-			fprintf(stderr, "test_io failed %d/%d/%d/%d/%d/%d\n",
-					write, buffered, sqthread, fixed,
-					mixed_fixed, nonvec);
+			fprintf(stderr, "test_io failed %d/%d/%d/%d/%d\n",
+				write, buffered, sqthread, fixed, nonvec);
 			goto err;
 		}
 	}
