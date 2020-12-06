@@ -696,18 +696,19 @@ int main(int argc, char *argv[])
 		nr = 32;
 
 	for (i = 0; i < nr; i++) {
-		int v1, v2, v3, v4, v5, v6;
+		int write = (i & 1) != 0;
+		int buffered = (i & 2) != 0;
+		int sqthread = (i & 4) != 0;
+		int fixed = (i & 8) != 0;
+		int mixed_fixed = (i & 16) != 0;
+		int nonvec = (i & 32) != 0;
 
-		v1 = (i & 1) != 0;
-		v2 = (i & 2) != 0;
-		v3 = (i & 4) != 0;
-		v4 = (i & 8) != 0;
-		v5 = (i & 16) != 0;
-		v6 = (i & 32) != 0;
-		ret = test_io(fname, v1, v2, v3, v4, v5, v6);
+		ret = test_io(fname, write, buffered, sqthread, fixed,
+			      mixed_fixed, nonvec);
 		if (ret) {
 			fprintf(stderr, "test_io failed %d/%d/%d/%d/%d/%d\n",
-					v1, v2, v3, v4, v5, v6);
+					write, buffered, sqthread, fixed,
+					mixed_fixed, nonvec);
 			goto err;
 		}
 	}
