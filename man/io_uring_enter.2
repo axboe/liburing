@@ -325,7 +325,9 @@ Available since 5.4.
 
 .TP
 .B IORING_OP_TIMEOUT_REMOVE
-Attempt to remove an existing timeout operation.
+If
+.I timeout_flags are zero, then it attempts to remove an existing timeout
+operation.
 .I addr
 must contain the
 .I user_data
@@ -340,6 +342,19 @@ If the timeout request wasn't found, the request will terminate with a result
 value of
 .I -ENOENT
 Available since 5.5.
+
+If
+.I timeout_flags
+contain
+.I IORING_TIMEOUT_UPDATE,
+instead of removing an existing operation it updates it.
+.I addr
+and return values are same as before.
+.I addr2
+field must contain a pointer to a struct timespec64 structure.
+.I timeout_flags
+may also contain IORING_TIMEOUT_ABS.
+Available since 5.11.
 
 .TP
 .B IORING_OP_ACCEPT
