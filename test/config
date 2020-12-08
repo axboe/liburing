@@ -4,4 +4,4 @@
 # TEST_EXCLUDE=""
 #
 # Define raw test devices (or files) for test cases, if any
-# TEST_FILES="/dev/nvme0n1p2 /data/file"
+# declare -A TEST_FILES=()

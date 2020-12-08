@@ -5,10 +5,10 @@ RET=0
 TIMEOUT=60
 DMESG_FILTER="cat"
 TEST_DIR=$(dirname $0)
-TEST_FILES=""
 FAILED=""
 SKIPPED=""
 MAYBE_FAILED=""
+declare -A TEST_FILES
 
 # Only use /dev/kmsg if running as root
 DO_KMSG="1"
@@ -17,7 +17,7 @@ DO_KMSG="1"
 # Include config.local if exists and check TEST_FILES for valid devices
 if [ -f "$TEST_DIR/config.local" ]; then
 	. $TEST_DIR/config.local
-	for dev in $TEST_FILES; do
+	for dev in ${TEST_FILES[@]}; do
 		if [ ! -e "$dev" ]; then
 			echo "Test file $dev not valid"
 			exit 1
@@ -109,11 +109,10 @@ run_test()
 
 # Run all specified tests
 for tst in $TESTS; do
-	run_test $tst
-	if [ ! -z "$TEST_FILES" ]; then
-		for dev in $TEST_FILES; do
-			run_test $tst $dev
-		done
+	if [ ! -n "${TEST_FILES[$tst]}" ]; then
+		run_test $tst
+	else
+		run_test $tst ${TEST_FILES[$tst]}
 	fi
 done
 
