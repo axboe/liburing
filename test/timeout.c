@@ -1260,6 +1260,14 @@ int main(int argc, char *argv[])
 		return ret;
 	}
 
+	/* io_uring_wait_cqes() may have left a timeout, reinit ring */
+	io_uring_queue_exit(&ring);
+	ret = io_uring_queue_init(8, &ring, 0);
+	if (ret) {
+		fprintf(stderr, "ring setup failed\n");
+		return 1;
+	}
+
 	ret = test_update_nonexistent_timeout(&ring);
 	has_timeout_update = (ret != -EINVAL);
 	if (has_timeout_update) {
