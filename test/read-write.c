@@ -472,10 +472,42 @@ static int test_buf_select_short(const char *filename, int nonvec)
 	return ret;
 }
 
-static int test_buf_select(const char *filename, int nonvec)
+static int provide_buffers_iovec(struct io_uring *ring, int bgid)
 {
 	struct io_uring_sqe *sqe;
 	struct io_uring_cqe *cqe;
+	int i, ret;
+
+	for (i = 0; i < BUFFERS; i++) {
+		sqe = io_uring_get_sqe(ring);
+		io_uring_prep_provide_buffers(sqe, vecs[i].iov_base,
+						vecs[i].iov_len, 1, bgid, i);
+	}
+
+	ret = io_uring_submit(ring);
+	if (ret != BUFFERS) {
+		fprintf(stderr, "submit: %d\n", ret);
+		return -1;
+	}
+
+	for (i = 0; i < BUFFERS; i++) {
+		ret = io_uring_wait_cqe(ring, &cqe);
+		if (ret) {
+			fprintf(stderr, "wait_cqe=%d\n", ret);
+			return 1;
+		}
+		if (cqe->res < 0) {
+			fprintf(stderr, "cqe->res=%d\n", cqe->res);
+			return 1;
+		}
+		io_uring_cqe_seen(ring, cqe);
+	}
+
+	return 0;
+}
+
+static int test_buf_select(const char *filename, int nonvec)
+{
 	struct io_uring_probe *p;
 	struct io_uring ring;
 	int ret, i;
@@ -509,28 +541,66 @@ static int test_buf_select(const char *filename, int nonvec)
 	for (i = 0; i < BUFFERS; i++)
 		memset(vecs[i].iov_base, 0x55, vecs[i].iov_len);
 
-	for (i = 0; i < BUFFERS; i++) {
+	ret = provide_buffers_iovec(&ring, 1);
+	if (ret)
+		return ret;
+
+	ret = __test_io(filename, &ring, 0, 0, 0, 0, nonvec, 1, 1, BS);
+	io_uring_queue_exit(&ring);
+	return ret;
+}
+
+static int test_rem_buf(int batch, int sqe_flags)
+{
+	struct io_uring_sqe *sqe;
+	struct io_uring_cqe *cqe;
+	struct io_uring ring;
+	int left, ret, nr = 0;
+	int bgid = 1;
+
+	if (no_buf_select)
+		return 0;
+
+	ret = io_uring_queue_init(64, &ring, 0);
+	if (ret) {
+		fprintf(stderr, "ring create failed: %d\n", ret);
+		return 1;
+	}
+
+	ret = provide_buffers_iovec(&ring, bgid);
+	if (ret)
+		return ret;
+
+	left = BUFFERS;
+	while (left) {
+		int to_rem = (left < batch) ? left : batch;
+
+		left -= to_rem;
 		sqe = io_uring_get_sqe(&ring);
-		io_uring_prep_provide_buffers(sqe, vecs[i].iov_base,
-						vecs[i].iov_len, 1, 1, i);
+		io_uring_prep_remove_buffers(sqe, to_rem, bgid);
+		sqe->user_data = to_rem;
+		sqe->flags |= sqe_flags;
+		++nr;
 	}
 
 	ret = io_uring_submit(&ring);
-	if (ret != BUFFERS) {
+	if (ret != nr) {
 		fprintf(stderr, "submit: %d\n", ret);
 		return -1;
 	}
 
-	for (i = 0; i < BUFFERS; i++) {
+	for (; nr > 0; nr--) {
 		ret = io_uring_wait_cqe(&ring, &cqe);
-		if (cqe->res < 0) {
+		if (ret) {
+			fprintf(stderr, "wait_cqe=%d\n", ret);
+			return 1;
+		}
+		if (cqe->res != cqe->user_data) {
 			fprintf(stderr, "cqe->res=%d\n", cqe->res);
 			return 1;
 		}
 		io_uring_cqe_seen(&ring, cqe);
 	}
-
-	ret = __test_io(filename, &ring, 0, 0, 0, 0, nonvec, 1, 1, BS);
 
 	io_uring_queue_exit(&ring);
 	return ret;
@@ -783,6 +853,30 @@ int main(int argc, char *argv[])
 	ret = test_write_efbig();
 	if (ret) {
 		fprintf(stderr, "test_write_efbig failed\n");
+		goto err;
+	}
+
+	ret = test_rem_buf(1, 0);
+	if (ret) {
+		fprintf(stderr, "test_rem_buf by 1 failed\n");
+		goto err;
+	}
+
+	ret = test_rem_buf(10, 0);
+	if (ret) {
+		fprintf(stderr, "test_rem_buf by 10 failed\n");
+		goto err;
+	}
+
+	ret = test_rem_buf(2, IOSQE_IO_LINK);
+	if (ret) {
+		fprintf(stderr, "test_rem_buf link failed\n");
+		goto err;
+	}
+
+	ret = test_rem_buf(2, IOSQE_ASYNC);
+	if (ret) {
+		fprintf(stderr, "test_rem_buf async failed\n");
 		goto err;
 	}
 
