@@ -105,12 +105,9 @@ static int listen_on_socket(int fd)
 	return 0;
 }
 
-static int connect_socket(struct io_uring *ring, int fd, int *code)
+static int configure_connect(int fd, struct sockaddr_in* addr)
 {
-	struct io_uring_sqe *sqe;
-	struct sockaddr_in addr;
-	int ret, res, val = 1;
-	socklen_t code_len = sizeof(*code);
+	int ret, val = 1;
 
 	ret = setsockopt(fd, SOL_SOCKET, SO_REUSEPORT, &val, sizeof(val));
 	if (ret == -1) {
@@ -124,10 +121,23 @@ static int connect_socket(struct io_uring *ring, int fd, int *code)
 		return -1;
 	}
 
-	memset(&addr, 0, sizeof(addr));
-	addr.sin_family = AF_INET;
-	addr.sin_port = 0x1234;
-	addr.sin_addr.s_addr = 0x0100007fU;
+	memset(addr, 0, sizeof(*addr));
+	addr->sin_family = AF_INET;
+	addr->sin_port = 0x1234;
+	addr->sin_addr.s_addr = 0x0100007fU;
+
+	return 0;
+}
+
+static int connect_socket(struct io_uring *ring, int fd, int *code)
+{
+	struct sockaddr_in addr;
+	int ret, res;
+	socklen_t code_len = sizeof(*code);
+	struct io_uring_sqe *sqe;
+
+	if (configure_connect(fd, &addr) == -1)
+		return -1;
 
 	sqe = io_uring_get_sqe(ring);
 	if (!sqe) {
@@ -235,6 +245,102 @@ err1:
 	return -1;
 }
 
+static int test_connect_timeout(struct io_uring *ring)
+{
+	int fd = -1, connect_fd = -1, accept_fd = -1;
+	int ret;
+	struct sockaddr_in addr;
+	struct io_uring_sqe *sqe;
+	struct __kernel_timespec ts = {.tv_sec = 0, .tv_nsec = 100000};
+
+	connect_fd = create_socket();
+	if (connect_fd == -1)
+		return -1;
+
+	accept_fd = create_socket();
+	if (accept_fd == -1)
+		goto err;
+
+	if (configure_connect(connect_fd, &addr) == -1)
+		goto err;
+
+	ret = bind(accept_fd, (struct sockaddr*)&addr, sizeof(addr));
+	if (ret == -1) {
+		perror("bind()");
+		goto err;
+	}
+
+	ret = listen(accept_fd, 0);  // no backlog in order to block connect_fd
+	if (ret == -1) {
+		perror("listen()");
+		goto err;
+	}
+
+	// Fill up available place in the accept queue (backlog)
+	fd = create_socket();
+	if (connect(fd, &addr, sizeof(addr)) == -1) {
+			fprintf(stderr, "unable to connect %d\n", errno);
+			goto err;
+	}
+
+	sqe = io_uring_get_sqe(ring);
+	if (!sqe) {
+		fprintf(stderr, "unable to get sqe\n");
+		goto err;
+	}
+
+	io_uring_prep_connect(sqe, connect_fd, (struct sockaddr*)&addr, sizeof(addr));
+	sqe->user_data = 1;
+	sqe->flags |= IOSQE_IO_LINK;
+
+	sqe = io_uring_get_sqe(ring);
+	if (!sqe) {
+		fprintf(stderr, "unable to get sqe\n");
+		goto err;
+	}
+	sqe->user_data = 2;
+
+	io_uring_prep_link_timeout(sqe, &ts, 0);
+	ret = io_uring_submit(ring);
+	if (ret != 2) {
+		fprintf(stderr, "submitted %d\n", ret);
+		return -1;
+	}
+
+	for (int i = 0; i < 2; i++) {
+		int expected;
+		struct io_uring_cqe *cqe;
+
+		ret = io_uring_wait_cqe(ring, &cqe);
+		if (ret) {
+			fprintf(stderr, "wait_cqe=%d\n", ret);
+			return -1;
+		}
+
+		expected = (cqe->user_data == 1) ? -ECANCELED : -ETIME;
+		if (expected != cqe->res) {
+			fprintf(stderr, "cqe %d, res %d, wanted %d\n", 
+					(int)cqe->user_data, cqe->res, expected);
+			goto err;
+		}
+		io_uring_cqe_seen(ring, cqe);
+	}
+
+	close(connect_fd);
+	close(accept_fd);
+	close(fd);
+
+	return 0;
+
+err:
+	close(connect_fd);
+	if (accept_fd != -1)
+		close(accept_fd);
+	if (fd != -1)
+		close(fd);
+	return -1;
+}
+
 int main(int argc, char *argv[])
 {
 	struct io_uring ring;
@@ -260,6 +366,12 @@ int main(int argc, char *argv[])
 	ret = test_connect(&ring);
 	if (ret == -1) {
 		fprintf(stderr, "test_connect(): failed\n");
+		return 1;
+	}
+
+	ret = test_connect_timeout(&ring);
+	if (ret == -1) {
+		fprintf(stderr, "test_connect_timeout(): failed\n");
 		return 1;
 	}
 
