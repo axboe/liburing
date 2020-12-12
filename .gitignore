@@ -108,6 +108,7 @@
 /test/submit-reuse
 /test/teardowns
 /test/timeout
+/test/timeout-new
 /test/timeout-overflow
 /test/unlink
 /test/wakeup-hang
