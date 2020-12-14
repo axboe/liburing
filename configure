@@ -1,15 +1,7 @@
 #!/bin/sh
-#
-# set temporary file name
-if test ! -z "$TMPDIR" ; then
-    TMPDIR1="${TMPDIR}"
-elif test ! -z "$TEMPDIR" ; then
-    TMPDIR1="${TEMPDIR}"
-else
-    TMPDIR1="/tmp"
-fi
 
-cc=gcc
+cc=${CC:-gcc}
+cxx=${CXX:-g++}
 
 for opt do
   optarg=$(expr "x$opt" : 'x[^=]*=\(.*\)')
@@ -30,8 +22,10 @@ for opt do
   ;;
   --cc=*) cc="$optarg"
   ;;
+  --cxx=*) cxx="$optarg"
+  ;;
   *)
-    echo "ERROR: unkown option $opt"
+    echo "ERROR: unknown option $opt"
     echo "Try '$0 --help' for more information"
     exit 1
   ;;
@@ -72,17 +66,17 @@ Options: [defaults in brackets after descriptions]
   --prefix=PATH            install in PATH [$prefix]
   --includedir=PATH        install headers in PATH [$includedir]
   --libdir=PATH            install runtime libraries in PATH [$libdir]
-  --libdevdir=PATH         install developement libraries in PATH [$libdevdir]
+  --libdevdir=PATH         install development libraries in PATH [$libdevdir]
   --mandir=PATH            install man pages in PATH [$mandir]
   --datadir=PATH           install shared data in PATH [$datadir]
 EOF
 exit 0
 fi
 
-TMPC="${TMPDIR1}/fio-conf-${RANDOM}-$$-${RANDOM}.c"
-TMPC2="${TMPDIR1}/fio-conf-${RANDOM}-$$-${RANDOM}-2.c"
-TMPO="${TMPDIR1}/fio-conf-${RANDOM}-$$-${RANDOM}.o"
-TMPE="${TMPDIR1}/fio-conf-${RANDOM}-$$-${RANDOM}.exe"
+TMPC="$(mktemp --tmpdir fio-conf-XXXXXXXXXX.c)"
+TMPC2="$(mktemp --tmpdir fio-conf-XXXXXXXXXX-2.c)"
+TMPO="$(mktemp --tmpdir fio-conf-XXXXXXXXXX.o)"
+TMPE="$(mktemp --tmpdir fio-conf-XXXXXXXXXX.exe)"
 
 # NB: do not call "exit" in the trap handler; this is buggy with some shells;
 # see <1285349658-3122-1-git-send-email-loic.minier@linaro.org>
@@ -126,6 +120,13 @@ printf "# Configured with:" >> $config_host_mak
 printf " '%s'" "$0" "$@" >> $config_host_mak
 echo >> $config_host_mak
 
+do_cxx() {
+    # Run the compiler, capturing its output to the log.
+    echo $cxx "$@" >> config.log
+    $cxx "$@" >> config.log 2>&1 || return $?
+    return 0
+}
+
 do_cc() {
     # Run the compiler, capturing its output to the log.
     echo $cc "$@" >> config.log
@@ -151,15 +152,18 @@ do_cc() {
     fatal "You can run configure with --disable-werror to bypass this check."
 }
 
-compile_object() {
-  do_cc $CFLAGS -c -o $TMPO $TMPC
-}
-
 compile_prog() {
   local_cflags="$1"
   local_ldflags="$2 $LIBS"
   echo "Compiling test case $3" >> config.log
   do_cc $CFLAGS $local_cflags -o $TMPE $TMPC $LDFLAGS $local_ldflags
+}
+
+compile_prog_cxx() {
+  local_cflags="$1"
+  local_ldflags="$2 $LIBS"
+  echo "Compiling test case $3" >> config.log
+  do_cxx $CFLAGS $local_cflags -o $TMPE $TMPC $LDFLAGS $local_ldflags
 }
 
 has() {
@@ -267,6 +271,40 @@ if compile_prog "" "" "statx"; then
 fi
 print_config "statx" "$statx"
 
+##########################################
+# check for C++
+has_cxx="no"
+cat > $TMPC << EOF
+#include <iostream>
+int main(int argc, char **argv)
+{
+  std::cout << "Test";
+  return 0;
+}
+EOF
+if compile_prog_cxx "" "" "C++"; then
+  has_cxx="yes"
+fi
+print_config "C++" "$has_cxx"
+
+##########################################
+# check for ucontext support
+has_ucontext="no"
+cat > $TMPC << EOF
+#include <ucontext.h>
+int main(int argc, char **argv)
+{
+  ucontext_t ctx;
+  getcontext(&ctx);
+  return 0;
+}
+EOF
+if compile_prog "" "" "has_ucontext"; then
+  has_ucontext="yes"
+fi
+print_config "has_ucontext" "$has_ucontext"
+
+
 #############################################################################
 
 if test "$__kernel_rwf_t" = "yes"; then
@@ -281,8 +319,17 @@ fi
 if test "$statx" = "yes"; then
   output_sym "CONFIG_HAVE_STATX"
 fi
+if test "$has_cxx" = "yes"; then
+  output_sym "CONFIG_HAVE_CXX"
+fi
+if test "$has_ucontext" = "yes"; then
+  output_sym "CONFIG_HAVE_UCONTEXT"
+fi
 
 echo "CC=$cc" >> $config_host_mak
+print_config "CC" "$cc"
+echo "CXX=$cxx" >> $config_host_mak
+print_config "CXX" "$cxx"
 
 # generate compat.h
 compat_h="src/include/liburing/compat.h"

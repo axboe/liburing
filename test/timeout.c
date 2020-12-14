@@ -965,17 +965,226 @@ err:
 	return 1;
 }
 
+static int test_update_timeout(struct io_uring *ring, unsigned long ms,
+				bool abs, bool async, bool linked)
+{
+	struct io_uring_sqe *sqe;
+	struct io_uring_cqe *cqe;
+	struct __kernel_timespec ts, ts_upd;
+	unsigned long long exp_ms, base_ms = 10000;
+	struct timeval tv;
+	int ret, i, nr = 2;
+	__u32 mode = abs ? IORING_TIMEOUT_ABS : 0;
+
+	msec_to_ts(&ts_upd, ms);
+	gettimeofday(&tv, NULL);
+
+	sqe = io_uring_get_sqe(ring);
+	if (!sqe) {
+		fprintf(stderr, "%s: get sqe failed\n", __FUNCTION__);
+		goto err;
+	}
+	msec_to_ts(&ts, base_ms);
+	io_uring_prep_timeout(sqe, &ts, 0, 0);
+	sqe->user_data = 1;
+
+	if (linked) {
+		sqe = io_uring_get_sqe(ring);
+		if (!sqe) {
+			fprintf(stderr, "%s: get sqe failed\n", __FUNCTION__);
+			goto err;
+		}
+		io_uring_prep_nop(sqe);
+		sqe->user_data = 3;
+		sqe->flags = IOSQE_IO_LINK;
+		if (async)
+			sqe->flags |= IOSQE_ASYNC;
+		nr++;
+	}
+
+	sqe = io_uring_get_sqe(ring);
+	if (!sqe) {
+		fprintf(stderr, "%s: get sqe failed\n", __FUNCTION__);
+		goto err;
+	}
+	io_uring_prep_timeout_update(sqe, &ts_upd, 1, mode);
+	sqe->user_data = 2;
+	if (async)
+		sqe->flags |= IOSQE_ASYNC;
+
+	ret = io_uring_submit(ring);
+	if (ret != nr) {
+		fprintf(stderr, "%s: sqe submit failed: %d\n", __FUNCTION__, ret);
+		goto err;
+	}
+
+	for (i = 0; i < nr; i++) {
+		ret = io_uring_wait_cqe(ring, &cqe);
+		if (ret < 0) {
+			fprintf(stderr, "%s: wait completion %d\n", __FUNCTION__, ret);
+			goto err;
+		}
+
+		switch (cqe->user_data) {
+		case 1:
+			if (cqe->res != -ETIME) {
+				fprintf(stderr, "%s: got %d, wanted %d\n",
+						__FUNCTION__, cqe->res, -ETIME);
+				goto err;
+			}
+			break;
+		case 2:
+			if (cqe->res != 0) {
+				fprintf(stderr, "%s: got %d, wanted %d\n",
+						__FUNCTION__, cqe->res,
+						0);
+				goto err;
+			}
+			break;
+		case 3:
+			if (cqe->res != 0) {
+				fprintf(stderr, "nop failed\n");
+				goto err;
+			}
+			break;
+		default:
+			goto err;
+		}
+		io_uring_cqe_seen(ring, cqe);
+	}
+
+	exp_ms = mtime_since_now(&tv);
+	if (exp_ms >= base_ms / 2) {
+		fprintf(stderr, "too long, timeout wasn't updated\n");
+		goto err;
+	}
+	if (ms >= 1000 && !abs && exp_ms < ms / 2) {
+		fprintf(stderr, "fired too early, potentially updated to 0 ms"
+					"instead of %lu\n", ms);
+		goto err;
+	}
+	return 0;
+err:
+	return 1;
+}
+
+static int test_update_nonexistent_timeout(struct io_uring *ring)
+{
+	struct io_uring_sqe *sqe;
+	struct io_uring_cqe *cqe;
+	struct __kernel_timespec ts;
+	int ret;
+
+	sqe = io_uring_get_sqe(ring);
+	if (!sqe) {
+		fprintf(stderr, "%s: get sqe failed\n", __FUNCTION__);
+		goto err;
+	}
+	msec_to_ts(&ts, 0);
+	io_uring_prep_timeout_update(sqe, &ts, 42, 0);
+
+	ret = io_uring_submit(ring);
+	if (ret != 1) {
+		fprintf(stderr, "%s: sqe submit failed: %d\n", __FUNCTION__, ret);
+		goto err;
+	}
+
+	ret = io_uring_wait_cqe(ring, &cqe);
+	if (ret < 0) {
+		fprintf(stderr, "%s: wait completion %d\n", __FUNCTION__, ret);
+		goto err;
+	}
+
+	ret = cqe->res;
+	if (ret == -ENOENT)
+		ret = 0;
+	io_uring_cqe_seen(ring, cqe);
+	return ret;
+err:
+	return 1;
+}
+
+static int test_update_invalid_flags(struct io_uring *ring)
+{
+	struct io_uring_sqe *sqe;
+	struct io_uring_cqe *cqe;
+	struct __kernel_timespec ts;
+	int ret;
+
+	sqe = io_uring_get_sqe(ring);
+	if (!sqe) {
+		fprintf(stderr, "%s: get sqe failed\n", __FUNCTION__);
+		goto err;
+	}
+	io_uring_prep_timeout_remove(sqe, 0, IORING_TIMEOUT_ABS);
+
+	ret = io_uring_submit(ring);
+	if (ret != 1) {
+		fprintf(stderr, "%s: sqe submit failed: %d\n", __FUNCTION__, ret);
+		goto err;
+	}
+
+	ret = io_uring_wait_cqe(ring, &cqe);
+	if (ret < 0) {
+		fprintf(stderr, "%s: wait completion %d\n", __FUNCTION__, ret);
+		goto err;
+	}
+	if (cqe->res != -EINVAL) {
+		fprintf(stderr, "%s: got %d, wanted %d\n",
+				__FUNCTION__, cqe->res, -EINVAL);
+		goto err;
+	}
+	io_uring_cqe_seen(ring, cqe);
+
+
+	sqe = io_uring_get_sqe(ring);
+	if (!sqe) {
+		fprintf(stderr, "%s: get sqe failed\n", __FUNCTION__);
+		goto err;
+	}
+	msec_to_ts(&ts, 0);
+	io_uring_prep_timeout_update(sqe, &ts, 0, -1);
+
+	ret = io_uring_submit(ring);
+	if (ret != 1) {
+		fprintf(stderr, "%s: sqe submit failed: %d\n", __FUNCTION__, ret);
+		goto err;
+	}
+
+	ret = io_uring_wait_cqe(ring, &cqe);
+	if (ret < 0) {
+		fprintf(stderr, "%s: wait completion %d\n", __FUNCTION__, ret);
+		goto err;
+	}
+	if (cqe->res != -EINVAL) {
+		fprintf(stderr, "%s: got %d, wanted %d\n",
+				__FUNCTION__, cqe->res, -EINVAL);
+		goto err;
+	}
+	io_uring_cqe_seen(ring, cqe);
+
+	return 0;
+err:
+	return 1;
+}
 
 int main(int argc, char *argv[])
 {
-	struct io_uring ring;
+	struct io_uring ring, sqpoll_ring;
+	bool has_timeout_update, sqpoll;
 	int ret;
+
+	if (argc > 1)
+		return 0;
 
 	ret = io_uring_queue_init(8, &ring, 0);
 	if (ret) {
 		fprintf(stderr, "ring setup failed\n");
 		return 1;
 	}
+
+	ret = io_uring_queue_init(8, &sqpoll_ring, IORING_SETUP_SQPOLL);
+	sqpoll = !ret;
 
 	ret = test_single_timeout(&ring);
 	if (ret) {
@@ -1051,6 +1260,76 @@ int main(int argc, char *argv[])
 		return ret;
 	}
 
+	/* io_uring_wait_cqes() may have left a timeout, reinit ring */
+	io_uring_queue_exit(&ring);
+	ret = io_uring_queue_init(8, &ring, 0);
+	if (ret) {
+		fprintf(stderr, "ring setup failed\n");
+		return 1;
+	}
+
+	ret = test_update_nonexistent_timeout(&ring);
+	has_timeout_update = (ret != -EINVAL);
+	if (has_timeout_update) {
+		if (ret) {
+			fprintf(stderr, "test_update_nonexistent_timeout failed\n");
+			return ret;
+		}
+
+		ret = test_update_invalid_flags(&ring);
+		if (ret) {
+			fprintf(stderr, "test_update_invalid_flags failed\n");
+			return ret;
+		}
+
+		ret = test_update_timeout(&ring, 0, false, false, false);
+		if (ret) {
+			fprintf(stderr, "test_update_timeout failed\n");
+			return ret;
+		}
+
+		ret = test_update_timeout(&ring, 1, false, false, false);
+		if (ret) {
+			fprintf(stderr, "test_update_timeout 1ms failed\n");
+			return ret;
+		}
+
+		ret = test_update_timeout(&ring, 1000, false, false, false);
+		if (ret) {
+			fprintf(stderr, "test_update_timeout 1s failed\n");
+			return ret;
+		}
+
+		ret = test_update_timeout(&ring, 0, true, true, false);
+		if (ret) {
+			fprintf(stderr, "test_update_timeout abs failed\n");
+			return ret;
+		}
+
+
+		ret = test_update_timeout(&ring, 0, false, true, false);
+		if (ret) {
+			fprintf(stderr, "test_update_timeout async failed\n");
+			return ret;
+		}
+
+		ret = test_update_timeout(&ring, 0, false, false, true);
+		if (ret) {
+			fprintf(stderr, "test_update_timeout linked failed\n");
+			return ret;
+		}
+
+		if (sqpoll) {
+			ret = test_update_timeout(&sqpoll_ring, 0, false, false,
+						  false);
+			if (ret) {
+				fprintf(stderr, "test_update_timeout sqpoll"
+						"failed\n");
+				return ret;
+			}
+		}
+	}
+
 	/*
 	 * this test must go last, it kills the ring
 	 */
@@ -1060,5 +1339,7 @@ int main(int argc, char *argv[])
 		return ret;
 	}
 
+	if (sqpoll)
+		io_uring_queue_exit(&sqpoll_ring);
 	return 0;
 }

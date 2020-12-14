@@ -3,17 +3,19 @@ includedir ?= $(prefix)/include
 libdir ?= $(prefix)/lib
 libdevdir ?= $(prefix)/lib
 
+CPPFLAGS ?=
+override CPPFLAGS += -Iinclude/ -include ../config-host.h
 CFLAGS ?= -g -fomit-frame-pointer -O2
-override CFLAGS += -Wall -Iinclude/ -include ../config-host.h
-SO_CFLAGS=-shared -fPIC $(CFLAGS)
+override CFLAGS += -Wall -Wextra -Wno-unused-parameter -Wno-sign-compare
+SO_CFLAGS=-fPIC $(CFLAGS)
 L_CFLAGS=$(CFLAGS)
 LINK_FLAGS=
 LINK_FLAGS+=$(LDFLAGS)
 ENABLE_SHARED ?= 1
 
-soname=liburing.so.1
+soname=liburing.so.2
 minor=0
-micro=6
+micro=0
 libname=$(soname).$(minor).$(micro)
 all_targets += liburing.a
 
@@ -37,10 +39,10 @@ liburing_sobjs := $(patsubst %.c,%.os,$(liburing_srcs))
 $(liburing_objs) $(liburing_sobjs): include/liburing/io_uring.h
 
 %.os: %.c
-	$(QUIET_CC)$(CC) $(SO_CFLAGS) -c -o $@ $<
+	$(QUIET_CC)$(CC) $(CPPFLAGS) $(SO_CFLAGS) -c -o $@ $<
 
 %.ol: %.c
-	$(QUIET_CC)$(CC) $(L_CFLAGS) -c -o $@ $<
+	$(QUIET_CC)$(CC) $(CPPFLAGS) $(L_CFLAGS) -c -o $@ $<
 
 AR ?= ar
 RANLIB ?= ranlib
@@ -50,7 +52,7 @@ liburing.a: $(liburing_objs)
 	$(QUIET_RANLIB)$(RANLIB) liburing.a
 
 $(libname): $(liburing_sobjs) liburing.map
-	$(QUIET_CC)$(CC) $(SO_CFLAGS) -Wl,--version-script=liburing.map -Wl,-soname=$(soname) -o $@ $(liburing_sobjs) $(LINK_FLAGS)
+	$(QUIET_CC)$(CC) $(SO_CFLAGS) -shared -Wl,--version-script=liburing.map -Wl,-soname=$(soname) -o $@ $(liburing_sobjs) $(LINK_FLAGS)
 
 install: $(all_targets)
 	install -D -m 644 include/liburing/io_uring.h $(includedir)/liburing/io_uring.h

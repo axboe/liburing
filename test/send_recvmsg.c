@@ -11,6 +11,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <pthread.h>
+#include <assert.h>
 
 #include "liburing.h"
 
@@ -24,7 +25,10 @@ static char str[] = "This is a test of sendmsg and recvmsg over io_uring!";
 #define BUF_BGID	10
 #define BUF_BID		89
 
-static int recv_prep(struct io_uring *ring, struct iovec *iov, int bgid)
+#define MAX_IOV_COUNT	10
+
+static int recv_prep(struct io_uring *ring, struct iovec iov[], int iov_count,
+		     int bgid)
 {
 	struct sockaddr_in saddr;
 	struct msghdr msg;
@@ -53,19 +57,23 @@ static int recv_prep(struct io_uring *ring, struct iovec *iov, int bgid)
 		goto err;
 	}
 
-	memset(&msg, 0, sizeof(msg));
-        msg.msg_namelen = sizeof(struct sockaddr_in);
-	msg.msg_iov = iov;
-	msg.msg_iovlen = 1;
-
 	sqe = io_uring_get_sqe(ring);
+	if (!sqe) {
+		fprintf(stderr, "io_uring_get_sqe failed\n");
+		return 1;
+	}
+
 	io_uring_prep_recvmsg(sqe, sockfd, &msg, 0);
 	if (bgid) {
-		sqe->user_data = (unsigned long) iov->iov_base;
 		iov->iov_base = NULL;
 		sqe->flags |= IOSQE_BUFFER_SELECT;
 		sqe->buf_group = bgid;
+		iov_count = 1;
 	}
+	memset(&msg, 0, sizeof(msg));
+	msg.msg_namelen = sizeof(struct sockaddr_in);
+	msg.msg_iov = iov;
+	msg.msg_iovlen = iov_count;
 
 	ret = io_uring_submit(ring);
 	if (ret <= 0) {
@@ -84,14 +92,20 @@ struct recv_data {
 	pthread_mutex_t *mutex;
 	int buf_select;
 	int no_buf_add;
+	int iov_count;
 };
 
-static int do_recvmsg(struct io_uring *ring, struct iovec *iov,
+static int do_recvmsg(struct io_uring *ring, char buf[MAX_MSG + 1],
 		      struct recv_data *rd)
 {
 	struct io_uring_cqe *cqe;
+	int ret;
 
-	io_uring_wait_cqe(ring, &cqe);
+	ret = io_uring_wait_cqe(ring, &cqe);
+	if (ret) {
+		fprintf(stdout, "wait_cqe: %d\n", ret);
+		goto err;
+	}
 	if (cqe->res < 0) {
 		if (rd->no_buf_add && rd->buf_select)
 			return 0;
@@ -102,8 +116,6 @@ static int do_recvmsg(struct io_uring *ring, struct iovec *iov,
 		int bid = cqe->flags >> 16;
 		if (bid != BUF_BID)
 			fprintf(stderr, "Buffer ID mismatch %d\n", bid);
-		/* just for passing the pointer to str */
-		iov->iov_base = (void *) (uintptr_t) cqe->user_data;
 	}
 
 	if (rd->no_buf_add && rd->buf_select) {
@@ -117,7 +129,7 @@ static int do_recvmsg(struct io_uring *ring, struct iovec *iov,
 		goto err;
 	}
 
-	if (strcmp(str, iov->iov_base)) {
+	if (strncmp(str, buf, MAX_MSG + 1)) {
 		fprintf(stderr, "string mismatch\n");
 		goto err;
 	}
@@ -127,19 +139,33 @@ err:
 	return 1;
 }
 
+static void init_iov(struct iovec iov[MAX_IOV_COUNT], int iov_to_use,
+		     char buf[MAX_MSG + 1])
+{
+	int i, last_idx = iov_to_use - 1;
+
+	assert(0 < iov_to_use && iov_to_use <= MAX_IOV_COUNT);
+	for (i = 0; i < last_idx; ++i) {
+		iov[i].iov_base = buf + i;
+		iov[i].iov_len = 1;
+	}
+
+	iov[last_idx].iov_base = buf + last_idx;
+	iov[last_idx].iov_len = MAX_MSG - last_idx;
+}
+
 static void *recv_fn(void *data)
 {
 	struct recv_data *rd = data;
 	pthread_mutex_t *mutex = rd->mutex;
 	char buf[MAX_MSG + 1];
-	struct iovec iov = {
-		.iov_base = buf,
-		.iov_len = sizeof(buf) - 1,
-	};
+	struct iovec iov[MAX_IOV_COUNT];
 	struct io_uring_sqe *sqe;
 	struct io_uring_cqe *cqe;
 	struct io_uring ring;
 	int ret;
+
+	init_iov(iov, rd->iov_count, buf);
 
 	ret = io_uring_queue_init(1, &ring, 0);
 	if (ret) {
@@ -157,7 +183,11 @@ static void *recv_fn(void *data)
 			goto err;
 		}
 
-		io_uring_wait_cqe(&ring, &cqe);
+		ret = io_uring_wait_cqe(&ring, &cqe);
+		if (ret) {
+			fprintf(stderr, "wait_cqe=%d\n", ret);
+			goto err;
+		}
 		ret = cqe->res;
 		io_uring_cqe_seen(&ring, cqe);
 		if (ret == -EINVAL) {
@@ -170,14 +200,14 @@ static void *recv_fn(void *data)
 		}
 	}
 
-	ret = recv_prep(&ring, &iov, rd->buf_select ? BUF_BGID : 0);
+	ret = recv_prep(&ring, iov, rd->iov_count, rd->buf_select ? BUF_BGID : 0);
 	if (ret) {
 		fprintf(stderr, "recv_prep failed: %d\n", ret);
 		goto err;
 	}
 
 	pthread_mutex_unlock(mutex);
-	ret = do_recvmsg(&ring, &iov, rd);
+	ret = do_recvmsg(&ring, buf, rd);
 
 	io_uring_queue_exit(&ring);
 
@@ -247,7 +277,7 @@ err:
 	return 1;
 }
 
-static int test(int buf_select, int no_buf_add)
+static int test(int buf_select, int no_buf_add, int iov_count)
 {
 	struct recv_data rd;
 	pthread_mutexattr_t attr;
@@ -264,6 +294,7 @@ static int test(int buf_select, int no_buf_add)
 	rd.mutex = &mutex;
 	rd.buf_select = buf_select;
 	rd.no_buf_add = no_buf_add;
+	rd.iov_count = iov_count;
 	ret = pthread_create(&recv_thread, NULL, recv_fn, &rd);
 	if (ret) {
 		fprintf(stderr, "Thread create failed\n");
@@ -282,19 +313,28 @@ int main(int argc, char *argv[])
 {
 	int ret;
 
-	ret = test(0, 0);
+	if (argc > 1)
+		return 0;
+
+	ret = test(0, 0, 1);
 	if (ret) {
 		fprintf(stderr, "send_recvmsg 0 failed\n");
 		return 1;
 	}
 
-	ret = test(1, 0);
+	ret = test(0, 0, 10);
+	if (ret) {
+		fprintf(stderr, "send_recvmsg multi iov failed\n");
+		return 1;
+	}
+
+	ret = test(1, 0, 1);
 	if (ret) {
 		fprintf(stderr, "send_recvmsg 1 0 failed\n");
 		return 1;
 	}
 
-	ret = test(1, 1);
+	ret = test(1, 1, 1);
 	if (ret) {
 		fprintf(stderr, "send_recvmsg 1 1 failed\n");
 		return 1;

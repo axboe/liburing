@@ -24,6 +24,10 @@
 
 #include <linux/futex.h>
 
+#if !defined(SYS_futex) && defined(SYS_futex_time64)
+# define SYS_futex SYS_futex_time64
+#endif
+
 static void sleep_ms(uint64_t ms)
 {
   usleep(ms * 1000);
@@ -315,10 +319,12 @@ static void sig_int(int sig)
 	exit(0);
 }
 
-int main(void)
+int main(int argc, char *argv[])
 {
-  signal(SIGINT, sig_int);
-  mmap((void *) 0x20000000, 0x1000000, 3, 0x32, -1, 0);
-  loop();
-  return 0;
+	if (argc > 1)
+		return 0;
+	signal(SIGINT, sig_int);
+	mmap((void *) 0x20000000, 0x1000000, 3, 0x32, -1, 0);
+	loop();
+	return 0;
 }

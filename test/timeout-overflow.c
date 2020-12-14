@@ -6,6 +6,7 @@
 #include <errno.h>
 #include <stdio.h>
 #include <limits.h>
+#include <string.h>
 #include <sys/time.h>
 
 #include "liburing.h"
@@ -19,19 +20,29 @@ static void msec_to_ts(struct __kernel_timespec *ts, unsigned int msec)
 	ts->tv_nsec = (msec % 1000) * 1000000;
 }
 
-static int check_timeout_support()
+static int check_timeout_support(void)
 {
 	struct io_uring_sqe *sqe;
 	struct io_uring_cqe *cqe;
 	struct __kernel_timespec ts;
+	struct io_uring_params p;
 	struct io_uring ring;
 	int ret;
 
-	ret = io_uring_queue_init(8, &ring, 0);
+	memset(&p, 0, sizeof(p));
+	ret = io_uring_queue_init_params(1, &ring, &p);
 	if (ret) {
 		fprintf(stderr, "ring setup failed: %d\n", ret);
 		return 1;
 	}
+
+	/* not really a match, but same kernel added batched completions */
+	if (p.features & IORING_FEAT_POLL_32BITS) {
+		fprintf(stdout, "Skipping\n");
+		not_supported = 1;
+		return 0;
+	}
+
 	sqe = io_uring_get_sqe(&ring);
 	msec_to_ts(&ts, TIMEOUT_MSEC);
 	io_uring_prep_timeout(sqe, &ts, 1, 0);
@@ -74,7 +85,7 @@ err:
  * successful after the patch. And req1/req2 will completed successful with
  * req3/req4 return -ETIME without this patch!
  */
-static int test_timeout_overflow()
+static int test_timeout_overflow(void)
 {
 	struct io_uring_sqe *sqe;
 	struct io_uring_cqe *cqe;
@@ -146,14 +157,14 @@ static int test_timeout_overflow()
 		case 4:
 			if (cqe->res == -ETIME) {
 				fprintf(stderr, "expected not return -ETIME "
-					"for the %d'th timeout req\n", i - 1);
+					"for the #%d timeout req\n", i - 1);
 				goto err;
 			}
 			break;
 		case 5:
 			if (cqe->res != -ETIME) {
 				fprintf(stderr, "expected return -ETIME for "
-					"the %d'th timeout req\n", i - 1);
+					"the #%d timeout req\n", i - 1);
 				goto err;
 			}
 			break;
@@ -170,6 +181,9 @@ err:
 int main(int argc, char *argv[])
 {
 	int ret;
+
+	if (argc > 1)
+		return 0;
 
 	ret = check_timeout_support();
 	if (ret) {

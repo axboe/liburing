@@ -4,7 +4,6 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
-#include <assert.h>
 #include <fcntl.h>
 #include <sys/types.h>
 
@@ -17,6 +16,9 @@ int main(int argc, char *argv[])
 	struct iovec iovecs[IOVECS_LEN];
 	struct io_uring ring;
 	int i, fd, ret;
+
+	if (argc > 1)
+		return 0;
 
 	fd = open("/dev/zero", O_RDONLY);
 	if (fd < 0) {

@@ -1,4 +1,6 @@
 /* SPDX-License-Identifier: MIT */
+#define _POSIX_C_SOURCE 200112L
+
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
@@ -19,10 +21,9 @@
  * or if IORING_SQ_NEED_WAKEUP is set, so submit thread must be explicitly
  * awakened. For the latter case, we set the thread wakeup flag.
  */
-static inline bool sq_ring_needs_enter(struct io_uring *ring,
-				unsigned submitted, unsigned *flags)
+static inline bool sq_ring_needs_enter(struct io_uring *ring, unsigned *flags)
 {
-	if (!(ring->flags & IORING_SETUP_SQPOLL) && submitted)
+	if (!(ring->flags & IORING_SETUP_SQPOLL))
 		return true;
 	if (IO_URING_READ_ONCE(*ring->sq.kflags) & IORING_SQ_NEED_WAKEUP) {
 		*flags |= IORING_ENTER_SQ_WAKEUP;
@@ -32,37 +33,102 @@ static inline bool sq_ring_needs_enter(struct io_uring *ring,
 	return false;
 }
 
-int __io_uring_get_cqe(struct io_uring *ring, struct io_uring_cqe **cqe_ptr,
-		       unsigned submit, unsigned wait_nr, sigset_t *sigmask)
+static inline bool cq_ring_needs_flush(struct io_uring *ring)
+{
+	return IO_URING_READ_ONCE(*ring->sq.kflags) & IORING_SQ_CQ_OVERFLOW;
+}
+
+static int __io_uring_peek_cqe(struct io_uring *ring,
+			       struct io_uring_cqe **cqe_ptr,
+			       unsigned *nr_available)
+{
+	struct io_uring_cqe *cqe;
+	int err = 0;
+	unsigned available;
+	unsigned mask = *ring->cq.kring_mask;
+
+	do {
+		unsigned tail = io_uring_smp_load_acquire(ring->cq.ktail);
+		unsigned head = *ring->cq.khead;
+
+		cqe = NULL;
+		available = tail - head;
+		if (!available)
+			break;
+
+		cqe = &ring->cq.cqes[head & mask];
+		if (cqe->user_data == LIBURING_UDATA_TIMEOUT) {
+			if (cqe->res < 0)
+				err = cqe->res;
+			io_uring_cq_advance(ring, 1);
+			if (!err)
+				continue;
+			cqe = NULL;
+		}
+
+		break;
+	} while (1);
+
+	*cqe_ptr = cqe;
+	*nr_available = available;
+	return err;
+}
+
+struct get_data {
+	unsigned submit;
+	unsigned wait_nr;
+	unsigned get_flags;
+	int sz;
+	void *arg;
+};
+
+static int _io_uring_get_cqe(struct io_uring *ring, struct io_uring_cqe **cqe_ptr,
+			     struct get_data *data)
 {
 	struct io_uring_cqe *cqe = NULL;
-	const int to_wait = wait_nr;
+	const int to_wait = data->wait_nr;
 	int ret = 0, err;
 
 	do {
+		bool cq_overflow_flush = false;
 		unsigned flags = 0;
+		unsigned nr_available;
 
-		err = __io_uring_peek_cqe(ring, &cqe);
+		err = __io_uring_peek_cqe(ring, &cqe, &nr_available);
 		if (err)
 			break;
-		if (!cqe && !to_wait && !submit) {
-			err = -EAGAIN;
-			break;
+		if (!cqe && !to_wait && !data->submit) {
+			if (!cq_ring_needs_flush(ring)) {
+				err = -EAGAIN;
+				break;
+			}
+			cq_overflow_flush = true;
 		}
-		if (wait_nr)
-			flags = IORING_ENTER_GETEVENTS;
-		if (submit)
-			sq_ring_needs_enter(ring, submit, &flags);
-		if (wait_nr || submit)
-			ret = __sys_io_uring_enter(ring->ring_fd, submit,
-						   wait_nr, flags, sigmask);
+		if (data->wait_nr && cqe)
+			data->wait_nr--;
+		if (data->wait_nr || cq_overflow_flush)
+			flags = IORING_ENTER_GETEVENTS | data->get_flags;
+		if (data->submit)
+			sq_ring_needs_enter(ring, &flags);
+		if (data->wait_nr > nr_available || data->submit ||
+		    cq_overflow_flush)
+			ret = __sys_io_uring_enter2(ring->ring_fd, data->submit,
+					data->wait_nr, flags, data->arg,
+					data->sz);
 		if (ret < 0) {
 			err = -errno;
-		} else if (ret == (int)submit) {
-			submit = 0;
-			wait_nr = 0;
+		} else if (ret == (int)data->submit) {
+			data->submit = 0;
+			/*
+			 * When SETUP_IOPOLL is set, __sys_io_uring enter()
+			 * must be called to reap new completions but the call
+			 * won't be made if both wait_nr and submit are zero
+			 * so preserve wait_nr.
+			 */
+			if (!(ring->flags & IORING_SETUP_IOPOLL))
+				data->wait_nr = 0;
 		} else {
-			submit -= ret;
+			data->submit -= ret;
 		}
 		if (cqe)
 			break;
@@ -70,6 +136,20 @@ int __io_uring_get_cqe(struct io_uring *ring, struct io_uring_cqe **cqe_ptr,
 
 	*cqe_ptr = cqe;
 	return err;
+}
+
+int __io_uring_get_cqe(struct io_uring *ring, struct io_uring_cqe **cqe_ptr,
+		       unsigned submit, unsigned wait_nr, sigset_t *sigmask)
+{
+	struct get_data data = {
+		.submit		= submit,
+		.wait_nr 	= wait_nr,
+		.get_flags	= 0,
+		.sz		= _NSIG / 8,
+		.arg		= sigmask,
+	};
+
+	return _io_uring_get_cqe(ring, cqe_ptr, &data);
 }
 
 /*
@@ -80,7 +160,9 @@ unsigned io_uring_peek_batch_cqe(struct io_uring *ring,
 				 struct io_uring_cqe **cqes, unsigned count)
 {
 	unsigned ready;
+	bool overflow_checked = false;
 
+again:
 	ready = io_uring_cq_ready(ring);
 	if (ready) {
 		unsigned head = *ring->cq.khead;
@@ -96,6 +178,17 @@ unsigned io_uring_peek_batch_cqe(struct io_uring *ring,
 		return count;
 	}
 
+	if (overflow_checked)
+		goto done;
+
+	if (cq_ring_needs_flush(ring)) {
+		__sys_io_uring_enter(ring->ring_fd, 0, 0,
+				     IORING_ENTER_GETEVENTS, NULL);
+		overflow_checked = true;
+		goto again;
+	}
+
+done:
 	return 0;
 }
 
@@ -103,7 +196,7 @@ unsigned io_uring_peek_batch_cqe(struct io_uring *ring,
  * Sync internal state with kernel ring state on the SQ side. Returns the
  * number of pending items in the SQ ring, for the shared ring.
  */
-static int __io_uring_flush_sq(struct io_uring *ring)
+int __io_uring_flush_sq(struct io_uring *ring)
 {
 	struct io_uring_sq *sq = &ring->sq;
 	const unsigned mask = *sq->kring_mask;
@@ -135,6 +228,31 @@ out:
 }
 
 /*
+ * If we have kernel support for IORING_ENTER_EXT_ARG, then we can use that
+ * more efficiently than queueing an internal timeout command.
+ */
+static int io_uring_wait_cqes_new(struct io_uring *ring,
+				  struct io_uring_cqe **cqe_ptr,
+				  unsigned wait_nr, struct __kernel_timespec *ts,
+				  sigset_t *sigmask)
+{
+	struct io_uring_getevents_arg arg = {
+		.sigmask	= (unsigned long) sigmask,
+		.sigmask_sz	= _NSIG / 8,
+		.ts		= (unsigned long) ts
+	};
+	struct get_data data = {
+		.submit		= __io_uring_flush_sq(ring),
+		.wait_nr	= wait_nr,
+		.get_flags	= IORING_ENTER_EXT_ARG,
+		.sz		= sizeof(arg),
+		.arg		= &arg
+	};
+
+	return _io_uring_get_cqe(ring, cqe_ptr, &data);
+}
+
+/*
  * Like io_uring_wait_cqe(), except it accepts a timeout value as well. Note
  * that an sqe is used internally to handle the timeout. Applications using
  * this function must never set sqe->user_data to LIBURING_UDATA_TIMEOUT!
@@ -154,6 +272,10 @@ int io_uring_wait_cqes(struct io_uring *ring, struct io_uring_cqe **cqe_ptr,
 	if (ts) {
 		struct io_uring_sqe *sqe;
 		int ret;
+
+		if (ring->features & IORING_FEAT_EXT_ARG)
+			return io_uring_wait_cqes_new(ring, cqe_ptr, wait_nr,
+							ts, sigmask);
 
 		/*
 		 * If the SQ ring is full, we may need to submit IO first
@@ -198,7 +320,7 @@ static int __io_uring_submit(struct io_uring *ring, unsigned submitted,
 	int ret;
 
 	flags = 0;
-	if (sq_ring_needs_enter(ring, submitted, &flags) || wait_nr) {
+	if (sq_ring_needs_enter(ring, &flags) || wait_nr) {
 		if (wait_nr || (ring->flags & IORING_SETUP_IOPOLL))
 			flags |= IORING_ENTER_GETEVENTS;
 
@@ -237,16 +359,18 @@ int io_uring_submit_and_wait(struct io_uring *ring, unsigned wait_nr)
 	return __io_uring_submit_and_wait(ring, wait_nr);
 }
 
-#define __io_uring_get_sqe(sq, __head) ({				\
-	unsigned __next = (sq)->sqe_tail + 1;				\
-	struct io_uring_sqe *__sqe = NULL;				\
-									\
-	if (__next - __head <= *(sq)->kring_entries) {			\
-		__sqe = &(sq)->sqes[(sq)->sqe_tail & *(sq)->kring_mask];\
-		(sq)->sqe_tail = __next;				\
-	}								\
-	__sqe;								\
-})
+static inline struct io_uring_sqe *
+__io_uring_get_sqe(struct io_uring_sq *sq, unsigned int __head)
+{
+	unsigned int __next = (sq)->sqe_tail + 1;
+	struct io_uring_sqe *__sqe = NULL;
+
+	if (__next - __head <= *(sq)->kring_entries) {
+		__sqe = &(sq)->sqes[(sq)->sqe_tail & *(sq)->kring_mask];
+		(sq)->sqe_tail = __next;
+	}
+	return __sqe;
+}
 
 /*
  * Return an sqe to fill. Application must later call io_uring_submit()
@@ -260,4 +384,15 @@ struct io_uring_sqe *io_uring_get_sqe(struct io_uring *ring)
 	struct io_uring_sq *sq = &ring->sq;
 
 	return __io_uring_get_sqe(sq, io_uring_smp_load_acquire(sq->khead));
+}
+
+int __io_uring_sqring_wait(struct io_uring *ring)
+{
+	int ret;
+
+	ret = __sys_io_uring_enter(ring->ring_fd, 0, 0, IORING_ENTER_SQ_WAIT,
+					NULL);
+	if (ret < 0)
+		ret = -errno;
+	return ret;
 }

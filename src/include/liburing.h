@@ -2,19 +2,22 @@
 #ifndef LIB_URING_H
 #define LIB_URING_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include <sys/socket.h>
 #include <sys/uio.h>
 #include <sys/stat.h>
+#include <errno.h>
 #include <signal.h>
+#include <stdbool.h>
 #include <inttypes.h>
 #include <time.h>
+#include <linux/swab.h>
 #include "liburing/compat.h"
 #include "liburing/io_uring.h"
 #include "liburing/barrier.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /*
  * Library interface to io_uring
@@ -34,6 +37,8 @@ struct io_uring_sq {
 
 	size_t ring_sz;
 	void *ring_ptr;
+
+	unsigned pad[4];
 };
 
 struct io_uring_cq {
@@ -41,11 +46,14 @@ struct io_uring_cq {
 	unsigned *ktail;
 	unsigned *kring_mask;
 	unsigned *kring_entries;
+	unsigned *kflags;
 	unsigned *koverflow;
 	struct io_uring_cqe *cqes;
 
 	size_t ring_sz;
 	void *ring_ptr;
+
+	unsigned pad[4];
 };
 
 struct io_uring {
@@ -53,6 +61,9 @@ struct io_uring {
 	struct io_uring_cq cq;
 	unsigned flags;
 	int ring_fd;
+
+	unsigned features;
+	unsigned pad[3];
 };
 
 /*
@@ -66,6 +77,12 @@ struct io_uring {
 extern struct io_uring_probe *io_uring_get_probe_ring(struct io_uring *ring);
 /* same as io_uring_get_probe_ring, but takes care of ring init and teardown */
 extern struct io_uring_probe *io_uring_get_probe(void);
+
+/*
+ * frees a probe allocated through io_uring_get_probe() or
+ * io_uring_get_probe_ring()
+ */
+extern void io_uring_free_probe(struct io_uring_probe *probe);
 
 static inline int io_uring_opcode_supported(struct io_uring_probe *p, int op)
 {
@@ -109,6 +126,11 @@ extern int io_uring_register_probe(struct io_uring *ring,
 					struct io_uring_probe *p, unsigned nr);
 extern int io_uring_register_personality(struct io_uring *ring);
 extern int io_uring_unregister_personality(struct io_uring *ring, int id);
+extern int io_uring_register_restrictions(struct io_uring *ring,
+					  struct io_uring_restriction *res,
+					  unsigned int nr_res);
+extern int io_uring_enable_rings(struct io_uring *ring);
+extern int __io_uring_sqring_wait(struct io_uring *ring);
 
 /*
  * Helper for the peek/wait single cqe functions. Exported because of that,
@@ -194,13 +216,24 @@ static inline void io_uring_prep_rw(int op, struct io_uring_sqe *sqe, int fd,
 }
 
 static inline void io_uring_prep_splice(struct io_uring_sqe *sqe,
-					int fd_in, uint64_t off_in,
-					int fd_out, uint64_t off_out,
+					int fd_in, int64_t off_in,
+					int fd_out, int64_t off_out,
 					unsigned int nbytes,
 					unsigned int splice_flags)
 {
 	io_uring_prep_rw(IORING_OP_SPLICE, sqe, fd_out, NULL, nbytes, off_out);
 	sqe->splice_off_in = off_in;
+	sqe->splice_fd_in = fd_in;
+	sqe->splice_flags = splice_flags;
+}
+
+static inline void io_uring_prep_tee(struct io_uring_sqe *sqe,
+				     int fd_in, int fd_out,
+				     unsigned int nbytes,
+				     unsigned int splice_flags)
+{
+	io_uring_prep_rw(IORING_OP_TEE, sqe, fd_out, NULL, nbytes, 0);
+	sqe->splice_off_in = 0;
 	sqe->splice_fd_in = fd_in;
 	sqe->splice_flags = splice_flags;
 }
@@ -250,10 +283,13 @@ static inline void io_uring_prep_sendmsg(struct io_uring_sqe *sqe, int fd,
 }
 
 static inline void io_uring_prep_poll_add(struct io_uring_sqe *sqe, int fd,
-					  short poll_mask)
+					  unsigned poll_mask)
 {
 	io_uring_prep_rw(IORING_OP_POLL_ADD, sqe, fd, NULL, 0, 0);
-	sqe->poll_events = poll_mask;
+#if __BYTE_ORDER == __BIG_ENDIAN
+	poll_mask = __swahw32(poll_mask);
+#endif
+	sqe->poll32_events = poll_mask;
 }
 
 static inline void io_uring_prep_poll_remove(struct io_uring_sqe *sqe,
@@ -290,6 +326,15 @@ static inline void io_uring_prep_timeout_remove(struct io_uring_sqe *sqe,
 	sqe->timeout_flags = flags;
 }
 
+static inline void io_uring_prep_timeout_update(struct io_uring_sqe *sqe,
+						struct __kernel_timespec *ts,
+						__u64 user_data, unsigned flags)
+{
+	io_uring_prep_rw(IORING_OP_TIMEOUT_REMOVE, sqe, -1,
+				(void *)(unsigned long)user_data, 0, (__u64)ts);
+	sqe->timeout_flags = flags | IORING_TIMEOUT_UPDATE;
+}
+
 static inline void io_uring_prep_accept(struct io_uring_sqe *sqe, int fd,
 					struct sockaddr *addr,
 					socklen_t *addrlen, int flags)
@@ -315,7 +360,7 @@ static inline void io_uring_prep_link_timeout(struct io_uring_sqe *sqe,
 }
 
 static inline void io_uring_prep_connect(struct io_uring_sqe *sqe, int fd,
-					 struct sockaddr *addr,
+					 const struct sockaddr *addr,
 					 socklen_t addrlen)
 {
 	io_uring_prep_rw(IORING_OP_CONNECT, sqe, fd, addr, 0, addrlen);
@@ -428,46 +473,114 @@ static inline void io_uring_prep_remove_buffers(struct io_uring_sqe *sqe,
 	sqe->buf_group = bgid;
 }
 
+static inline void io_uring_prep_shutdown(struct io_uring_sqe *sqe, int fd,
+					  int how)
+{
+	io_uring_prep_rw(IORING_OP_SHUTDOWN, sqe, fd, NULL, how, 0);
+}
+
+static inline void io_uring_prep_unlinkat(struct io_uring_sqe *sqe, int dfd,
+					  const char *path, int flags)
+{
+	io_uring_prep_rw(IORING_OP_UNLINKAT, sqe, dfd, path, 0, 0);
+	sqe->unlink_flags = flags;
+}
+
+static inline void io_uring_prep_renameat(struct io_uring_sqe *sqe, int olddfd,
+					  const char *oldpath, int newdfd,
+					  const char *newpath, int flags)
+{
+	io_uring_prep_rw(IORING_OP_RENAMEAT, sqe, olddfd, oldpath, newdfd,
+				(uint64_t) (uintptr_t) newpath);
+	sqe->rename_flags = flags;
+}
+
+/*
+ * Returns number of unconsumed (if SQPOLL) or unsubmitted entries exist in
+ * the SQ ring
+ */
 static inline unsigned io_uring_sq_ready(struct io_uring *ring)
 {
+	/*
+	 * Without a barrier, we could miss an update and think the SQ wasn't ready.
+	 * We don't need the load acquire for non-SQPOLL since then we drive updates.
+	 */
+	if (ring->flags & IORING_SETUP_SQPOLL)
+		return ring->sq.sqe_tail - io_uring_smp_load_acquire(ring->sq.khead);
+
 	/* always use real head, to avoid losing sync for short submit */
 	return ring->sq.sqe_tail - *ring->sq.khead;
 }
 
+/*
+ * Returns how much space is left in the SQ ring.
+ */
 static inline unsigned io_uring_sq_space_left(struct io_uring *ring)
 {
 	return *ring->sq.kring_entries - io_uring_sq_ready(ring);
 }
 
+/*
+ * Only applicable when using SQPOLL - allows the caller to wait for space
+ * to free up in the SQ ring, which happens when the kernel side thread has
+ * consumed one or more entries. If the SQ ring is currently non-full, no
+ * action is taken. Note: may return -EINVAL if the kernel doesn't support
+ * this feature.
+ */
+static inline int io_uring_sqring_wait(struct io_uring *ring)
+{
+	if (!(ring->flags & IORING_SETUP_SQPOLL))
+		return 0;
+	if (io_uring_sq_space_left(ring))
+		return 0;
+
+	return __io_uring_sqring_wait(ring);
+}
+
+/*
+ * Returns how many unconsumed entries are ready in the CQ ring
+ */
 static inline unsigned io_uring_cq_ready(struct io_uring *ring)
 {
 	return io_uring_smp_load_acquire(ring->cq.ktail) - *ring->cq.khead;
 }
 
-static int __io_uring_peek_cqe(struct io_uring *ring, struct io_uring_cqe **cqe_ptr)
+/*
+ * Returns true if the eventfd notification is currently enabled
+ */
+static inline bool io_uring_cq_eventfd_enabled(struct io_uring *ring)
 {
-	struct io_uring_cqe *cqe;
-	unsigned head;
-	int err = 0;
+	if (!ring->cq.kflags)
+		return true;
 
-	do {
-		io_uring_for_each_cqe(ring, head, cqe)
-			break;
-		if (cqe) {
-			if (cqe->user_data == LIBURING_UDATA_TIMEOUT) {
-				if (cqe->res < 0)
-					err = cqe->res;
-				io_uring_cq_advance(ring, 1);
-				if (!err)
-					continue;
-				cqe = NULL;
-			}
-		}
-		break;
-	} while (1);
+	return !(*ring->cq.kflags & IORING_CQ_EVENTFD_DISABLED);
+}
 
-	*cqe_ptr = cqe;
-	return err;
+/*
+ * Toggle eventfd notification on or off, if an eventfd is registered with
+ * the ring.
+ */
+static inline int io_uring_cq_eventfd_toggle(struct io_uring *ring,
+					     bool enabled)
+{
+	uint32_t flags;
+
+	if (!!enabled == io_uring_cq_eventfd_enabled(ring))
+		return 0;
+
+	if (!ring->cq.kflags)
+		return -EOPNOTSUPP;
+
+	flags = *ring->cq.kflags;
+
+	if (enabled)
+		flags &= ~IORING_CQ_EVENTFD_DISABLED;
+	else
+		flags |= IORING_CQ_EVENTFD_DISABLED;
+
+	IO_URING_WRITE_ONCE(*ring->cq.kflags, flags);
+
+	return 0;
 }
 
 /*
@@ -479,12 +592,6 @@ static inline int io_uring_wait_cqe_nr(struct io_uring *ring,
 				      struct io_uring_cqe **cqe_ptr,
 				      unsigned wait_nr)
 {
-	int err;
-
-	err = __io_uring_peek_cqe(ring, cqe_ptr);
-	if (err || *cqe_ptr)
-		return err;
-
 	return __io_uring_get_cqe(ring, cqe_ptr, 0, wait_nr, NULL);
 }
 

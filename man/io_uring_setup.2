@@ -97,11 +97,14 @@ call with the following code sequence:
 .in +4n
 .EX
 /*
- * Ensure that the wakeup flag is read after the tail pointer has been
- * written.
+ * Ensure that the wakeup flag is read after the tail pointer
+ * has been written. It's important to use memory load acquire
+ * semantics for the flags read, as otherwise the application
+ * and the kernel might not agree on the consistency of the
+ * wakeup flag.
  */
-smp_mb();
-if (*sq_ring->flags & IORING_SQ_NEED_WAKEUP)
+unsigned flags = atomic_load_relaxed(sq_ring->flags);
+if (flags & IORING_SQ_NEED_WAKEUP)
     io_uring_enter(fd, 0, 0, IORING_ENTER_SQ_WAKEUP);
 .EE
 .in
@@ -113,13 +116,20 @@ is a submission queue ring setup using the
 described below.
 .TP
 .BR
-To successfully use this feature, the application must register a set of files
-to be used for IO through
+Before version 5.10 of the Linux kernel, to successfully use this feature, the
+application must register a set of files to be used for IO through
 .BR io_uring_register (2)
 using the
 .B IORING_REGISTER_FILES
 opcode. Failure to do so will result in submitted IO being errored with
 .B EBADF.
+The presence of this feature can be detected by the
+.B IORING_FEAT_SQPOLL_NONFIXED
+feature flag.
+In version 5.10 and later, it is no longer necessary to register files to use
+this feature. 5.10 also allows using this as non-root, if the user has the
+.B CAP_SYS_NICE
+capability.
 .TP
 .B IORING_SETUP_SQ_AFF
 If this flag is specified, then the poll thread will be bound to the
@@ -137,6 +147,39 @@ Create the completion queue with
 entries.  The value must be greater than
 .IR entries ,
 and may be rounded up to the next power-of-two.
+.TP
+.B IORING_SETUP_CLAMP
+If this flag is specified, and if
+.IR entries
+exceeds
+.B IORING_MAX_ENTRIES ,
+then
+.IR entries
+will be clamped at
+.B IORING_MAX_ENTRIES .
+If the flag
+.BR IORING_SETUP_SQPOLL
+is set, and if the value of
+.IR "struct io_uring_params.cq_entries"
+exceeds
+.B IORING_MAX_CQ_ENTRIES ,
+then it will be clamped at
+.B IORING_MAX_CQ_ENTRIES .
+.TP
+.B IORING_SETUP_ATTACH_WQ
+This flag should be set in conjunction with 
+.IR "struct io_uring_params.wq_fd"
+being set to an existing io_uring ring file descriptor. When set, the
+io_uring instance being created will share the asynchronous worker
+thread backend of the specified io_uring ring, rather than create a new
+separate thread pool.
+.TP
+.B IORING_SETUP_R_DISABLED
+If this flag is specified, the io_uring ring starts in a disabled state.
+In this state, restrictions can be registered, but submissions are not allowed.
+See
+.BR io_uring_register (2)
+for details on how to enable the ring. Available since 5.10.
 .PP
 If no flags are specified, the io_uring instance is setup for
 interrupt driven I/O.  I/O may be submitted using
@@ -208,6 +251,28 @@ io_uring_register(2)
 with
 .B IORING_REGISTER_PERSONALITY
 and specify the personality to use in the sqe.
+.TP
+.B IORING_FEAT_FAST_POLL
+If this flag is set, then io_uring supports using an internal poll mechanism
+to drive data/space readiness. This means that requests that cannot read or
+write data to a file no longer need to be punted to an async thread for
+handling, instead they will being operation when the file is ready. This is
+similar to doing poll + read/write in userspace, but eliminates the need to do
+so. If this flag is set, requests waiting on space/data consume a lot less
+resources doing so as they are not blocking a thread.
+.TP
+.B IORING_FEAT_POLL_32BITS
+If this flag is set, the
+.B IORING_OP_POLL_ADD
+command accepts the full 32-bit range of epoll based flags. Most notably
+.B EPOLLEXCLUSIVE
+which allows exclusive (waking single waiters) behavior.
+.TP
+.B IORING_FEAT_SQPOLL_NONFIXED
+If this flag is set, the
+.B IORING_SETUP_SQPOLL
+feature no longer requires the use of fixed files. Any normal file descriptor
+can be used for IO commands without needing registration.
 
 .PP
 The rest of the fields in the
@@ -325,7 +390,8 @@ struct io_cqring_offsets {
     __u32 ring_entries;
     __u32 overflow;
     __u32 cqes;
-    __u32 resv[4];
+    __u32 flags;
+    __u32 resv[3];
 };
 .EE
 .in

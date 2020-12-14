@@ -57,6 +57,9 @@ int main(int argc, char *argv[])
 	int ret, i;
 	unsigned got;
 
+	if (argc > 1)
+		return 0;
+
 	ret = io_uring_queue_init(4, &ring, 0);
 	if (ret) {
 		printf("ring setup failed\n");
@@ -71,7 +74,8 @@ int main(int argc, char *argv[])
 	CHECK_BATCH(&ring, got, cqes, 4, 4);
 	for (i=0;i<4;i++) {
 		if (i != cqes[i]->user_data) {
-			printf("Got user_data %lld, expected %d\n", cqes[i]->user_data, i);
+			printf("Got user_data %" PRIu64 ", expected %d\n",
+				(uint64_t) cqes[i]->user_data, i);
 			goto err;
 		}
 	}
@@ -83,7 +87,8 @@ int main(int argc, char *argv[])
 	CHECK_BATCH(&ring, got, cqes, 4, 4);
 	for (i=0;i<4;i++) {
 		if (i + 4 != cqes[i]->user_data) {
-			printf("Got user_data %lld, expected %d\n", cqes[i]->user_data, i + 4);
+			printf("Got user_data %" PRIu64 ", expected %d\n",
+				(uint64_t) cqes[i]->user_data, i + 4);
 			goto err;
 		}
 	}

@@ -22,6 +22,9 @@ int main(int argc, char *argv[])
 		.tv_nsec = 1000000
 	};
 
+	if (argc > 1)
+		return 0;
+
 	if (io_uring_queue_init(4, &ring, 0) != 0) {
 		fprintf(stderr, "ring setup failed\n");
 		return 1;
@@ -34,8 +37,10 @@ int main(int argc, char *argv[])
 	addr.sun_family = AF_UNIX;
 	memcpy(addr.sun_path, "\0sock", 6);
 
-	assert(bind(fd, (struct sockaddr *)&addr, addrlen) != -1);
-	assert(listen(fd, 128) != -1);
+	ret = bind(fd, (struct sockaddr *)&addr, addrlen);
+	assert(ret != -1);
+	ret = listen(fd, 128);
+	assert(ret != -1);
 
 	sqe = io_uring_get_sqe(&ring);
 	if (!sqe) {
@@ -52,11 +57,23 @@ int main(int argc, char *argv[])
 	}
 
 	ret = io_uring_wait_cqe_timeout(&ring, &cqe, &ts);
-	if (ret != -ETIME) {
+	if (!ret) {
+		if (cqe->res == -EBADF || cqe->res == -EINVAL) {
+			fprintf(stdout, "Accept not supported, skipping\n");
+			goto out;
+		} else if (cqe->res < 0) {
+			fprintf(stderr, "cqe error %d\n", cqe->res);
+			goto err;
+		}
+	} else if (ret != -ETIME) {
 		fprintf(stderr, "accept() failed to use addr & addrlen parameters!\n");
 		return 1;
 	}
 
+out:
 	io_uring_queue_exit(&ring);
 	return 0;
+err:
+	io_uring_queue_exit(&ring);
+	return 1;
 }

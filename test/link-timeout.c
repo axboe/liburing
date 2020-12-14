@@ -592,7 +592,7 @@ static int test_timeout_link_chain1(struct io_uring *ring)
 		switch (cqe->user_data) {
 		case 1:
 			if (cqe->res != -EINTR && cqe->res != -ECANCELED) {
-				fprintf(stderr, "Req %llu got %d\n", cqe->user_data,
+				fprintf(stderr, "Req %" PRIu64 " got %d\n", (uint64_t) cqe->user_data,
 						cqe->res);
 				goto err;
 			}
@@ -600,14 +600,14 @@ static int test_timeout_link_chain1(struct io_uring *ring)
 		case 2:
 			/* FASTPOLL kernels can cancel successfully */
 			if (cqe->res != -EALREADY && cqe->res != -ETIME) {
-				fprintf(stderr, "Req %llu got %d\n", cqe->user_data,
+				fprintf(stderr, "Req %" PRIu64 " got %d\n", (uint64_t) cqe->user_data,
 						cqe->res);
 				goto err;
 			}
 			break;
 		case 3:
 			if (cqe->res != -ECANCELED) {
-				fprintf(stderr, "Req %llu got %d\n", cqe->user_data,
+				fprintf(stderr, "Req %" PRIu64 " got %d\n", (uint64_t) cqe->user_data,
 						cqe->res);
 				goto err;
 			}
@@ -687,14 +687,14 @@ static int test_timeout_link_chain2(struct io_uring *ring)
 		/* poll cancel really should return -ECANCEL... */
 		case 1:
 			if (cqe->res != -ECANCELED) {
-				fprintf(stderr, "Req %llu got %d\n", cqe->user_data,
+				fprintf(stderr, "Req %" PRIu64 " got %d\n", (uint64_t) cqe->user_data,
 						cqe->res);
 				goto err;
 			}
 			break;
 		case 2:
 			if (cqe->res != -ETIME) {
-				fprintf(stderr, "Req %llu got %d\n", cqe->user_data,
+				fprintf(stderr, "Req %" PRIu64 " got %d\n", (uint64_t) cqe->user_data,
 						cqe->res);
 				goto err;
 			}
@@ -702,7 +702,7 @@ static int test_timeout_link_chain2(struct io_uring *ring)
 		case 3:
 		case 4:
 			if (cqe->res != -ECANCELED) {
-				fprintf(stderr, "Req %llu got %d\n", cqe->user_data,
+				fprintf(stderr, "Req %" PRIu64 " got %d\n", (uint64_t) cqe->user_data,
 						cqe->res);
 				goto err;
 			}
@@ -805,7 +805,7 @@ static int test_timeout_link_chain3(struct io_uring *ring)
 		switch (cqe->user_data) {
 		case 2:
 			if (cqe->res != -ETIME) {
-				fprintf(stderr, "Req %llu got %d\n", cqe->user_data,
+				fprintf(stderr, "Req %" PRIu64 " got %d\n", (uint64_t) cqe->user_data,
 						cqe->res);
 				goto err;
 			}
@@ -815,14 +815,14 @@ static int test_timeout_link_chain3(struct io_uring *ring)
 		case 4:
 		case 5:
 			if (cqe->res != -ECANCELED) {
-				fprintf(stderr, "Req %llu got %d\n", cqe->user_data,
+				fprintf(stderr, "Req %" PRIu64 " got %d\n", (uint64_t) cqe->user_data,
 						cqe->res);
 				goto err;
 			}
 			break;
 		case 6:
 			if (cqe->res) {
-				fprintf(stderr, "Req %llu got %d\n", cqe->user_data,
+				fprintf(stderr, "Req %" PRIu64 " got %d\n", (uint64_t) cqe->user_data,
 						cqe->res);
 				goto err;
 			}
@@ -892,21 +892,21 @@ static int test_timeout_link_chain4(struct io_uring *ring)
 		/* poll cancel really should return -ECANCEL... */
 		case 1:
 			if (cqe->res) {
-				fprintf(stderr, "Req %llu got %d\n", cqe->user_data,
+				fprintf(stderr, "Req %" PRIu64 " got %d\n", (uint64_t) cqe->user_data,
 						cqe->res);
 				goto err;
 			}
 			break;
 		case 2:
 			if (cqe->res != -ECANCELED) {
-				fprintf(stderr, "Req %llu got %d\n", cqe->user_data,
+				fprintf(stderr, "Req %" PRIu64 " got %d\n", (uint64_t) cqe->user_data,
 						cqe->res);
 				goto err;
 			}
 			break;
 		case 3:
 			if (cqe->res != -ETIME) {
-				fprintf(stderr, "Req %llu got %d\n", cqe->user_data,
+				fprintf(stderr, "Req %" PRIu64 " got %d\n", (uint64_t) cqe->user_data,
 						cqe->res);
 				goto err;
 			}
@@ -996,6 +996,9 @@ int main(int argc, char *argv[])
 {
 	struct io_uring ring;
 	int ret;
+
+	if (argc > 1)
+		return 0;
 
 	ret = io_uring_queue_init(8, &ring, 0);
 	if (ret) {

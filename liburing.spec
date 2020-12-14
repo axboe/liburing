@@ -1,5 +1,5 @@
 Name: liburing
-Version: 0.6
+Version: 0.7
 Release: 1%{?dist}
 Summary: Linux-native io_uring I/O access library
 License: (GPLv2 with exceptions and LGPLv2+) or MIT
@@ -44,6 +44,7 @@ for the Linux-native io_uring.
 %exclude %{_libdir}/liburing.a
 %{_libdir}/pkgconfig/*
 %{_mandir}/man2/*
+%{_mandir}/man3/*
 
 %changelog
 * Thu Oct 31 2019 Jeff Moyer <jmoyer@redhat.com> - 0.2-1

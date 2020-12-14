@@ -62,9 +62,11 @@ static int accept_conn(struct io_uring *ring, int fd)
 	sqe = io_uring_get_sqe(ring);
 	io_uring_prep_accept(sqe, fd, NULL, NULL, 0);
 
-	assert(io_uring_submit(ring) != -1);
+	ret = io_uring_submit(ring);
+	assert(ret != -1);
 
-	assert(!io_uring_wait_cqe(ring, &cqe));
+	ret = io_uring_wait_cqe(ring, &cqe);
+	assert(!ret);
 	ret = cqe->res;
 	io_uring_cqe_seen(ring, cqe);
 	return ret;
@@ -72,13 +74,15 @@ static int accept_conn(struct io_uring *ring, int fd)
 
 static int start_accept_listen(struct sockaddr_in *addr, int port_off)
 {
-	int fd;
+	int fd, ret;
 
 	fd = socket(AF_INET, SOCK_STREAM | SOCK_CLOEXEC, IPPROTO_TCP);
 
 	int32_t val = 1;
-	assert(setsockopt(fd, SOL_SOCKET, SO_REUSEPORT, &val, sizeof(val)) != -1);
-	assert(setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &val, sizeof(val)) != -1);
+	ret = setsockopt(fd, SOL_SOCKET, SO_REUSEPORT, &val, sizeof(val));
+	assert(ret != -1);
+	ret = setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &val, sizeof(val));
+	assert(ret != -1);
 
 	struct sockaddr_in laddr;
 
@@ -89,8 +93,10 @@ static int start_accept_listen(struct sockaddr_in *addr, int port_off)
 	addr->sin_port = 0x1235 + port_off;
 	addr->sin_addr.s_addr = 0x0100007fU;
 
-	assert(bind(fd, (struct sockaddr*)addr, sizeof(*addr)) != -1);
-	assert(listen(fd, 128) != -1);
+	ret = bind(fd, (struct sockaddr*)addr, sizeof(*addr));
+	assert(ret != -1);
+	ret = listen(fd, 128);
+	assert(ret != -1);
 
 	return fd;
 }
@@ -103,27 +109,32 @@ static int test(struct io_uring *ring, int accept_should_error)
 	uint32_t count = 0;
 	int done = 0;
 	int p_fd[2];
+        int ret;
 
 	int32_t val, recv_s0 = start_accept_listen(&addr, 0);
 
 	p_fd[1] = socket(AF_INET, SOCK_STREAM | SOCK_CLOEXEC, IPPROTO_TCP);
 
 	val = 1;
-	assert(setsockopt(p_fd[1], IPPROTO_TCP, TCP_NODELAY, &val, sizeof(val)) != -1);
+	ret = setsockopt(p_fd[1], IPPROTO_TCP, TCP_NODELAY, &val, sizeof(val));
+	assert(ret != -1);
 
 	int32_t flags = fcntl(p_fd[1], F_GETFL, 0);
 	assert(flags != -1);
 
 	flags |= O_NONBLOCK;
-	assert(fcntl(p_fd[1], F_SETFL, flags) != -1);
+	ret = fcntl(p_fd[1], F_SETFL, flags);
+	assert(ret != -1);
 
-	assert(connect(p_fd[1], (struct sockaddr*)&addr, sizeof(addr)) == -1);
+	ret = connect(p_fd[1], (struct sockaddr*)&addr, sizeof(addr));
+	assert(ret == -1);
 
 	flags = fcntl(p_fd[1], F_GETFL, 0);
 	assert(flags != -1);
 
 	flags &= ~O_NONBLOCK;
-	assert(fcntl(p_fd[1], F_SETFL, flags) != -1);
+	ret = fcntl(p_fd[1], F_SETFL, flags);
+	assert(ret != -1);
 
 	p_fd[0] = accept_conn(ring, recv_s0);
 	if (p_fd[0] == -EINVAL) {
@@ -143,7 +154,8 @@ static int test(struct io_uring *ring, int accept_should_error)
 	queue_send(ring, p_fd[1]);
 	queue_recv(ring, p_fd[0]);
 
-	assert(io_uring_submit_and_wait(ring, 2) != -1);
+	ret = io_uring_submit_and_wait(ring, 2);
+	assert(ret != -1);
 
 	while (count < 2) {
 		io_uring_for_each_cqe(ring, head, cqe) {
@@ -165,10 +177,12 @@ static int test(struct io_uring *ring, int accept_should_error)
 out:
 	close(p_fd[0]);
 	close(p_fd[1]);
+	close(recv_s0);
 	return 0;
 err:
 	close(p_fd[0]);
 	close(p_fd[1]);
+	close(recv_s0);
 	return 1;
 }
 
@@ -182,19 +196,22 @@ static int test_accept_pending_on_exit(void)
 	struct io_uring m_io_uring;
 	struct io_uring_cqe *cqe;
 	struct io_uring_sqe *sqe;
-	int fd;
+	int fd, ret;
 
-	assert(io_uring_queue_init(32, &m_io_uring, 0) >= 0);
+	ret = io_uring_queue_init(32, &m_io_uring, 0);
+	assert(ret >= 0);
 
 	fd = start_accept_listen(NULL, 0);
 
 	sqe = io_uring_get_sqe(&m_io_uring);
 	io_uring_prep_accept(sqe, fd, NULL, NULL, 0);
-	assert(io_uring_submit(&m_io_uring) != -1);
+	ret = io_uring_submit(&m_io_uring);
+	assert(ret != -1);
 
 	signal(SIGALRM, sig_alrm);
 	alarm(1);
-	assert(!io_uring_wait_cqe(&m_io_uring, &cqe));
+	ret = io_uring_wait_cqe(&m_io_uring, &cqe);
+	assert(!ret);
 	io_uring_cqe_seen(&m_io_uring, cqe);
 
 	io_uring_queue_exit(&m_io_uring);
@@ -211,7 +228,7 @@ static int test_accept_many(unsigned nr, unsigned usecs)
 	struct io_uring_sqe *sqe;
 	unsigned long cur_lim;
 	struct rlimit rlim;
-	int *fds, i, ret = 0;
+	int *fds, i, ret;
 
 	if (getrlimit(RLIMIT_NPROC, &rlim) < 0) {
 		perror("getrlimit");
@@ -226,7 +243,8 @@ static int test_accept_many(unsigned nr, unsigned usecs)
 		return 1;
 	}
 
-	assert(io_uring_queue_init(2 * nr, &m_io_uring, 0) >= 0);
+	ret = io_uring_queue_init(2 * nr, &m_io_uring, 0);
+	assert(ret >= 0);
 
 	fds = calloc(nr, sizeof(int));
 
@@ -237,7 +255,8 @@ static int test_accept_many(unsigned nr, unsigned usecs)
 		sqe = io_uring_get_sqe(&m_io_uring);
 		io_uring_prep_accept(sqe, fds[i], NULL, NULL, 0);
 		sqe->user_data = 1 + i;
-		assert(io_uring_submit(&m_io_uring) == 1);
+		ret = io_uring_submit(&m_io_uring);
+		assert(ret == 1);
 	}
 
 	if (usecs)
@@ -261,7 +280,7 @@ out:
 
 	free(fds);
 	io_uring_queue_exit(&m_io_uring);
-	return ret;
+	return 0;
 err:
 	ret = 1;
 	goto out;
@@ -272,16 +291,18 @@ static int test_accept_cancel(unsigned usecs)
 	struct io_uring m_io_uring;
 	struct io_uring_cqe *cqe;
 	struct io_uring_sqe *sqe;
-	int fd, i;
+	int fd, i, ret;
 
-	assert(io_uring_queue_init(32, &m_io_uring, 0) >= 0);
+	ret = io_uring_queue_init(32, &m_io_uring, 0);
+	assert(ret >= 0);
 
 	fd = start_accept_listen(NULL, 0);
 
 	sqe = io_uring_get_sqe(&m_io_uring);
 	io_uring_prep_accept(sqe, fd, NULL, NULL, 0);
 	sqe->user_data = 1;
-	assert(io_uring_submit(&m_io_uring) == 1);
+        ret = io_uring_submit(&m_io_uring);
+	assert(ret == 1);
 
 	if (usecs)
 		usleep(usecs);
@@ -289,10 +310,12 @@ static int test_accept_cancel(unsigned usecs)
 	sqe = io_uring_get_sqe(&m_io_uring);
 	io_uring_prep_cancel(sqe, (void *) 1, 0);
 	sqe->user_data = 2;
-	assert(io_uring_submit(&m_io_uring) == 1);
+	ret = io_uring_submit(&m_io_uring);
+	assert(ret == 1);
 
 	for (i = 0; i < 2; i++) {
-		assert(!io_uring_wait_cqe(&m_io_uring, &cqe));
+		ret = io_uring_wait_cqe(&m_io_uring, &cqe);
+		assert(!ret);
 		/*
 		 * Two cases here:
 		 *
@@ -329,7 +352,8 @@ static int test_accept(void)
 	struct io_uring m_io_uring;
 	int ret;
 
-	assert(io_uring_queue_init(32, &m_io_uring, 0) >= 0);
+	ret = io_uring_queue_init(32, &m_io_uring, 0);
+	assert(ret >= 0);
 	ret = test(&m_io_uring, 0);
 	io_uring_queue_exit(&m_io_uring);
 	return ret;
@@ -338,16 +362,22 @@ static int test_accept(void)
 static int test_accept_sqpoll(void)
 {
 	struct io_uring m_io_uring;
-	int ret;
+	struct io_uring_params p = { };
+	int ret, should_fail;
 
-	ret = io_uring_queue_init(32, &m_io_uring, IORING_SETUP_SQPOLL);
+	p.flags = IORING_SETUP_SQPOLL;
+	ret = io_uring_queue_init_params(32, &m_io_uring, &p);
 	if (ret && geteuid()) {
 		printf("%s: skipped, not root\n", __FUNCTION__);
 		return 0;
 	} else if (ret)
 		return ret;
 
-	ret = test(&m_io_uring, 1);
+	should_fail = 1;
+	if (p.features & IORING_FEAT_SQPOLL_NONFIXED)
+		should_fail = 0;
+
+	ret = test(&m_io_uring, should_fail);
 	io_uring_queue_exit(&m_io_uring);
 	return ret;
 }
@@ -355,6 +385,9 @@ static int test_accept_sqpoll(void)
 int main(int argc, char *argv[])
 {
 	int ret;
+
+	if (argc > 1)
+		return 0;
 
 	ret = test_accept();
 	if (ret) {

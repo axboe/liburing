@@ -1,5 +1,4 @@
 /* SPDX-License-Identifier: MIT */
-#include <assert.h>
 #include <liburing.h>
 #include <netdb.h>
 #include <string.h>
@@ -44,8 +43,11 @@ int main(int argc, char **argv)
 	socklen_t sa_size = sizeof(sa);
 	int ret, listen_fd, connect_fd, val, i;
 
+	if (argc > 1)
+		return 0;
+
 	memset(&params, 0, sizeof(params));
-	ret = io_uring_queue_init_params(1024, &io_uring, &params);
+	ret = io_uring_queue_init_params(4, &io_uring, &params);
 	if (ret) {
 		fprintf(stderr, "io_uring_init_failed: %d\n", ret);
 		return 1;

@@ -17,6 +17,8 @@
 
 #include "liburing.h"
 
+static int no_connect;
+
 static int create_socket(void)
 {
 	int fd;
@@ -175,10 +177,16 @@ static int test_connect_with_no_peer(struct io_uring *ring)
 		goto err;
 
 	if (code != -ECONNREFUSED) {
+		if (code == -EINVAL || code == -EBADF || code == -EOPNOTSUPP) {
+			fprintf(stdout, "No connect support, skipping\n");
+			no_connect = 1;
+			goto out;
+		}
 		fprintf(stderr, "connect failed with %d\n", code);
 		goto err;
 	}
 
+out:
 	close(connect_fd);
 	return 0;
 
@@ -232,6 +240,9 @@ int main(int argc, char *argv[])
 	struct io_uring ring;
 	int ret;
 
+	if (argc > 1)
+		return 0;
+
 	ret = io_uring_queue_init(8, &ring, 0);
 	if (ret) {
 		fprintf(stderr, "io_uring_queue_setup() = %d\n", ret);
@@ -243,6 +254,8 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "test_connect_with_no_peer(): failed\n");
 		return 1;
 	}
+	if (no_connect)
+		return 0;
 
 	ret = test_connect(&ring);
 	if (ret == -1) {

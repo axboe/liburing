@@ -13,6 +13,9 @@ all:
 	@$(MAKE) -C test
 	@$(MAKE) -C examples
 
+.PHONY: all install default clean test
+.PHONY: FORCE cscope
+
 partcheck: all
 	@echo "make partcheck => TODO add tests with out kernel support"
 
@@ -51,12 +54,14 @@ install: $(NAME).pc
 	$(INSTALL) -D -m 644 $(NAME).pc $(DESTDIR)$(libdevdir)/pkgconfig/$(NAME).pc
 	$(INSTALL) -m 755 -d $(DESTDIR)$(mandir)/man2
 	$(INSTALL) -m 644 man/*.2 $(DESTDIR)$(mandir)/man2
+	$(INSTALL) -m 755 -d $(DESTDIR)$(mandir)/man3
+	$(INSTALL) -m 644 man/*.3 $(DESTDIR)$(mandir)/man3
 
 install-tests:
 	@$(MAKE) -C test install prefix=$(DESTDIR)$(prefix) datadir=$(DESTDIR)$(datadir)
 
 clean:
-	@rm -f config-host.mak config-host.h cscope.out $(NAME).pc
+	@rm -f config-host.mak config-host.h cscope.out $(NAME).pc test/*.dmesg
 	@$(MAKE) -C src clean
 	@$(MAKE) -C test clean
 	@$(MAKE) -C examples clean
