@@ -25,10 +25,11 @@ static inline bool sq_ring_needs_enter(struct io_uring *ring, unsigned *flags)
 {
 	if (!(ring->flags & IORING_SETUP_SQPOLL))
 		return true;
-	if (IO_URING_READ_ONCE(*ring->sq.kflags) & IORING_SQ_NEED_WAKEUP) {
-		*flags |= IORING_ENTER_SQ_WAKEUP;
-		return true;
-	}
+    if (uring_unlikely(IO_URING_READ_ONCE(*ring->sq.kflags) &
+                       IORING_SQ_NEED_WAKEUP)) {
+        *flags |= IORING_ENTER_SQ_WAKEUP;
+        return true;
+    }
 
 	return false;
 }
