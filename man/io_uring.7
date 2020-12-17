@@ -637,7 +637,7 @@ int read_from_cq() {
     /* Get the entry */
     cqe = &cqes[head & (*cring_mask)];
     if (cqe->res < 0)
-        fprintf(stderr, "Error: %s\n", strerror(abs(cqe->res)));
+        fprintf(stderr, "Error: %s\\n", strerror(abs(cqe->res)));
 
     head++;
 
@@ -698,7 +698,7 @@ int main(int argc, char *argv[]) {
 
     /* Setup io_uring for use */
     if(app_setup_uring()) {
-        fprintf(stderr, "Unable to setup uring!\n");
+        fprintf(stderr, "Unable to setup uring!\\n");
         return 1;
     }
 
@@ -721,7 +721,7 @@ int main(int argc, char *argv[]) {
         }
         else if (res < 0) {
             /* Error reading file */
-            fprintf(stderr, "Error: %s\n", strerror(abs(res)));
+            fprintf(stderr, "Error: %s\\n", strerror(abs(res)));
             break;
         }
         offset += res;
