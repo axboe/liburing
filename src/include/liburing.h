@@ -15,6 +15,14 @@
 #include "liburing/io_uring.h"
 #include "liburing/barrier.h"
 
+#ifndef uring_unlikely
+#  define uring_unlikely(cond)      __builtin_expect(!!(cond), 0)
+#endif
+
+#ifndef uring_likely
+#  define uring_likely(cond)        __builtin_expect(!!(cond), 1)
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
