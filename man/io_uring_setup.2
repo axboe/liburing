@@ -256,7 +256,7 @@ and specify the personality to use in the sqe.
 If this flag is set, then io_uring supports using an internal poll mechanism
 to drive data/space readiness. This means that requests that cannot read or
 write data to a file no longer need to be punted to an async thread for
-handling, instead they will being operation when the file is ready. This is
+handling, instead they will begin operation when the file is ready. This is
 similar to doing poll + read/write in userspace, but eliminates the need to do
 so. If this flag is set, requests waiting on space/data consume a lot less
 resources doing so as they are not blocking a thread.
