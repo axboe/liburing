@@ -701,6 +701,62 @@ must contain the number of buffers to remove, and
 must contain the buffer group ID from which to remove the buffers. Available
 since 5.7.
 
+.TP
+.B IORING_OP_SHUTDOWN
+Issue the equivalent of a
+.BR shutdown(2)
+system call.
+.I fd
+is the file descriptor to the socket being shutdown, no other fields should
+be set. Available since 5.11.
+
+.TP
+.B IORING_OP_RENAMEAT
+Issue the equivalent of a
+.BR renameat2(2)
+system call.
+.I fd
+should be set to the
+.I olddirfd,
+.I addr
+should be set to the
+.I oldpath,
+.I len
+should be set to the
+.I newdirfd,
+.I addr
+should be set to the
+.I oldpath,
+.I addr2
+should be set to the
+.I newpath,
+and finally
+.I rename_flags
+should be set to the
+.I flags
+passed in to
+.BR renameat2(2).
+Available since 5.11.
+
+.TP
+.B IORING_OP_UNLINKAT
+Issue the equivalent of a
+.BR unlinkat2(2)
+system call.
+.I fd
+should be set to the
+.I dirfd,
+.I addr
+should be set to the
+.I pathname,
+and
+.I unlink_flags
+should be set to the
+.I flags
+being passed in to
+.BR unlinkat(2).
+Available since 5.11.
+
 .PP
 The
 .I flags
