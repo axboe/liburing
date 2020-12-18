@@ -29,15 +29,35 @@ initiated by this call or previous calls to
 is the file descriptor returned by
 .BR io_uring_setup (2).
 .I to_submit
-specifies the number of I/Os to submit from the submission queue.  If
-the
+specifies the number of I/Os to submit from the submission queue.
+.I flags
+is a bitmask of the following values:
+.TP
 .B IORING_ENTER_GETEVENTS
-bit is set in
-.IR flags ,
-then the system call will attempt to wait for
+If this flag is set, then the system call will wait for the specificied
+number of events in
 .I min_complete
-event completions before returning.  If the io_uring instance was
-configured for polling, by specifying
+before returning. This flag can be set along with
+.I to_submit
+to both submit and complete events in a single system call.
+.TP
+.B IORING_ENTER_SQ_WAKEUP
+If the ring has been created with
+.B IORING_SETUP_SQPOLL,
+then this flag asks the kernel to wakeup the SQ kernel thread to submit IO.
+.TP
+.B IORING_ENTER_SQ_WAIT
+If the ring has been created with
+.B IORING_SETUP_SQPOLL,
+then the application has no real insight into when the SQ kernel thread has
+consumed entries from the SQ ring. This can lead to a situation where the
+application can no longer get a free SQE entry to submit, without knowing
+when it one becomes available as the SQ kernel thread consumes them. If
+the system call is used with this flag set, then it will wait until at least
+one entry is free in the SQ ring.
+.PP
+.PP
+If the io_uring instance was configured for polling, by specifying
 .B IORING_SETUP_IOPOLL
 in the call to
 .BR io_uring_setup (2),
