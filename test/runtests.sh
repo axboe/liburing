@@ -84,7 +84,7 @@ run_test()
 	fi
 
 	# Run the test
-	timeout --preserve-status -s INT -k $TIMEOUT $TIMEOUT ./$test_name $dev
+	timeout -s INT -k $TIMEOUT $TIMEOUT ./$test_name $dev
 	local status=$?
 
 	# Check test status
