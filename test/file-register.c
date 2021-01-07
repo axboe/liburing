@@ -604,6 +604,89 @@ static int test_sparse_updates(void)
 	return 0;
 }
 
+static int test_fixed_removal_ordering(void)
+{
+	char buffer[128];
+	struct io_uring ring;
+	struct io_uring_sqe *sqe;
+	struct io_uring_cqe *cqe;
+	struct __kernel_timespec ts;
+	int ret, fd, i, fds[2];
+
+	ret = io_uring_queue_init(8, &ring, 0);
+	if (ret < 0) {
+		fprintf(stderr, "failed to init io_uring: %s\n", strerror(-ret));
+		return ret;
+	}
+	if (pipe(fds)) {
+		perror("pipe");
+		return -1;
+	}
+	ret = io_uring_register_files(&ring, fds, 2);
+	if (ret) {
+		fprintf(stderr, "file_register: %d\n", ret);
+		return ret;
+	}
+	/* ring should have fds referenced, can close them */
+	close(fds[0]);
+	close(fds[1]);
+
+	sqe = io_uring_get_sqe(&ring);
+	if (!sqe) {
+		fprintf(stderr, "%s: get sqe failed\n", __FUNCTION__);
+		return 1;
+	}
+	/* outwait file recycling delay */
+	ts.tv_sec = 3;
+	ts.tv_nsec = 0;
+	io_uring_prep_timeout(sqe, &ts, 0, 0);
+	sqe->flags |= IOSQE_IO_LINK | IOSQE_IO_HARDLINK;
+	sqe->user_data = 1;
+
+	sqe = io_uring_get_sqe(&ring);
+	if (!sqe) {
+		printf("get sqe failed\n");
+		return -1;
+	}
+	io_uring_prep_write(sqe, 1, buffer, sizeof(buffer), 0);
+	sqe->flags |= IOSQE_FIXED_FILE;
+	sqe->user_data = 2;
+
+	ret = io_uring_submit(&ring);
+	if (ret != 2) {
+		fprintf(stderr, "%s: got %d, wanted 2\n", __FUNCTION__, ret);
+		return -1;
+	}
+
+	/* remove unused pipe end */
+	fd = -1;
+	ret = io_uring_register_files_update(&ring, 0, &fd, 1);
+	if (ret != 1) {
+		fprintf(stderr, "update off=0 failed\n");
+		return -1;
+	}
+
+	/* remove used pipe end */
+	fd = -1;
+	ret = io_uring_register_files_update(&ring, 1, &fd, 1);
+	if (ret != 1) {
+		fprintf(stderr, "update off=1 failed\n");
+		return -1;
+	}
+
+	for (i = 0; i < 2; ++i) {
+		ret = io_uring_wait_cqe(&ring, &cqe);
+		if (ret < 0) {
+			fprintf(stderr, "%s: io_uring_wait_cqe=%d\n", __FUNCTION__, ret);
+			return 1;
+		}
+		io_uring_cqe_seen(&ring, cqe);
+	}
+
+	io_uring_queue_exit(&ring);
+	return 0;
+}
+
 int main(int argc, char *argv[])
 {
 	struct io_uring ring;
@@ -697,6 +780,12 @@ int main(int argc, char *argv[])
 	if (ret) {
 		printf("test_sparse_updates failed\n");
 		return ret;
+	}
+
+	ret = test_fixed_removal_ordering();
+	if (ret) {
+		printf("test_fixed_removal_ordering failed\n");
+		return 1;
 	}
 
 	return 0;
