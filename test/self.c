@@ -54,6 +54,9 @@ int main(int argc, char *argv[])
 	char buf[64];
 	int ret;
 
+	if (argc > 1)
+		return 0;
+
 	ret = io_uring_queue_init(1, &ring, 0);
 	if (ret) {
 		fprintf(stderr, "ring setup failed\n");
@@ -62,6 +65,8 @@ int main(int argc, char *argv[])
 
 	ret = io_openat2(&ring, "/proc/self/comm", -1);
 	if (ret < 0) {
+		if (ret == -EOPNOTSUPP)
+			return 0;
 		if (ret == -EINVAL) {
 			fprintf(stdout, "openat2 not supported, skipping\n");
 			return 0;
