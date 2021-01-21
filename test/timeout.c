@@ -112,7 +112,7 @@ err:
 /*
  * Test numbered trigger of timeout
  */
-static int test_single_timeout_nr(struct io_uring *ring)
+static int test_single_timeout_nr(struct io_uring *ring, int nr)
 {
 	struct io_uring_cqe *cqe;
 	struct io_uring_sqe *sqe;
@@ -126,7 +126,7 @@ static int test_single_timeout_nr(struct io_uring *ring)
 	}
 
 	msec_to_ts(&ts, TIMEOUT_MSEC);
-	io_uring_prep_timeout(sqe, &ts, 2, 0);
+	io_uring_prep_timeout(sqe, &ts, nr, 0);
 
 	sqe = io_uring_get_sqe(ring);
 	io_uring_prep_nop(sqe);
@@ -149,33 +149,26 @@ static int test_single_timeout_nr(struct io_uring *ring)
 			goto err;
 		}
 
+		ret = cqe->res;
+
 		/*
 		 * NOP commands have user_data as 1. Check that we get the
-		 * two NOPs first, then the successfully removed timout as
-		 * the last one.
+		 * at least 'nr' NOPs first, then the successfully removed timout.
 		 */
-		switch (i) {
-		case 0:
-		case 1:
-			if (io_uring_cqe_get_data(cqe) != (void *) 1) {
-				fprintf(stderr, "%s: nop not seen as 1 or 2\n", __FUNCTION__);
+		if (io_uring_cqe_get_data(cqe) == NULL) {
+			if (i < nr) {
+				fprintf(stderr, "%s: timeout received too early\n", __FUNCTION__);
 				goto err;
 			}
-			break;
-		case 2:
-			if (io_uring_cqe_get_data(cqe) != NULL) {
-				fprintf(stderr, "%s: timeout not last\n", __FUNCTION__);
+			if (ret) {
+				fprintf(stderr, "%s: timeout triggered by passage of"
+					" time, not by events completed\n", __FUNCTION__);
 				goto err;
 			}
-			break;
 		}
 
-		ret = cqe->res;
 		io_uring_cqe_seen(ring, cqe);
-		if (ret < 0) {
-			fprintf(stderr, "Timeout: %s\n", strerror(-ret));
-			goto err;
-		} else if (ret) {
+		if (ret) {
 			fprintf(stderr, "res: %d\n", ret);
 			goto err;
 		}
@@ -1224,9 +1217,14 @@ int main(int argc, char *argv[])
 		return ret;
 	}
 
-	ret = test_single_timeout_nr(&ring);
+	ret = test_single_timeout_nr(&ring, 1);
 	if (ret) {
-		fprintf(stderr, "test_single_timeout_nr failed\n");
+		fprintf(stderr, "test_single_timeout_nr(1) failed\n");
+		return ret;
+	}
+	ret = test_single_timeout_nr(&ring, 2);
+	if (ret) {
+		fprintf(stderr, "test_single_timeout_nr(2) failed\n");
 		return ret;
 	}
 
