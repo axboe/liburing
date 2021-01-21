@@ -102,6 +102,7 @@ test_targets += \
 	stdout \
 	submit-reuse \
 	teardowns \
+	thread-exit \
 	timeout \
 	timeout-new \
 	timeout-overflow \
@@ -226,6 +227,7 @@ test_srcs := \
 	stdout.c \
 	submit-reuse.c \
 	teardowns.c \
+	thread-exit.c \
 	timeout-new.c \
 	timeout-overflow.c \
 	timeout.c \
@@ -248,6 +250,7 @@ ce593a6c480a-test: XCFLAGS = -lpthread
 wakeup-hang: XCFLAGS = -lpthread
 pipe-eof: XCFLAGS = -lpthread
 timeout-new: XCFLAGS = -lpthread
+thread-exit: XCFLAGS = -lpthread
 
 install: $(test_targets) runtests.sh runtests-loop.sh
 	$(INSTALL) -D -d -m 755 $(datadir)/liburing-test/
