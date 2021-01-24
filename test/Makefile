@@ -78,6 +78,7 @@ test_targets += \
 	poll-cancel-ton \
 	poll-link \
 	poll-many \
+	poll-ring \
 	poll-v-poll \
 	probe \
 	read-write \
@@ -199,7 +200,7 @@ test_srcs := \
 	poll-cancel-ton.c \
 	poll-cancel.c \
 	poll-link.c \
-	poll-many.c \
+	poll-ring.c \
 	poll-v-poll.c \
 	poll.c \
 	probe.c \
