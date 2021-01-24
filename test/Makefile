@@ -85,6 +85,7 @@ test_targets += \
 	register-restrictions \
 	rename \
 	ring-leak \
+	ring-leak2 \
 	self \
 	send_recv \
 	send_recvmsg \
@@ -208,6 +209,7 @@ test_srcs := \
 	register-restrictions.c \
 	rename.c \
 	ring-leak.c \
+	ring-leak2.c \
 	self.c \
 	send_recvmsg.c \
 	shared-wq.c \
@@ -252,6 +254,7 @@ wakeup-hang: XCFLAGS = -lpthread
 pipe-eof: XCFLAGS = -lpthread
 timeout-new: XCFLAGS = -lpthread
 thread-exit: XCFLAGS = -lpthread
+ring-leak2: XCFLAGS = -lpthread
 
 install: $(test_targets) runtests.sh runtests-loop.sh
 	$(INSTALL) -D -d -m 755 $(datadir)/liburing-test/
