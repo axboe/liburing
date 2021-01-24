@@ -453,9 +453,11 @@ Issue the equivalent of a
 system call.
 .I fd
 must be set to the file descriptor,
+.I len
+must contain the mode associated with the operation,
 .I off
 must contain the offset on which to operate, and
-.I len
+.I addr
 must contain the length. See also
 .BR fallocate(2)
 for the general description of the related system call. Available since 5.6.
