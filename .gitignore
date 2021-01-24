@@ -80,12 +80,14 @@
 /test/poll-cancel-ton
 /test/poll-link
 /test/poll-many
+/test/poll-ring
 /test/poll-v-poll
 /test/probe
 /test/read-write
 /test/register-restrictions
 /test/rename
 /test/ring-leak
+/test/ring-leak2
 /test/self
 /test/send_recv
 /test/send_recvmsg
@@ -107,6 +109,7 @@
 /test/stdout
 /test/submit-reuse
 /test/teardowns
+/test/thread-exit
 /test/timeout
 /test/timeout-new
 /test/timeout-overflow
