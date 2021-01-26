@@ -565,6 +565,10 @@ static int test_skip(struct io_uring *ring)
 	files[90] = IORING_REGISTER_FILES_SKIP;
 	ret = io_uring_register_files_update(ring, 90, &files[90], 1);
 	if (ret != 1) {
+		if (ret == -EBADF) {
+			fprintf(stdout, "Skipping files not supported\n");
+			goto done;
+		}
 		fprintf(stderr, "%s: update ret=%d\n", __FUNCTION__, ret);
 		goto err;
 	}
@@ -579,6 +583,7 @@ static int test_skip(struct io_uring *ring)
 		goto err;
 	}
 
+done:
 	close_files(files, 100, 0);
 	return 0;
 err:
