@@ -550,6 +550,44 @@ err:
 	return 1;
 }
 
+static int test_skip(struct io_uring *ring)
+{
+	int *files;
+	int ret;
+
+	files = open_files(100, 0, 0);
+	ret = io_uring_register_files(ring, files, 100);
+	if (ret) {
+		fprintf(stderr, "%s: register ret=%d\n", __FUNCTION__, ret);
+		goto err;
+	}
+
+    /* -2 to skip */
+    files[90] = -2;
+	ret = io_uring_register_files_update(ring, 90, &files[90], 1);
+	if (ret != 1) {
+		fprintf(stderr, "%s: update ret=%d\n", __FUNCTION__, ret);
+		goto err;
+	}
+
+    /* verify can still use file index 90 */
+    if (test_fixed_read_write(ring, 90))
+		goto err;
+
+	ret = io_uring_unregister_files(ring);
+	if (ret) {
+		fprintf(stderr, "%s: unregister ret=%d\n", __FUNCTION__, ret);
+		goto err;
+	}
+
+	close_files(files, 100, 0);
+	return 0;
+err:
+	close_files(files, 100, 0);
+	return 1;
+}
+
+
 static int test_sparse_updates(void)
 {
 	struct io_uring ring;
@@ -687,6 +725,8 @@ static int test_fixed_removal_ordering(void)
 	return 0;
 }
 
+
+
 int main(int argc, char *argv[])
 {
 	struct io_uring ring;
@@ -776,6 +816,12 @@ int main(int argc, char *argv[])
 		return ret;
 	}
 
+    ret = test_skip(&ring);
+	if (ret) {
+		printf("test_skip failed\n");
+		return 1;
+	}
+
 	ret = test_sparse_updates();
 	if (ret) {
 		printf("test_sparse_updates failed\n");
@@ -790,3 +836,4 @@ int main(int argc, char *argv[])
 
 	return 0;
 }
+
