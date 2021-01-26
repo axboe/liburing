@@ -141,6 +141,7 @@ enum {
 	IORING_OP_SHUTDOWN,
 	IORING_OP_RENAMEAT,
 	IORING_OP_UNLINKAT,
+	IORING_OP_MKDIRAT,
 
 	/* this goes last, obviously */
 	IORING_OP_LAST,
@@ -294,6 +295,9 @@ struct io_uring_files_update {
 	__u32 resv;
 	__aligned_u64 /* __s32 * */ fds;
 };
+
+/* Skip updating fd indexes set to this value in the fd table */
+#define IORING_REGISTER_FILES_SKIP	(-2)
 
 #define IO_URING_OP_SUPPORTED	(1U << 0)
 
