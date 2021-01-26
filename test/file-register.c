@@ -562,16 +562,15 @@ static int test_skip(struct io_uring *ring)
 		goto err;
 	}
 
-    /* -2 to skip */
-    files[90] = -2;
+	files[90] = IORING_REGISTER_FILES_SKIP;
 	ret = io_uring_register_files_update(ring, 90, &files[90], 1);
 	if (ret != 1) {
 		fprintf(stderr, "%s: update ret=%d\n", __FUNCTION__, ret);
 		goto err;
 	}
 
-    /* verify can still use file index 90 */
-    if (test_fixed_read_write(ring, 90))
+	/* verify can still use file index 90 */
+	if (test_fixed_read_write(ring, 90))
 		goto err;
 
 	ret = io_uring_unregister_files(ring);
@@ -586,7 +585,6 @@ err:
 	close_files(files, 100, 0);
 	return 1;
 }
-
 
 static int test_sparse_updates(void)
 {
@@ -816,7 +814,7 @@ int main(int argc, char *argv[])
 		return ret;
 	}
 
-    ret = test_skip(&ring);
+	ret = test_skip(&ring);
 	if (ret) {
 		printf("test_skip failed\n");
 		return 1;
@@ -836,4 +834,3 @@ int main(int argc, char *argv[])
 
 	return 0;
 }
-
