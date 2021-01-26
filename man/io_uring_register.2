@@ -144,6 +144,7 @@ This operation replaces existing files in the registered file set with new
 ones, either turning a sparse entry (one where fd is equal to -1) into a
 real one, removing an existing entry (new one is set to -1), or replacing
 an existing entry with a new existing entry.
+
 .I arg
 must contain a pointer to a struct io_uring_files_update, which contains
 an offset on which to start the update, and an array of file descriptors to
@@ -151,6 +152,12 @@ use for the update.
 .I nr_args
 must contain the number of descriptors in the passed in array. Available
 since 5.5.
+
+File descriptors can be skipped if they are set to
+.B IORING_REGISTER_FILES_SKIP.
+Skipping an fd will not touch the file assosiated with the previous
+fd at that index. Available since 5.12.
+
 
 .TP
 .B IORING_UNREGISTER_FILES
