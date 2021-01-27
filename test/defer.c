@@ -148,6 +148,38 @@ err:
 	return 1;
 }
 
+static int test_drain_with_linked_timeout(struct io_uring *ring)
+{
+	const int nr = 3;
+	struct __kernel_timespec ts = { .tv_sec = 1, .tv_nsec = 0, };
+	struct test_context ctx;
+	int ret, i;
+
+	if (init_context(&ctx, ring, nr * 2))
+		return 1;
+
+	for (i = 0; i < nr; i++) {
+		io_uring_prep_timeout(ctx.sqes[2 * i], &ts, 0, 0);
+		ctx.sqes[2 * i]->flags |= IOSQE_IO_LINK | IOSQE_IO_DRAIN;
+		io_uring_prep_link_timeout(ctx.sqes[2 * i + 1], &ts, 0);
+	}
+
+	ret = io_uring_submit(ring);
+	if (ret <= 0) {
+		printf("sqe submit failed: %d\n", ret);
+		goto err;
+	}
+
+	if (wait_cqes(&ctx))
+		goto err;
+
+	free_context(&ctx);
+	return 0;
+err:
+	free_context(&ctx);
+	return 1;
+}
+
 static int run_drained(struct io_uring *ring, int nr)
 {
 	struct test_context ctx;
@@ -266,6 +298,12 @@ int main(int argc, char *argv[])
 	ret = test_dropped_hung(&ring);
 	if (ret) {
 		printf("test_dropped_hung failed\n");
+		return ret;
+	}
+
+	ret = test_drain_with_linked_timeout(&ring);
+	if (ret) {
+		printf("test_drain_with_linked_timeout failed\n");
 		return ret;
 	}
 
