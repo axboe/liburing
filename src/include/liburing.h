@@ -2,6 +2,10 @@
 #ifndef LIB_URING_H
 #define LIB_URING_H
 
+#ifndef _XOPEN_SOURCE
+#define _XOPEN_SOURCE 500 /* Required for glibc to expose sigset_t */
+#endif
+
 #include <sys/socket.h>
 #include <sys/uio.h>
 #include <sys/stat.h>
