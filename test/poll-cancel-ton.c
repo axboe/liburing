@@ -102,6 +102,7 @@ static int add_polls(struct io_uring *ring, int fd, int nr)
 int main(int argc, char *argv[])
 {
 	struct io_uring ring;
+	struct io_uring_params p = { };
 	int pipe1[2];
 	int ret;
 
@@ -113,10 +114,18 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-	ret = io_uring_queue_init(1024, &ring, 0);
+	p.flags = IORING_SETUP_CQSIZE;
+	p.cq_entries = 16384;
+	ret = io_uring_queue_init_params(1024, &ring, &p);
 	if (ret) {
-		fprintf(stderr, "ring setup failed: %d\n", ret);
-		return 1;
+		if (ret == -EINVAL) {
+			fprintf(stdout, "No CQSIZE, trying without\n");
+			ret = io_uring_queue_init(1024, &ring, 0);
+			if (ret) {
+				fprintf(stderr, "ring setup failed: %d\n", ret);
+				return 1;
+			}
+		}
 	}
 
 	add_polls(&ring, pipe1[0], 30000);

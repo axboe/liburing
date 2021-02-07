@@ -140,6 +140,7 @@ static int arm_polls(struct io_uring *ring)
 int main(int argc, char *argv[])
 {
 	struct io_uring ring;
+	struct io_uring_params params = { };
 	struct rlimit rlim;
 	int i, ret;
 
@@ -169,9 +170,18 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	if (io_uring_queue_init(RING_SIZE, &ring, 0)) {
-		fprintf(stderr, "failed ring init\n");
-		goto err_noring;
+	params.flags = IORING_SETUP_CQSIZE;
+	params.cq_entries = 4096;
+	ret = io_uring_queue_init_params(RING_SIZE, &ring, &params);
+	if (ret) {
+		if (ret == -EINVAL) {
+			fprintf(stdout, "No CQSIZE, trying without\n");
+			ret = io_uring_queue_init(RING_SIZE, &ring, 0);
+			if (ret) {
+				fprintf(stderr, "ring setup failed: %d\n", ret);
+				return 1;
+			}
+		}
 	}
 
 	if (arm_polls(&ring))
