@@ -117,8 +117,11 @@ static int _io_uring_get_cqe(struct io_uring *ring, struct io_uring_cqe **cqe_pt
 					data->sz);
 		if (ret < 0) {
 			err = -errno;
-		} else if (ret == (int)data->submit) {
-			data->submit = 0;
+			break;
+		}
+
+		data->submit -= ret;
+		if (ret == (int)data->submit) {
 			/*
 			 * When SETUP_IOPOLL is set, __sys_io_uring enter()
 			 * must be called to reap new completions but the call
@@ -127,12 +130,10 @@ static int _io_uring_get_cqe(struct io_uring *ring, struct io_uring_cqe **cqe_pt
 			 */
 			if (!(ring->flags & IORING_SETUP_IOPOLL))
 				data->wait_nr = 0;
-		} else {
-			data->submit -= ret;
 		}
 		if (cqe)
 			break;
-	} while (!err);
+	} while (1);
 
 	*cqe_ptr = cqe;
 	return err;
