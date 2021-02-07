@@ -106,8 +106,6 @@ static int _io_uring_get_cqe(struct io_uring *ring, struct io_uring_cqe **cqe_pt
 			}
 			cq_overflow_flush = true;
 		}
-		if (data->wait_nr && cqe)
-			data->wait_nr--;
 		if (data->wait_nr || cq_overflow_flush)
 			flags = IORING_ENTER_GETEVENTS | data->get_flags;
 		if (data->submit)
