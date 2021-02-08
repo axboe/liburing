@@ -59,7 +59,8 @@ static int __io_uring_peek_cqe(struct io_uring *ring,
 			break;
 
 		cqe = &ring->cq.cqes[head & mask];
-		if (cqe->user_data == LIBURING_UDATA_TIMEOUT) {
+		if (!(ring->features & IORING_FEAT_EXT_ARG) &&
+				cqe->user_data == LIBURING_UDATA_TIMEOUT) {
 			if (cqe->res < 0)
 				err = cqe->res;
 			io_uring_cq_advance(ring, 1);
@@ -267,8 +268,9 @@ static int io_uring_wait_cqes_new(struct io_uring *ring,
 
 /*
  * Like io_uring_wait_cqe(), except it accepts a timeout value as well. Note
- * that an sqe is used internally to handle the timeout. Applications using
- * this function must never set sqe->user_data to LIBURING_UDATA_TIMEOUT!
+ * that an sqe is used internally to handle the timeout. For kernel doesn't
+ * support IORING_FEAT_EXT_ARG, applications using this function must never
+ * set sqe->user_data to LIBURING_UDATA_TIMEOUT!
  *
  * For kernels without IORING_FEAT_EXT_ARG (5.10 and older), if 'ts' is
  * specified, the application need not call io_uring_submit() before
