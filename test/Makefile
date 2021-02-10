@@ -99,6 +99,7 @@ test_targets += \
 	sq-poll-dup \
 	sq-poll-kthread \
 	sq-poll-share \
+	sqpoll-exit-hang \
 	sqpoll-sleep \
 	sq-space_left \
 	stdout \
@@ -224,6 +225,7 @@ test_srcs := \
 	sq-poll-dup.c \
 	sq-poll-kthread.c \
 	sq-poll-share.c \
+	sqpoll-exit-hang.c \
 	sqpoll-sleep.c \
 	sq-space_left.c \
 	statx.c \
