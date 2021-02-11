@@ -528,6 +528,8 @@ static int test_single_link_timeout(struct io_uring *ring, unsigned nsec)
 		io_uring_cqe_seen(ring, cqe);
 	}
 
+	close(fds[0]);
+	close(fds[1]);
 	return 0;
 err:
 	return 1;
