@@ -125,7 +125,7 @@ static int _io_uring_get_cqe(struct io_uring *ring, struct io_uring_cqe **cqe_pt
 		}
 
 		data->submit -= ret;
-		if (ret == (int)data->submit) {
+		if (!data->submit) {
 			/*
 			 * When SETUP_IOPOLL is set, __sys_io_uring enter()
 			 * must be called to reap new completions but the call
