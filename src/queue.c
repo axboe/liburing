@@ -89,7 +89,6 @@ static int _io_uring_get_cqe(struct io_uring *ring, struct io_uring_cqe **cqe_pt
 			     struct get_data *data)
 {
 	struct io_uring_cqe *cqe = NULL;
-	const int to_wait = data->wait_nr;
 	int err;
 
 	do {
@@ -102,7 +101,7 @@ static int _io_uring_get_cqe(struct io_uring *ring, struct io_uring_cqe **cqe_pt
 		err = __io_uring_peek_cqe(ring, &cqe, &nr_available);
 		if (err)
 			break;
-		if (!cqe && !to_wait && !data->submit) {
+		if (!cqe && !data->wait_nr && !data->submit) {
 			if (!cq_ring_needs_flush(ring)) {
 				err = -EAGAIN;
 				break;
@@ -129,16 +128,6 @@ static int _io_uring_get_cqe(struct io_uring *ring, struct io_uring_cqe **cqe_pt
 		}
 
 		data->submit -= ret;
-		if (!data->submit) {
-			/*
-			 * When SETUP_IOPOLL is set, __sys_io_uring enter()
-			 * must be called to reap new completions but the call
-			 * won't be made if both wait_nr and submit are zero
-			 * so preserve wait_nr.
-			 */
-			if (!(ring->flags & IORING_SETUP_IOPOLL))
-				data->wait_nr = 0;
-		}
 		if (cqe)
 			break;
 	} while (1);
