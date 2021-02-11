@@ -60,7 +60,14 @@ static int wait_io(struct io_uring *ring, int nr_ios)
 	struct io_uring_cqe *cqe;
 
 	while (nr_ios) {
-		io_uring_wait_cqe(ring, &cqe);
+		int ret = io_uring_wait_cqe(ring, &cqe);
+
+		if (ret == -EAGAIN) {
+			continue;
+		} else if (ret) {
+			fprintf(stderr, "io_uring_wait_cqe failed %i\n", ret);
+			return 1;
+		}
 		if (cqe->res != BS) {
 			fprintf(stderr, "Unexpected ret %d\n", cqe->res);
 			return 1;
