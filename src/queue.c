@@ -93,6 +93,7 @@ static int _io_uring_get_cqe(struct io_uring *ring, struct io_uring_cqe **cqe_pt
 	int err;
 
 	do {
+		bool need_enter = false;
 		bool cq_overflow_flush = false;
 		unsigned flags = 0;
 		unsigned nr_available;
@@ -108,12 +109,15 @@ static int _io_uring_get_cqe(struct io_uring *ring, struct io_uring_cqe **cqe_pt
 			}
 			cq_overflow_flush = true;
 		}
-		if (data->wait_nr || cq_overflow_flush)
+		if (data->wait_nr > nr_available || cq_overflow_flush) {
 			flags = IORING_ENTER_GETEVENTS | data->get_flags;
-		if (data->submit)
+			need_enter = true;
+		}
+		if (data->submit) {
 			sq_ring_needs_enter(ring, &flags);
-		if (data->wait_nr <= nr_available && !data->submit &&
-		    !cq_overflow_flush)
+			need_enter = true;
+		}
+		if (!need_enter)
 			break;
 
 		ret = __sys_io_uring_enter2(ring->ring_fd, data->submit,
