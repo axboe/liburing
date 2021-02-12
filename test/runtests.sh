@@ -8,7 +8,8 @@ TEST_DIR=$(dirname $0)
 FAILED=""
 SKIPPED=""
 MAYBE_FAILED=""
-declare -A TEST_FILES
+TEST_FILES=""
+declare -A TEST_MAP
 
 # Only use /dev/kmsg if running as root
 DO_KMSG="1"
@@ -17,9 +18,15 @@ DO_KMSG="1"
 # Include config.local if exists and check TEST_FILES for valid devices
 if [ -f "$TEST_DIR/config.local" ]; then
 	. $TEST_DIR/config.local
-	for dev in ${TEST_FILES[@]}; do
+	for dev in $TEST_FILES; do
 		if [ ! -e "$dev" ]; then
 			echo "Test file $dev not valid"
+			exit 1
+		fi
+	done
+	for dev in ${TEST_MAP[@]}; do
+		if [ ! -e "$dev" ]; then
+			echo "Test file in map $dev not valid"
 			exit 1
 		fi
 	done
@@ -109,10 +116,15 @@ run_test()
 
 # Run all specified tests
 for tst in $TESTS; do
-	if [ ! -n "${TEST_FILES[$tst]}" ]; then
+	if [ ! -n "${TEST_MAP[$tst]}" ]; then
 		run_test $tst
+		if [ ! -z "$TEST_FILES" ]; then
+			for dev in $TEST_FILES; do
+				run_test $tst $dev
+			done
+		fi
 	else
-		run_test $tst ${TEST_FILES[$tst]}
+		run_test $tst ${TEST_MAP[$tst]}
 	fi
 done
 
