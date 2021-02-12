@@ -111,6 +111,7 @@ test_targets += \
 	timeout-overflow \
 	unlink \
 	wakeup-hang \
+	sendmsg_fs_cve \
 	# EOL
 
 all_targets += $(test_targets)
@@ -238,6 +239,7 @@ test_srcs := \
 	timeout.c \
 	unlink.c \
 	wakeup-hang.c \
+	sendmsg_fs_cve.c \
 	# EOL
 
 test_objs := $(patsubst %.c,%.ol,$(patsubst %.cc,%.ol,$(test_srcs)))
