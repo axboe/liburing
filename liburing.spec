@@ -45,6 +45,7 @@ for the Linux-native io_uring.
 %{_libdir}/pkgconfig/*
 %{_mandir}/man2/*
 %{_mandir}/man3/*
+%{_mandir}/man7/*
 
 %changelog
 * Thu Oct 31 2019 Jeff Moyer <jmoyer@redhat.com> - 0.2-1

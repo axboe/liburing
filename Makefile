@@ -56,6 +56,8 @@ install: $(NAME).pc
 	$(INSTALL) -m 644 man/*.2 $(DESTDIR)$(mandir)/man2
 	$(INSTALL) -m 755 -d $(DESTDIR)$(mandir)/man3
 	$(INSTALL) -m 644 man/*.3 $(DESTDIR)$(mandir)/man3
+	$(INSTALL) -m 755 -d $(DESTDIR)$(mandir)/man7
+	$(INSTALL) -m 644 man/*.7 $(DESTDIR)$(mandir)/man7
 
 install-tests:
 	@$(MAKE) -C test install prefix=$(DESTDIR)$(prefix) datadir=$(DESTDIR)$(datadir)
