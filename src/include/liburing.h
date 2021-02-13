@@ -96,7 +96,7 @@ extern struct io_uring_probe *io_uring_get_probe(void);
  */
 extern void io_uring_free_probe(struct io_uring_probe *probe);
 
-static inline int io_uring_opcode_supported(struct io_uring_probe *p, int op)
+static inline int io_uring_opcode_supported(const struct io_uring_probe *p, int op)
 {
 	if (op > p->last_op)
 		return 0;
@@ -531,7 +531,7 @@ static inline void io_uring_prep_renameat(struct io_uring_sqe *sqe, int olddfd,
  * Returns number of unconsumed (if SQPOLL) or unsubmitted entries exist in
  * the SQ ring
  */
-static inline unsigned io_uring_sq_ready(struct io_uring *ring)
+static inline unsigned io_uring_sq_ready(const struct io_uring *ring)
 {
 	/*
 	 * Without a barrier, we could miss an update and think the SQ wasn't ready.
@@ -547,7 +547,7 @@ static inline unsigned io_uring_sq_ready(struct io_uring *ring)
 /*
  * Returns how much space is left in the SQ ring.
  */
-static inline unsigned io_uring_sq_space_left(struct io_uring *ring)
+static inline unsigned io_uring_sq_space_left(const struct io_uring *ring)
 {
 	return *ring->sq.kring_entries - io_uring_sq_ready(ring);
 }
@@ -572,7 +572,7 @@ static inline int io_uring_sqring_wait(struct io_uring *ring)
 /*
  * Returns how many unconsumed entries are ready in the CQ ring
  */
-static inline unsigned io_uring_cq_ready(struct io_uring *ring)
+static inline unsigned io_uring_cq_ready(const struct io_uring *ring)
 {
 	return io_uring_smp_load_acquire(ring->cq.ktail) - *ring->cq.khead;
 }
@@ -580,7 +580,7 @@ static inline unsigned io_uring_cq_ready(struct io_uring *ring)
 /*
  * Returns true if the eventfd notification is currently enabled
  */
-static inline bool io_uring_cq_eventfd_enabled(struct io_uring *ring)
+static inline bool io_uring_cq_eventfd_enabled(const struct io_uring *ring)
 {
 	if (!ring->cq.kflags)
 		return true;
