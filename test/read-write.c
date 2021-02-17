@@ -692,6 +692,11 @@ static int test_write_efbig(void)
 	int i, fd, ret;
 	loff_t off;
 
+	if (geteuid()) {
+		fprintf(stdout, "Not root, skipping %s\n", __FUNCTION__);
+		return 0;
+	}
+
 	if (getrlimit(RLIMIT_FSIZE, &old_rlim) < 0) {
 		perror("getrlimit");
 		return 1;
