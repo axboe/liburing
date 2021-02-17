@@ -527,6 +527,13 @@ static inline void io_uring_prep_renameat(struct io_uring_sqe *sqe, int olddfd,
 	sqe->rename_flags = flags;
 }
 
+static inline void io_uring_prep_sync_file_range(struct io_uring_sqe *sqe, int fd,
+						 unsigned len, off_t offset, int flags)
+{
+	io_uring_prep_rw(IORING_OP_SYNC_FILE_RANGE, sqe, fd, NULL, len, offset);
+	sqe->sync_range_flags = flags; 
+}
+
 /*
  * Returns number of unconsumed (if SQPOLL) or unsubmitted entries exist in
  * the SQ ring
