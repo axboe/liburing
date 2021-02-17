@@ -181,13 +181,8 @@ static int test_sync_file_range(struct io_uring *ring)
 		fprintf(stderr, "sqe get failed\n");
 		return 1;
 	}
-	memset(sqe, 0, sizeof(*sqe));
-	sqe->opcode = IORING_OP_SYNC_FILE_RANGE;
-	sqe->off = 0;
-	sqe->len = 0;
-	sqe->sync_range_flags = 0;
+	io_uring_prep_sync_file_range(sqe, fd, 0, 0, 0);
 	sqe->user_data = 1;
-	sqe->fd = fd;
 
 	ret = io_uring_submit(ring);
 	if (ret != 1) {
