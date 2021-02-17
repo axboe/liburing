@@ -91,6 +91,7 @@
 /test/self
 /test/send_recv
 /test/send_recvmsg
+/test/sendmsg_fs_cve
 /test/shared-wq
 /test/short-read
 /test/shutdown
