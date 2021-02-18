@@ -351,13 +351,19 @@ static int test_restrictions_flags(void)
 	io_uring_sqe_set_flags(sqe, IOSQE_FIXED_FILE | IOSQE_IO_LINK);
 	sqe->user_data = 3;
 
+	ret = io_uring_submit(&ring);
+	if (ret != 3) {
+		fprintf(stderr, "submit: %d\n", ret);
+		return TEST_FAILED;
+	}
+
 	sqe = io_uring_get_sqe(&ring);
 	io_uring_prep_writev(sqe, 1, &vec, 1, 0);
 	io_uring_sqe_set_flags(sqe, IOSQE_FIXED_FILE | IOSQE_IO_DRAIN);
 	sqe->user_data = 4;
 
 	ret = io_uring_submit(&ring);
-	if (ret != 4) {
+	if (ret != 1) {
 		fprintf(stderr, "submit: %d\n", ret);
 		return TEST_FAILED;
 	}
