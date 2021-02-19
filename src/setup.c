@@ -181,20 +181,19 @@ void io_uring_queue_exit(struct io_uring *ring)
 struct io_uring_probe *io_uring_get_probe_ring(struct io_uring *ring)
 {
 	struct io_uring_probe *probe;
+	size_t len;
 	int r;
 
-	size_t len = sizeof(*probe) + 256 * sizeof(struct io_uring_probe_op);
+	len = sizeof(*probe) + 256 * sizeof(struct io_uring_probe_op);
 	probe = malloc(len);
 	if (!probe)
 		return NULL;
 	memset(probe, 0, len);
 
 	r = io_uring_register_probe(ring, probe, 256);
-	if (r < 0)
-		goto fail;
+	if (r >= 0)
+		return probe;
 
-	return probe;
-fail:
 	free(probe);
 	return NULL;
 }
@@ -202,9 +201,10 @@ fail:
 struct io_uring_probe *io_uring_get_probe(void)
 {
 	struct io_uring ring;
-	struct io_uring_probe* probe = NULL;
+	struct io_uring_probe *probe;
+	int r;
 
-	int r = io_uring_queue_init(2, &ring, 0);
+	r = io_uring_queue_init(2, &ring, 0);
 	if (r < 0)
 		return NULL;
 
