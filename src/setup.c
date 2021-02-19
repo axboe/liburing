@@ -185,7 +185,10 @@ struct io_uring_probe *io_uring_get_probe_ring(struct io_uring *ring)
 
 	size_t len = sizeof(*probe) + 256 * sizeof(struct io_uring_probe_op);
 	probe = malloc(len);
+	if (!probe)
+		return NULL;
 	memset(probe, 0, len);
+
 	r = io_uring_register_probe(ring, probe, 256);
 	if (r < 0)
 		goto fail;
