@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <fcntl.h>
+#include <assert.h>
 #include <sys/types.h>
 
 #include "liburing.h"
@@ -34,6 +35,7 @@ int main(int argc, char *argv[])
 
 	for (i = 0; i < IOVECS_LEN; ++i) {
 		iovecs[i].iov_base = malloc(64);
+		assert(iovecs[i].iov_base);
 		iovecs[i].iov_len = 64;
 	};
 

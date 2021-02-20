@@ -7,6 +7,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
+#include <assert.h>
 #include <fcntl.h>
 #include <sys/types.h>
 #include <sys/poll.h>
@@ -27,6 +28,7 @@ static int create_buffers(void)
 	int i;
 
 	vecs = malloc(BUFFERS * sizeof(struct iovec));
+	assert(vecs);
 	for (i = 0; i < BUFFERS; i++) {
 		if (posix_memalign(&vecs[i].iov_base, BS, BS))
 			return 1;
@@ -43,6 +45,7 @@ static int create_file(const char *file)
 	int fd;
 
 	buf = malloc(FILE_SIZE);
+	assert(buf);
 	memset(buf, 0xaa, FILE_SIZE);
 
 	fd = open(file, O_WRONLY | O_CREAT, 0644);

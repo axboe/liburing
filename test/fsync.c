@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <fcntl.h>
+#include <assert.h>
 
 #include "liburing.h"
 
@@ -70,6 +71,7 @@ static int test_barrier_fsync(struct io_uring *ring)
 
 	for (i = 0; i < 4; i++) {
 		iovecs[i].iov_base = malloc(4096);
+		assert(iovecs[i].iov_base);
 		iovecs[i].iov_len = 4096;
 	}
 
@@ -144,6 +146,7 @@ static int create_file(const char *file)
 	int fd;
 
 	buf = malloc(FILE_SIZE);
+	assert(buf);
 	memset(buf, 0xaa, FILE_SIZE);
 
 	fd = open(file, O_WRONLY | O_CREAT, 0644);

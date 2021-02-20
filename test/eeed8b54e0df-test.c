@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <fcntl.h>
+#include <assert.h>
 
 #include "liburing.h"
 
@@ -31,6 +32,7 @@ static int get_file_fd(void)
 	}
 
 	buf = malloc(BLOCK);
+	assert(buf);
 	ret = write(fd, buf, BLOCK);
 	if (ret != BLOCK) {
 		if (ret < 0)
@@ -71,6 +73,7 @@ int main(int argc, char *argv[])
 		return 0;
 
 	iov.iov_base = malloc(4096);
+	assert(iov.iov_base);
 	iov.iov_len = 4096;
 
 	ret = io_uring_queue_init(2, &ring, 0);

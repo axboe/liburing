@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <fcntl.h>
+#include <assert.h>
 #include <sys/types.h>
 #include <sys/poll.h>
 #include <sys/eventfd.h>
@@ -24,18 +25,17 @@
 static struct iovec *vecs;
 static struct io_uring rings[NR_RINGS];
 
-static int create_buffers(void)
+static void create_buffers(void)
 {
 	int i;
 
 	vecs = malloc(BUFFERS * sizeof(struct iovec));
+	assert(vecs);
 	for (i = 0; i < BUFFERS; i++) {
 		if (posix_memalign(&vecs[i].iov_base, BS, BS))
-			return 1;
+			assert(0);
 		vecs[i].iov_len = BS;
 	}
-
-	return 0;
 }
 
 static int create_file(const char *file)
@@ -45,6 +45,7 @@ static int create_file(const char *file)
 	int fd;
 
 	buf = malloc(FILE_SIZE);
+	assert(buf);
 	memset(buf, 0xaa, FILE_SIZE);
 
 	fd = open(file, O_WRONLY | O_CREAT, 0644);
@@ -198,10 +199,7 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	if (create_buffers()) {
-		fprintf(stderr, "file creation failed\n");
-		goto err;
-	}
+	create_buffers();
 
 	fd = open(fname, O_RDONLY | O_DIRECT);
 	if (fd < 0) {

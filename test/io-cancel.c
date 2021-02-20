@@ -10,6 +10,7 @@
 #include <fcntl.h>
 #include <sys/types.h>
 #include <sys/time.h>
+#include <assert.h>
 
 #include "liburing.h"
 
@@ -19,18 +20,17 @@
 
 static struct iovec *vecs;
 
-static int create_buffers(void)
+static void create_buffers(void)
 {
 	int i;
 
 	vecs = malloc(BUFFERS * sizeof(struct iovec));
+	assert(vecs);
 	for (i = 0; i < BUFFERS; i++) {
 		if (posix_memalign(&vecs[i].iov_base, BS, BS))
-			return 1;
+			assert(0);
 		vecs[i].iov_len = BS;
 	}
-
-	return 0;
 }
 
 static int create_file(const char *file)
@@ -40,6 +40,7 @@ static int create_file(const char *file)
 	int fd;
 
 	buf = malloc(FILE_SIZE);
+	assert(buf);
 	memset(buf, 0xaa, FILE_SIZE);
 
 	fd = open(file, O_WRONLY | O_CREAT, 0644);
@@ -239,10 +240,8 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "file creation failed\n");
 		goto err;
 	}
-	if (create_buffers()) {
-		fprintf(stderr, "file creation failed\n");
-		goto err;
-	}
+
+	create_buffers();
 
 	for (i = 0; i < 4; i++) {
 		int v1 = (i & 1) != 0;

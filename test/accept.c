@@ -7,7 +7,6 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <assert.h>
-
 #include <errno.h>
 #include <fcntl.h>
 #include <unistd.h>
@@ -33,6 +32,7 @@ static void queue_send(struct io_uring *ring, int fd)
 	struct data *d;
 
 	d = malloc(sizeof(*d));
+	assert(d);
 	d->iov.iov_base = d->buf;
 	d->iov.iov_len = sizeof(d->buf);
 
@@ -46,6 +46,7 @@ static void queue_recv(struct io_uring *ring, int fd)
 	struct data *d;
 
 	d = malloc(sizeof(*d));
+	assert(d);
 	d->iov.iov_base = d->buf;
 	d->iov.iov_len = sizeof(d->buf);
 

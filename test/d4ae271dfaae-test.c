@@ -10,6 +10,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <string.h>
+#include <assert.h>
 
 #include "liburing.h"
 
@@ -22,6 +23,7 @@ static int create_file(const char *file)
 	int fd;
 
 	buf = malloc(FILE_SIZE);
+	assert(buf);
 	memset(buf, 0xaa, FILE_SIZE);
 
 	fd = open(file, O_WRONLY | O_CREAT, 0644);

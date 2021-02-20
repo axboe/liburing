@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <fcntl.h>
+#include <assert.h>
 
 #include "liburing.h"
 
@@ -108,6 +109,7 @@ static int test_sqe_update(struct io_uring *ring)
 	int *fds, i, ret;
 
 	fds = malloc(sizeof(int) * 10);
+	assert(fds);
 	for (i = 0; i < 10; i++)
 		fds[i] = -1;
 

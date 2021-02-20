@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <fcntl.h>
+#include <assert.h>
 #include <sys/types.h>
 #include <sys/syscall.h>
 #include <linux/stat.h>
@@ -37,6 +38,7 @@ static int create_file(const char *file, size_t size)
 	int fd;
 
 	buf = malloc(size);
+	assert(buf);
 	memset(buf, 0xaa, size);
 
 	fd = open(file, O_WRONLY | O_CREAT, 0644);

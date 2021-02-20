@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <fcntl.h>
+#include <assert.h>
 #include <sys/types.h>
 #include <sys/time.h>
 #include <sys/mman.h>
@@ -50,6 +51,7 @@ static int create_file(const char *file)
 	int fd;
 
 	buf = malloc(FILE_SIZE);
+	assert(buf);
 	memset(buf, 0xaa, FILE_SIZE);
 
 	fd = open(file, O_WRONLY | O_CREAT, 0644);
@@ -124,6 +126,7 @@ static int test_madvise(struct io_uring *ring, const char *filename)
 	}
 
 	buf = malloc(FILE_SIZE);
+	assert(buf);
 
 	ptr = mmap(NULL, FILE_SIZE, PROT_READ, MAP_PRIVATE, fd, 0);
 	if (ptr == MAP_FAILED) {

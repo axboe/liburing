@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <fcntl.h>
+#include <assert.h>
 
 #include "liburing.h"
 
@@ -29,6 +30,7 @@ static int test_link_drain_one(struct io_uring *ring)
 	}
 
 	iovecs.iov_base = malloc(4096);
+	assert(iovecs.iov_base);
 	iovecs.iov_len = 4096;
 
 	for (i = 0; i < 5; i++) {
@@ -112,6 +114,7 @@ int test_link_drain_multi(struct io_uring *ring)
 	}
 
 	iovecs.iov_base = malloc(4096);
+	assert(iovecs.iov_base);
 	iovecs.iov_len = 4096;
 
 	for (i = 0; i < 9; i++) {

@@ -11,6 +11,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <fcntl.h>
+#include <assert.h>
 #include <sys/poll.h>
 #include <pthread.h>
 
@@ -26,6 +27,7 @@ static int create_file(const char *file, size_t size)
 	int fd;
 
 	buf = malloc(size);
+	assert(buf);
 	memset(buf, 0xaa, size);
 
 	fd = open(file, O_WRONLY | O_CREAT, 0644);
@@ -55,6 +57,7 @@ static void *do_io(void *data)
 	int ret;
 
 	buffer = malloc(WSIZE);
+	assert(buffer);
 	memset(buffer, 0x5a, WSIZE);
 	sqe = io_uring_get_sqe(d->ring);
 	if (!sqe) {

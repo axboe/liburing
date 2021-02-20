@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <fcntl.h>
+#include <assert.h>
 
 #include "liburing.h"
 
@@ -157,6 +158,7 @@ static int test_replace_all(struct io_uring *ring)
 	}
 
 	fds = malloc(100 * sizeof(int));
+	assert(fds);
 	for (i = 0; i < 100; i++)
 		fds[i] = -1;
 
@@ -424,10 +426,12 @@ static int test_fixed_read_write(struct io_uring *ring, int index)
 	int ret;
 
 	iov[0].iov_base = malloc(4096);
+	assert(iov[0].iov_base);
 	iov[0].iov_len = 4096;
 	memset(iov[0].iov_base, 0x5a, 4096);
 
 	iov[1].iov_base = malloc(4096);
+	assert(iov[1].iov_base);
 	iov[1].iov_len = 4096;
 
 	sqe = io_uring_get_sqe(ring);
@@ -603,6 +607,7 @@ static int test_sparse_updates(void)
 	}
 
 	fds = malloc(256 * sizeof(int));
+	assert(fds);
 	for (i = 0; i < 256; i++)
 		fds[i] = -1;
 

@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <fcntl.h>
+#include <assert.h>
 #include <sys/types.h>
 #include <sys/poll.h>
 
@@ -20,6 +21,7 @@ static int create_file(const char *file)
 	int fd;
 
 	buf = malloc(FILE_SIZE);
+	assert(buf);
 	memset(buf, 0xaa, FILE_SIZE);
 
 	fd = open(file, O_WRONLY | O_CREAT, 0644);
@@ -44,6 +46,7 @@ int main(int argc, char *argv[])
 		return 0;
 
 	vec.iov_base = malloc(BUF_SIZE);
+	assert(vec.iov_base);
 	vec.iov_len = BUF_SIZE;
 
 	if (create_file(".short-read")) {
