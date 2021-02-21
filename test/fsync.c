@@ -10,6 +10,7 @@
 #include <string.h>
 #include <fcntl.h>
 
+#include "helpers.h"
 #include "liburing.h"
 
 static int test_single_fsync(struct io_uring *ring)
@@ -69,7 +70,7 @@ static int test_barrier_fsync(struct io_uring *ring)
 	}
 
 	for (i = 0; i < 4; i++) {
-		iovecs[i].iov_base = malloc(4096);
+		iovecs[i].iov_base = io_uring_malloc(4096);
 		iovecs[i].iov_len = 4096;
 	}
 
@@ -143,7 +144,7 @@ static int create_file(const char *file)
 	char *buf;
 	int fd;
 
-	buf = malloc(FILE_SIZE);
+	buf = io_uring_malloc(FILE_SIZE);
 	memset(buf, 0xaa, FILE_SIZE);
 
 	fd = open(file, O_WRONLY | O_CREAT, 0644);

@@ -8,6 +8,8 @@
 #include <sys/types.h>
 #include <sys/poll.h>
 
+
+#include "helpers.h"
 #include "liburing.h"
 
 #define BUF_SIZE 4096
@@ -19,7 +21,7 @@ static int create_file(const char *file)
 	char *buf;
 	int fd;
 
-	buf = malloc(FILE_SIZE);
+	buf = io_uring_malloc(FILE_SIZE);
 	memset(buf, 0xaa, FILE_SIZE);
 
 	fd = open(file, O_WRONLY | O_CREAT, 0644);
@@ -43,7 +45,7 @@ int main(int argc, char *argv[])
 	if (argc > 1)
 		return 0;
 
-	vec.iov_base = malloc(BUF_SIZE);
+	vec.iov_base = io_uring_malloc(BUF_SIZE);
 	vec.iov_len = BUF_SIZE;
 
 	if (create_file(".short-read")) {
