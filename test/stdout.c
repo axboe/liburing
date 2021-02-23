@@ -9,6 +9,7 @@
 #include <string.h>
 #include <fcntl.h>
 
+#include "helpers.h"
 #include "liburing.h"
 
 static int test_pipe_io_fixed(struct io_uring *ring)
@@ -20,10 +21,7 @@ static int test_pipe_io_fixed(struct io_uring *ring)
 	char buffer[128];
 	int i, ret, fds[2];
 
-	if (posix_memalign(&vecs[0].iov_base, 4096, 4096)) {
-		fprintf(stderr, "Failed to alloc mem\n");
-		return 1;
-	}
+	io_uring_posix_memalign(&vecs[0].iov_base, 4096, 4096);
 	memcpy(vecs[0].iov_base, str, strlen(str));
 	vecs[0].iov_len = strlen(str);
 
@@ -104,10 +102,7 @@ static int test_stdout_io_fixed(struct io_uring *ring)
 	struct iovec vecs;
 	int ret;
 
-	if (posix_memalign(&vecs.iov_base, 4096, 4096)) {
-		fprintf(stderr, "Failed to alloc mem\n");
-		return 1;
-	}
+	io_uring_posix_memalign(&vecs.iov_base, 4096, 4096);
 	memcpy(vecs.iov_base, str, strlen(str));
 	vecs.iov_len = strlen(str);
 

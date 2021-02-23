@@ -78,8 +78,7 @@ int main(int argc, char *argv[])
 
 	iovecs = calloc(10, sizeof(struct iovec));
 	for (i = 0; i < 10; i++) {
-		if (posix_memalign(&buf, 4096, 4096))
-			goto out;
+		io_uring_posix_memalign(&buf, 4096, 4096);
 		iovecs[i].iov_base = buf;
 		iovecs[i].iov_len = 4096;
 	}

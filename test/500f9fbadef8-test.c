@@ -10,6 +10,7 @@
 #include <string.h>
 #include <fcntl.h>
 
+#include "helpers.h"
 #include "liburing.h"
 
 #define BLOCKS	4096
@@ -28,10 +29,7 @@ int main(int argc, char *argv[])
 	if (argc > 1)
 		return 0;
 
-    	if (posix_memalign(&iov.iov_base, 4096, 4096)) {
-    		fprintf(stderr, "memalign failed\n");
-    		return 1;
-	}
+	io_uring_posix_memalign(&iov.iov_base, 4096, 4096);
 	iov.iov_len = 4096;
 
 	ret = io_uring_queue_init(1, &ring, IORING_SETUP_IOPOLL);
