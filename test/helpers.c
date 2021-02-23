@@ -23,7 +23,6 @@ void *io_uring_malloc(size_t size)
 	return ret;
 }
 
-
 /*
  * Helper for allocating size bytes aligned on a boundary.
  */
@@ -68,7 +67,6 @@ void io_uring_create_file(const char *file, size_t size)
 	assert(ret == size);
 }
 
-
 /*
  * Helper for creating @buf_num number of iovec
  * with @buf_size bytes buffer of each iovec.
@@ -85,4 +83,3 @@ struct iovec *io_uring_create_buffers(size_t buf_num, size_t buf_size)
 	}
 	return vecs;
 }
-
