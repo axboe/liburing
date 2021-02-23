@@ -25,19 +25,6 @@ static int no_read;
 static int no_buf_select;
 static int warned;
 
-static int create_buffers(void)
-{
-	int i;
-
-	vecs = io_uring_malloc(BUFFERS * sizeof(struct iovec));
-	for (i = 0; i < BUFFERS; i++) {
-		io_uring_posix_memalign(&vecs[i].iov_base, BS, BS);
-		vecs[i].iov_len = BS;
-	}
-
-	return 0;
-}
-
 static int create_nonaligned_buffers(void)
 {
 	int i;
@@ -768,10 +755,7 @@ int main(int argc, char *argv[])
 		io_uring_create_file(fname, FILE_SIZE);
 	}
 
-	if (create_buffers()) {
-		fprintf(stderr, "file creation failed\n");
-		goto err;
-	}
+	vecs = io_uring_create_buffers(BUFFERS, BS);
 
 	/* if we don't have nonvec read, skip testing that */
 	nr = has_nonvec_read() ? 32 : 16;

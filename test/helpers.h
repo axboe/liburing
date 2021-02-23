@@ -33,6 +33,11 @@ void *io_uring_calloc(size_t nmemb, size_t size);
  */
 void io_uring_create_file(const char *file, size_t size);
 
+/*
+ * Helper for creating @buf_num number of iovec
+ * with @buf_size bytes buffer of each iovec.
+ */
+struct iovec *io_uring_create_buffers(size_t buf_num, size_t buf_size);
 #ifdef __cplusplus
 }
 #endif

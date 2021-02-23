@@ -10,6 +10,7 @@
 #include <unistd.h>
 
 #include "helpers.h"
+#include "liburing.h"
 
 /*
  * Helper for allocating memory in tests.
@@ -65,5 +66,23 @@ void io_uring_create_file(const char *file, size_t size)
 	close(fd);
 	free(buf);
 	assert(ret == size);
+}
+
+
+/*
+ * Helper for creating @buf_num number of iovec
+ * with @buf_size bytes buffer of each iovec.
+ */
+struct iovec *io_uring_create_buffers(size_t buf_num, size_t buf_size)
+{
+	struct iovec *vecs;
+	int i;
+
+	vecs = io_uring_malloc(buf_num * sizeof(struct iovec));
+	for (i = 0; i < buf_num; i++) {
+		io_uring_posix_memalign(&vecs[i].iov_base, buf_size, buf_size);
+		vecs[i].iov_len = buf_size; 
+	}
+	return vecs;
 }
 

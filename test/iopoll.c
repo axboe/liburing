@@ -24,19 +24,6 @@ static struct iovec *vecs;
 static int no_buf_select;
 static int no_iopoll;
 
-static int create_buffers(void)
-{
-	int i;
-
-	vecs = io_uring_malloc(BUFFERS * sizeof(struct iovec));
-	for (i = 0; i < BUFFERS; i++) {
-		io_uring_posix_memalign(&vecs[i].iov_base, BS, BS);
-		vecs[i].iov_len = BS;
-	}
-
-	return 0;
-}
-
 static int provide_buffers(struct io_uring *ring)
 {
 	struct io_uring_sqe *sqe;
@@ -350,10 +337,7 @@ int main(int argc, char *argv[])
 		io_uring_create_file(fname, FILE_SIZE);
 	}
 
-	if (create_buffers()) {
-		fprintf(stderr, "file creation failed\n");
-		goto err;
-	}
+	vecs = io_uring_create_buffers(BUFFERS, BS);
 
 	nr = 16;
 	if (no_buf_select)

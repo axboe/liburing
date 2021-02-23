@@ -20,19 +20,6 @@
 
 static struct iovec *vecs;
 
-static int create_buffers(void)
-{
-	int i;
-
-	vecs = io_uring_malloc(BUFFERS * sizeof(struct iovec));
-	for (i = 0; i < BUFFERS; i++) {
-		io_uring_posix_memalign(&vecs[i].iov_base, BS, BS);
-		vecs[i].iov_len = BS;
-	}
-
-	return 0;
-}
-
 static unsigned long long utime_since(const struct timeval *s,
 				      const struct timeval *e)
 {
@@ -218,10 +205,7 @@ int main(int argc, char *argv[])
 
 	io_uring_create_file(".basic-rw", FILE_SIZE);
 
-	if (create_buffers()) {
-		fprintf(stderr, "file creation failed\n");
-		goto err;
-	}
+	vecs = io_uring_create_buffers(BUFFERS, BS);
 
 	for (i = 0; i < 4; i++) {
 		int v1 = (i & 1) != 0;
