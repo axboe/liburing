@@ -12,6 +12,7 @@
 #include <sys/time.h>
 #include <sys/mman.h>
 
+#include "helpers.h"
 #include "liburing.h"
 
 #define FILE_SIZE	(128 * 1024)
@@ -49,7 +50,7 @@ static int create_file(const char *file)
 	char *buf;
 	int fd;
 
-	buf = malloc(FILE_SIZE);
+	buf = io_uring_malloc(FILE_SIZE);
 	memset(buf, 0xaa, FILE_SIZE);
 
 	fd = open(file, O_WRONLY | O_CREAT, 0644);
@@ -123,7 +124,7 @@ static int test_madvise(struct io_uring *ring, const char *filename)
 		return 1;
 	}
 
-	buf = malloc(FILE_SIZE);
+	buf = io_uring_malloc(FILE_SIZE);
 
 	ptr = mmap(NULL, FILE_SIZE, PROT_READ, MAP_PRIVATE, fd, 0);
 	if (ptr == MAP_FAILED) {

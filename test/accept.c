@@ -18,6 +18,7 @@
 #include <netinet/tcp.h>
 #include <netinet/in.h>
 
+#include "helpers.h"
 #include "liburing.h"
 
 static int no_accept;
@@ -32,7 +33,7 @@ static void queue_send(struct io_uring *ring, int fd)
 	struct io_uring_sqe *sqe;
 	struct data *d;
 
-	d = malloc(sizeof(*d));
+	d = io_uring_malloc(sizeof(*d));
 	d->iov.iov_base = d->buf;
 	d->iov.iov_len = sizeof(d->buf);
 
@@ -45,7 +46,7 @@ static void queue_recv(struct io_uring *ring, int fd)
 	struct io_uring_sqe *sqe;
 	struct data *d;
 
-	d = malloc(sizeof(*d));
+	d = io_uring_malloc(sizeof(*d));
 	d->iov.iov_base = d->buf;
 	d->iov.iov_len = sizeof(d->buf);
 

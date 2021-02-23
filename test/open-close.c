@@ -10,6 +10,7 @@
 #include <string.h>
 #include <fcntl.h>
 
+#include "helpers.h"
 #include "liburing.h"
 
 static int create_file(const char *file, size_t size)
@@ -18,7 +19,7 @@ static int create_file(const char *file, size_t size)
 	char *buf;
 	int fd;
 
-	buf = malloc(size);
+	buf = io_uring_malloc(size);
 	memset(buf, 0xaa, size);
 
 	fd = open(file, O_WRONLY | O_CREAT, 0644);

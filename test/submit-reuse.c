@@ -12,6 +12,7 @@
 #include <pthread.h>
 #include <sys/time.h>
 
+#include "helpers.h"
 #include "liburing.h"
 
 #define STR_SIZE	32768
@@ -43,7 +44,7 @@ static int create_file(const char *file)
 	char *buf;
 	int fd;
 
-	buf = malloc(FILE_SIZE);
+	buf = io_uring_malloc(FILE_SIZE);
 	memset(buf, 0xaa, FILE_SIZE);
 
 	fd = open(file, O_WRONLY | O_CREAT, 0644);

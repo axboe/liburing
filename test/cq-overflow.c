@@ -10,6 +10,7 @@
 #include <string.h>
 #include <fcntl.h>
 
+#include "helpers.h"
 #include "liburing.h"
 
 #define FILE_SIZE	(256 * 1024)
@@ -22,7 +23,7 @@ static int create_buffers(void)
 {
 	int i;
 
-	vecs = malloc(BUFFERS * sizeof(struct iovec));
+	vecs = io_uring_malloc(BUFFERS * sizeof(struct iovec));
 	for (i = 0; i < BUFFERS; i++) {
 		if (posix_memalign(&vecs[i].iov_base, BS, BS))
 			return 1;
@@ -38,7 +39,7 @@ static int create_file(const char *file)
 	char *buf;
 	int fd;
 
-	buf = malloc(FILE_SIZE);
+	buf = io_uring_malloc(FILE_SIZE);
 	memset(buf, 0xaa, FILE_SIZE);
 
 	fd = open(file, O_WRONLY | O_CREAT, 0644);

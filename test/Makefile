@@ -1,6 +1,8 @@
 prefix ?= /usr
 datadir ?= $(prefix)/share
 
+helpers = helpers.c
+
 INSTALL=install
 
 CPPFLAGS ?=
@@ -132,13 +134,13 @@ test_targets += sq-full-cpp
 endif
 all_targets += sq-full-cpp
 
-all: $(test_targets)
+all: $(test_targets) helpers.o
 
 %: %.c
-	$(QUIET_CC)$(CC) $(CPPFLAGS) $(CFLAGS) -o $@ $< -luring $(XCFLAGS)
+	$(QUIET_CC)$(CC) $(CPPFLAGS) $(CFLAGS) -o $@ $< -luring $(XCFLAGS) ${helpers}
 
 %: %.cc
-	$(QUIET_CXX)$(CXX) $(CPPFLAGS) $(CXXFLAGS) -o $@ $< -luring $(XCFLAGS)
+	$(QUIET_CXX)$(CXX) $(CPPFLAGS) $(CXXFLAGS) -o $@ $< -luring $(XCFLAGS) ${helpers}
 
 test_srcs := \
 	232c93d07b74-test.c \
@@ -266,7 +268,7 @@ install: $(test_targets) runtests.sh runtests-loop.sh
 	$(INSTALL) -D -m 755 runtests.sh  $(datadir)/liburing-test/
 	$(INSTALL) -D -m 755 runtests-loop.sh  $(datadir)/liburing-test/
 clean:
-	@rm -f $(all_targets) $(test_objs)
+	@rm -f $(all_targets) $(test_objs) helpers.o
 
 runtests: all
 	@./runtests.sh $(test_targets)

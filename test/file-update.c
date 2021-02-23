@@ -10,6 +10,7 @@
 #include <string.h>
 #include <fcntl.h>
 
+#include "helpers.h"
 #include "liburing.h"
 
 static void close_files(int *files, int nr_files, int add)
@@ -107,7 +108,7 @@ static int test_sqe_update(struct io_uring *ring)
 	struct io_uring_cqe *cqe;
 	int *fds, i, ret;
 
-	fds = malloc(sizeof(int) * 10);
+	fds = io_uring_malloc(sizeof(int) * 10);
 	for (i = 0; i < 10; i++)
 		fds[i] = -1;
 

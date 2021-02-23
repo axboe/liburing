@@ -14,6 +14,7 @@
 #include <sys/poll.h>
 #include <pthread.h>
 
+#include "helpers.h"
 #include "liburing.h"
 
 #define NR_IOS	8
@@ -25,7 +26,7 @@ static int create_file(const char *file, size_t size)
 	char *buf;
 	int fd;
 
-	buf = malloc(size);
+	buf = io_uring_malloc(size);
 	memset(buf, 0xaa, size);
 
 	fd = open(file, O_WRONLY | O_CREAT, 0644);
@@ -54,7 +55,7 @@ static void *do_io(void *data)
 	char *buffer;
 	int ret;
 
-	buffer = malloc(WSIZE);
+	buffer = io_uring_malloc(WSIZE);
 	memset(buffer, 0x5a, WSIZE);
 	sqe = io_uring_get_sqe(d->ring);
 	if (!sqe) {

@@ -7,6 +7,7 @@
 #include <fcntl.h>
 #include <sys/types.h>
 
+#include "helpers.h"
 #include "liburing.h"
 
 #define IOVECS_LEN 2
@@ -33,7 +34,7 @@ int main(int argc, char *argv[])
 	}
 
 	for (i = 0; i < IOVECS_LEN; ++i) {
-		iovecs[i].iov_base = malloc(64);
+		iovecs[i].iov_base = io_uring_malloc(64);
 		iovecs[i].iov_len = 64;
 	};
 

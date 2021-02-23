@@ -23,6 +23,8 @@
 #include <sys/resource.h>
 #include <limits.h>
 #include <sys/time.h>
+
+#include "helpers.h"
 #include "liburing.h"
 #include "liburing/barrier.h"
 #include "../src/syscall.h"
@@ -124,10 +126,10 @@ io_prep_read(struct io_uring_sqe *sqe, int fd, off_t offset, size_t len)
 {
 	struct iovec *iov;
 
-	iov = malloc(sizeof(*iov));
+	iov = io_uring_malloc(sizeof(*iov));
 	assert(iov);
 
-	iov->iov_base = malloc(len);
+	iov->iov_base = io_uring_malloc(len);
 	assert(iov->iov_base);
 	iov->iov_len = len;
 

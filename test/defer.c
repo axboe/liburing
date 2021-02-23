@@ -8,6 +8,7 @@
 #include <sys/uio.h>
 #include <stdbool.h>
 
+#include "helpers.h"
 #include "liburing.h"
 
 struct test_context {
@@ -32,8 +33,8 @@ static int init_context(struct test_context *ctx, struct io_uring *ring, int nr)
 	memset(ctx, 0, sizeof(*ctx));
 	ctx->nr = nr;
 	ctx->ring = ring;
-	ctx->sqes = malloc(nr * sizeof(*ctx->sqes));
-	ctx->cqes = malloc(nr * sizeof(*ctx->cqes));
+	ctx->sqes = io_uring_malloc(nr * sizeof(*ctx->sqes));
+	ctx->cqes = io_uring_malloc(nr * sizeof(*ctx->cqes));
 
 	if (!ctx->sqes || !ctx->cqes)
 		goto err;

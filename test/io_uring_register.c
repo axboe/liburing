@@ -22,6 +22,8 @@
 #include <sys/time.h>
 #include <sys/resource.h>
 #include <limits.h>
+
+#include "helpers.h"
 #include "liburing.h"
 #include "../src/syscall.h"
 
@@ -240,8 +242,7 @@ test_memlock_exceeded(int fd)
 		return 0;
 
 	iov.iov_len = mlock_limit * 2;
-	buf = malloc(iov.iov_len);
-	assert(buf);
+	buf = io_uring_malloc(iov.iov_len);
 	iov.iov_base = buf;
 
 	while (iov.iov_len) {
@@ -283,11 +284,8 @@ test_iovec_nr(int fd)
 	struct iovec *iovs;
 	void *buf;
 
-	buf = malloc(pagesize);
-	assert(buf);
-
-	iovs = malloc(nr * sizeof(struct iovec));
-	assert(iovs);
+	buf = io_uring_malloc(pagesize);
+	iovs = io_uring_malloc(nr * sizeof(struct iovec));
 
 	for (i = 0; i < nr; i++) {
 		iovs[i].iov_base = buf;
