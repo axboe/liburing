@@ -247,7 +247,7 @@ static int test_accept_many(unsigned nr, unsigned usecs)
 	ret = io_uring_queue_init(2 * nr, &m_io_uring, 0);
 	assert(ret >= 0);
 
-	fds = calloc(nr, sizeof(int));
+	fds = io_uring_calloc(nr, sizeof(int));
 
 	for (i = 0; i < nr; i++)
 		fds[i] = start_accept_listen(NULL, i);

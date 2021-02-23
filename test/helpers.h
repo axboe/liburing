@@ -20,6 +20,13 @@ void *io_uring_malloc(size_t size);
  */
 void io_uring_posix_memalign(void **memptr, size_t alignment, size_t size);
 
+
+/*
+ * Helper for allocating space for an array of nmemb elements
+ * with size bytes for each element.
+ */
+void *io_uring_calloc(size_t nmemb, size_t size);
+
 #ifdef __cplusplus
 }
 #endif

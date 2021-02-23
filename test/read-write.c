@@ -364,7 +364,7 @@ static int has_nonvec_read(void)
 		exit(ret);
 	}
 
-	p = calloc(1, sizeof(*p) + 256 * sizeof(struct io_uring_probe_op));
+	p = io_uring_calloc(1, sizeof(*p) + 256 * sizeof(struct io_uring_probe_op));
 	ret = io_uring_register_probe(&ring, p, 256);
 	/* if we don't have PROBE_REGISTER, we don't have OP_READ/WRITE */
 	if (ret == -EINVAL) {

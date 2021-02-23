@@ -9,6 +9,7 @@
 #include <string.h>
 #include <fcntl.h>
 
+#include "helpers.h"
 #include "liburing.h"
 
 static int no_probe;
@@ -67,7 +68,7 @@ static int test_probe(struct io_uring *ring)
 	int ret;
 
 	len = sizeof(*p) + 256 * sizeof(struct io_uring_probe_op);
-	p = calloc(1, len);
+	p = io_uring_calloc(1, len);
 	ret = io_uring_register_probe(ring, p, 0);
 	if (ret == -EINVAL) {
 		fprintf(stdout, "Probe not supported, skipping\n");

@@ -76,7 +76,7 @@ int main(int argc, char *argv[])
 		goto out;
 	}
 
-	iovecs = calloc(10, sizeof(struct iovec));
+	iovecs = io_uring_calloc(10, sizeof(struct iovec));
 	for (i = 0; i < 10; i++) {
 		io_uring_posix_memalign(&buf, 4096, 4096);
 		iovecs[i].iov_base = buf;
