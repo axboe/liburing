@@ -1,8 +1,6 @@
 prefix ?= /usr
 datadir ?= $(prefix)/share
 
-helpers = helpers.c
-
 INSTALL=install
 
 CPPFLAGS ?=
@@ -134,15 +132,21 @@ test_targets += sq-full-cpp
 endif
 all_targets += sq-full-cpp
 
-all: $(test_targets) helpers.o
+helpers = helpers.o
 
-%: %.c
+all: ${helpers} $(test_targets)
+
+helpers.o: helpers.c helpers.c
+	$(QUIET_CC)$(CC) $(CPPFLAGS) $(CFLAGS) -o $@ -c $<
+
+%: %.c ${helpers} helpers.h
 	$(QUIET_CC)$(CC) $(CPPFLAGS) $(CFLAGS) -o $@ $< -luring $(XCFLAGS) ${helpers}
 
-%: %.cc
+%: %.cc ${helpers} helpers.h
 	$(QUIET_CXX)$(CXX) $(CPPFLAGS) $(CXXFLAGS) -o $@ $< -luring $(XCFLAGS) ${helpers}
 
 test_srcs := \
+	helpers.c \
 	232c93d07b74-test.c \
 	35fa71a030ca-test.c \
 	500f9fbadef8-test.c \
