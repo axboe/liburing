@@ -31,25 +31,6 @@ static int do_statx(int dfd, const char *path, int flags, unsigned mask,
 }
 #endif
 
-static int create_file(const char *file, size_t size)
-{
-	ssize_t ret;
-	char *buf;
-	int fd;
-
-	buf = io_uring_malloc(size);
-	memset(buf, 0xaa, size);
-
-	fd = open(file, O_WRONLY | O_CREAT, 0644);
-	if (fd < 0) {
-		perror("open file");
-		return 1;
-	}
-	ret = write(fd, buf, size);
-	close(fd);
-	return ret != size;
-}
-
 static int statx_syscall_supported(void)
 {
 	return errno == ENOSYS ? 0 : -1;
@@ -162,10 +143,7 @@ int main(int argc, char *argv[])
 		fname = argv[1];
 	} else {
 		fname = "/tmp/.statx";
-		if (create_file(fname, 4096)) {
-			fprintf(stderr, "file create failed\n");
-			return 1;
-		}
+		io_uring_create_file(fname, 4096);
 	}
 
 	ret = test_statx(&ring, fname);

@@ -44,26 +44,6 @@ static unsigned long long utime_since_now(struct timeval *tv)
 	return utime_since(tv, &end);
 }
 
-static int create_file(const char *file)
-{
-	ssize_t ret;
-	char *buf;
-	int fd;
-
-	buf = io_uring_malloc(FILE_SIZE);
-	memset(buf, 0xaa, FILE_SIZE);
-
-	fd = open(file, O_WRONLY | O_CREAT, 0644);
-	if (fd < 0) {
-		perror("open file");
-		return 1;
-	}
-	ret = write(fd, buf, FILE_SIZE);
-	fsync(fd);
-	close(fd);
-	return ret != FILE_SIZE;
-}
-
 static int do_madvise(struct io_uring *ring, void *addr, off_t len, int advice)
 {
 	struct io_uring_sqe *sqe;
@@ -179,10 +159,7 @@ int main(int argc, char *argv[])
 		fname = argv[1];
 	} else {
 		fname = ".madvise.tmp";
-		if (create_file(".madvise.tmp")) {
-			fprintf(stderr, "file creation failed\n");
-			goto err;
-		}
+		io_uring_create_file(fname, FILE_SIZE);
 	}
 
 	if (io_uring_queue_init(8, &ring, 0)) {

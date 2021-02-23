@@ -15,25 +15,6 @@
 #define BUF_SIZE 4096
 #define FILE_SIZE 1024
 
-static int create_file(const char *file)
-{
-	ssize_t ret;
-	char *buf;
-	int fd;
-
-	buf = io_uring_malloc(FILE_SIZE);
-	memset(buf, 0xaa, FILE_SIZE);
-
-	fd = open(file, O_WRONLY | O_CREAT, 0644);
-	if (fd < 0) {
-		perror("open file");
-		return 1;
-	}
-	ret = write(fd, buf, FILE_SIZE);
-	close(fd);
-	return ret != FILE_SIZE;
-}
-
 int main(int argc, char *argv[])
 {
 	int ret, fd, save_errno;
@@ -48,10 +29,7 @@ int main(int argc, char *argv[])
 	vec.iov_base = io_uring_malloc(BUF_SIZE);
 	vec.iov_len = BUF_SIZE;
 
-	if (create_file(".short-read")) {
-		fprintf(stderr, "file creation failed\n");
-		return 1;
-	}
+	io_uring_create_file(".short-read", FILE_SIZE);
 
 	fd = open(".short-read", O_RDONLY);
 	save_errno = errno;

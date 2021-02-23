@@ -138,35 +138,13 @@ err:
 
 #define FILE_SIZE 1024
 
-static int create_file(const char *file)
-{
-	ssize_t ret;
-	char *buf;
-	int fd;
-
-	buf = io_uring_malloc(FILE_SIZE);
-	memset(buf, 0xaa, FILE_SIZE);
-
-	fd = open(file, O_WRONLY | O_CREAT, 0644);
-	if (fd < 0) {
-		perror("open file");
-		return 1;
-	}
-	ret = write(fd, buf, FILE_SIZE);
-	close(fd);
-	return ret != FILE_SIZE;
-}
-
 static int test_sync_file_range(struct io_uring *ring)
 {
 	int ret, fd, save_errno;
 	struct io_uring_sqe *sqe;
 	struct io_uring_cqe *cqe;
 
-	if (create_file(".sync_file_range")) {
-		fprintf(stderr, "file creation failed\n");
-		return 1;
-	}
+	io_uring_create_file(".sync_file_range", FILE_SIZE);
 
 	fd = open(".sync_file_range", O_RDWR);
 	save_errno = errno;

@@ -39,7 +39,7 @@ static int *open_files(int nr_files, int extra, int add)
 	int *files;
 	int i;
 
-	files = calloc(nr_files + extra, sizeof(int));
+	files = io_uring_calloc(nr_files + extra, sizeof(int));
 
 	for (i = 0; i < nr_files; i++) {
 		if (!add)
@@ -232,7 +232,7 @@ static int test_removals(struct io_uring *ring)
 		goto err;
 	}
 
-	fds = calloc(10, sizeof(int));
+	fds = io_uring_calloc(10, sizeof(int));
 	for (i = 0; i < 10; i++)
 		fds[i] = -1;
 

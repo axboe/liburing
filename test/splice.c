@@ -6,6 +6,7 @@
 #include <fcntl.h>
 #include <sys/mman.h>
 
+#include "helpers.h"
 #include "liburing.h"
 
 #define BUF_SIZE (16 * 4096)
@@ -86,12 +87,8 @@ static int init_splice_ctx(struct test_ctx *ctx)
 {
 	int ret, rnd_fd;
 
-	ctx->buf_in = calloc(BUF_SIZE, 1);
-	if (!ctx->buf_in)
-		return 1;
-	ctx->buf_out = calloc(BUF_SIZE, 1);
-	if (!ctx->buf_out)
-		return 1;
+	ctx->buf_in = io_uring_calloc(BUF_SIZE, 1);
+	ctx->buf_out = io_uring_calloc(BUF_SIZE, 1);
 
 	ctx->fd_in = create_file(".splice-test-in");
 	if (ctx->fd_in < 0) {

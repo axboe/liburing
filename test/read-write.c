@@ -25,19 +25,6 @@ static int no_read;
 static int no_buf_select;
 static int warned;
 
-static int create_buffers(void)
-{
-	int i;
-
-	vecs = io_uring_malloc(BUFFERS * sizeof(struct iovec));
-	for (i = 0; i < BUFFERS; i++) {
-		io_uring_posix_memalign(&vecs[i].iov_base, BS, BS);
-		vecs[i].iov_len = BS;
-	}
-
-	return 0;
-}
-
 static int create_nonaligned_buffers(void)
 {
 	int i;
@@ -53,25 +40,6 @@ static int create_nonaligned_buffers(void)
 	}
 
 	return 0;
-}
-
-static int create_file(const char *file)
-{
-	ssize_t ret;
-	char *buf;
-	int fd;
-
-	buf = io_uring_malloc(FILE_SIZE);
-	memset(buf, 0xaa, FILE_SIZE);
-
-	fd = open(file, O_WRONLY | O_CREAT, 0644);
-	if (fd < 0) {
-		perror("open file");
-		return 1;
-	}
-	ret = write(fd, buf, FILE_SIZE);
-	close(fd);
-	return ret != FILE_SIZE;
 }
 
 static int __test_io(const char *file, struct io_uring *ring, int write,
@@ -364,7 +332,7 @@ static int has_nonvec_read(void)
 		exit(ret);
 	}
 
-	p = calloc(1, sizeof(*p) + 256 * sizeof(struct io_uring_probe_op));
+	p = io_uring_calloc(1, sizeof(*p) + 256 * sizeof(struct io_uring_probe_op));
 	ret = io_uring_register_probe(&ring, p, 256);
 	/* if we don't have PROBE_REGISTER, we don't have OP_READ/WRITE */
 	if (ret == -EINVAL) {
@@ -784,16 +752,10 @@ int main(int argc, char *argv[])
 		fname = argv[1];
 	} else {
 		fname = ".basic-rw";
-		if (create_file(fname)) {
-			fprintf(stderr, "file creation failed\n");
-			goto err;
-		}
+		io_uring_create_file(fname, FILE_SIZE);
 	}
 
-	if (create_buffers()) {
-		fprintf(stderr, "file creation failed\n");
-		goto err;
-	}
+	vecs = io_uring_create_buffers(BUFFERS, BS);
 
 	/* if we don't have nonvec read, skip testing that */
 	nr = has_nonvec_read() ? 32 : 16;

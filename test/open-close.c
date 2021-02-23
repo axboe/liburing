@@ -13,25 +13,6 @@
 #include "helpers.h"
 #include "liburing.h"
 
-static int create_file(const char *file, size_t size)
-{
-	ssize_t ret;
-	char *buf;
-	int fd;
-
-	buf = io_uring_malloc(size);
-	memset(buf, 0xaa, size);
-
-	fd = open(file, O_WRONLY | O_CREAT, 0644);
-	if (fd < 0) {
-		perror("open file");
-		return 1;
-	}
-	ret = write(fd, buf, size);
-	close(fd);
-	return ret != size;
-}
-
 static int test_close(struct io_uring *ring, int fd, int is_ring_fd)
 {
 	struct io_uring_cqe *cqe;
@@ -119,14 +100,10 @@ int main(int argc, char *argv[])
 		do_unlink = 1;
 	}
 
-	if (create_file(path, 4096)) {
-		fprintf(stderr, "file create failed\n");
-		return 1;
-	}
-	if (do_unlink && create_file(path_rel, 4096)) {
-		fprintf(stderr, "file create failed\n");
-		return 1;
-	}
+	io_uring_create_file(path, 4096);
+
+	if (do_unlink)
+		io_uring_create_file(path_rel, 4096);
 
 	ret = test_openat(&ring, path, -1);
 	if (ret < 0) {
