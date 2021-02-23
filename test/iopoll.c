@@ -30,8 +30,7 @@ static int create_buffers(void)
 
 	vecs = io_uring_malloc(BUFFERS * sizeof(struct iovec));
 	for (i = 0; i < BUFFERS; i++) {
-		if (posix_memalign(&vecs[i].iov_base, BS, BS))
-			return 1;
+		io_uring_posix_memalign(&vecs[i].iov_base, BS, BS);
 		vecs[i].iov_len = BS;
 	}
 
