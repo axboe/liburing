@@ -4,6 +4,10 @@
  */
 #include <stdlib.h>
 #include <assert.h>
+#include <string.h>
+#include <stdio.h>
+#include <fcntl.h>
+#include <unistd.h>
 
 #include "helpers.h"
 
@@ -41,4 +45,25 @@ void *io_uring_calloc(size_t nmemb, size_t size)
 	return ret;
 }
 
+/*
+ * Helper for creating file and write @size byte buf with 0xaa value in the file.
+ */
+void io_uring_create_file(const char *file, size_t size)
+{
+	ssize_t ret;
+	char *buf;
+	int fd; 
+
+	buf = io_uring_malloc(size);
+	memset(buf, 0xaa, size);
+
+	fd = open(file, O_WRONLY | O_CREAT, 0644);
+	assert(fd >= 0);
+
+	ret = write(fd, buf, size);
+	fsync(fd);
+	close(fd);
+	free(buf);
+	assert(ret == size);
+}
 

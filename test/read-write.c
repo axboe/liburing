@@ -55,25 +55,6 @@ static int create_nonaligned_buffers(void)
 	return 0;
 }
 
-static int create_file(const char *file)
-{
-	ssize_t ret;
-	char *buf;
-	int fd;
-
-	buf = io_uring_malloc(FILE_SIZE);
-	memset(buf, 0xaa, FILE_SIZE);
-
-	fd = open(file, O_WRONLY | O_CREAT, 0644);
-	if (fd < 0) {
-		perror("open file");
-		return 1;
-	}
-	ret = write(fd, buf, FILE_SIZE);
-	close(fd);
-	return ret != FILE_SIZE;
-}
-
 static int __test_io(const char *file, struct io_uring *ring, int write,
 		     int buffered, int sqthread, int fixed, int nonvec,
 		     int buf_select, int seq, int exp_len)
@@ -784,10 +765,7 @@ int main(int argc, char *argv[])
 		fname = argv[1];
 	} else {
 		fname = ".basic-rw";
-		if (create_file(fname)) {
-			fprintf(stderr, "file creation failed\n");
-			goto err;
-		}
+		io_uring_create_file(fname, FILE_SIZE);
 	}
 
 	if (create_buffers()) {

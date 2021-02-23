@@ -38,26 +38,6 @@ static void *flusher(void *__data)
 	return NULL;
 }
 
-static int create_file(const char *file)
-{
-	ssize_t ret;
-	char *buf;
-	int fd;
-
-	buf = io_uring_malloc(FILE_SIZE);
-	memset(buf, 0xaa, FILE_SIZE);
-
-	fd = open(file, O_WRONLY | O_CREAT, 0644);
-	if (fd < 0) {
-		perror("open file");
-		return 1;
-	}
-	ret = write(fd, buf, FILE_SIZE);
-	fsync(fd);
-	close(fd);
-	return ret != FILE_SIZE;
-}
-
 static char str1[STR_SIZE];
 static char str2[STR_SIZE];
 
@@ -177,14 +157,10 @@ static int test_reuse(int argc, char *argv[], int split, int async)
 		return 0;
 	}
 
-	if (do_unlink && create_file(fname1)) {
-		fprintf(stderr, "file creation failed\n");
-		goto err;
-	}
-	if (create_file(".reuse.2")) {
-		fprintf(stderr, "file creation failed\n");
-		goto err;
-	}
+	if (do_unlink)
+		io_uring_create_file(fname1, FILE_SIZE);
+
+	io_uring_create_file(".reuse.2", FILE_SIZE);
 
 	fd1 = open(fname1, O_RDONLY);
 	if (fd1 < 0) {

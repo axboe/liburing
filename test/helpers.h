@@ -27,6 +27,12 @@ void io_uring_posix_memalign(void **memptr, size_t alignment, size_t size);
  */
 void *io_uring_calloc(size_t nmemb, size_t size);
 
+
+/*
+ * Helper for creating file and write @size byte buf with 0xaa value in the file.
+ */
+void io_uring_create_file(const char *file, size_t size);
+
 #ifdef __cplusplus
 }
 #endif

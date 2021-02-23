@@ -20,26 +20,6 @@
 #define NR_IOS	8
 #define WSIZE	512
 
-static int create_file(const char *file, size_t size)
-{
-	ssize_t ret;
-	char *buf;
-	int fd;
-
-	buf = io_uring_malloc(size);
-	memset(buf, 0xaa, size);
-
-	fd = open(file, O_WRONLY | O_CREAT, 0644);
-	if (fd < 0) {
-		perror("open file");
-		return 1;
-	}
-	ret = write(fd, buf, size);
-	close(fd);
-	free(buf);
-	return ret != size;
-}
-
 struct d {
 	int fd;
 	struct io_uring *ring;
@@ -108,10 +88,8 @@ int main(int argc, char *argv[])
 		do_unlink = 1;
 	}
 
-	if (do_unlink && create_file(fname, 4096)) {
-		fprintf(stderr, "file create failed\n");
-		return 1;
-	}
+	if (do_unlink)
+		io_uring_create_file(fname, 4096);
 
 	fd = open(fname, O_WRONLY);
 	if (fd < 0) {

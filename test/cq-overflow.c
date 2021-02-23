@@ -32,25 +32,6 @@ static int create_buffers(void)
 	return 0;
 }
 
-static int create_file(const char *file)
-{
-	ssize_t ret;
-	char *buf;
-	int fd;
-
-	buf = io_uring_malloc(FILE_SIZE);
-	memset(buf, 0xaa, FILE_SIZE);
-
-	fd = open(file, O_WRONLY | O_CREAT, 0644);
-	if (fd < 0) {
-		perror("open file");
-		return 1;
-	}
-	ret = write(fd, buf, FILE_SIZE);
-	close(fd);
-	return ret != FILE_SIZE;
-}
-
 #define ENTRIES	8
 
 static int test_io(const char *file, unsigned long usecs, unsigned *drops, int fault)
@@ -492,10 +473,8 @@ int main(int argc, char *argv[])
 		return ret;
 	}
 
-	if (create_file(".basic-rw")) {
-		fprintf(stderr, "file creation failed\n");
-		goto err;
-	}
+	io_uring_create_file(".basic-rw", FILE_SIZE);
+
 	if (create_buffers()) {
 		fprintf(stderr, "file creation failed\n");
 		goto err;
