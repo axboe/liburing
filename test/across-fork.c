@@ -220,6 +220,13 @@ int main(int argc, char *argv[])
 		if (wait_cqe(&shmem->ring, "p cqe 2"))
 			goto errcleanup;
 
+		/* check that IO can still be submitted after child exited */
+		if (submit_write(&shmem->ring, shared_fd, "parent: write shared fd after child exit\n", 0))
+			goto errcleanup;
+
+		if (wait_cqe(&shmem->ring, "p cqe 3"))
+			goto errcleanup;
+
 		break;
 	}
 	case 0: {
@@ -260,7 +267,8 @@ int main(int argc, char *argv[])
 	if (verify_file(tmpdir, "shared",
 			 "before fork: write shared fd\n"
 			 "parent: write shared fd\n"
-			 "child: write shared fd\n") ||
+			 "child: write shared fd\n"
+			 "parent: write shared fd after child exit\n") ||
 	    verify_file(tmpdir, "parent1", "parent: write parent fd 1\n") ||
 	    verify_file(tmpdir, "parent2", "parent: write parent fd 2\n") ||
 	    verify_file(tmpdir, "child", "child: write child fd\n"))
