@@ -261,16 +261,12 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-	ret = io_uring_queue_init(1000, &sqthread_ring,
+	ret = t_create_ring(1000, &sqthread_ring,
 				IORING_SETUP_SQPOLL | IORING_SETUP_IOPOLL);
-	if (ret) {
-		if (geteuid()) {
-			no_sqthread = 1;
-		} else {
-			printf("poll_ring setup failed\n");
-			return 1;
-		}
-	}
+	if (ret == T_SETUP_SKIP)
+		return 0;
+	else if (ret < 0)
+		return 1;
 
 	ret = test_cancelled_userdata(&poll_ring);
 	if (ret) {

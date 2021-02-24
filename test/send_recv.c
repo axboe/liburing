@@ -13,6 +13,7 @@
 #include <pthread.h>
 
 #include "liburing.h"
+#include "helpers.h"
 
 static char str[] = "This is a test of send and recv over io_uring!";
 
@@ -138,15 +139,13 @@ static void *recv_fn(void *data)
 
 	if (rd->use_sqthread)
 		p.flags = IORING_SETUP_SQPOLL;
-	ret = io_uring_queue_init_params(1, &ring, &p);
-	if (ret) {
-		if (rd->use_sqthread && geteuid()) {
-			fprintf(stdout, "Skipping SQPOLL variant\n");
-			pthread_mutex_unlock(&rd->mutex);
-			ret = 0;
-			goto err;
-		}
-		fprintf(stderr, "queue init failed: %d\n", ret);
+	ret = t_create_ring_params(1, &ring, &p);
+	if (ret == T_SETUP_SKIP) {
+		pthread_mutex_unlock(&rd->mutex);
+		ret = 0;
+		goto err;
+	} else if (ret < 0) {
+		pthread_mutex_unlock(&rd->mutex);
 		goto err;
 	}
 

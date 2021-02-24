@@ -10,6 +10,7 @@
 #include <unistd.h>
 #include <pthread.h>
 #include "liburing.h"
+#include "helpers.h"
 
 static int use_sqpoll = 0;
 
@@ -66,11 +67,12 @@ int main(int argc, char *argv[])
 		p.flags = IORING_SETUP_SQPOLL;
 
 	/* Setup the ring with a registered event fd to be notified on events */
-	ret = io_uring_queue_init_params(8, &ring, &p);
-	if (ret) {
-		fprintf(stderr, "queue_init=%d\n", ret);
-		return 1;
-	}
+	ret = t_create_ring_params(8, &ring, &p);
+	if (ret == T_SETUP_SKIP)
+		return 0;
+	else if (ret < 0)
+		return ret;
+
 	ret = io_uring_register_eventfd(&ring, loop_fd);
 	if (ret < 0) {
 		fprintf(stderr, "register_eventfd=%d\n", ret);

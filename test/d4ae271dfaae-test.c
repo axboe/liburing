@@ -34,11 +34,11 @@ int main(int argc, char *argv[])
 
 	memset(&p, 0, sizeof(p));
 	p.flags = IORING_SETUP_SQPOLL;
-	ret = io_uring_queue_init_params(4, &ring, &p);
-	if (ret < 0) {
-		fprintf(stderr, "queue_init: %s\n", strerror(-ret));
+	ret = t_create_ring_params(4, &ring, &p);
+	if (ret == T_SETUP_SKIP)
+		return 0;
+	else if (ret < 0)
 		return 1;
-	}
 
 	if (argc > 1) {
 		fname = argv[1];

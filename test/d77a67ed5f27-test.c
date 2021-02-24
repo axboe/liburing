@@ -5,6 +5,7 @@
 #include <signal.h>
 #include <stdlib.h>
 #include "liburing.h"
+#include "helpers.h"
 
 static void sig_alrm(int sig)
 {
@@ -28,15 +29,11 @@ int main(int argc, char *argv[])
 	memset(&p, 0, sizeof(p));
 	p.sq_thread_idle = 100;
 	p.flags = IORING_SETUP_SQPOLL;
-	ret = io_uring_queue_init_params(4, &ring, &p);
-	if (ret) {
-		if (geteuid()) {
-			fprintf(stdout, "SQPOLL requires root, skipped\n");
-			return 0;
-		}
-		fprintf(stderr, "ring create failed: %d\n", ret);
+	ret = t_create_ring_params(4, &ring, &p);
+	if (ret == T_SETUP_SKIP)
+		return 0;
+	else if (ret < 0)
 		return 1;
-	}
 
 	/* make sure sq thread is sleeping at this point */
 	usleep(150000);

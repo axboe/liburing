@@ -367,11 +367,10 @@ static int test_accept_sqpoll(void)
 	int ret, should_fail;
 
 	p.flags = IORING_SETUP_SQPOLL;
-	ret = io_uring_queue_init_params(32, &m_io_uring, &p);
-	if (ret && geteuid()) {
-		printf("%s: skipped, not root\n", __FUNCTION__);
+	ret = t_create_ring_params(32, &m_io_uring, &p);
+	if (ret == T_SETUP_SKIP)
 		return 0;
-	} else if (ret)
+	else if (ret < 0)
 		return ret;
 
 	should_fail = 1;
