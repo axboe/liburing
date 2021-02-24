@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <sys/types.h>
 
 #include "helpers.h"
 #include "liburing.h"
@@ -82,4 +83,34 @@ struct iovec *t_create_buffers(size_t buf_num, size_t buf_size)
 		vecs[i].iov_len = buf_size; 
 	}
 	return vecs;
+}
+
+/*
+ * Helper for setting up an io_uring instance, skipping if the given user isn't
+ * allowed to.
+ */
+enum t_setup_ret t_create_ring_params(int depth, struct io_uring *ring,
+				      struct io_uring_params *p)
+{
+	int ret;
+
+	ret = io_uring_queue_init_params(depth, ring, p);
+	if (!ret)
+		return T_SETUP_OK;
+	if ((p->flags & IORING_SETUP_SQPOLL) && ret == -EPERM && geteuid()) {
+		fprintf(stdout, "SQPOLL skipped for regular user\n");
+		return T_SETUP_SKIP;
+	}
+
+	fprintf(stderr, "queue_init: %s\n", strerror(-ret));
+	return ret;
+}
+
+enum t_setup_ret t_create_ring(int depth, struct io_uring *ring,
+			       unsigned int flags)
+{
+	struct io_uring_params p = { };
+
+	p.flags = flags;
+	return t_create_ring_params(depth, ring, &p);
 }

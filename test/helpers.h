@@ -9,6 +9,13 @@
 extern "C" {
 #endif
 
+#include "liburing.h"
+
+enum t_setup_ret {
+	T_SETUP_OK	= 0,
+	T_SETUP_SKIP,
+};
+
 /*
  * Helper for allocating memory in tests.
  */
@@ -38,6 +45,15 @@ void t_create_file(const char *file, size_t size);
  * with @buf_size bytes buffer of each iovec.
  */
 struct iovec *t_create_buffers(size_t buf_num, size_t buf_size);
+
+/*
+ * Helper for setting up a ring and checking for user privs
+ */
+enum t_setup_ret t_create_ring_params(int depth, struct io_uring *ring,
+				      struct io_uring_params *p);
+enum t_setup_ret t_create_ring(int depth, struct io_uring *ring,
+			       unsigned int flags);
+
 #ifdef __cplusplus
 }
 #endif

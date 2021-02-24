@@ -137,13 +137,13 @@ helpers = helpers.o
 all: ${helpers} $(test_targets)
 
 helpers.o: helpers.c helpers.c
-	$(QUIET_CC)$(CC) $(CPPFLAGS) $(CFLAGS) -o $@ -c $<
+	$(QUIET_CC)$(CC) $(CPPFLAGS) $(CFLAGS) -o $@ -c $< -luring
 
 %: %.c ${helpers} helpers.h
-	$(QUIET_CC)$(CC) $(CPPFLAGS) $(CFLAGS) -o $@ $< -luring $(XCFLAGS) ${helpers}
+	$(QUIET_CC)$(CC) $(CPPFLAGS) $(CFLAGS) -o $@ $< ${helpers} -luring $(XCFLAGS)
 
 %: %.cc ${helpers} helpers.h
-	$(QUIET_CXX)$(CXX) $(CPPFLAGS) $(CXXFLAGS) -o $@ $< -luring $(XCFLAGS) ${helpers}
+	$(QUIET_CXX)$(CXX) $(CPPFLAGS) $(CXXFLAGS) -o $@ $< ${helpers} -luring $(XCFLAGS)
 
 test_srcs := \
 	helpers.c \
