@@ -87,8 +87,8 @@ static int init_splice_ctx(struct test_ctx *ctx)
 {
 	int ret, rnd_fd;
 
-	ctx->buf_in = io_uring_calloc(BUF_SIZE, 1);
-	ctx->buf_out = io_uring_calloc(BUF_SIZE, 1);
+	ctx->buf_in = t_calloc(BUF_SIZE, 1);
+	ctx->buf_out = t_calloc(BUF_SIZE, 1);
 
 	ctx->fd_in = create_file(".splice-test-in");
 	if (ctx->fd_in < 0) {

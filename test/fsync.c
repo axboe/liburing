@@ -70,7 +70,7 @@ static int test_barrier_fsync(struct io_uring *ring)
 	}
 
 	for (i = 0; i < 4; i++) {
-		iovecs[i].iov_base = io_uring_malloc(4096);
+		iovecs[i].iov_base = t_malloc(4096);
 		iovecs[i].iov_len = 4096;
 	}
 
@@ -144,7 +144,7 @@ static int test_sync_file_range(struct io_uring *ring)
 	struct io_uring_sqe *sqe;
 	struct io_uring_cqe *cqe;
 
-	io_uring_create_file(".sync_file_range", FILE_SIZE);
+	t_create_file(".sync_file_range", FILE_SIZE);
 
 	fd = open(".sync_file_range", O_RDWR);
 	save_errno = errno;

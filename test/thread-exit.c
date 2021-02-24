@@ -35,7 +35,7 @@ static void *do_io(void *data)
 	char *buffer;
 	int ret;
 
-	buffer = io_uring_malloc(WSIZE);
+	buffer = t_malloc(WSIZE);
 	memset(buffer, 0x5a, WSIZE);
 	sqe = io_uring_get_sqe(d->ring);
 	if (!sqe) {
@@ -89,7 +89,7 @@ int main(int argc, char *argv[])
 	}
 
 	if (do_unlink)
-		io_uring_create_file(fname, 4096);
+		t_create_file(fname, 4096);
 
 	fd = open(fname, O_WRONLY);
 	if (fd < 0) {

@@ -334,10 +334,10 @@ int main(int argc, char *argv[])
 		fname = argv[1];
 	} else {
 		fname = ".iopoll-rw";
-		io_uring_create_file(fname, FILE_SIZE);
+		t_create_file(fname, FILE_SIZE);
 	}
 
-	vecs = io_uring_create_buffers(BUFFERS, BS);
+	vecs = t_create_buffers(BUFFERS, BS);
 
 	nr = 16;
 	if (no_buf_select)

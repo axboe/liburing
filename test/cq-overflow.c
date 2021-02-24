@@ -460,9 +460,9 @@ int main(int argc, char *argv[])
 		return ret;
 	}
 
-	io_uring_create_file(".basic-rw", FILE_SIZE);
+	t_create_file(".basic-rw", FILE_SIZE);
 
-	vecs = io_uring_create_buffers(BUFFERS, BS);
+	vecs = t_create_buffers(BUFFERS, BS);
 
 	iters = 0;
 	usecs = 1000;

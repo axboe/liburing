@@ -242,7 +242,7 @@ test_memlock_exceeded(int fd)
 		return 0;
 
 	iov.iov_len = mlock_limit * 2;
-	buf = io_uring_malloc(iov.iov_len);
+	buf = t_malloc(iov.iov_len);
 	iov.iov_base = buf;
 
 	while (iov.iov_len) {
@@ -284,8 +284,8 @@ test_iovec_nr(int fd)
 	struct iovec *iovs;
 	void *buf;
 
-	buf = io_uring_malloc(pagesize);
-	iovs = io_uring_malloc(nr * sizeof(struct iovec));
+	buf = t_malloc(pagesize);
+	iovs = t_malloc(nr * sizeof(struct iovec));
 
 	for (i = 0; i < nr; i++) {
 		iovs[i].iov_base = buf;

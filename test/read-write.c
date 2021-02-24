@@ -29,9 +29,9 @@ static int create_nonaligned_buffers(void)
 {
 	int i;
 
-	vecs = io_uring_malloc(BUFFERS * sizeof(struct iovec));
+	vecs = t_malloc(BUFFERS * sizeof(struct iovec));
 	for (i = 0; i < BUFFERS; i++) {
-		char *p = io_uring_malloc(3 * BS);
+		char *p = t_malloc(3 * BS);
 
 		if (!p)
 			return 1;
@@ -332,7 +332,7 @@ static int has_nonvec_read(void)
 		exit(ret);
 	}
 
-	p = io_uring_calloc(1, sizeof(*p) + 256 * sizeof(struct io_uring_probe_op));
+	p = t_calloc(1, sizeof(*p) + 256 * sizeof(struct io_uring_probe_op));
 	ret = io_uring_register_probe(&ring, p, 256);
 	/* if we don't have PROBE_REGISTER, we don't have OP_READ/WRITE */
 	if (ret == -EINVAL) {
@@ -752,10 +752,10 @@ int main(int argc, char *argv[])
 		fname = argv[1];
 	} else {
 		fname = ".basic-rw";
-		io_uring_create_file(fname, FILE_SIZE);
+		t_create_file(fname, FILE_SIZE);
 	}
 
-	vecs = io_uring_create_buffers(BUFFERS, BS);
+	vecs = t_create_buffers(BUFFERS, BS);
 
 	/* if we don't have nonvec read, skip testing that */
 	nr = has_nonvec_read() ? 32 : 16;

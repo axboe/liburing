@@ -37,7 +37,7 @@ static int *open_files(int nr_files, int extra, int add)
 	int *files;
 	int i;
 
-	files = io_uring_calloc(nr_files + extra, sizeof(int));
+	files = t_calloc(nr_files + extra, sizeof(int));
 
 	for (i = 0; i < nr_files; i++) {
 		if (!add)
@@ -108,7 +108,7 @@ static int test_sqe_update(struct io_uring *ring)
 	struct io_uring_cqe *cqe;
 	int *fds, i, ret;
 
-	fds = io_uring_malloc(sizeof(int) * 10);
+	fds = t_malloc(sizeof(int) * 10);
 	for (i = 0; i < 10; i++)
 		fds[i] = -1;
 

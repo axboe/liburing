@@ -203,9 +203,9 @@ int main(int argc, char *argv[])
 	if (argc > 1)
 		return 0;
 
-	io_uring_create_file(".basic-rw", FILE_SIZE);
+	t_create_file(".basic-rw", FILE_SIZE);
 
-	vecs = io_uring_create_buffers(BUFFERS, BS);
+	vecs = t_create_buffers(BUFFERS, BS);
 
 	for (i = 0; i < 4; i++) {
 		int v1 = (i & 1) != 0;

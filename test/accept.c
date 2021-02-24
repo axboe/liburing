@@ -33,7 +33,7 @@ static void queue_send(struct io_uring *ring, int fd)
 	struct io_uring_sqe *sqe;
 	struct data *d;
 
-	d = io_uring_malloc(sizeof(*d));
+	d = t_malloc(sizeof(*d));
 	d->iov.iov_base = d->buf;
 	d->iov.iov_len = sizeof(d->buf);
 
@@ -46,7 +46,7 @@ static void queue_recv(struct io_uring *ring, int fd)
 	struct io_uring_sqe *sqe;
 	struct data *d;
 
-	d = io_uring_malloc(sizeof(*d));
+	d = t_malloc(sizeof(*d));
 	d->iov.iov_base = d->buf;
 	d->iov.iov_len = sizeof(d->buf);
 
@@ -247,7 +247,7 @@ static int test_accept_many(unsigned nr, unsigned usecs)
 	ret = io_uring_queue_init(2 * nr, &m_io_uring, 0);
 	assert(ret >= 0);
 
-	fds = io_uring_calloc(nr, sizeof(int));
+	fds = t_calloc(nr, sizeof(int));
 
 	for (i = 0; i < nr; i++)
 		fds[i] = start_accept_listen(NULL, i);

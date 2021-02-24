@@ -39,7 +39,7 @@ static int *open_files(int nr_files, int extra, int add)
 	int *files;
 	int i;
 
-	files = io_uring_calloc(nr_files + extra, sizeof(int));
+	files = t_calloc(nr_files + extra, sizeof(int));
 
 	for (i = 0; i < nr_files; i++) {
 		if (!add)
@@ -157,7 +157,7 @@ static int test_replace_all(struct io_uring *ring)
 		goto err;
 	}
 
-	fds = io_uring_malloc(100 * sizeof(int));
+	fds = t_malloc(100 * sizeof(int));
 	for (i = 0; i < 100; i++)
 		fds[i] = -1;
 
@@ -232,7 +232,7 @@ static int test_removals(struct io_uring *ring)
 		goto err;
 	}
 
-	fds = io_uring_calloc(10, sizeof(int));
+	fds = t_calloc(10, sizeof(int));
 	for (i = 0; i < 10; i++)
 		fds[i] = -1;
 
@@ -424,11 +424,11 @@ static int test_fixed_read_write(struct io_uring *ring, int index)
 	struct iovec iov[2];
 	int ret;
 
-	iov[0].iov_base = io_uring_malloc(4096);
+	iov[0].iov_base = t_malloc(4096);
 	iov[0].iov_len = 4096;
 	memset(iov[0].iov_base, 0x5a, 4096);
 
-	iov[1].iov_base = io_uring_malloc(4096);
+	iov[1].iov_base = t_malloc(4096);
 	iov[1].iov_len = 4096;
 
 	sqe = io_uring_get_sqe(ring);
@@ -603,7 +603,7 @@ static int test_sparse_updates(void)
 		return ret;
 	}
 
-	fds = io_uring_malloc(256 * sizeof(int));
+	fds = t_malloc(256 * sizeof(int));
 	for (i = 0; i < 256; i++)
 		fds[i] = -1;
 

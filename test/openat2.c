@@ -69,10 +69,10 @@ int main(int argc, char *argv[])
 		do_unlink = 1;
 	}
 
-	io_uring_create_file(path, 4096);
+	t_create_file(path, 4096);
 
 	if (do_unlink)
-		io_uring_create_file(path_rel, 4096);
+		t_create_file(path_rel, 4096);
 
 	ret = test_openat2(&ring, path, -1);
 	if (ret < 0) {

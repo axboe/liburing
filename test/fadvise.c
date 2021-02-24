@@ -119,7 +119,7 @@ static int test_fadvise(struct io_uring *ring, const char *filename)
 		return 1;
 	}
 
-	buf = io_uring_malloc(FILE_SIZE);
+	buf = t_malloc(FILE_SIZE);
 
 	cached_read = do_read(fd, buf);
 	if (cached_read == -1)
@@ -164,7 +164,7 @@ int main(int argc, char *argv[])
 		fname = argv[1];
 	} else {
 		fname = ".fadvise.tmp";
-		io_uring_create_file(fname, FILE_SIZE);
+		t_create_file(fname, FILE_SIZE);
 	}
 	if (io_uring_queue_init(8, &ring, 0)) {
 		fprintf(stderr, "ring creation failed\n");

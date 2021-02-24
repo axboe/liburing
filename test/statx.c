@@ -143,7 +143,7 @@ int main(int argc, char *argv[])
 		fname = argv[1];
 	} else {
 		fname = "/tmp/.statx";
-		io_uring_create_file(fname, 4096);
+		t_create_file(fname, 4096);
 	}
 
 	ret = test_statx(&ring, fname);

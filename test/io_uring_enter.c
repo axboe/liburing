@@ -126,10 +126,10 @@ io_prep_read(struct io_uring_sqe *sqe, int fd, off_t offset, size_t len)
 {
 	struct iovec *iov;
 
-	iov = io_uring_malloc(sizeof(*iov));
+	iov = t_malloc(sizeof(*iov));
 	assert(iov);
 
-	iov->iov_base = io_uring_malloc(len);
+	iov->iov_base = t_malloc(len);
 	assert(iov->iov_base);
 	iov->iov_len = len;
 

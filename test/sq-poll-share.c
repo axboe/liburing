@@ -83,10 +83,10 @@ int main(int argc, char *argv[])
 		fname = argv[1];
 	} else {
 		fname = ".basic-rw";
-		io_uring_create_file(fname, FILE_SIZE);
+		t_create_file(fname, FILE_SIZE);
 	}
 
-	vecs = io_uring_create_buffers(BUFFERS, BS);
+	vecs = t_create_buffers(BUFFERS, BS);
 
 	fd = open(fname, O_RDONLY | O_DIRECT);
 	if (fd < 0) {

@@ -26,10 +26,10 @@ int main(int argc, char *argv[])
 	if (argc > 1)
 		return 0;
 
-	vec.iov_base = io_uring_malloc(BUF_SIZE);
+	vec.iov_base = t_malloc(BUF_SIZE);
 	vec.iov_len = BUF_SIZE;
 
-	io_uring_create_file(".short-read", FILE_SIZE);
+	t_create_file(".short-read", FILE_SIZE);
 
 	fd = open(".short-read", O_RDONLY);
 	save_errno = errno;

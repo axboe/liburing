@@ -31,7 +31,7 @@ static int get_file_fd(void)
 		return -1;
 	}
 
-	buf = io_uring_malloc(BLOCK);
+	buf = t_malloc(BLOCK);
 	ret = write(fd, buf, BLOCK);
 	if (ret != BLOCK) {
 		if (ret < 0)
@@ -71,7 +71,7 @@ int main(int argc, char *argv[])
 	if (argc > 1)
 		return 0;
 
-	iov.iov_base = io_uring_malloc(4096);
+	iov.iov_base = t_malloc(4096);
 	iov.iov_len = 4096;
 
 	ret = io_uring_queue_init(2, &ring, 0);

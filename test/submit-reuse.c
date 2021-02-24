@@ -158,9 +158,9 @@ static int test_reuse(int argc, char *argv[], int split, int async)
 	}
 
 	if (do_unlink)
-		io_uring_create_file(fname1, FILE_SIZE);
+		t_create_file(fname1, FILE_SIZE);
 
-	io_uring_create_file(".reuse.2", FILE_SIZE);
+	t_create_file(".reuse.2", FILE_SIZE);
 
 	fd1 = open(fname1, O_RDONLY);
 	if (fd1 < 0) {
