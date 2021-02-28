@@ -104,6 +104,7 @@
 /test/sq-poll-dup
 /test/sq-poll-kthread
 /test/sq-poll-share
+/test/sqpoll-disable-exit
 /test/sqpoll-exit-hang
 /test/sqpoll-sleep
 /test/sq-space_left
