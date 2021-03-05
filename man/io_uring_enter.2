@@ -976,7 +976,8 @@ for details on how to enable the ring.
 The application is attempting to overcommit the number of requests it can have
 pending. The application should wait for some completions and try again. May
 occur if the application tries to queue more requests than we have room for in
-the CQ ring.
+the CQ ring, or if the application attempts to wait for more events without
+having reaped the ones already present in the CQ ring.
 .TP
 .B EINVAL
 Some bits in the
