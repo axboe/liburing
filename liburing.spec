@@ -7,6 +7,7 @@ Source0: https://brick.kernel.dk/snaps/%{name}-%{version}.tar.gz
 Source1: https://brick.kernel.dk/snaps/%{name}-%{version}.tar.gz.asc
 URL: https://git.kernel.dk/cgit/liburing/
 BuildRequires: gcc
+BuildRequires: make
 
 %description
 Provides native async IO for the Linux kernel, in a fast and efficient
