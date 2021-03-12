@@ -10,6 +10,7 @@
 #include <fcntl.h>
 #include <sys/types.h>
 #include <sys/time.h>
+#include <sys/wait.h>
 
 #include "helpers.h"
 #include "liburing.h"
@@ -196,12 +197,190 @@ err:
 	return 1;
 }
 
+static int test_dont_cancel_another_ring(void)
+{
+	struct io_uring ring1, ring2;
+	struct io_uring_cqe *cqe;
+	struct io_uring_sqe *sqe;
+	char buffer[128];
+	int ret, fds[2];
+	struct __kernel_timespec ts = { .tv_sec = 0, .tv_nsec = 100000000, };
+
+	ret = io_uring_queue_init(8, &ring1, 0);
+	if (ret) {
+		fprintf(stderr, "ring create failed: %d\n", ret);
+		return 1;
+	}
+	ret = io_uring_queue_init(8, &ring2, 0);
+	if (ret) {
+		fprintf(stderr, "ring create failed: %d\n", ret);
+		return 1;
+	}
+	if (pipe(fds)) {
+		perror("pipe");
+		return 1;
+	}
+
+	sqe = io_uring_get_sqe(&ring1);
+	if (!sqe) {
+		fprintf(stderr, "%s: failed to get sqe\n", __FUNCTION__);
+		return 1;
+	}
+	io_uring_prep_read(sqe, fds[0], buffer, 10, 0);
+	sqe->flags |= IOSQE_ASYNC;
+	sqe->user_data = 1;
+
+	ret = io_uring_submit(&ring1);
+	if (ret != 1) {
+		fprintf(stderr, "%s: got %d, wanted 1\n", __FUNCTION__, ret);
+		return 1;
+	}
+
+	/* make sure it doesn't cancel requests of the other ctx */
+	sqe = io_uring_get_sqe(&ring2);
+	if (!sqe) {
+		fprintf(stderr, "%s: failed to get sqe\n", __FUNCTION__);
+		return 1;
+	}
+	io_uring_prep_cancel(sqe, (void *) (unsigned long)1, 0);
+	sqe->user_data = 2;
+
+	ret = io_uring_submit(&ring2);
+	if (ret != 1) {
+		fprintf(stderr, "%s: got %d, wanted 1\n", __FUNCTION__, ret);
+		return 1;
+	}
+
+	ret = io_uring_wait_cqe(&ring2, &cqe);
+	if (ret) {
+		fprintf(stderr, "wait_cqe=%d\n", ret);
+		return 1;
+	}
+	if (cqe->user_data != 2 || cqe->res != -ENOENT) {
+		fprintf(stderr, "error: cqe %i: res=%i, but expected -ENOENT\n",
+			(int)cqe->user_data, (int)cqe->res);
+		return 1;
+	}
+	io_uring_cqe_seen(&ring2, cqe);
+
+	ret = io_uring_wait_cqe_timeout(&ring1, &cqe, &ts);
+	if (ret != -ETIME) {
+		fprintf(stderr, "read got cancelled or wait failed\n");
+		return 1;
+	}
+	io_uring_cqe_seen(&ring1, cqe);
+
+	close(fds[0]);
+	close(fds[1]);
+	io_uring_queue_exit(&ring1);
+	io_uring_queue_exit(&ring2);
+	return 0;
+}
+
+static int test_cancel_req_across_fork(void)
+{
+	struct io_uring ring;
+	struct io_uring_cqe *cqe;
+	struct io_uring_sqe *sqe;
+	char buffer[128];
+	int ret, i, fds[2];
+	pid_t p;
+
+	ret = io_uring_queue_init(8, &ring, 0);
+	if (ret) {
+		fprintf(stderr, "ring create failed: %d\n", ret);
+		return 1;
+	}
+	if (pipe(fds)) {
+		perror("pipe");
+		return 1;
+	}
+	sqe = io_uring_get_sqe(&ring);
+	if (!sqe) {
+		fprintf(stderr, "%s: failed to get sqe\n", __FUNCTION__);
+		return 1;
+	}
+	io_uring_prep_read(sqe, fds[0], buffer, 10, 0);
+	sqe->flags |= IOSQE_ASYNC;
+	sqe->user_data = 1;
+
+	ret = io_uring_submit(&ring);
+	if (ret != 1) {
+		fprintf(stderr, "%s: got %d, wanted 1\n", __FUNCTION__, ret);
+		return 1;
+	}
+
+	p = fork();
+	if (p == -1) {
+		fprintf(stderr, "fork() failed\n");
+		return 1;
+	}
+
+	if (p == 0) {
+		sqe = io_uring_get_sqe(&ring);
+		if (!sqe) {
+			fprintf(stderr, "%s: failed to get sqe\n", __FUNCTION__);
+			return 1;
+		}
+		io_uring_prep_cancel(sqe, (void *) (unsigned long)1, 0);
+		sqe->user_data = 2;
+
+		ret = io_uring_submit(&ring);
+		if (ret != 1) {
+			fprintf(stderr, "%s: got %d, wanted 1\n", __FUNCTION__, ret);
+			return 1;
+		}
+
+		for (i = 0; i < 2; ++i) {
+			ret = io_uring_wait_cqe(&ring, &cqe);
+			if (ret) {
+				fprintf(stderr, "wait_cqe=%d\n", ret);
+				return 1;
+			}
+			if ((cqe->user_data == 1 && cqe->res != -EINTR) ||
+			    (cqe->user_data == 2 && cqe->res != -EALREADY)) {
+				fprintf(stderr, "%i %i\n", (int)cqe->user_data, cqe->res);
+				exit(1);
+			}
+
+			io_uring_cqe_seen(&ring, cqe);
+		}
+		exit(0);
+	} else {
+		int wstatus;
+
+		if (waitpid(p, &wstatus, 0) == (pid_t)-1) {
+			perror("waitpid()");
+			return 1;
+		}
+		if (!WIFEXITED(wstatus) || WEXITSTATUS(wstatus)) {
+			fprintf(stderr, "child failed %i\n", WEXITSTATUS(wstatus));
+			return 1;
+		}
+	}
+
+	close(fds[0]);
+	close(fds[1]);
+	io_uring_queue_exit(&ring);
+	return 0;
+}
+
 int main(int argc, char *argv[])
 {
 	int i, ret;
 
 	if (argc > 1)
 		return 0;
+
+	if (test_dont_cancel_another_ring()) {
+		fprintf(stderr, "test_dont_cancel_another_ring() failed\n");
+		return 1;
+	}
+
+	if (test_cancel_req_across_fork()) {
+		fprintf(stderr, "test_cancel_req_across_fork() failed\n");
+		return 1;
+	}
 
 	t_create_file(".basic-rw", FILE_SIZE);
 
