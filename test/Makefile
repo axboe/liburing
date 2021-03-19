@@ -86,6 +86,7 @@ test_targets += \
 	rename \
 	ring-leak \
 	ring-leak2 \
+	rw_merge_test \
 	self \
 	send_recv \
 	send_recvmsg \
@@ -219,6 +220,7 @@ test_srcs := \
 	rename.c \
 	ring-leak.c \
 	ring-leak2.c \
+	rw_merge_test.c \
 	self.c \
 	send_recvmsg.c \
 	shared-wq.c \
