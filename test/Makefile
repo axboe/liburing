@@ -78,6 +78,7 @@ test_targets += \
 	poll-cancel-ton \
 	poll-link \
 	poll-many \
+	poll-update-failures \
 	poll-ring \
 	poll-v-poll \
 	probe \
@@ -210,6 +211,7 @@ test_srcs := \
 	poll-cancel-ton.c \
 	poll-cancel.c \
 	poll-link.c \
+	poll-update-failures.c \
 	poll-ring.c \
 	poll-v-poll.c \
 	poll.c \
@@ -260,6 +262,7 @@ poll-link: XCFLAGS = -lpthread
 accept-link: XCFLAGS = -lpthread
 submit-reuse: XCFLAGS = -lpthread
 poll-v-poll: XCFLAGS = -lpthread
+poll-update-failures: XCFLAGS = -lpthread
 across-fork: XCFLAGS = -lpthread
 ce593a6c480a-test: XCFLAGS = -lpthread
 wakeup-hang: XCFLAGS = -lpthread
