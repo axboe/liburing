@@ -11,6 +11,7 @@
 #include <sys/types.h>
 #include <sys/time.h>
 #include <sys/wait.h>
+#include <sys/poll.h>
 
 #include "helpers.h"
 #include "liburing.h"
@@ -365,6 +366,79 @@ static int test_cancel_req_across_fork(void)
 	return 0;
 }
 
+static int test_cancel_inflight_exit(void)
+{
+	struct __kernel_timespec ts = { .tv_sec = 1, .tv_nsec = 0, };
+	struct io_uring ring;
+	struct io_uring_cqe *cqe;
+	struct io_uring_sqe *sqe;
+	int ret, i;
+	pid_t p;
+
+	ret = io_uring_queue_init(8, &ring, 0);
+	if (ret) {
+		fprintf(stderr, "ring create failed: %d\n", ret);
+		return 1;
+	}
+	p = fork();
+	if (p == -1) {
+		fprintf(stderr, "fork() failed\n");
+		return 1;
+	}
+
+	if (p == 0) {
+		sqe = io_uring_get_sqe(&ring);
+		io_uring_prep_poll_add(sqe, ring.ring_fd, POLLIN);
+		sqe->user_data = 1;
+		sqe->flags |= IOSQE_IO_LINK;
+
+		sqe = io_uring_get_sqe(&ring);
+		io_uring_prep_timeout(sqe, &ts, 0, 0);
+		sqe->user_data = 2;
+
+		sqe = io_uring_get_sqe(&ring);
+		io_uring_prep_timeout(sqe, &ts, 0, 0);
+		sqe->user_data = 3;
+
+		ret = io_uring_submit(&ring);
+		if (ret != 3) {
+			fprintf(stderr, "io_uring_submit() failed %s, ret %i\n", __FUNCTION__, ret);
+			exit(1);
+		}
+		exit(0);
+	} else {
+		int wstatus;
+
+		if (waitpid(p, &wstatus, 0) == (pid_t)-1) {
+			perror("waitpid()");
+			return 1;
+		}
+		if (!WIFEXITED(wstatus) || WEXITSTATUS(wstatus)) {
+			fprintf(stderr, "child failed %i\n", WEXITSTATUS(wstatus));
+			return 1;
+		}
+	}
+
+	for (i = 0; i < 3; ++i) {
+		ret = io_uring_wait_cqe(&ring, &cqe);
+		if (ret) {
+			fprintf(stderr, "wait_cqe=%d\n", ret);
+			return 1;
+		}
+		if ((cqe->user_data == 1 && cqe->res != -ECANCELED) ||
+		    (cqe->user_data == 2 && cqe->res != -ECANCELED) ||
+		    (cqe->user_data == 3 && cqe->res != -ETIME)) {
+			fprintf(stderr, "%i %i\n", (int)cqe->user_data, cqe->res);
+			return 1;
+		}
+		io_uring_cqe_seen(&ring, cqe);
+	}
+
+	io_uring_queue_exit(&ring);
+	return 0;
+}
+
+
 int main(int argc, char *argv[])
 {
 	int i, ret;
@@ -379,6 +453,11 @@ int main(int argc, char *argv[])
 
 	if (test_cancel_req_across_fork()) {
 		fprintf(stderr, "test_cancel_req_across_fork() failed\n");
+		return 1;
+	}
+
+	if (test_cancel_inflight_exit()) {
+		fprintf(stderr, "test_cancel_inflight_exit() failed\n");
 		return 1;
 	}
 
