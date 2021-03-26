@@ -221,6 +221,25 @@ static int copy_file(struct io_uring *ring, off_t insize)
 		}
 	}
 
+	/* wait out pending writes */
+	while (writes) {
+		struct io_data *data;
+
+		ret = io_uring_wait_cqe(ring, &cqe);
+		if (ret) {
+			fprintf(stderr, "wait_cqe=%d\n", ret);
+			return 1;
+		}
+		if (cqe->res < 0) {
+			fprintf(stderr, "write res=%d\n", cqe->res);
+			return 1;
+		}
+		data = io_uring_cqe_get_data(cqe);
+		free(data);
+		writes--;
+		io_uring_cqe_seen(ring, cqe);
+	}
+
 	return 0;
 }
 
