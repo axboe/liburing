@@ -89,6 +89,9 @@ int main(int argc, char *argv[])
 	if (cqe->res < 0) {
 		fprintf(stderr, "Read error: %s\n", strerror(-cqe->res));
 		return 1;
+	} else if (cqe->res != sizeof(wbuf)) {
+		/* ignore short read, not a failure */
+		goto err;
 	}
 	io_uring_cqe_seen(&ring, cqe);
 
