@@ -24,6 +24,9 @@
 
 #include <linux/futex.h>
 
+#include "liburing.h"
+#include "../src/syscall.h"
+
 #if !defined(SYS_futex) && defined(SYS_futex_time64)
 # define SYS_futex SYS_futex_time64
 #endif
@@ -259,13 +262,6 @@ static void loop(void)
   }
 }
 
-#ifndef __NR_io_uring_register
-#define __NR_io_uring_register 427
-#endif
-#ifndef __NR_io_uring_setup
-#define __NR_io_uring_setup 425
-#endif
-
 uint64_t r[1] = {0xffffffffffffffff};
 
 void execute_call(int call)
@@ -301,15 +297,15 @@ void execute_call(int call)
     *(uint32_t*)0x200000a8 = 0;
     *(uint32_t*)0x200000ac = 0;
     *(uint64_t*)0x200000b0 = 0;
-    res = syscall(__NR_io_uring_setup, 0x64, 0x20000040);
+    res = __sys_io_uring_setup(0x64, (struct io_uring_params *) 0x20000040UL);
     if (res != -1)
       r[0] = res;
     break;
   case 1:
-    syscall(__NR_io_uring_register, (long)r[0], 0, 0, 0);
+    __sys_io_uring_register((long)r[0], 0, 0, 0);
     break;
   case 2:
-    syscall(__NR_io_uring_register, (long)r[0], 0, 0, 0);
+    __sys_io_uring_register((long)r[0], 0, 0, 0);
     break;
   }
 }

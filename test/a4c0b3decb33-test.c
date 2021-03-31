@@ -14,12 +14,14 @@
 #include <string.h>
 #include <sys/prctl.h>
 #include <sys/stat.h>
-#include <sys/syscall.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <sys/mman.h>
 #include <time.h>
 #include <unistd.h>
+
+#include "liburing.h"
+#include "../src/syscall.h"
 
 static void sleep_ms(uint64_t ms)
 {
@@ -129,10 +131,6 @@ static void loop(void)
 	}
 }
 
-#ifndef __NR_io_uring_setup
-#define __NR_io_uring_setup 425
-#endif
-
 void execute_one(void)
 {
 	*(uint32_t*)0x20000080 = 0;
@@ -163,7 +161,7 @@ void execute_one(void)
 	*(uint32_t*)0x200000e8 = 0;
 	*(uint32_t*)0x200000ec = 0;
 	*(uint64_t*)0x200000f0 = 0;
-	syscall(__NR_io_uring_setup, 0x983, 0x20000080);
+	__sys_io_uring_setup(0x983, (struct io_uring_params *) 0x20000080);
 }
 
 static void sig_int(int sig)

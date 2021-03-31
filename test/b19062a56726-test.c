@@ -6,14 +6,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/syscall.h>
 #include <sys/types.h>
 #include <sys/mman.h>
 #include <unistd.h>
 
-#ifndef __NR_io_uring_setup
-#define __NR_io_uring_setup 425
-#endif
+#include "liburing.h"
+#include "../src/syscall.h"
 
 int main(int argc, char *argv[])
 {
@@ -50,6 +48,6 @@ int main(int argc, char *argv[])
   *(uint32_t*)0x20000268 = 0;
   *(uint32_t*)0x2000026c = 0;
   *(uint64_t*)0x20000270 = 0;
-  syscall(__NR_io_uring_setup, 0xc9f, 0x20000200);
+  __sys_io_uring_setup(0xc9f, (struct io_uring_params *) 0x20000200);
   return 0;
 }

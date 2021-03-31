@@ -15,11 +15,13 @@
 #include <sys/mman.h>
 #include <sys/prctl.h>
 #include <sys/stat.h>
-#include <sys/syscall.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <time.h>
 #include <unistd.h>
+
+#include "liburing.h"
+#include "../src/syscall.h"
 
 static void sleep_ms(uint64_t ms)
 {
@@ -72,44 +74,6 @@ static bool write_file(const char* file, const char* what, ...)
 #define CQ_FLAGS_OFFSET 280
 #define CQ_CQES_OFFSET 320
 
-struct io_sqring_offsets {
-  uint32_t head;
-  uint32_t tail;
-  uint32_t ring_mask;
-  uint32_t ring_entries;
-  uint32_t flags;
-  uint32_t dropped;
-  uint32_t array;
-  uint32_t resv1;
-  uint64_t resv2;
-};
-
-struct io_cqring_offsets {
-  uint32_t head;
-  uint32_t tail;
-  uint32_t ring_mask;
-  uint32_t ring_entries;
-  uint32_t overflow;
-  uint32_t cqes;
-  uint64_t resv[2];
-};
-
-struct io_uring_params {
-  uint32_t sq_entries;
-  uint32_t cq_entries;
-  uint32_t flags;
-  uint32_t sq_thread_cpu;
-  uint32_t sq_thread_idle;
-  uint32_t features;
-  uint32_t resv[4];
-  struct io_sqring_offsets sq_off;
-  struct io_cqring_offsets cq_off;
-};
-
-#define IORING_OFF_SQ_RING 0
-#define IORING_OFF_SQES 0x10000000ULL
-
-#define sys_io_uring_setup 425
 static long syz_io_uring_setup(volatile long a0, volatile long a1,
                                volatile long a2, volatile long a3,
                                volatile long a4, volatile long a5)
@@ -120,7 +84,7 @@ static long syz_io_uring_setup(volatile long a0, volatile long a1,
   void* vma2 = (void*)a3;
   void** ring_ptr_out = (void**)a4;
   void** sqes_ptr_out = (void**)a5;
-  uint32_t fd_io_uring = syscall(sys_io_uring_setup, entries, setup_params);
+  uint32_t fd_io_uring = __sys_io_uring_setup(entries, setup_params);
   uint32_t sq_ring_sz =
       setup_params->sq_off.array + setup_params->sq_entries * sizeof(uint32_t);
   uint32_t cq_ring_sz = setup_params->cq_off.cqes +
@@ -223,9 +187,9 @@ void execute_one(void)
 }
 int main(void)
 {
-  syscall(__NR_mmap, 0x1ffff000ul, 0x1000ul, 0ul, 0x32ul, -1, 0ul);
-  syscall(__NR_mmap, 0x20000000ul, 0x1000000ul, 7ul, 0x32ul, -1, 0ul);
-  syscall(__NR_mmap, 0x21000000ul, 0x1000ul, 0ul, 0x32ul, -1, 0ul);
+  mmap((void *)0x1ffff000ul, 0x1000ul, 0ul, 0x32ul, -1, 0ul);
+  mmap((void *)0x20000000ul, 0x1000000ul, 7ul, 0x32ul, -1, 0ul);
+  mmap((void *)0x21000000ul, 0x1000ul, 0ul, 0x32ul, -1, 0ul);
   loop();
   return 0;
 }

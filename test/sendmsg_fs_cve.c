@@ -19,7 +19,6 @@
  */
 
 #include <unistd.h>
-#include <syscall.h>
 #include <stdio.h>
 #include <sys/mman.h>
 #include <sys/socket.h>
