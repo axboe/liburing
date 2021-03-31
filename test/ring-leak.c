@@ -128,7 +128,9 @@ static int test_iowq_request_cancel(void)
 	 * done async. For that rely on the registered write end to be closed
 	 * after ring quiesce, so failing read from the other pipe end.
 	 */
-	read(fds[0], buffer, 10);
+	ret = read(fds[0], buffer, 10);
+	if (ret < 0)
+		perror("read");
 	return 0;
 }
 
