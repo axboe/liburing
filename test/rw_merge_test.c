@@ -13,6 +13,7 @@
 #include <unistd.h>
 
 #include "liburing.h"
+#include "helpers.h"
 
 int main(int argc, char *argv[])
 {
@@ -27,20 +28,22 @@ int main(int argc, char *argv[])
 	};
 	struct __kernel_timespec ts = {.tv_sec = 3, .tv_nsec = 0};
 
+	if (argc > 1)
+		return 0;
+
 	ret = pipe(pipe1);
 	assert(!ret);
 
 	fd = open("testfile", O_RDWR | O_CREAT, 0644);
-	assert(ret>=0);
+	assert(ret >= 0);
 	ret = ftruncate(fd, 4096);
 	assert(!ret);
 
-	ret = io_uring_queue_init(4, &ring, 0);
-	if (ret) {
-		printf("io_uring_queue_init fail,"
-		       " please CONFIG_IO_URING kernel config option");
+	ret = t_create_ring(4, &ring, 0);
+	if (ret == T_SETUP_SKIP)
+		return 0;
+	else if (ret < 0)
 		return 1;
-	}
 
 	/* REQ1 */
 	sqe = io_uring_get_sqe(&ring);
@@ -90,6 +93,5 @@ int main(int argc, char *argv[])
 
 	io_uring_cqe_seen(&ring, cqe);
 	io_uring_queue_exit(&ring);
-
 	return 0;
 }
