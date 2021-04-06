@@ -78,6 +78,7 @@ test_targets += \
 	poll-cancel-ton \
 	poll-link \
 	poll-many \
+	poll-mshot-update \
 	poll-ring \
 	poll-v-poll \
 	probe \
@@ -211,6 +212,8 @@ test_srcs := \
 	poll-cancel-ton.c \
 	poll-cancel.c \
 	poll-link.c \
+	poll-many.c \
+	poll-mshot-update.c \
 	poll-ring.c \
 	poll-v-poll.c \
 	poll.c \
@@ -269,6 +272,7 @@ pipe-eof: XCFLAGS = -lpthread
 timeout-new: XCFLAGS = -lpthread
 thread-exit: XCFLAGS = -lpthread
 ring-leak2: XCFLAGS = -lpthread
+poll-mshot-update: XCFLAGS = -lpthread
 
 install: $(test_targets) runtests.sh runtests-loop.sh
 	$(INSTALL) -D -d -m 755 $(datadir)/liburing-test/
