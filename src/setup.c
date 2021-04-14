@@ -294,11 +294,16 @@ ssize_t io_uring_mlock_size_params(unsigned entries, struct io_uring_params *p)
 	long page_size;
 	ssize_t ret;
 
+	/*
+	 * We only really use this inited ring to see if the kernel is newer
+	 * or not. Newer kernels don't require memlocked memory. If we fail,
+	 * it's most likely because it's an older kernel and we have no
+	 * available memlock space. Just continue on, lp.features will still
+	 * be zeroed at this point and we'll do the right thing.
+	 */
 	ret = io_uring_queue_init_params(entries, &ring, &lp);
-	if (ret < 0)
-		return ret;
-
-	io_uring_queue_exit(&ring);
+	if (!ret)
+		io_uring_queue_exit(&ring);
 
 	/*
 	 * Native workers imply using cgroup memory accounting, and hence no
