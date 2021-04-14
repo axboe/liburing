@@ -56,11 +56,10 @@ static int reap_polls(struct io_uring *ring)
 		struct io_uring_sqe *sqe;
 
 		sqe = io_uring_get_sqe(ring);
-		io_uring_prep_poll_add(sqe, p[i].fd[0], POLLIN);
+		/* update event */
+		io_uring_prep_poll_update(sqe, (void *)(unsigned long)i, NULL,
+					  POLLIN, 2);
 		sqe->user_data = 0x12345678;
-		sqe->addr = i;
-		sqe->off = POLLIN;
-		sqe->len = 2;
 	}
 
 	ret = io_uring_submit(ring);
