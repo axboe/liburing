@@ -655,6 +655,9 @@ static inline int io_uring_wait_cqe(struct io_uring *ring,
 	return io_uring_wait_cqe_nr(ring, cqe_ptr, 1);
 }
 
+ssize_t io_uring_mlock_size(unsigned entries, unsigned flags);
+ssize_t io_uring_mlock_size_params(unsigned entries, struct io_uring_params *p);
+
 #ifdef __cplusplus
 }
 #endif

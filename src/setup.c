@@ -217,3 +217,140 @@ void io_uring_free_probe(struct io_uring_probe *probe)
 {
 	free(probe);
 }
+
+static int __fls(int x)
+{
+	int r = 32;
+
+	if (!x)
+		return 0;
+	if (!(x & 0xffff0000u)) {
+		x <<= 16;
+		r -= 16;
+	}
+	if (!(x & 0xff000000u)) {
+		x <<= 8;
+		r -= 8;
+	}
+	if (!(x & 0xf0000000u)) {
+		x <<= 4;
+		r -= 4;
+	}
+	if (!(x & 0xc0000000u)) {
+		x <<= 2;
+		r -= 2;
+	}
+	if (!(x & 0x80000000u)) {
+		x <<= 1;
+		r -= 1;
+	}
+	return r;
+}
+
+static unsigned roundup_pow2(unsigned depth)
+{
+	return 1UL << __fls(depth - 1);
+}
+
+static size_t npages(size_t size, unsigned page_size)
+{
+	size--;
+	size /= page_size;
+	return __fls(size);
+}
+
+#define KRING_SIZE	320
+
+static size_t rings_size(unsigned entries, unsigned cq_entries, unsigned page_size)
+{
+	size_t pages, sq_size, cq_size;
+
+	cq_size = KRING_SIZE;
+	cq_size += cq_entries * sizeof(struct io_uring_cqe);
+	cq_size = (cq_size + 63) & ~63UL;
+	pages = (size_t) 1 << npages(cq_size, page_size);
+
+	sq_size = sizeof(struct io_uring_sqe) * entries;
+	pages += (size_t) 1 << npages(sq_size, page_size);
+	return pages * page_size;
+}
+
+#define KERN_MAX_ENTRIES	32768
+#define KERN_MAX_CQ_ENTRIES	(2 * KERN_MAX_ENTRIES)
+
+/*
+ * Return the required ulimit -l memlock memory required for a given ring
+ * setup, in bytes. May return -errno on error. On newer (5.12+) kernels,
+ * io_uring no longer requires any memlock memory, and hence this function
+ * will return 0 for that case. On older (5.11 and prior) kernels, this will
+ * return the required memory so that the caller can ensure that enough space
+ * is available before setting up a ring with the specified parameters.
+ */
+ssize_t io_uring_mlock_size_params(unsigned entries, struct io_uring_params *p)
+{
+	struct io_uring_params lp = { };
+	struct io_uring ring;
+	unsigned cq_entries;
+	long page_size;
+	ssize_t ret;
+
+	/*
+	 * We only really use this inited ring to see if the kernel is newer
+	 * or not. Newer kernels don't require memlocked memory. If we fail,
+	 * it's most likely because it's an older kernel and we have no
+	 * available memlock space. Just continue on, lp.features will still
+	 * be zeroed at this point and we'll do the right thing.
+	 */
+	ret = io_uring_queue_init_params(entries, &ring, &lp);
+	if (!ret)
+		io_uring_queue_exit(&ring);
+
+	/*
+	 * Native workers imply using cgroup memory accounting, and hence no
+	 * memlock memory is needed for the ring allocations.
+	 */
+	if (lp.features & IORING_FEAT_NATIVE_WORKERS)
+		return 0;
+
+	if (!entries)
+		return -EINVAL;
+	if (entries > KERN_MAX_ENTRIES) {
+		if (!(p->flags & IORING_SETUP_CLAMP))
+			return -EINVAL;
+		entries = KERN_MAX_ENTRIES;
+	}
+
+	entries = roundup_pow2(entries);
+	if (p->flags & IORING_SETUP_CQSIZE) {
+		if (!p->cq_entries)
+			return -EINVAL;
+		cq_entries = p->cq_entries;
+		if (cq_entries > KERN_MAX_CQ_ENTRIES) {
+			if (!(p->flags & IORING_SETUP_CLAMP))
+				return -EINVAL;
+			cq_entries = KERN_MAX_CQ_ENTRIES;
+		}
+		cq_entries = roundup_pow2(cq_entries);
+		if (cq_entries < entries)
+			return -EINVAL;
+	} else {
+		cq_entries = 2 * entries;
+	}
+
+	page_size = sysconf(_SC_PAGESIZE);
+	if (page_size < 0)
+		page_size = 4096;
+
+	return rings_size(entries, cq_entries, page_size);
+}
+
+/*
+ * Return required ulimit -l memory space for a given ring setup. See
+ * @io_uring_mlock_size_params().
+ */
+ssize_t io_uring_mlock_size(unsigned entries, unsigned flags)
+{
+	struct io_uring_params p = { .flags = flags, };
+
+	return io_uring_mlock_size_params(entries, &p);
+}

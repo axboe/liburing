@@ -31,3 +31,9 @@ LIBURING_2.0 {
 	local:
 		*;
 };
+
+LIBURING_2.1 {
+	global:
+		io_uring_mlock_size_params;
+		io_uring_mlock_size;
+} LIBURING_2.0;
