@@ -278,6 +278,14 @@ static size_t rings_size(unsigned entries, unsigned cq_entries, unsigned page_si
 #define KERN_MAX_ENTRIES	32768
 #define KERN_MAX_CQ_ENTRIES	(2 * KERN_MAX_ENTRIES)
 
+/*
+ * Return the required ulimit -l memlock memory required for a given ring
+ * setup, in bytes. May return -errno on error. On newer (5.12+) kernels,
+ * io_uring no longer requires any memlock memory, and hence this function
+ * will return 0 for that case. On older (5.11 and prior) kernels, this will
+ * return the required memory so that the caller can ensure that enough space
+ * is available before setting up a ring with the specified parameters.
+ */
 ssize_t io_uring_mlock_size_params(unsigned entries, struct io_uring_params *p)
 {
 	struct io_uring_params lp = { };
@@ -331,6 +339,10 @@ ssize_t io_uring_mlock_size_params(unsigned entries, struct io_uring_params *p)
 	return rings_size(entries, cq_entries, page_size);
 }
 
+/*
+ * Return required ulimit -l memory space for a given ring setup. See
+ * @io_uring_mlock_size_params().
+ */
 ssize_t io_uring_mlock_size(unsigned entries, unsigned flags)
 {
 	struct io_uring_params p = { .flags = flags, };
