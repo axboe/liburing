@@ -18,6 +18,7 @@
 #include "liburing.h"
 
 static int no_connect;
+static int use_port;
 
 static int create_socket(void)
 {
@@ -87,7 +88,7 @@ static int listen_on_socket(int fd)
 
 	memset(&addr, 0, sizeof(addr));
 	addr.sin_family = AF_INET;
-	addr.sin_port = 0x1234;
+	addr.sin_port = use_port;
 	addr.sin_addr.s_addr = 0x0100007fU;
 
 	ret = bind(fd, (struct sockaddr*)&addr, sizeof(addr));
@@ -123,7 +124,7 @@ static int configure_connect(int fd, struct sockaddr_in* addr)
 
 	memset(addr, 0, sizeof(*addr));
 	addr->sin_family = AF_INET;
-	addr->sin_port = 0x1234;
+	addr->sin_port = use_port;
 	addr->sin_addr.s_addr = 0x0100007fU;
 
 	return 0;
@@ -247,7 +248,7 @@ err1:
 
 static int test_connect_timeout(struct io_uring *ring)
 {
-	int fd = -1, connect_fd = -1, accept_fd = -1;
+	int connect_fd = -1, accept_fd = -1;
 	int ret;
 	struct sockaddr_in addr;
 	struct io_uring_sqe *sqe;
@@ -274,13 +275,6 @@ static int test_connect_timeout(struct io_uring *ring)
 	if (ret == -1) {
 		perror("listen()");
 		goto err;
-	}
-
-	// Fill up available place in the accept queue (backlog)
-	fd = create_socket();
-	if (connect(fd, &addr, sizeof(addr)) == -1) {
-			fprintf(stderr, "unable to connect %d\n", errno);
-			goto err;
 	}
 
 	sqe = io_uring_get_sqe(ring);
@@ -328,16 +322,12 @@ static int test_connect_timeout(struct io_uring *ring)
 
 	close(connect_fd);
 	close(accept_fd);
-	close(fd);
-
 	return 0;
 
 err:
 	close(connect_fd);
 	if (accept_fd != -1)
 		close(accept_fd);
-	if (fd != -1)
-		close(fd);
 	return -1;
 }
 
@@ -354,6 +344,9 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "io_uring_queue_setup() = %d\n", ret);
 		return 1;
 	}
+
+	srand(getpid());
+	use_port = (rand() % 61440) + 4096;
 
 	ret = test_connect_with_no_peer(&ring);
 	if (ret == -1) {

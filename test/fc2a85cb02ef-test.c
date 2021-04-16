@@ -11,10 +11,12 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
-#include <sys/syscall.h>
 #include <sys/types.h>
 #include <sys/mman.h>
 #include <unistd.h>
+
+#include "liburing.h"
+#include "../src/syscall.h"
 
 static bool write_file(const char* file, const char* what, ...)
 {
@@ -123,14 +125,14 @@ int main(int argc, char *argv[])
   *(uint32_t*)0x20000068 = 0;
   *(uint32_t*)0x2000006c = 0;
   *(uint64_t*)0x20000070 = 0;
-  res = syscall(__NR_io_uring_setup, 0x6a6, 0x20000000ul);
+  res = __sys_io_uring_setup(0x6a6, (struct io_uring_params *) 0x20000000ul);
   if (res != -1)
     r[0] = res;
-  res = syscall(__NR_socket, 0x11ul, 2ul, 0x300ul);
+  res = socket(0x11ul, 2ul, 0x300ul);
   if (res != -1)
     r[1] = res;
   *(uint32_t*)0x20000080 = r[1];
   inject_fault(1);
-  syscall(__NR_io_uring_register, r[0], 2ul, 0x20000080ul, 1ul);
+  __sys_io_uring_register(r[0], 2ul, (const void *) 0x20000080ul, 1ul);
   return 0;
 }

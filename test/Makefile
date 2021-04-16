@@ -82,6 +82,7 @@ test_targets += \
 	poll-multiple-update \
 	poll-multiple-nohup \
 	poll-update-failures \
+	poll-mshot-update \
 	poll-ring \
 	poll-v-poll \
 	probe \
@@ -90,6 +91,7 @@ test_targets += \
 	rename \
 	ring-leak \
 	ring-leak2 \
+	rw_merge_test \
 	self \
 	send_recv \
 	send_recvmsg \
@@ -218,6 +220,8 @@ test_srcs := \
 	poll-multiple-update.c \
 	poll-multiple-nohup.c \
 	poll-update-failures.c \
+	poll-many.c \
+	poll-mshot-update.c \
 	poll-ring.c \
 	poll-v-poll.c \
 	poll.c \
@@ -227,6 +231,7 @@ test_srcs := \
 	rename.c \
 	ring-leak.c \
 	ring-leak2.c \
+	rw_merge_test.c \
 	self.c \
 	send_recvmsg.c \
 	shared-wq.c \
@@ -279,6 +284,7 @@ pipe-eof: XCFLAGS = -lpthread
 timeout-new: XCFLAGS = -lpthread
 thread-exit: XCFLAGS = -lpthread
 ring-leak2: XCFLAGS = -lpthread
+poll-mshot-update: XCFLAGS = -lpthread
 
 install: $(test_targets) runtests.sh runtests-loop.sh
 	$(INSTALL) -D -d -m 755 $(datadir)/liburing-test/

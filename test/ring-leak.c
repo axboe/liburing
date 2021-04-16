@@ -73,12 +73,79 @@ static void send_fd(int socket, int fd)
 		perror("sendmsg");
 }
 
+static int test_iowq_request_cancel(void)
+{
+	char buffer[128];
+	struct io_uring ring;
+	struct io_uring_sqe *sqe;
+	int ret, fds[2];
+
+	ret = io_uring_queue_init(8, &ring, 0);
+	if (ret < 0) {
+		fprintf(stderr, "failed to init io_uring: %s\n", strerror(-ret));
+		return ret;
+	}
+	if (pipe(fds)) {
+		perror("pipe");
+		return -1;
+	}
+	ret = io_uring_register_files(&ring, fds, 2);
+	if (ret) {
+		fprintf(stderr, "file_register: %d\n", ret);
+		return ret;
+	}
+	close(fds[1]);
+
+	sqe = io_uring_get_sqe(&ring);
+	if (!sqe) {
+		fprintf(stderr, "%s: failed to get sqe\n", __FUNCTION__);
+		return 1;
+	}
+	/* potentially sitting in internal polling */
+	io_uring_prep_read(sqe, 0, buffer, 10, 0);
+	sqe->flags |= IOSQE_FIXED_FILE;
+
+	sqe = io_uring_get_sqe(&ring);
+	if (!sqe) {
+		fprintf(stderr, "%s: failed to get sqe\n", __FUNCTION__);
+		return 1;
+	}
+	/* staying in io-wq */
+	io_uring_prep_read(sqe, 0, buffer, 10, 0);
+	sqe->flags |= IOSQE_FIXED_FILE | IOSQE_ASYNC;
+
+	ret = io_uring_submit(&ring);
+	if (ret != 2) {
+		fprintf(stderr, "%s: got %d, wanted 1\n", __FUNCTION__, ret);
+		return 1;
+	}
+
+	/* should unregister files and close the write fd */
+	io_uring_queue_exit(&ring);
+
+	/*
+	 * We're trying to wait for the ring to "really" exit, that will be
+	 * done async. For that rely on the registered write end to be closed
+	 * after ring quiesce, so failing read from the other pipe end.
+	 */
+	ret = read(fds[0], buffer, 10);
+	if (ret < 0)
+		perror("read");
+	return 0;
+}
+
 int main(int argc, char *argv[])
 {
 	int sp[2], pid, ring_fd, ret;
 
 	if (argc > 1)
 		return 0;
+
+	ret = test_iowq_request_cancel();
+	if (ret) {
+		fprintf(stderr, "test_iowq_request_cancel() failed\n");
+		return 1;
+	}
 
 	if (socketpair(AF_UNIX, SOCK_DGRAM, 0, sp) != 0) {
 		perror("Failed to create Unix-domain socket pair\n");

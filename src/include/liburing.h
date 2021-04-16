@@ -329,6 +329,19 @@ static inline void io_uring_prep_poll_remove(struct io_uring_sqe *sqe,
 	io_uring_prep_rw(IORING_OP_POLL_REMOVE, sqe, -1, user_data, 0, 0);
 }
 
+static inline void io_uring_prep_poll_update(struct io_uring_sqe *sqe,
+					     void *old_user_data,
+					     void *new_user_data,
+					     unsigned poll_mask, unsigned flags)
+{
+	io_uring_prep_rw(IORING_OP_POLL_REMOVE, sqe, -1, old_user_data, flags,
+			 (__u64)new_user_data);
+#if __BYTE_ORDER == __BIG_ENDIAN
+	poll_mask = __swahw32(poll_mask);
+#endif
+	sqe->poll32_events = poll_mask;
+}
+
 static inline void io_uring_prep_fsync(struct io_uring_sqe *sqe, int fd,
 				       unsigned fsync_flags)
 {
@@ -654,6 +667,9 @@ static inline int io_uring_wait_cqe(struct io_uring *ring,
 {
 	return io_uring_wait_cqe_nr(ring, cqe_ptr, 1);
 }
+
+ssize_t io_uring_mlock_size(unsigned entries, unsigned flags);
+ssize_t io_uring_mlock_size_params(unsigned entries, struct io_uring_params *p);
 
 #ifdef __cplusplus
 }
