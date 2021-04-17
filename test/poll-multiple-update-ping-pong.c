@@ -70,6 +70,7 @@ static void prepare_sqe(struct io_uring *ring, int fd, uint64_t poll_mask)
 static void switch_poll_mask(struct io_uring *ring, int fd, uint64_t old_poll_mask, uint64_t new_poll_mask)
 {
     struct io_uring_sqe *sqe;
+    int flags = IORING_POLL_UPDATE_USER_DATA | IORING_POLL_UPDATE_EVENTS | IORING_POLL_ADD_MULTI;
     uint64_t old_bitpattern, new_bitpattern;
     
     sqe = io_uring_get_sqe(ring);
@@ -77,15 +78,10 @@ static void switch_poll_mask(struct io_uring *ring, int fd, uint64_t old_poll_ma
     
     old_bitpattern = (old_poll_mask << 32) + fd;
     new_bitpattern = (new_poll_mask << 32) + fd;
-    io_uring_prep_poll_add(sqe, fd, 0);
-    sqe->len |= IORING_POLL_ADD_MULTI;       // ask for multiple updates
-    sqe->len |= IORING_POLL_UPDATE_EVENTS;   // update existing mask
-    sqe->len |= IORING_POLL_UPDATE_USER_DATA;// and update user data
-    io_uring_sqe_set_data(sqe, (void *) old_bitpattern); // old user_data
-    sqe->addr = old_bitpattern; // old user_data
-    sqe->poll_events = new_poll_mask; // new poll mask
-    sqe->off = new_bitpattern; // new user_data
     
+    io_uring_prep_poll_update(sqe, (void *) old_bitpattern, (void *) new_bitpattern, new_poll_mask, flags);
+    io_uring_sqe_set_data(sqe, (void *) old_bitpattern);
+
     while (io_uring_sq_ready(ring) > 0)
     {
         (void) io_uring_submit(ring);
@@ -199,7 +195,7 @@ static void *client_thread(void *arg)
     struct io_uring ring;
     struct io_uring_cqe *cqe;
     int ret, done = 0;
-    int expecting_data = 0;
+    int expecting_data = 0, warned_about_invalid_poll = 0;;
     uint64_t user_data;
     int fd;
     uint64_t poll_mask;
@@ -245,12 +241,23 @@ static void *client_thread(void *arg)
         fd = user_data & 0x00000000FFFFFFFF; // mask out the fd
         poll_mask = user_data >> 32;         // and shift out the fd to get the poll_mask
 
-        if (cqe->res < 0)
-        {
+        if (cqe->res == 0) { // poll mask modification ok
+            io_uring_cqe_seen(&ring, cqe);
+            continue;
+        }
+        
+        if (cqe->res < 0) {
             printf("Client failed to change poll mask for fd [%d] [%d] [%ld]\n", fd, cqe->res, poll_mask);
             exit(1);
         }
-        assert(cqe->res >= 0);
+
+        assert((cqe->flags & IORING_CQE_F_MORE) != 0);
+
+        if (!warned_about_invalid_poll && ((cqe->res & (~poll_mask)) != 0)) {
+             warned_about_invalid_poll = 1;
+             printf("Client received unexpected poll event that we did not ask for [%d], expected only poll mask matching [%ld]\n", cqe->res, poll_mask);
+             // could fail test here... This is to warn about we're getting a 195 instead of 1 for POLLIN...
+         }
 
         if (POLLIN & cqe->res) {
             while ((ret = read(fd, readbuffer, 1)) > 0)
@@ -263,8 +270,7 @@ static void *client_thread(void *arg)
                 }
             }
 
-            if (!expecting_data)
-            {
+            if (!expecting_data) {
                 printf("Client recevied unexpected POLLIN with no data available\n");
                 exit(1);
             }

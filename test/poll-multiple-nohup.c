@@ -116,7 +116,7 @@ void *server_thread(void *arg)
     int flags = fcntl(client_fd, F_GETFL, 0);
     fcntl(client_fd, F_SETFL, flags | O_NONBLOCK);
 
-    prepare_sqe(&ring, client_fd, POLLIN | POLLHUP | POLLERR ); // POLLRDHUP
+    prepare_sqe(&ring, client_fd, POLLIN | POLLHUP | POLLERR);
 
     ret = io_uring_submit(&ring);
     assert(ret == 1);
@@ -166,11 +166,6 @@ void *server_thread(void *arg)
         
         if (POLLERR & cqe->res) {
             fprintf(stderr, "Server POLLERR fd [%d] [%d] [%ld]\n", fd, cqe->res, poll_mask);
-            done = 1;
-        }
-
-        if (POLLRDHUP & cqe->res) {
-            fprintf(stderr, "Server POLLRDHUP fd [%d] [%d] [%ld]\n", fd, cqe->res, poll_mask);
             done = 1;
         }
 

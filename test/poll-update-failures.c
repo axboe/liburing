@@ -42,7 +42,6 @@ enum edge_states // error state we trigger
 {
     NORMAL, // first run a handful successful modifications
     TRIGGER_ENOENT,
-    TRIGGER_EBADF,
     TRIGGER_EINVAL
 };
 
@@ -98,21 +97,17 @@ static void add_poll_mask(struct io_uring *ring, int fd, uint64_t poll_mask)
 static struct io_uring_sqe *switch_poll_mask(struct io_uring *ring, int fd, uint64_t old_poll_mask, uint64_t new_poll_mask)
 {
     struct io_uring_sqe *sqe;
+    int flags = IORING_POLL_UPDATE_USER_DATA | IORING_POLL_UPDATE_EVENTS | IORING_POLL_ADD_MULTI;
     uint64_t old_bitpattern, new_bitpattern;
-    
+
     sqe = io_uring_get_sqe(ring);
     assert(sqe != NULL);
     
     old_bitpattern = (old_poll_mask << 32) + fd;
     new_bitpattern = (new_poll_mask << 32) + fd;
-    io_uring_prep_poll_add(sqe, fd, 0);
-    sqe->len |= IORING_POLL_ADD_MULTI;       // ask for multiple updates
-    sqe->len |= IORING_POLL_UPDATE_EVENTS;   // update existing mask
-    sqe->len |= IORING_POLL_UPDATE_USER_DATA;// and update user data
-    io_uring_sqe_set_data(sqe, (void *) old_bitpattern); // old user_data
-    sqe->addr = old_bitpattern; // old user_data
-    sqe->poll_events = new_poll_mask; // new poll mask
-    sqe->off = new_bitpattern; // new user_data
+    
+    io_uring_prep_poll_update(sqe, (void *) old_bitpattern, (void *) new_bitpattern, new_poll_mask, flags);
+    io_uring_sqe_set_data(sqe, (void *) old_bitpattern);
     
     return sqe;
 }
@@ -326,7 +321,7 @@ static void *client_thread(void *arg)
                         successful_events++;
                         if (successful_events >= NUMBER_OF_EVENTS)
                         {
-                            (void) switch_poll_mask(&ring, -1, (POLLOUT | POLLHUP | POLLERR), (POLLIN | POLLHUP | POLLERR));
+                            invalid_switch_poll_mask(&ring, s0);
                         } else {
                             (void) switch_poll_mask(&ring, fd, 0x123456, 0x8910);
                         }
@@ -335,30 +330,8 @@ static void *client_thread(void *arg)
                         exit(1);
                     }
                     break;
-                case -EBADF:
-                    if (state == TRIGGER_ENOENT)
-                    {
-                        successful_events = 0;
-                        state = TRIGGER_EBADF;
-                    } else if (state != TRIGGER_EBADF) {
-                        fprintf(stderr, "Unexpected state transition to EBADF [%d], test failed.\n", state);
-                        exit(1);
-                    }
-                    if (state == TRIGGER_EBADF) {
-                        successful_events++;
-                        if (successful_events >= NUMBER_OF_EVENTS)
-                        {
-                            invalid_switch_poll_mask(&ring, s0);
-                        } else {
-                            (void) switch_poll_mask(&ring, -1, (POLLOUT | POLLHUP | POLLERR), (POLLIN | POLLHUP | POLLERR));
-                        }
-                    } else {
-                        fprintf(stderr, "Received -EBADF unexpectedly, test failed. [%d] [%d] [%ld]\n", fd, cqe->res, poll_mask);
-                        exit(1);
-                    }
-                    break;
                 case -EINVAL:
-                    if (state == TRIGGER_EBADF) {
+                    if (state == TRIGGER_ENOENT) {
                         state = TRIGGER_EINVAL;
                         successful_events = 0;
                     } else if (state != TRIGGER_EINVAL) {
