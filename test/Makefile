@@ -34,7 +34,6 @@ test_targets += \
 	connect \
 	cq-full \
 	cq-overflow \
-	cq-overflow-peek \
 	cq-peek-batch \
 	cq-ready \
 	cq-size \
@@ -169,7 +168,6 @@ test_srcs := \
 	close-opath.c \
 	connect.c \
 	cq-full.c \
-	cq-overflow-peek.c \
 	cq-overflow.c \
 	cq-peek-batch.c \
 	cq-ready.c\
