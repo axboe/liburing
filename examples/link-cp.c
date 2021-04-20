@@ -98,7 +98,7 @@ static int handle_cqe(struct io_uring *ring, struct io_uring_cqe *cqe)
 			queue_rw_pair(ring, BS, data->offset);
 			inflight += 2;
 		} else {
-			printf("cqe error: %s\n", strerror(cqe->res));
+			printf("cqe error: %s\n", strerror(-cqe->res));
 			ret = 1;
 		}
 	}
@@ -145,7 +145,7 @@ static int copy_file(struct io_uring *ring, off_t insize)
 
 			ret = io_uring_wait_cqe(ring, &cqe);
 			if (ret < 0) {
-				printf("wait cqe: %s\n", strerror(ret));
+				printf("wait cqe: %s\n", strerror(-ret));
 				return 1;
 			}
 			if (handle_cqe(ring, cqe))
