@@ -438,6 +438,48 @@ static int test_cancel_inflight_exit(void)
 	return 0;
 }
 
+static int test_sqpoll_cancel_iowq_requests(void)
+{
+	struct io_uring ring;
+	struct io_uring_sqe *sqe;
+	int ret, fds[2];
+	char buffer[16];
+
+	ret = io_uring_queue_init(8, &ring, IORING_SETUP_SQPOLL);
+	if (ret) {
+		fprintf(stderr, "ring create failed: %d\n", ret);
+		return 1;
+	}
+	if (pipe(fds)) {
+		perror("pipe");
+		return 1;
+	}
+	/* pin both pipe ends via io-wq */
+	sqe = io_uring_get_sqe(&ring);
+	io_uring_prep_read(sqe, fds[0], buffer, 10, 0);
+	sqe->flags |= IOSQE_ASYNC | IOSQE_IO_LINK;
+	sqe->user_data = 1;
+
+	sqe = io_uring_get_sqe(&ring);
+	io_uring_prep_write(sqe, fds[1], buffer, 10, 0);
+	sqe->flags |= IOSQE_ASYNC;
+	sqe->user_data = 2;
+	ret = io_uring_submit(&ring);
+	if (ret != 2) {
+		fprintf(stderr, "%s: got %d, wanted 1\n", __FUNCTION__, ret);
+		return 1;
+	}
+
+	/* wait for sqpoll to kick in and submit before exit */
+	sleep(1);
+	io_uring_queue_exit(&ring);
+
+	/* close the write end, so if ring is cancelled properly read() fails*/
+	close(fds[1]);
+	ret = read(fds[0], buffer, 10);
+	close(fds[0]);
+	return 0;
+}
 
 int main(int argc, char *argv[])
 {
@@ -458,6 +500,11 @@ int main(int argc, char *argv[])
 
 	if (test_cancel_inflight_exit()) {
 		fprintf(stderr, "test_cancel_inflight_exit() failed\n");
+		return 1;
+	}
+
+	if (test_sqpoll_cancel_iowq_requests()) {
+		fprintf(stderr, "test_sqpoll_cancel_iowq_requests() failed\n");
 		return 1;
 	}
 
