@@ -14,6 +14,7 @@
 /examples/io_uring-test
 /examples/link-cp
 /examples/ucontext-cp
+/examples/kdigest
 
 /test/232c93d07b74-test
 /test/35fa71a030ca-test
