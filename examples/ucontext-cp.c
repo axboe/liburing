@@ -3,6 +3,7 @@
  * gcc -Wall -O2 -D_GNU_SOURCE -o ucontext-cp ucontext-cp.c -luring
  */
 #define _POSIX_C_SOURCE 199309L
+#include <stddef.h>
 #include <stdio.h>
 #include <fcntl.h>
 #include <string.h>
@@ -22,9 +23,7 @@
 #define QD	64
 #define BS	1024
 
-#ifndef SIGSTKSZ
-#define SIGSTKSZ 8192
-#endif
+size_t sigstksz = (8 * 1024 + sizeof (max_align_t) - 1) / sizeof (max_align_t);
 
 typedef struct {
 	struct io_uring *ring;
@@ -115,13 +114,13 @@ static int setup_context(async_context *pctx, struct io_uring *ring)
 		perror("getcontext");
 		return -1;
 	}
-	pctx->stack_buf = malloc(SIGSTKSZ);
+	pctx->stack_buf = malloc(sigstksz);
 	if (!pctx->stack_buf) {
 		perror("malloc");
 		return -1;
 	}
 	pctx->ctx_fnew.uc_stack.ss_sp = pctx->stack_buf;
-	pctx->ctx_fnew.uc_stack.ss_size = SIGSTKSZ;
+	pctx->ctx_fnew.uc_stack.ss_size = sigstksz;
 	pctx->ctx_fnew.uc_link = &pctx->ctx_main;
 
 	return 0;
