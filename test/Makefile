@@ -115,6 +115,7 @@ test_targets += \
 	unlink \
 	wakeup-hang \
 	sendmsg_fs_cve \
+	rsrc_tags \
 	# EOL
 
 all_targets += $(test_targets)
@@ -253,6 +254,7 @@ test_srcs := \
 	unlink.c \
 	wakeup-hang.c \
 	sendmsg_fs_cve.c \
+	rsrc_tags.c \
 	# EOL
 
 test_objs := $(patsubst %.c,%.ol,$(patsubst %.cc,%.ol,$(test_srcs)))
