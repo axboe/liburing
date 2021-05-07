@@ -203,7 +203,7 @@ int main(int argc, char *argv[])
 	}
 	if (!(ring_normal.features & IORING_FEAT_EXT_ARG)) {
 		fprintf(stderr, "feature IORING_FEAT_EXT_ARG not supported.\n");
-		return 1;
+		return 0;
 	}
 
 	ret = test_return_before_timeout(&ring_normal);
