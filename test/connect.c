@@ -14,6 +14,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
+#include <arpa/inet.h>
 
 #include "liburing.h"
 
@@ -125,9 +126,8 @@ static int configure_connect(int fd, struct sockaddr_in* addr)
 	memset(addr, 0, sizeof(*addr));
 	addr->sin_family = AF_INET;
 	addr->sin_port = use_port;
-	addr->sin_addr.s_addr = 0x0100007fU;
-
-	return 0;
+	ret = inet_aton("127.0.0.1", &addr->sin_addr);
+	return ret;
 }
 
 static int connect_socket(struct io_uring *ring, int fd, int *code)
@@ -292,9 +292,9 @@ static int test_connect_timeout(struct io_uring *ring)
 		fprintf(stderr, "unable to get sqe\n");
 		goto err;
 	}
+	io_uring_prep_link_timeout(sqe, &ts, 0);
 	sqe->user_data = 2;
 
-	io_uring_prep_link_timeout(sqe, &ts, 0);
 	ret = io_uring_submit(ring);
 	if (ret != 2) {
 		fprintf(stderr, "submitted %d\n", ret);
