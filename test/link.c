@@ -429,53 +429,6 @@ err:
 	return 1;
 }
 
-static int test_link_fail_ordering(struct io_uring *ring)
-{
-	struct io_uring_cqe *cqe;
-	struct io_uring_sqe *sqe;
-	int ret, i, nr_compl;
-
-	sqe = io_uring_get_sqe(ring);
-	io_uring_prep_nop(sqe);
-	sqe->flags |= IOSQE_IO_LINK;
-	sqe->user_data = 0;
-
-	sqe = io_uring_get_sqe(ring);
-	io_uring_prep_write(sqe, -1, NULL, 100, 0);
-	sqe->flags |= IOSQE_IO_LINK;
-	sqe->user_data = 1;
-
-	sqe = io_uring_get_sqe(ring);
-	io_uring_prep_nop(sqe);
-	sqe->flags |= IOSQE_IO_LINK;
-	sqe->user_data = 2;
-
-	nr_compl = ret = io_uring_submit(ring);
-	/* at least the first nop should have been submitted */
-	if (ret < 1) {
-		fprintf(stderr, "sqe submit failed: %d\n", ret);
-		goto err;
-	}
-
-	for (i = 0; i < nr_compl; i++) {
-		ret = io_uring_wait_cqe(ring, &cqe);
-		if (ret) {
-			fprintf(stderr, "wait completion %d\n", ret);
-			goto err;
-		}
-		if (cqe->user_data != i) {
-			fprintf(stderr, "wrong CQE order, got %i, expected %i\n",
-					(int)cqe->user_data, i);
-			goto err;
-		}
-		io_uring_cqe_seen(ring, cqe);
-	}
-
-	return 0;
-err:
-	return 1;
-}
-
 int main(int argc, char *argv[])
 {
 	struct io_uring ring, poll_ring;
@@ -536,12 +489,6 @@ int main(int argc, char *argv[])
 	ret = test_early_fail_and_wait();
 	if (ret) {
 		fprintf(stderr, "test_early_fail_and_wait\n");
-		return ret;
-	}
-
-	ret = test_link_fail_ordering(&ring);
-	if (ret) {
-		fprintf(stderr, "test_link_fail_ordering last failed\n");
 		return ret;
 	}
 
