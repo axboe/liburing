@@ -248,21 +248,29 @@ err1:
 
 static int test_connect_timeout(struct io_uring *ring)
 {
-	int connect_fd = -1, accept_fd = -1;
-	int ret;
+	int connect_fd[2] = {-1, -1};
+	int accept_fd = -1;
+	int ret, code;
 	struct sockaddr_in addr;
 	struct io_uring_sqe *sqe;
 	struct __kernel_timespec ts = {.tv_sec = 0, .tv_nsec = 100000};
 
-	connect_fd = create_socket();
-	if (connect_fd == -1)
+	connect_fd[0] = create_socket();
+	if (connect_fd[0] == -1)
 		return -1;
+
+	connect_fd[1] = create_socket();
+	if (connect_fd[1] == -1)
+		goto err;
 
 	accept_fd = create_socket();
 	if (accept_fd == -1)
 		goto err;
 
-	if (configure_connect(connect_fd, &addr) == -1)
+	if (configure_connect(connect_fd[0], &addr) == -1)
+		goto err;
+
+	if (configure_connect(connect_fd[1], &addr) == -1)
 		goto err;
 
 	ret = bind(accept_fd, (struct sockaddr*)&addr, sizeof(addr));
@@ -271,19 +279,28 @@ static int test_connect_timeout(struct io_uring *ring)
 		goto err;
 	}
 
-	ret = listen(accept_fd, 0);  // no backlog in order to block connect_fd
+	ret = listen(accept_fd, 0);  // no backlog in order to block connect_fd[1]
 	if (ret == -1) {
 		perror("listen()");
 		goto err;
 	}
 
+	// We first connect with one client socket in order to fill the accept queue.
+	ret = connect_socket(ring, connect_fd[0], &code);
+	if (ret == -1 || code != 0) {
+		fprintf(stderr, "unable to connect\n");
+		goto err;
+	}
+
+	// We do not offload completion events from listening socket on purpose. 
+	// This way we create a state where the second connect request being stalled by OS.  
 	sqe = io_uring_get_sqe(ring);
 	if (!sqe) {
 		fprintf(stderr, "unable to get sqe\n");
 		goto err;
 	}
 
-	io_uring_prep_connect(sqe, connect_fd, (struct sockaddr*)&addr, sizeof(addr));
+	io_uring_prep_connect(sqe, connect_fd[1], (struct sockaddr*)&addr, sizeof(addr));
 	sqe->user_data = 1;
 	sqe->flags |= IOSQE_IO_LINK;
 
@@ -320,12 +337,17 @@ static int test_connect_timeout(struct io_uring *ring)
 		io_uring_cqe_seen(ring, cqe);
 	}
 
-	close(connect_fd);
+	close(connect_fd[0]);
+	close(connect_fd[1]);
 	close(accept_fd);
 	return 0;
 
 err:
-	close(connect_fd);
+	if (connect_fd[0] != -1)
+		close(connect_fd[0]);
+	if (connect_fd[1] != -1)
+		close(connect_fd[1]);
+		
 	if (accept_fd != -1)
 		close(accept_fd);
 	return -1;
