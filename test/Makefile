@@ -10,12 +10,9 @@ endif
 CPPFLAGS ?=
 override CPPFLAGS += -D_GNU_SOURCE -D__SANE_USERSPACE_TYPES__ \
 	-I../src/include/ -include ../config-host.h
-CFLAGS ?= -g -O2
-XCFLAGS =
-override CFLAGS += -D_GNU_SOURCE \
-	-Wall -Wextra -Wno-unused-parameter -Wno-sign-compare \
-	-L../src/
+CFLAGS ?= -g -O2 -Wall -Wextra
 
+XCFLAGS = -Wno-unused-parameter -Wno-sign-compare
 ifdef CONFIG_HAVE_STRINGOP_OVERFLOW
   XCFLAGS += -Wstringop-overflow=0
 endif
@@ -23,8 +20,11 @@ ifdef CONFIG_HAVE_ARRAY_BOUNDS
   XCFLAGS += -Warray-bounds=0
 endif
 
-CXXFLAGS ?=
-override CXXFLAGS += $(CFLAGS) -std=c++11
+CXXFLAGS ?= $(CFLAGS)
+override CFLAGS += $(XCFLAGS)
+override CXXFLAGS += $(XCFLAGS) -std=c++11
+LDFLAGS ?=
+override LDFLAGS += -L../src/ -luring
 
 test_targets += \
 	232c93d07b74-test \
@@ -157,13 +157,13 @@ helpers = helpers.o
 all: ${helpers} $(test_targets)
 
 helpers.o: helpers.c helpers.c
-	$(QUIET_CC)$(CC) $(CPPFLAGS) $(CFLAGS) -o $@ -c $< -luring
+	$(QUIET_CC)$(CC) $(CPPFLAGS) $(CFLAGS) -o $@ -c $<
 
 %: %.c ${helpers} helpers.h
-	$(QUIET_CC)$(CC) $(CPPFLAGS) $(CFLAGS) -o $@ $< ${helpers} -luring $(XCFLAGS)
+	$(QUIET_CC)$(CC) $(CPPFLAGS) $(CFLAGS) -o $@ $< ${helpers} $(LDFLAGS)
 
 %: %.cc ${helpers} helpers.h
-	$(QUIET_CXX)$(CXX) $(CPPFLAGS) $(CXXFLAGS) -o $@ $< ${helpers} -luring $(XCFLAGS)
+	$(QUIET_CXX)$(CXX) $(CPPFLAGS) $(CXXFLAGS) -o $@ $< ${helpers} $(LDFLAGS)
 
 test_srcs := \
 	helpers.c \
@@ -282,22 +282,22 @@ test_srcs := \
 
 test_objs := $(patsubst %.c,%.ol,$(patsubst %.cc,%.ol,$(test_srcs)))
 
-35fa71a030ca-test: XCFLAGS = -lpthread
-232c93d07b74-test: XCFLAGS = -lpthread
-send_recv: XCFLAGS = -lpthread
-send_recvmsg: XCFLAGS = -lpthread
-poll-link: XCFLAGS = -lpthread
-accept-link: XCFLAGS = -lpthread
-submit-reuse: XCFLAGS = -lpthread
-poll-v-poll: XCFLAGS = -lpthread
-across-fork: XCFLAGS = -lpthread
-ce593a6c480a-test: XCFLAGS = -lpthread
-wakeup-hang: XCFLAGS = -lpthread
-pipe-eof: XCFLAGS = -lpthread
-timeout-new: XCFLAGS = -lpthread
-thread-exit: XCFLAGS = -lpthread
-ring-leak2: XCFLAGS = -lpthread
-poll-mshot-update: XCFLAGS = -lpthread
+35fa71a030ca-test: override LDFLAGS += -lpthread
+232c93d07b74-test: override LDFLAGS += -lpthread
+send_recv: override LDFLAGS += -lpthread
+send_recvmsg: override LDFLAGS += -lpthread
+poll-link: override LDFLAGS += -lpthread
+accept-link: override LDFLAGS += -lpthread
+submit-reuse: override LDFLAGS += -lpthread
+poll-v-poll: override LDFLAGS += -lpthread
+across-fork: override LDFLAGS += -lpthread
+ce593a6c480a-test: override LDFLAGS += -lpthread
+wakeup-hang: override LDFLAGS += -lpthread
+pipe-eof: override LDFLAGS += -lpthread
+timeout-new: override LDFLAGS += -lpthread
+thread-exit: override LDFLAGS += -lpthread
+ring-leak2: override LDFLAGS += -lpthread
+poll-mshot-update: override LDFLAGS += -lpthread
 
 install: $(test_targets) runtests.sh runtests-loop.sh
 	$(INSTALL) -D -d -m 755 $(datadir)/liburing-test/

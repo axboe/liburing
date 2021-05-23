@@ -27,9 +27,9 @@ jobs:
     - name: Build
       run: |
         make -j$(nproc) V=1 \
-        CFLAGS="-Werror -Wno-unused-command-line-argument" \
-        CPPFLAGS="-Werror -Wno-unused-command-line-argument" \
-        CXXFLAGS="-Werror -Wno-unused-command-line-argument" \
+        CFLAGS="-Werror" \
+        CPPFLAGS="-Werror" \
+        CXXFLAGS="-Werror" \
         CC=clang \
         CXX=clang++;
 

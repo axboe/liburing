@@ -1,8 +1,8 @@
 CPPFLAGS ?=
 override CPPFLAGS += -D_GNU_SOURCE -I../src/include/
-CFLAGS ?= -g -O2
-XCFLAGS =
-override CFLAGS += -D_GNU_SOURCE -Wall -L../src/
+CFLAGS ?= -g -O2 -Wall
+LDFLAGS ?=
+override LDFLAGS += -L../src/ -luring
 
 include ../Makefile.quiet
 
@@ -23,7 +23,7 @@ test_srcs := io_uring-test.c io_uring-cp.c link-cp.c
 test_objs := $(patsubst %.c,%.ol,$(test_srcs))
 
 %: %.c
-	$(QUIET_CC)$(CC) $(CPPFLAGS) $(CFLAGS) -o $@ $< -luring $(XCFLAGS)
+	$(QUIET_CC)$(CC) $(CPPFLAGS) $(CFLAGS) -o $@ $< $(LDFLAGS)
 
 clean:
 	@rm -f $(all_targets) $(test_objs)
