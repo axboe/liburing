@@ -576,16 +576,24 @@ for the general description of the related system call. Available since 5.6.
 .TP
 .B IORING_OP_WRITE
 Issue the equivalent of a
-.BR read(2)
+.BR pread(2)
 or
-.BR write(2)
+.BR pwrite(2)
 system call.
 .I fd
 is the file descriptor to be operated on,
 .I addr
-contains the buffer in question, and
+contains the buffer in question,
 .I len
-contains the length of the IO operation. These are non-vectored versions of the
+contains the length of the IO operation, and
+.I offs
+contains the read or write offset. If
+.I offs
+is set to -1, the offset will use (and advance) the file position, like the
+.BR read(2)
+and
+.BR write(2)
+system calls. These are non-vectored versions of the
 .B IORING_OP_READV
 and
 .B IORING_OP_WRITEV
