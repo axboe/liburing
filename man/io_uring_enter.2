@@ -195,6 +195,9 @@ Vectored read and write operations, similar to
 .BR preadv2 (2)
 and
 .BR pwritev2 (2).
+If the file is not seekable,
+.I off
+must be set to zero.
 
 .TP
 .B IORING_OP_READ_FIXED
@@ -588,6 +591,10 @@ contains the buffer in question,
 contains the length of the IO operation, and
 .I offs
 contains the read or write offset. If
+.I fd
+does not refer to a seekable file,
+.I off
+must be set to zero. If
 .I offs
 is set to -1, the offset will use (and advance) the file position, like the
 .BR read(2)
