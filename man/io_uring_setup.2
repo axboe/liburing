@@ -139,7 +139,10 @@ field of the
 .IR "struct io_uring_params" .
 This flag is only meaningful when
 .B IORING_SETUP_SQPOLL
-is specified.
+is specified. When cgroup setting
+.I cpuset.cpus
+changes (typically in container environment), the bounded cpu set may be
+changed as well.
 .TP
 .B IORING_SETUP_CQSIZE
 Create the completion queue with
