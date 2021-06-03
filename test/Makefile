@@ -67,6 +67,7 @@ test_targets += \
 	link_drain \
 	madvise \
 	mkdir \
+	mknod \
 	multicqes_drain \
 	nop \
 	nop-all-sizes \
@@ -207,6 +208,7 @@ test_srcs := \
 	link_drain.c \
 	madvise.c \
 	mkdir.c \
+	mknod.c \
 	multicqes_drain.c \
 	nop-all-sizes.c \
 	nop.c \
