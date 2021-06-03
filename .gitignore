@@ -68,6 +68,7 @@
 /test/link-timeout
 /test/link_drain
 /test/madvise
+/test/mkdir
 /test/nop
 /test/nop-all-sizes
 /test/open-close

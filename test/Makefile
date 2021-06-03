@@ -65,6 +65,7 @@ test_targets += \
 	link-timeout \
 	link_drain \
 	madvise \
+	mkdir \
 	multicqes_drain \
 	nop \
 	nop-all-sizes \
@@ -202,6 +203,7 @@ test_srcs := \
 	link.c \
 	link_drain.c \
 	madvise.c \
+	mkdir.c \
 	multicqes_drain.c \
 	nop-all-sizes.c \
 	nop.c \
