@@ -548,6 +548,12 @@ static inline void io_uring_prep_sync_file_range(struct io_uring_sqe *sqe,
 	sqe->sync_range_flags = flags;
 }
 
+static inline void io_uring_prep_mkdirat(struct io_uring_sqe *sqe, int dfd,
+					const char *path, mode_t mode)
+{
+	io_uring_prep_rw(IORING_OP_MKDIRAT, sqe, dfd, path, mode, 0);
+}
+
 /*
  * Returns number of unconsumed (if SQPOLL) or unsubmitted entries exist in
  * the SQ ring
