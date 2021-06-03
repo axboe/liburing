@@ -561,6 +561,15 @@ static inline void io_uring_prep_symlinkat(struct io_uring_sqe *sqe,
 				(uint64_t) (uintptr_t) linkpath);
 }
 
+static inline void io_uring_prep_linkat(struct io_uring_sqe *sqe, int olddfd,
+					const char *oldpath, int newdfd,
+					const char *newpath, int flags)
+{
+	io_uring_prep_rw(IORING_OP_LINKAT, sqe, olddfd, oldpath, newdfd,
+				(uint64_t) (uintptr_t) newpath);
+	sqe->hardlink_flags = flags;
+}
+
 /*
  * Returns number of unconsumed (if SQPOLL) or unsubmitted entries exist in
  * the SQ ring
