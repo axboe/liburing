@@ -112,6 +112,7 @@
 /test/statx
 /test/stdout
 /test/submit-reuse
+/test/symlink
 /test/teardowns
 /test/thread-exit
 /test/timeout

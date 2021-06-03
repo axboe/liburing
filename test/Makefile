@@ -108,6 +108,7 @@ test_targets += \
 	sq-space_left \
 	stdout \
 	submit-reuse \
+	symlink \
 	teardowns \
 	thread-exit \
 	timeout \
@@ -248,6 +249,7 @@ test_srcs := \
 	statx.c \
 	stdout.c \
 	submit-reuse.c \
+	symlink.c \
 	teardowns.c \
 	thread-exit.c \
 	timeout-new.c \
