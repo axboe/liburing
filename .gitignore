@@ -57,6 +57,7 @@
 /test/files-exit-hang-timeout
 /test/fixed-link
 /test/fsync
+/test/hardlink
 /test/io-cancel
 /test/io_uring_enter
 /test/io_uring_register

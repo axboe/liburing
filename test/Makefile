@@ -54,6 +54,7 @@ test_targets += \
 	files-exit-hang-timeout \
 	fixed-link \
 	fsync \
+	hardlink \
 	io-cancel \
 	io_uring_enter \
 	io_uring_register \
@@ -193,6 +194,7 @@ test_srcs := \
 	files-exit-hang-timeout.c \
 	fixed-link.c \
 	fsync.c \
+	hardlink.c \
 	io-cancel.c \
 	io_uring_enter.c \
 	io_uring_register.c \
