@@ -554,6 +554,13 @@ static inline void io_uring_prep_mkdirat(struct io_uring_sqe *sqe, int dfd,
 	io_uring_prep_rw(IORING_OP_MKDIRAT, sqe, dfd, path, mode, 0);
 }
 
+static inline void io_uring_prep_symlinkat(struct io_uring_sqe *sqe,
+					const char *target, int newdirfd, const char *linkpath)
+{
+	io_uring_prep_rw(IORING_OP_SYMLINKAT, sqe, newdirfd, target, 0,
+				(uint64_t) (uintptr_t) linkpath);
+}
+
 /*
  * Returns number of unconsumed (if SQPOLL) or unsubmitted entries exist in
  * the SQ ring
