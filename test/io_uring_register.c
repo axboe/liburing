@@ -280,12 +280,16 @@ int
 test_iovec_nr(int fd)
 {
 	int i, ret, status = 0;
-	unsigned int nr = UIO_MAXIOV + 1;
+	unsigned int nr = 1000000;
 	struct iovec *iovs;
 	void *buf;
 
+	iovs = malloc(nr * sizeof(struct iovec));
+	if (!iovs) {
+		fprintf(stdout, "can't allocate iovecs, skip\n");
+		return 0;
+	}
 	buf = t_malloc(pagesize);
-	iovs = t_malloc(nr * sizeof(struct iovec));
 
 	for (i = 0; i < nr; i++) {
 		iovs[i].iov_base = buf;
@@ -295,7 +299,7 @@ test_iovec_nr(int fd)
 	status |= expect_fail(fd, IORING_REGISTER_BUFFERS, iovs, nr, EINVAL);
 
 	/* reduce to UIO_MAXIOV */
-	nr--;
+	nr = UIO_MAXIOV;
 	printf("io_uring_register(%d, %u, %p, %u)\n",
 	       fd, IORING_REGISTER_BUFFERS, iovs, nr);
 	ret = __sys_io_uring_register(fd, IORING_REGISTER_BUFFERS, iovs, nr);
