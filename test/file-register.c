@@ -351,8 +351,9 @@ static int test_basic(struct io_uring *ring, int fail)
 {
 	int *files;
 	int ret;
+	int nr_files = fail ? 10 : 100;
 
-	files = open_files(fail ? 10 : 100, 0, 0);
+	files = open_files(nr_files, 0, 0);
 	ret = io_uring_register_files(ring, files, 100);
 	if (ret) {
 		if (fail) {
@@ -371,10 +372,10 @@ static int test_basic(struct io_uring *ring, int fail)
 		fprintf(stderr, "%s: unregister %d\n", __FUNCTION__, ret);
 		goto err;
 	}
-	close_files(files, 100, 0);
+	close_files(files, nr_files, 0);
 	return 0;
 err:
-	close_files(files, 100, 0);
+	close_files(files, nr_files, 0);
 	return 1;
 }
 
