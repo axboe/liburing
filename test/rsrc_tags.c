@@ -17,6 +17,11 @@
 
 static int pipes[2];
 
+enum {
+	TEST_IORING_RSRC_FILE		= 0,
+	TEST_IORING_RSRC_BUFFER		= 1,
+};
+
 static bool check_cq_empty(struct io_uring *ring)
 {
 	struct io_uring_cqe *cqe = NULL;
@@ -31,15 +36,18 @@ static int register_rsrc(struct io_uring *ring, int type, int nr,
 			  const void *arg, const __u64 *tags)
 {
 	struct io_uring_rsrc_register reg;
-	int ret;
+	int ret, reg_type;
 
 	memset(&reg, 0, sizeof(reg));
-	reg.type = type;
 	reg.nr = nr;
 	reg.data = (__u64)arg;
 	reg.tags = (__u64)tags;
 
-	ret = __sys_io_uring_register(ring->ring_fd, IORING_REGISTER_RSRC,
+	reg_type = IORING_REGISTER_FILES2;
+	if (type != TEST_IORING_RSRC_FILE)
+		reg_type = IORING_REGISTER_BUFFERS2;
+
+	ret = __sys_io_uring_register(ring->ring_fd, reg_type,
 					&reg, sizeof(reg));
 	return ret ? -errno : 0;
 }
@@ -48,16 +56,18 @@ static int update_rsrc(struct io_uring *ring, int type, int nr, int off,
 			const void *arg, const __u64 *tags)
 {
 	struct io_uring_rsrc_update2 up;
-	int ret;
+	int ret, up_type;
 
 	memset(&up, 0, sizeof(up));
 	up.offset = off;
 	up.data = (__u64)arg;
 	up.tags = (__u64)tags;
-	up.type = type;
 	up.nr = nr;
 
-	ret = __sys_io_uring_register(ring->ring_fd, IORING_REGISTER_RSRC_UPDATE,
+	up_type = IORING_REGISTER_FILES_UPDATE2;
+	if (type != TEST_IORING_RSRC_FILE)
+		up_type = IORING_REGISTER_BUFFERS_UPDATE;
+	ret = __sys_io_uring_register(ring->ring_fd, up_type,
 				      &up, sizeof(up));
 	return ret < 0 ? -errno : ret;
 }
@@ -73,7 +83,7 @@ static bool has_rsrc_update(void)
 	if (ret)
 		return false;
 
-	ret = register_rsrc(&ring, IORING_RSRC_BUFFER, 1, &vec, NULL);
+	ret = register_rsrc(&ring, TEST_IORING_RSRC_BUFFER, 1, &vec, NULL);
 	io_uring_queue_exit(&ring);
 	return ret != -EINVAL;
 }
@@ -148,7 +158,7 @@ static int test_buffers_update(void)
 		tags[i] = i + 1;
 	}
 
-	ret = test_tags_generic(nr, IORING_RSRC_BUFFER, vecs, 0);
+	ret = test_tags_generic(nr, TEST_IORING_RSRC_BUFFER, vecs, 0);
 	if (ret)
 		return 1;
 
@@ -161,7 +171,7 @@ static int test_buffers_update(void)
 		perror("pipe");
 		return 1;
 	}
-	ret = register_rsrc(&ring, IORING_RSRC_BUFFER, nr, vecs, tags);
+	ret = register_rsrc(&ring, TEST_IORING_RSRC_BUFFER, nr, vecs, tags);
 	if (ret) {
 		fprintf(stderr, "rsrc register failed %i\n", ret);
 		return 1;
@@ -180,7 +190,7 @@ static int test_buffers_update(void)
 	assert(ret == -EAGAIN);
 
 	vecs[buf_idx].iov_base = tmp_buf2;
-	ret = update_rsrc(&ring, IORING_RSRC_BUFFER, 1, buf_idx,
+	ret = update_rsrc(&ring, TEST_IORING_RSRC_BUFFER, 1, buf_idx,
 			  &vecs[buf_idx], &tags[buf_idx]);
 	if (ret != 1) {
 		fprintf(stderr, "rsrc update failed %i %i\n", ret, errno);
@@ -226,7 +236,7 @@ static int test_buffers_empty_buffers(void)
 		return 1;
 	}
 
-	ret = register_rsrc(&ring, IORING_RSRC_BUFFER, nr, vecs, NULL);
+	ret = register_rsrc(&ring, TEST_IORING_RSRC_BUFFER, nr, vecs, NULL);
 	if (ret) {
 		fprintf(stderr, "rsrc register failed %i\n", ret);
 		return 1;
@@ -235,7 +245,7 @@ static int test_buffers_empty_buffers(void)
 	/* empty to buffer */
 	vecs[1].iov_base = tmp_buf;
 	vecs[1].iov_len = 10;
-	ret = update_rsrc(&ring, IORING_RSRC_BUFFER, 1, 1, &vecs[1], NULL);
+	ret = update_rsrc(&ring, TEST_IORING_RSRC_BUFFER, 1, 1, &vecs[1], NULL);
 	if (ret != 1) {
 		fprintf(stderr, "rsrc update failed %i %i\n", ret, errno);
 		return 1;
@@ -244,14 +254,14 @@ static int test_buffers_empty_buffers(void)
 	/* buffer to empty */
 	vecs[0].iov_base = 0;
 	vecs[0].iov_len = 0;
-	ret = update_rsrc(&ring, IORING_RSRC_BUFFER, 1, 0, &vecs[0], NULL);
+	ret = update_rsrc(&ring, TEST_IORING_RSRC_BUFFER, 1, 0, &vecs[0], NULL);
 	if (ret != 1) {
 		fprintf(stderr, "rsrc update failed %i %i\n", ret, errno);
 		return 1;
 	}
 
 	/* zero to zero is ok */
-	ret = update_rsrc(&ring, IORING_RSRC_BUFFER, 1, 2, &vecs[2], NULL);
+	ret = update_rsrc(&ring, TEST_IORING_RSRC_BUFFER, 1, 2, &vecs[2], NULL);
 	if (ret != 1) {
 		fprintf(stderr, "rsrc update failed %i %i\n", ret, errno);
 		return 1;
@@ -260,7 +270,7 @@ static int test_buffers_empty_buffers(void)
 	/* empty buf with non-zero len fails */
 	vecs[3].iov_base = 0;
 	vecs[3].iov_len = 1;
-	ret = update_rsrc(&ring, IORING_RSRC_BUFFER, 1, 3, &vecs[3], NULL);
+	ret = update_rsrc(&ring, TEST_IORING_RSRC_BUFFER, 1, 3, &vecs[3], NULL);
 	if (ret >= 0) {
 		fprintf(stderr, "rsrc update failed %i %i\n", ret, errno);
 		return 1;
@@ -312,7 +322,7 @@ static int test_files(int ring_flags)
 		tags[i] = i + 1;
 	}
 
-	ret = test_tags_generic(nr, IORING_RSRC_FILE, files, ring_flags);
+	ret = test_tags_generic(nr, TEST_IORING_RSRC_FILE, files, ring_flags);
 	if (ret)
 		return 1;
 
@@ -321,7 +331,7 @@ static int test_files(int ring_flags)
 		printf("ring setup failed\n");
 		return 1;
 	}
-	ret = register_rsrc(&ring, IORING_RSRC_FILE, nr, files, tags);
+	ret = register_rsrc(&ring, TEST_IORING_RSRC_FILE, nr, files, tags);
 	if (ret) {
 		fprintf(stderr, "rsrc register failed %i\n", ret);
 		return 1;
@@ -343,7 +353,7 @@ static int test_files(int ring_flags)
 	/* non-zero tag with remove update is disallowed */
 	tag = 1;
 	fd = -1;
-	ret = update_rsrc(&ring, IORING_RSRC_FILE, 1, off + 1, &fd, &tag);
+	ret = update_rsrc(&ring, TEST_IORING_RSRC_FILE, 1, off + 1, &fd, &tag);
 	assert(ret);
 
 	io_uring_queue_exit(&ring);
