@@ -570,13 +570,6 @@ static inline void io_uring_prep_linkat(struct io_uring_sqe *sqe, int olddfd,
 	sqe->hardlink_flags = flags;
 }
 
-static inline void io_uring_prep_mknodat(struct io_uring_sqe *sqe, int dfd,
-					const char *pathname, mode_t mode, dev_t dev)
-{
-	io_uring_prep_rw(IORING_OP_MKNODAT, sqe, dfd, pathname, mode, 0);
-	sqe->mknod_dev = dev;
-}
-
 /*
  * Returns number of unconsumed (if SQPOLL) or unsubmitted entries exist in
  * the SQ ring
