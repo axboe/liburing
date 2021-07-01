@@ -954,7 +954,12 @@ description of the opcodes above.
 returns the number of I/Os successfully consumed.  This can be zero
 if
 .I to_submit
-was zero or if the submission queue was empty.
+was zero or if the submission queue was empty. Note that if the ring was
+created with
+.B IORING_SETUP_SQPOLL
+specified, then the return value will generally be the same as
+.I to_submit
+as submission happens outside the context of the system call.
 
 The errors related to a submission queue entry will be returned through a
 completion queue entry (see section
