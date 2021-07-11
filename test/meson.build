@@ -1,0 +1,147 @@
+all_tests = [['232c93d07b74-test', 'c', thread_dep],
+             ['35fa71a030ca-test', 'c', thread_dep],
+             ['500f9fbadef8-test', 'c', []],
+             ['7ad0e4b2f83c-test', 'c', []],
+             ['8a9973408177-test', 'c', []],
+             ['917257daa0fe-test', 'c', []],
+             ['a0908ae19763-test', 'c', []],
+             ['a4c0b3decb33-test', 'c', []],
+             ['accept', 'c', []],
+             ['accept-link', 'c', thread_dep],
+             ['accept-reuse', 'c', []],
+             ['accept-test', 'c', []],
+             ['across-fork', 'c', thread_dep],
+             ['splice', 'c', []],
+             ['b19062a56726-test', 'c', []],
+             ['b5837bd5311d-test', 'c', []],
+             ['ce593a6c480a-test', 'c', thread_dep],
+             ['close-opath', 'c', []],
+             ['connect', 'c', []],
+             ['cq-full', 'c', []],
+             ['cq-overflow', 'c', []],
+             ['cq-overflow-peek', 'c', []],
+             ['cq-peek-batch', 'c', []],
+             ['cq-ready', 'c', []],
+             ['cq-size', 'c', []],
+             ['d4ae271dfaae-test', 'c', []],
+             ['d77a67ed5f27-test', 'c', []],
+             ['defer', 'c', []],
+             ['double-poll-crash', 'c', []],
+             ['eeed8b54e0df-test', 'c', []],
+             ['eventfd', 'c', []],
+             ['eventfd-disable', 'c', []],
+             ['eventfd-ring', 'c', []],
+             ['fadvise', 'c', []],
+             ['fallocate', 'c', []],
+             ['fc2a85cb02ef-test', 'c', []],
+             ['file-register', 'c', []],
+             ['file-update', 'c', []],
+             ['files-exit-hang-poll', 'c', []],
+             ['files-exit-hang-timeout', 'c', []],
+             ['fixed-link', 'c', []],
+             ['fsync', 'c', []],
+             ['io-cancel', 'c', []],
+             ['io_uring_enter', 'c', []],
+             ['io_uring_register', 'c', []],
+             ['io_uring_setup', 'c', []],
+             ['iopoll', 'c', []],
+             ['lfs-openat', 'c', []],
+             ['lfs-openat-write', 'c', []],
+             ['link', 'c', []],
+             ['link-timeout', 'c', []],
+             ['link_drain', 'c', []],
+             ['madvise', 'c', []],
+             ['nop', 'c', []],
+             ['nop-all-sizes', 'c', []],
+             ['open-close', 'c', []],
+             ['openat2', 'c', []],
+             ['personality', 'c', []],
+             ['pipe-eof', 'c', thread_dep],
+             ['pipe-reuse', 'c', []],
+             ['poll', 'c', []],
+             ['poll-cancel', 'c', []],
+             ['poll-cancel-ton', 'c', []],
+             ['poll-link', 'c', thread_dep],
+             ['poll-many', 'c', []],
+             ['poll-ring', 'c', []],
+             ['poll-v-poll', 'c', thread_dep],
+             ['probe', 'c', []],
+             ['read-write', 'c', []],
+             ['register-restrictions', 'c', []],
+             ['rename', 'c', []],
+             ['ring-leak', 'c', []],
+             ['ring-leak2', 'c', thread_dep],
+             ['self', 'c', []],
+             ['send_recv', 'c', thread_dep],
+             ['send_recvmsg', 'c', thread_dep],
+             ['shared-wq', 'c', []],
+             ['short-read', 'c', []],
+             ['shutdown', 'c', []],
+             ['sigfd-deadlock', 'c', []],
+             ['socket-rw', 'c', []],
+             ['socket-rw-eagain', 'c', []],
+             ['sq-full', 'c', []],
+             ['sq-poll-dup', 'c', []],
+             ['sq-poll-kthread', 'c', []],
+             ['sq-poll-share', 'c', []],
+             ['sqpoll-exit-hang', 'c', []],
+             ['sqpoll-sleep', 'c', []],
+             ['sq-space_left', 'c', []],
+             ['stdout', 'c', []],
+             ['submit-reuse', 'c', thread_dep],
+             ['teardowns', 'c', []],
+             ['thread-exit', 'c', thread_dep],
+             ['timeout', 'c', []],
+             ['timeout-new', 'c', thread_dep],
+             ['timeout-overflow', 'c', []],
+             ['unlink', 'c', []],
+             ['wakeup-hang', 'c', thread_dep]]
+
+if has_statx
+    all_tests += [['statx', 'c', []]]
+endif
+
+if has_cxx
+    all_tests += [['sq-full-cpp', 'cc', []]]
+endif
+
+runtests_sh = find_program('runtests.sh')
+runtests_loop_sh = find_program('runtests-loop.sh')
+
+foreach t : all_tests
+    executable(t[0],
+               t[0] + '.' + t[1],
+               include_directories : inc,
+               link_with : liburing.get_static_lib(),
+               dependencies : t[2],
+               install : true,
+               install_dir : get_option('datadir') / 'liburing-test')
+
+    test(t[0],
+         runtests_sh,
+         args : t[0],
+         workdir : meson.current_build_dir(),
+         suite : 'once')
+
+    test(t[0] + '_loop',
+         runtests_loop_sh,
+         args : t[0],
+         workdir : meson.current_build_dir(),
+         suite : 'loop')
+endforeach
+
+configure_file(input : 'runtests.sh',
+               output: 'runtests.sh',
+               copy : true)
+
+configure_file(input : 'runtests-loop.sh',
+               output: 'runtests-loop.sh',
+               copy : true)
+
+configure_file(input : 'config',
+               output: 'config.local',
+               copy : true)
+
+install_data('runtests.sh',
+             'runtests-loop.sh',
+             install_dir : get_option('datadir') / 'liburing-test')

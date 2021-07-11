@@ -128,3 +128,5 @@ config-host.mak
 config.log
 
 liburing.pc
+
+/build/
