@@ -252,6 +252,7 @@ static int test(int use_sqthread, int regfiles)
 	ret = pthread_create(&recv_thread, NULL, recv_fn, &rd);
 	if (ret) {
 		fprintf(stderr, "Thread create failed: %d\n", ret);
+		pthread_mutex_unlock(&rd.mutex);
 		return 1;
 	}
 
