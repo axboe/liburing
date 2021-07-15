@@ -297,6 +297,7 @@ static int test(int buf_select, int no_buf_add, int iov_count)
 	rd.iov_count = iov_count;
 	ret = pthread_create(&recv_thread, NULL, recv_fn, &rd);
 	if (ret) {
+		pthread_mutex_unlock(&mutex);
 		fprintf(stderr, "Thread create failed\n");
 		return 1;
 	}
