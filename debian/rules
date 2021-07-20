@@ -51,7 +51,7 @@ install-arch: check-arch
 	  DESTDIR=$(CURDIR)/debian/tmp \
 	  libdir=/lib/$(DEB_HOST_MULTIARCH) \
 	  libdevdir=/usr/lib/$(DEB_HOST_MULTIARCH) \
-	  relativelibdir=/lib/$(DEB_HOST_MULTIARCH)
+	  relativelibdir=/lib/$(DEB_HOST_MULTIARCH)/
 
 binary: binary-indep binary-arch
 
