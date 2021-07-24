@@ -389,7 +389,10 @@ must be set to the socket file descriptor,
 .I addr
 must contain the pointer to the sockaddr structure, and
 .I addr2
-must contain a pointer to the socklen_t addrlen field. See also
+must contain a pointer to the socklen_t addrlen field. Flags can be passed using
+the
+.I accept_flags
+field. See also
 .BR accept4(2)
 for the general description of the related system call. Available since 5.5.
 
