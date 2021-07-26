@@ -28,7 +28,37 @@ struct p {
 };
 
 static struct p p[NFILES];
-static int no_update;
+
+static int has_poll_update(void)
+{
+	struct io_uring ring;
+	struct io_uring_cqe *cqe;
+	struct io_uring_sqe *sqe;
+	bool has_update = false;
+	int ret;
+
+	ret = io_uring_queue_init(8, &ring, 0);
+	if (ret)
+		return -1;
+
+	sqe = io_uring_get_sqe(&ring);
+	io_uring_prep_poll_update(sqe, NULL, NULL, POLLIN, IORING_TIMEOUT_UPDATE);
+
+	ret = io_uring_submit(&ring);
+	if (ret != 1)
+		return -1;
+
+	ret = io_uring_wait_cqe(&ring, &cqe);
+	if (!ret) {
+		if (cqe->res == -ENOENT)
+			has_update = true;
+		else if (cqe->res != -EINVAL)
+			return -1;
+		io_uring_cqe_seen(&ring, cqe);
+	}
+	io_uring_queue_exit(&ring);
+	return has_update;
+}
 
 static int arm_poll(struct io_uring *ring, int off)
 {
@@ -128,19 +158,6 @@ static void *trigger_polls_fn(void *data)
 	return NULL;
 }
 
-static int check_no_update(struct io_uring *ring)
-{
-	struct io_uring_cqe *cqe;
-	int ret;
-
-	ret = io_uring_wait_cqe(ring, &cqe);
-	if (ret)
-		return 0;
-	ret = cqe->res;
-	io_uring_cqe_seen(ring, cqe);
-	return ret == -EINVAL;
-}
-
 static int arm_polls(struct io_uring *ring)
 {
 	int ret, to_arm = NFILES, i, off;
@@ -163,10 +180,6 @@ static int arm_polls(struct io_uring *ring)
 
 		ret = io_uring_submit(ring);
 		if (ret != this_arm) {
-			if (ret > 0 && check_no_update(ring)) {
-				no_update = 1;
-				return 0;
-			}
 			fprintf(stderr, "submitted %d, %d\n", ret, this_arm);
 			return 1;
 		}
@@ -186,6 +199,15 @@ int main(int argc, char *argv[])
 
 	if (argc > 1)
 		return 0;
+
+	ret = has_poll_update();
+	if (ret < 0) {
+		fprintf(stderr, "poll update check failed %i\n", ret);
+		return -1;
+	} else if (!ret) {
+		fprintf(stderr, "no poll update, skip\n");
+		return 0;
+	}
 
 	if (getrlimit(RLIMIT_NOFILE, &rlim) < 0) {
 		perror("getrlimit");
@@ -227,10 +249,6 @@ int main(int argc, char *argv[])
 
 	if (arm_polls(&ring))
 		goto err;
-	if (no_update) {
-		printf("No poll update support, skipping\n");
-		goto done;
-	}
 
 	for (i = 0; i < NLOOPS; i++) {
 		pthread_create(&thread, NULL, trigger_polls_fn, NULL);
@@ -240,7 +258,6 @@ int main(int argc, char *argv[])
 		pthread_join(thread, NULL);
 	}
 
-done:
 	io_uring_queue_exit(&ring);
 	return 0;
 err:
