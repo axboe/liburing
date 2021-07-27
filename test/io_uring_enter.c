@@ -234,7 +234,7 @@ main(int argc, char **argv)
 	status |= try_io_uring_enter(0, 0, 0, 0, NULL, -1, EOPNOTSUPP);
 
 	/* to_submit: 0, flags: 0;  should get back 0. */
-	status |= try_io_uring_enter(ring.ring_fd, 1, 0, 0, NULL, 0, 0);
+	status |= try_io_uring_enter(ring.ring_fd, 0, 0, 0, NULL, 0, 0);
 
 	/* fill the sq ring */
 	sq_entries = *ring.sq.kring_entries;
