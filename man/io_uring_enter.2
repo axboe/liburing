@@ -944,13 +944,22 @@ They are described in section
 .B CQE ERRORS.
 .PP
 For read and write opcodes, the
-return values match errno values documented in the
+return values match
+.I errno
+values documented in the
 .BR preadv2 (2)
 and
 .BR pwritev2 (2)
-man pages.
-Return codes for the io_uring-specific opcodes are documented in the
-description of the opcodes above.
+man pages, with
+.I
+res
+holding the equivalent of
+.I -errno
+for error cases, or the transferred number of bytes in case the operation
+is succesful. Hence both error and success return can be found in that
+field in the CQE. For other request types, the return values are documented
+in the matching man page for that type, or in the opcodes section above for
+io_uring-specific opcodes.
 .PP
 .SH RETURN VALUE
 .BR io_uring_enter ()
