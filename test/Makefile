@@ -105,6 +105,7 @@ test_targets += \
 	sq-poll-share \
 	sqpoll-disable-exit \
 	sqpoll-exit-hang \
+	sqpoll-cancel-hang \
 	sqpoll-sleep \
 	sq-space_left \
 	stdout \
@@ -246,6 +247,7 @@ test_srcs := \
 	sq-poll-share.c \
 	sqpoll-disable-exit.c \
 	sqpoll-exit-hang.c \
+	sqpoll-cancel-hang.c \
 	sqpoll-sleep.c \
 	sq-space_left.c \
 	statx.c \
