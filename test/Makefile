@@ -3,6 +3,10 @@ datadir ?= $(prefix)/share
 
 INSTALL=install
 
+ifneq ($(MAKECMDGOALS),clean)
+include ../config-host.mak
+endif
+
 CPPFLAGS ?=
 override CPPFLAGS += -D_GNU_SOURCE -D__SANE_USERSPACE_TYPES__ \
 	-I../src/include/ -include ../config-host.h
@@ -10,6 +14,14 @@ CFLAGS ?= -g -O2
 XCFLAGS =
 override CFLAGS += -Wall -Wextra -Wno-unused-parameter -Wno-sign-compare \
 	-L../src/
+
+ifdef CONFIG_HAVE_STRINGOP_OVERFLOW
+  XCFLAGS += -Wstringop-overflow=0
+endif
+ifdef CONFIG_HAVE_ARRAY_BOUNDS
+  XCFLAGS += -Warray-bounds=0
+endif
+
 CXXFLAGS ?=
 override CXXFLAGS += $(CFLAGS) -std=c++11
 
@@ -125,10 +137,6 @@ test_targets += \
 all_targets += $(test_targets)
 
 include ../Makefile.quiet
-
-ifneq ($(MAKECMDGOALS),clean)
-include ../config-host.mak
-endif
 
 ifdef CONFIG_HAVE_STATX
 test_targets += statx

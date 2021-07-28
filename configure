@@ -192,6 +192,37 @@ print_and_output_mak "mandir" "$mandir"
 print_and_output_mak "datadir" "$datadir"
 
 ##########################################
+# check for compiler -Wstringop-overflow
+stringop_overflow="no"
+cat > $TMPC << EOF
+#include <linux/fs.h>
+int main(int argc, char **argv)
+{
+  return 0;
+}
+EOF
+if compile_prog "-Werror -Wstringop-overflow=0" "" "stringop_overflow"; then
+  stringop_overflow="yes"
+fi
+print_config "stringop_overflow" "$stringop_overflow"
+
+##########################################
+# check for compiler -Warryr-bounds
+array_bounds="no"
+cat > $TMPC << EOF
+#include <linux/fs.h>
+int main(int argc, char **argv)
+{
+  return 0;
+}
+EOF
+if compile_prog "-Werror -Warray-bounds=0" "" "array_bounds"; then
+  array_bounds="yes"
+fi
+print_config "array_bounds" "$array_bounds"
+
+
+##########################################
 # check for __kernel_rwf_t
 __kernel_rwf_t="no"
 cat > $TMPC << EOF
@@ -324,6 +355,12 @@ if test "$has_cxx" = "yes"; then
 fi
 if test "$has_ucontext" = "yes"; then
   output_sym "CONFIG_HAVE_UCONTEXT"
+fi
+if test "$stringop_overflow" = "yes"; then
+  output_sym "CONFIG_HAVE_STRINGOP_OVERFLOW"
+fi
+if test "$array_bounds" = "yes"; then
+  output_sym "CONFIG_HAVE_ARRAY_BOUNDS"
 fi
 
 echo "CC=$cc" >> $config_host_mak
