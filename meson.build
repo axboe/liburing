@@ -1,61 +1,37 @@
 project('liburing', ['c','cpp'],
-        version: run_command('awk', '/Version:/ { print $2 }', 'liburing.spec').stdout().strip(),
+        version: run_command('awk', '/Version:/ { print $2 }', 'liburing.spec', check: true).stdout().strip(),
         license: ['MIT', 'LGPL-2.1-only', 'GPL-2.0-only WITH Linux-syscall-note'],
         meson_version: '>=0.53.0',
         default_options: ['default_library=both',
                           'buildtype=debugoptimized',
                           'c_std=c11',
                           'cpp_std=c++11',
-                          'warning_level=3'])
+                          'optimization=3',
+                          'warning_level=2'])
 
 add_project_arguments('-D_GNU_SOURCE',
                       '-D__SANE_USERSPACE_TYPES__',
                       '-include', meson.current_build_dir() + '/config-host.h',
                       '-Wno-unused-parameter',
                       '-Wno-sign-compare',
-                      '-fomit-frame-pointer',
                       language: ['c', 'cpp'])
 
 thread_dep = dependency('threads')
 
 cc = meson.get_compiler('c')
 
-code = '''#include <linux/fs.h>
-int main(int argc, char **argv)
-{
-  __kernel_rwf_t x;
-  x = 0;
-  return x;
-}
-'''
-has__kernel_rwf_t = cc.compiles(code, name : '__kernel_rwf_t')
+has__kernel_rwf_t = cc.has_type('__kernel_rwf_t', prefix: '#include <linux/fs.h>')
 
-code = '''#include <linux/time.h>
-#include <linux/time_types.h>
-int main(int argc, char **argv)
-{
-  struct __kernel_timespec ts;
-  ts.tv_sec = 0;
-  ts.tv_nsec = 1;
-  return 0;
-}
-'''
-has__kernel_timespec = cc.compiles(code, name : '__kernel_timespec')
+has__kernel_timespec = cc.has_members('struct __kernel_timespec',
+                                      'tv_sec',
+                                      'tv_nsec',
+                                      prefix: '#include <linux/time.h>')
 
-code = '''#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <string.h>
-int main(int argc, char **argv)
-{
-  struct open_how how;
-  how.flags = 0;
-  how.mode = 0;
-  how.resolve = 0;
-  return 0;
-}
-'''
-has_open_how = cc.compiles(code, name: 'open_how')
+has_open_how = cc.has_members('struct open_how',
+                                      'flags',
+                                      'mode',
+                                      'resolve',
+                                      prefix: '#include <linux/openat2.h>')
 
 code = '''#include <sys/types.h>
 #include <sys/stat.h>
@@ -72,32 +48,33 @@ int main(int argc, char **argv)
 '''
 has_statx = cc.compiles(code, name: 'statx')
 
-cpp = meson.get_compiler('cpp')
-
-code = '''#include <iostream>
-int main(int argc, char **argv)
+code= '''#include <sys/types.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <string.h>
+#include <linux/stat.h>
+main(int argc, char **argv)
 {
-  std::cout << "Test";
-  return 0;
+  struct statx x;
+
+  return memset(&x, 0, sizeof(x)) != NULL;
 }
 '''
-has_cxx = cpp.compiles(code, name: 'C++')
+glibc_statx = cc.compiles(code, name: 'glibc_statx')
 
-code = '''#include <ucontext.h>
-int main(int argc, char **argv)
-{
-  ucontext_t ctx;
-  getcontext(&ctx);
-  return 0;
-}
-'''
-has_ucontext = cc.compiles(code, name : 'ucontext')
+# Since the project is configured to use C++
+# meson fails if no C++ compiler is available.
+has_cxx = true
+
+has_ucontext = (cc.has_type('ucontext_t', prefix: '#include <ucontext.h>')
+  and cc.has_function('makecontext', prefix: '#include <ucontext.h>'))
 
 conf_data = configuration_data()
 conf_data.set('CONFIG_HAVE_KERNEL_RWF_T', has__kernel_rwf_t)
 conf_data.set('CONFIG_HAVE_KERNEL_TIMESPEC', has__kernel_timespec)
 conf_data.set('CONFIG_HAVE_OPEN_HOW', has_open_how)
 conf_data.set('CONFIG_HAVE_STATX', has_statx)
+conf_data.set('CONFIG_HAVE_GLIBC_STATX', glibc_statx)
 conf_data.set('CONFIG_HAVE_CXX', has_cxx)
 conf_data.set('CONFIG_HAVE_UCONTEXT', has_ucontext)
 configure_file(output: 'config-host.h',

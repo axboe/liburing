@@ -97,7 +97,7 @@ all_tests = [['232c93d07b74-test', 'c', thread_dep],
              ['unlink', 'c', []],
              ['wakeup-hang', 'c', thread_dep]]
 
-if has_statx
+if has_statx or glibc_statx
     all_tests += [['statx', 'c', []]]
 endif
 
