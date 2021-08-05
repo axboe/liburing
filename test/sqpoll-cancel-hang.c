@@ -131,7 +131,6 @@ void trigger_bug(void)
     *(uint32_t*)0x20000550 = 0;
     *(uint32_t*)0x20000558 = r[0];
     memset((void*)0x2000055c, 0, 12);
-    syz_io_uring_setup(0x4bf1, 0x20000540, 0x20ffd000, 0x20ffc000, 0, 0);
 
 }
 int main(void)
