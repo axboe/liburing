@@ -335,7 +335,7 @@ static inline void io_uring_prep_poll_update(struct io_uring_sqe *sqe,
 					     unsigned poll_mask, unsigned flags)
 {
 	io_uring_prep_rw(IORING_OP_POLL_REMOVE, sqe, -1, old_user_data, flags,
-			 (__u64)new_user_data);
+			 (__u64)(uintptr_t)new_user_data);
 #if __BYTE_ORDER == __BIG_ENDIAN
 	poll_mask = __swahw32(poll_mask);
 #endif

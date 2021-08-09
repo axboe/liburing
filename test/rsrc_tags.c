@@ -40,8 +40,8 @@ static int register_rsrc(struct io_uring *ring, int type, int nr,
 
 	memset(&reg, 0, sizeof(reg));
 	reg.nr = nr;
-	reg.data = (__u64)arg;
-	reg.tags = (__u64)tags;
+	reg.data = (__u64)(uintptr_t)arg;
+	reg.tags = (__u64)(uintptr_t)tags;
 
 	reg_type = IORING_REGISTER_FILES2;
 	if (type != TEST_IORING_RSRC_FILE)
@@ -60,8 +60,8 @@ static int update_rsrc(struct io_uring *ring, int type, int nr, int off,
 
 	memset(&up, 0, sizeof(up));
 	up.offset = off;
-	up.data = (__u64)arg;
-	up.tags = (__u64)tags;
+	up.data = (__u64)(uintptr_t)arg;
+	up.tags = (__u64)(uintptr_t)tags;
 	up.nr = nr;
 
 	up_type = IORING_REGISTER_FILES_UPDATE2;
