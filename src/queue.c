@@ -248,7 +248,6 @@ static int io_uring_wait_cqes_new(struct io_uring *ring,
 		.ts		= (unsigned long) ts
 	};
 	struct get_data data = {
-		.submit		= __io_uring_flush_sq(ring),
 		.wait_nr	= wait_nr,
 		.get_flags	= IORING_ENTER_EXT_ARG,
 		.sz		= sizeof(arg),
