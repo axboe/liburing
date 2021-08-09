@@ -128,6 +128,7 @@ static int test_sqe_update(struct io_uring *ring)
 
 	ret = cqe->res;
 	io_uring_cqe_seen(ring, cqe);
+	free(fds);
 	if (ret == -EINVAL) {
 		fprintf(stdout, "IORING_OP_FILES_UPDATE not supported, skipping\n");
 		return 0;
