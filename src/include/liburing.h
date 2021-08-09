@@ -271,14 +271,14 @@ static inline void io_uring_prep_tee(struct io_uring_sqe *sqe,
 
 static inline void io_uring_prep_readv(struct io_uring_sqe *sqe, int fd,
 				       const struct iovec *iovecs,
-				       unsigned nr_vecs, off_t offset)
+				       unsigned nr_vecs, __u64 offset)
 {
 	io_uring_prep_rw(IORING_OP_READV, sqe, fd, iovecs, nr_vecs, offset);
 }
 
 static inline void io_uring_prep_read_fixed(struct io_uring_sqe *sqe, int fd,
 					    void *buf, unsigned nbytes,
-					    off_t offset, int buf_index)
+					    __u64 offset, int buf_index)
 {
 	io_uring_prep_rw(IORING_OP_READ_FIXED, sqe, fd, buf, nbytes, offset);
 	sqe->buf_index = buf_index;
@@ -286,14 +286,14 @@ static inline void io_uring_prep_read_fixed(struct io_uring_sqe *sqe, int fd,
 
 static inline void io_uring_prep_writev(struct io_uring_sqe *sqe, int fd,
 					const struct iovec *iovecs,
-					unsigned nr_vecs, off_t offset)
+					unsigned nr_vecs, __u64 offset)
 {
 	io_uring_prep_rw(IORING_OP_WRITEV, sqe, fd, iovecs, nr_vecs, offset);
 }
 
 static inline void io_uring_prep_write_fixed(struct io_uring_sqe *sqe, int fd,
 					     const void *buf, unsigned nbytes,
-					     off_t offset, int buf_index)
+					     __u64 offset, int buf_index)
 {
 	io_uring_prep_rw(IORING_OP_WRITE_FIXED, sqe, fd, buf, nbytes, offset);
 	sqe->buf_index = buf_index;
@@ -439,13 +439,13 @@ static inline void io_uring_prep_close(struct io_uring_sqe *sqe, int fd)
 }
 
 static inline void io_uring_prep_read(struct io_uring_sqe *sqe, int fd,
-				      void *buf, unsigned nbytes, off_t offset)
+				      void *buf, unsigned nbytes, __u64 offset)
 {
 	io_uring_prep_rw(IORING_OP_READ, sqe, fd, buf, nbytes, offset);
 }
 
 static inline void io_uring_prep_write(struct io_uring_sqe *sqe, int fd,
-				       const void *buf, unsigned nbytes, off_t offset)
+				       const void *buf, unsigned nbytes, __u64 offset)
 {
 	io_uring_prep_rw(IORING_OP_WRITE, sqe, fd, buf, nbytes, offset);
 }
@@ -461,7 +461,7 @@ static inline void io_uring_prep_statx(struct io_uring_sqe *sqe, int dfd,
 }
 
 static inline void io_uring_prep_fadvise(struct io_uring_sqe *sqe, int fd,
-					 off_t offset, off_t len, int advice)
+					 __u64 offset, off_t len, int advice)
 {
 	io_uring_prep_rw(IORING_OP_FADVISE, sqe, fd, NULL, len, offset);
 	sqe->fadvise_advice = advice;
@@ -542,7 +542,7 @@ static inline void io_uring_prep_renameat(struct io_uring_sqe *sqe, int olddfd,
 
 static inline void io_uring_prep_sync_file_range(struct io_uring_sqe *sqe,
 						 int fd, unsigned len,
-						 off_t offset, int flags)
+						 __u64 offset, int flags)
 {
 	io_uring_prep_rw(IORING_OP_SYNC_FILE_RANGE, sqe, fd, NULL, len, offset);
 	sqe->sync_range_flags = flags;
