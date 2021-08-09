@@ -121,6 +121,12 @@
 /test/timeout-overflow
 /test/unlink
 /test/wakeup-hang
+/test/multicqes_drain
+/test/poll-mshot-update
+/test/rsrc_tags
+/test/rw_merge_test
+/test/sqpoll-cancel-hang
+/test/testfile
 /test/*.dmesg
 
 config-host.h
