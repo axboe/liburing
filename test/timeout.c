@@ -180,7 +180,8 @@ err:
 	return 1;
 }
 
-static int test_single_timeout_wait(struct io_uring *ring)
+static int test_single_timeout_wait(struct io_uring *ring,
+				    struct io_uring_params *p)
 {
 	struct io_uring_cqe *cqe;
 	struct io_uring_sqe *sqe;
@@ -194,6 +195,15 @@ static int test_single_timeout_wait(struct io_uring *ring)
 	sqe = io_uring_get_sqe(ring);
 	io_uring_prep_nop(sqe);
 	io_uring_sqe_set_data(sqe, (void *) 1);
+
+	/* no implied submit for newer kernels */
+	if (p->features & IORING_FEAT_EXT_ARG) {
+		ret = io_uring_submit(ring);
+		if (ret != 2) {
+			fprintf(stderr, "%s: submit %d\n", __FUNCTION__, ret);
+			return 1;
+		}
+	}
 
 	msec_to_ts(&ts, 1000);
 
@@ -1165,12 +1175,13 @@ int main(int argc, char *argv[])
 {
 	struct io_uring ring, sqpoll_ring;
 	bool has_timeout_update, sqpoll;
+	struct io_uring_params p = { };
 	int ret;
 
 	if (argc > 1)
 		return 0;
 
-	ret = io_uring_queue_init(8, &ring, 0);
+	ret = io_uring_queue_init_params(8, &ring, &p);
 	if (ret) {
 		fprintf(stderr, "ring setup failed\n");
 		return 1;
@@ -1252,7 +1263,7 @@ int main(int argc, char *argv[])
 		return ret;
 	}
 
-	ret = test_single_timeout_wait(&ring);
+	ret = test_single_timeout_wait(&ring, &p);
 	if (ret) {
 		fprintf(stderr, "test_single_timeout_wait failed\n");
 		return ret;
