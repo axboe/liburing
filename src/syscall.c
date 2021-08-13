@@ -13,8 +13,8 @@
 
 #ifdef __alpha__
 /*
- * alpha is the only exception, all other architectures
- * have common numbers for new system calls.
+ * alpha and mips are exception, other architectures have
+ * common numbers for new system calls.
  */
 # ifndef __NR_io_uring_setup
 #  define __NR_io_uring_setup		535
@@ -25,7 +25,17 @@
 # ifndef __NR_io_uring_register
 #  define __NR_io_uring_register	537
 # endif
-#else /* !__alpha__ */
+#elif defined __mips__
+# ifndef __NR_io_uring_setup
+#  define __NR_io_uring_setup           (__NR_Linux + 425)
+# endif
+# ifndef __NR_io_uring_enter
+#  define __NR_io_uring_enter           (__NR_Linux + 426)
+# endif
+# ifndef __NR_io_uring_register
+#  define __NR_io_uring_register        (__NR_Linux + 427)
+# endif
+#else /* !__alpha__ and !__mips__ */
 # ifndef __NR_io_uring_setup
 #  define __NR_io_uring_setup		425
 # endif
