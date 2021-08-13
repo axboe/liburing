@@ -202,7 +202,7 @@ If this flag is set, the two SQ and CQ rings can be mapped with a single
 .I mmap(2)
 call. The SQEs must still be allocated separately. This brings the necessary
 .I mmap(2)
-calls down from three to two.
+calls down from three to two. Available since kernel 5.4.
 .TP
 .B IORING_FEAT_NODROP
 If this flag is set, io_uring supports never dropping completion events.
@@ -213,11 +213,12 @@ IO with fail with the
 .B -EBUSY
 error value, if it can't flush the overflown events to the CQ ring. If this
 happens, the application must reap events from the CQ ring and attempt the
-submit again.
+submit again. Available since kernel 5.5.
 .TP
 .B IORING_FEAT_SUBMIT_STABLE
 If this flag is set, applications can be certain that any data for
-async offload has been consumed when the kernel has consumed the SQE.
+async offload has been consumed when the kernel has consumed the SQE. Available
+since kernel 5.5.
 .TP
 .B IORING_FEAT_RW_CUR_POS
 If this flag is set, applications can specify
@@ -237,7 +238,8 @@ with
 == -1. It'll use (and update) the current file position. This obviously comes
 with the caveat that if the application has multiple reads or writes in flight,
 then the end result will not be as expected. This is similar to threads sharing
-a file descriptor and doing IO using the current file position.
+a file descriptor and doing IO using the current file position. Available since
+kernel 5.6.
 .TP
 .B IORING_FEAT_CUR_PERSONALITY
 If this flag is set, then io_uring guarantees that both sync and async
@@ -253,7 +255,7 @@ still register different personalities through
 io_uring_register(2)
 with
 .B IORING_REGISTER_PERSONALITY
-and specify the personality to use in the sqe.
+and specify the personality to use in the sqe. Available since kernel 5.6.
 .TP
 .B IORING_FEAT_FAST_POLL
 If this flag is set, then io_uring supports using an internal poll mechanism
@@ -262,20 +264,49 @@ write data to a file no longer need to be punted to an async thread for
 handling, instead they will begin operation when the file is ready. This is
 similar to doing poll + read/write in userspace, but eliminates the need to do
 so. If this flag is set, requests waiting on space/data consume a lot less
-resources doing so as they are not blocking a thread.
+resources doing so as they are not blocking a thread. Available since kernel
+5.7.
 .TP
 .B IORING_FEAT_POLL_32BITS
 If this flag is set, the
 .B IORING_OP_POLL_ADD
 command accepts the full 32-bit range of epoll based flags. Most notably
 .B EPOLLEXCLUSIVE
-which allows exclusive (waking single waiters) behavior.
+which allows exclusive (waking single waiters) behavior. Available since kernel
+5.9.
 .TP
 .B IORING_FEAT_SQPOLL_NONFIXED
 If this flag is set, the
 .B IORING_SETUP_SQPOLL
 feature no longer requires the use of fixed files. Any normal file descriptor
-can be used for IO commands without needing registration.
+can be used for IO commands without needing registration. Available since
+kernel 5.11.
+.TP
+.B IORING_FEAT_ENTER_EXT_ARG
+If this flag is set, then the
+.BR io_uring_enter (2)
+system call supports passing in an extended argument instead of just the
+.IR "sigset_t"
+of earlier kernels. This.
+extended argument is of type
+.IR "struct io_uring_getevents_arg"
+and allows the caller to pass in both a
+.IR "sigset_t"
+and a timeout argument for waiting on events. The struct layout is as follows:
+.TP
+.in +8n
+.EX
+struct io_uring_getevents_arg {
+    __u64 sigmask;
+    __u32 sigmask_sz;
+    __u32 pad;
+    __u64 ts;
+};
+.EE
+
+and a pointer to this struct must be passed in if
+.B IORING_ENTER_EXT_ARG
+is set in the flags for the enter system call. Available since kernel 5.11.
 
 .PP
 The rest of the fields in the
