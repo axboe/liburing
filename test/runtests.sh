@@ -8,6 +8,7 @@ TEST_DIR=$(dirname $0)
 FAILED=""
 SKIPPED=""
 MAYBE_FAILED=""
+TIMED_OUT=""
 TEST_FILES=""
 declare -A TEST_MAP
 
@@ -97,6 +98,7 @@ run_test()
 	# Check test status
 	if [ "$status" -eq 124 ]; then
 		echo "Test $test_name timed out (may not be a failure)"
+		TIMED_OUT="$TIMED_OUT <$test_string>"
 	elif [ "$status" -ne 0 ]; then
 		echo "Test $test_name failed with ret $status"
 		FAILED="$FAILED <$test_string>"
@@ -143,6 +145,9 @@ else
 	fi
 	if [ ! -z "$MAYBE_FAILED" ]; then
 		echo "Tests _maybe_ failed: $MAYBE_FAILED"
+	fi
+	if [ ! -z "$TIMED_OUT" ]; then
+		echo "Tests timed out: $TIMED_OUT"
 	fi
 	echo "All tests passed"
 	exit 0
