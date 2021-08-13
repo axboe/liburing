@@ -307,6 +307,19 @@ struct io_uring_getevents_arg {
 and a pointer to this struct must be passed in if
 .B IORING_ENTER_EXT_ARG
 is set in the flags for the enter system call. Available since kernel 5.11.
+.TP
+.B IORING_FEAT_NATIVE_WORKERS
+If this flag is set, io_uring is using native workers for its async helpers.
+Previous kernels used kernel threads that assumed the identity of the
+original io_uring owning task, but later kernels will actively create what
+looks more like regular process threads instead. Available since kernel
+5.12.
+.TP
+.B IORING_FEAT_RSRC_TAGS
+If this flag is set, then io_uring supports a variety of features related
+to fixed files and buffers. In particular, it indicates that registered
+buffers can be updated in-place, whereas before the full set would have to
+be unregistered first. Available since kernel 5.13.
 
 .PP
 The rest of the fields in the
