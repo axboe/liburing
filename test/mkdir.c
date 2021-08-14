@@ -58,6 +58,9 @@ int main(int argc, char *argv[])
 	int ret;
 	struct io_uring ring;
 
+	if (argc > 1)
+		return 0;
+
 	ret = io_uring_queue_init(8, &ring, 0);
 	if (ret) {
 		fprintf(stderr, "queue init failed: %d\n", ret);
