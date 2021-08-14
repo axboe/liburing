@@ -45,6 +45,7 @@
 /test/defer
 /test/double-poll-crash
 /test/eeed8b54e0df-test
+/test/empty-eownerdead
 /test/eventfd
 /test/eventfd-disable
 /test/eventfd-ring

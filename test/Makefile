@@ -54,6 +54,7 @@ test_targets += \
 	defer \
 	double-poll-crash \
 	eeed8b54e0df-test \
+	empty-eownerdead \
 	eventfd \
 	eventfd-disable \
 	eventfd-ring \
@@ -191,6 +192,7 @@ test_srcs := \
 	defer.c \
 	double-poll-crash.c \
 	eeed8b54e0df-test.c \
+	empty-eownerdead.c \
 	eventfd-disable.c \
 	eventfd-ring.c \
 	eventfd.c \
