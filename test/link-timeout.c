@@ -63,7 +63,7 @@ static int test_fail_two_link_timeouts(struct io_uring *ring)
 	struct __kernel_timespec ts;
 	struct io_uring_cqe *cqe;
 	struct io_uring_sqe *sqe;
-	int ret, i;
+	int ret, i, nr_wait;
 
 	ts.tv_sec = 1;
 	ts.tv_nsec = 0;
@@ -114,12 +114,13 @@ static int test_fail_two_link_timeouts(struct io_uring *ring)
 	sqe->user_data = 4;
 
 	ret = io_uring_submit(ring);
-	if (ret != 4) {
+	if (ret < 3) {
 		printf("sqe submit failed: %d\n", ret);
 		goto err;
 	}
+	nr_wait = ret;
 
-	for (i = 0; i < 4; i++) {
+	for (i = 0; i < nr_wait; i++) {
 		ret = io_uring_wait_cqe(ring, &cqe);
 		if (ret < 0) {
 			printf("wait completion %d\n", ret);
@@ -981,14 +982,16 @@ static int test_timeout_link_chain5(struct io_uring *ring)
 		}
 		switch (cqe->user_data) {
 		case 1:
-			if (cqe->res) {
-				fprintf(stderr, "Timeout got %d, wanted -EINVAL\n",
+		case 2:
+			if (cqe->res && cqe->res != -ECANCELED) {
+				fprintf(stderr, "Request got %d, wanted -EINVAL "
+						"or -ECANCELED\n",
 						cqe->res);
 				goto err;
 			}
 			break;
-		case 2:
-			if (cqe->res != -ECANCELED) {
+		case 3:
+			if (cqe->res != -ECANCELED && cqe->res != -EINVAL) {
 				fprintf(stderr, "Link timeout got %d, wanted -ECANCELED\n", cqe->res);
 				goto err;
 			}
