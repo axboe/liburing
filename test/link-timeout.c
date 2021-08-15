@@ -619,6 +619,8 @@ static int test_timeout_link_chain1(struct io_uring *ring)
 		io_uring_cqe_seen(ring, cqe);
 	}
 
+	close(fds[0]);
+	close(fds[1]);
 	return 0;
 err:
 	return 1;
@@ -713,6 +715,8 @@ static int test_timeout_link_chain2(struct io_uring *ring)
 		io_uring_cqe_seen(ring, cqe);
 	}
 
+	close(fds[0]);
+	close(fds[1]);
 	return 0;
 err:
 	return 1;
@@ -833,6 +837,8 @@ static int test_timeout_link_chain3(struct io_uring *ring)
 		io_uring_cqe_seen(ring, cqe);
 	}
 
+	close(fds[0]);
+	close(fds[1]);
 	return 0;
 err:
 	return 1;
@@ -917,6 +923,8 @@ static int test_timeout_link_chain4(struct io_uring *ring)
 		io_uring_cqe_seen(ring, cqe);
 	}
 
+	close(fds[0]);
+	close(fds[1]);
 	return 0;
 err:
 	return 1;
