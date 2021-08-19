@@ -325,6 +325,7 @@ static int probe_buf_select(void)
 int main(int argc, char *argv[])
 {
 	int i, ret, nr;
+	char buf[256];
 	char *fname;
 
 	if (probe_buf_select())
@@ -333,7 +334,10 @@ int main(int argc, char *argv[])
 	if (argc > 1) {
 		fname = argv[1];
 	} else {
-		fname = ".iopoll-rw";
+		srand((unsigned)time(NULL));
+		snprintf(buf, sizeof(buf), ".basic-rw-%u-%u",
+			(unsigned)rand(), (unsigned)getpid());
+		fname = buf;
 		t_create_file(fname, FILE_SIZE);
 	}
 
