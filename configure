@@ -327,6 +327,7 @@ int main(int argc, char **argv)
 {
   ucontext_t ctx;
   getcontext(&ctx);
+  makecontext(&ctx, 0, 0);
   return 0;
 }
 EOF
