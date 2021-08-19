@@ -347,15 +347,15 @@ int main(int argc, char *argv[])
 	if (no_buf_select)
 		nr = 8;
 	for (i = 0; i < nr; i++) {
-		int v1, v2, v3, v4;
+		int write = (i & 1) != 0;
+		int sqthread = (i & 2) != 0;
+		int fixed = (i & 4) != 0;
+		int buf_select = (i & 8) != 0;
 
-		v1 = (i & 1) != 0;
-		v2 = (i & 2) != 0;
-		v3 = (i & 4) != 0;
-		v4 = (i & 8) != 0;
-		ret = test_io(fname, v1, v2, v3, v4);
+		ret = test_io(fname, write, sqthread, fixed, buf_select);
 		if (ret) {
-			fprintf(stderr, "test_io failed %d/%d/%d/%d\n", v1, v2, v3, v4);
+			fprintf(stderr, "test_io failed %d/%d/%d/%d\n",
+				write, sqthread, fixed, buf_select);
 			goto err;
 		}
 		if (no_iopoll)
