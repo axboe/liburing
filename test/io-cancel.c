@@ -339,7 +339,7 @@ static int test_cancel_req_across_fork(void)
 				return 1;
 			}
 			if ((cqe->user_data == 1 && cqe->res != -EINTR) ||
-			    (cqe->user_data == 2 && cqe->res != -EALREADY)) {
+			    (cqe->user_data == 2 && cqe->res != -EALREADY && cqe->res)) {
 				fprintf(stderr, "%i %i\n", (int)cqe->user_data, cqe->res);
 				exit(1);
 			}
