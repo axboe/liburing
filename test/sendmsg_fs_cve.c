@@ -154,7 +154,13 @@ int main(int argc, char *argv[])
 	if (!c) {
 		close(rcv_sock);
 
-		if (chroot(tmpdir)) {
+		r = chroot(tmpdir);
+		if (r) {
+			if (errno == EPERM) {
+				fprintf(stderr, "chroot not allowed, skip\n");
+				return 0;
+			}
+
 			perror("chroot()");
 			return 1;
 		}
