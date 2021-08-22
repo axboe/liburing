@@ -271,31 +271,20 @@ static int test_io(const char *file, int write, int sqthread, int fixed,
 		   int buf_select)
 {
 	struct io_uring ring;
-	int ret, ring_flags;
+	int ret, ring_flags = IORING_SETUP_IOPOLL;
 
 	if (no_iopoll)
 		return 0;
 
-	ring_flags = IORING_SETUP_IOPOLL;
-	if (sqthread) {
-		static int warned;
-
-		if (geteuid()) {
-			if (!warned)
-				fprintf(stdout, "SQPOLL requires root, skipping\n");
-			warned = 1;
-			return 0;
-		}
-	}
-
-	ret = io_uring_queue_init(64, &ring, ring_flags);
-	if (ret) {
+	ret = t_create_ring(64, &ring, ring_flags);
+	if (ret == T_SETUP_SKIP)
+		goto done;
+	if (ret != T_SETUP_OK) {
 		fprintf(stderr, "ring create failed: %d\n", ret);
 		return 1;
 	}
-
 	ret = __test_io(file, &ring, write, sqthread, fixed, buf_select);
-
+done:
 	io_uring_queue_exit(&ring);
 	return ret;
 }

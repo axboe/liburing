@@ -235,23 +235,15 @@ static int test_io(const char *file, int write, int buffered, int sqthread,
 		   int fixed, int nonvec, int exp_len)
 {
 	struct io_uring ring;
-	int ret, ring_flags;
+	int ret, ring_flags = 0;
 
-	if (sqthread) {
-		if (geteuid()) {
-			if (!warned) {
-				fprintf(stderr, "SQPOLL requires root, skipping\n");
-				warned = 1;
-			}
-			return 0;
-		}
+	if (sqthread)
 		ring_flags = IORING_SETUP_SQPOLL;
-	} else {
-		ring_flags = 0;
-	}
 
-	ret = io_uring_queue_init(64, &ring, ring_flags);
-	if (ret) {
+	ret = t_create_ring(64, &ring, ring_flags);
+	if (ret == T_SETUP_SKIP)
+		goto done;
+	if (ret != T_SETUP_OK) {
 		fprintf(stderr, "ring create failed: %d\n", ret);
 		return 1;
 	}
@@ -259,6 +251,7 @@ static int test_io(const char *file, int write, int buffered, int sqthread,
 	ret = __test_io(file, &ring, write, buffered, sqthread, fixed, nonvec,
 			0, 0, exp_len);
 
+done:
 	io_uring_queue_exit(&ring);
 	return ret;
 }
