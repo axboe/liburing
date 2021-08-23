@@ -115,7 +115,7 @@ static int do_io(struct io_uring *ring, int fd, int do_write)
 	return 0;
 }
 
-static int start_cancel(struct io_uring *ring, int do_partial)
+static int start_cancel(struct io_uring *ring, int do_partial, int async_cancel)
 {
 	struct io_uring_sqe *sqe;
 	int i, ret, submitted = 0;
@@ -129,6 +129,8 @@ static int start_cancel(struct io_uring *ring, int do_partial)
 			goto err;
 		}
 		io_uring_prep_cancel(sqe, (void *) (unsigned long) i + 1, 0);
+		if (async_cancel)
+			sqe->flags |= IOSQE_ASYNC;
 		sqe->user_data = 0;
 		submitted++;
 	}
@@ -148,7 +150,8 @@ err:
  * the submitted IO. This is done to verify that cancelling one piece of IO doesn't
  * impact others.
  */
-static int test_io_cancel(const char *file, int do_write, int do_partial)
+static int test_io_cancel(const char *file, int do_write, int do_partial,
+			  int async_cancel)
 {
 	struct io_uring ring;
 	struct timeval start_tv;
@@ -179,7 +182,7 @@ static int test_io_cancel(const char *file, int do_write, int do_partial)
 		goto err;
 	/* sleep for 1/3 of the total time, to allow some to start/complete */
 	usleep(usecs / 3);
-	if (start_cancel(&ring, do_partial))
+	if (start_cancel(&ring, do_partial, async_cancel))
 		goto err;
 	to_wait = BUFFERS;
 	if (do_partial)
@@ -512,13 +515,15 @@ int main(int argc, char *argv[])
 
 	vecs = t_create_buffers(BUFFERS, BS);
 
-	for (i = 0; i < 4; i++) {
-		int v1 = (i & 1) != 0;
-		int v2 = (i & 2) != 0;
+	for (i = 0; i < 8; i++) {
+		int write = (i & 1) != 0;
+		int partial = (i & 2) != 0;
+		int async = (i & 4) != 0;
 
-		ret = test_io_cancel(".basic-rw", v1, v2);
+		ret = test_io_cancel(".basic-rw", write, partial, async);
 		if (ret) {
-			fprintf(stderr, "test_io_cancel %d %d failed\n", v1, v2);
+			fprintf(stderr, "test_io_cancel %d %d %d failed\n",
+				write, partial, async);
 			goto err;
 		}
 	}
