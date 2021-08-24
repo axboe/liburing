@@ -303,12 +303,14 @@ test_iovec_nr(int fd)
 	printf("io_uring_register(%d, %u, %p, %u)\n",
 	       fd, IORING_REGISTER_BUFFERS, iovs, nr);
 	ret = __sys_io_uring_register(fd, IORING_REGISTER_BUFFERS, iovs, nr);
-	if (ret != 0) {
+	if (ret && (errno == ENOMEM || errno == EPERM) && geteuid()) {
+		printf("can't register large iovec for regular users, skip\n");
+	} else if (ret != 0) {
 		printf("expected success, got %d\n", errno);
 		status = 1;
-	} else
+	} else {
 		__sys_io_uring_register(fd, IORING_UNREGISTER_BUFFERS, 0, 0);
-
+	}
 	free(buf);
 	free(iovs);
 	return status;
