@@ -30,6 +30,7 @@
 #include "../src/syscall.h"
 
 #define IORING_MAX_ENTRIES 4096
+#define IORING_MAX_ENTRIES_FALLBACK 128
 
 int
 expect_failed_submit(struct io_uring *ring, int error)
@@ -218,6 +219,8 @@ main(int argc, char **argv)
 		return 0;
 
 	ret = io_uring_queue_init(IORING_MAX_ENTRIES, &ring, 0);
+	if (ret == -ENOMEM)
+		ret = io_uring_queue_init(IORING_MAX_ENTRIES_FALLBACK, &ring, 0);
 	if (ret < 0) {
 		perror("io_uring_queue_init");
 		exit(1);
