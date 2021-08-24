@@ -242,7 +242,7 @@ static int test_io(const char *file, int write, int buffered, int sqthread,
 
 	ret = t_create_ring(64, &ring, ring_flags);
 	if (ret == T_SETUP_SKIP)
-		goto done;
+		return 0;
 	if (ret != T_SETUP_OK) {
 		fprintf(stderr, "ring create failed: %d\n", ret);
 		return 1;
@@ -250,8 +250,6 @@ static int test_io(const char *file, int write, int buffered, int sqthread,
 
 	ret = __test_io(file, &ring, write, buffered, sqthread, fixed, nonvec,
 			0, 0, exp_len);
-
-done:
 	io_uring_queue_exit(&ring);
 	return ret;
 }

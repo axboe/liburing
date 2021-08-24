@@ -278,13 +278,12 @@ static int test_io(const char *file, int write, int sqthread, int fixed,
 
 	ret = t_create_ring(64, &ring, ring_flags);
 	if (ret == T_SETUP_SKIP)
-		goto done;
+		return 0;
 	if (ret != T_SETUP_OK) {
 		fprintf(stderr, "ring create failed: %d\n", ret);
 		return 1;
 	}
 	ret = __test_io(file, &ring, write, sqthread, fixed, buf_select);
-done:
 	io_uring_queue_exit(&ring);
 	return ret;
 }
