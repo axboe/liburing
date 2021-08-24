@@ -71,7 +71,7 @@ static int arm_poll(struct io_uring *ring, int off)
 	}
 
 	io_uring_prep_poll_add(sqe, p[off].fd[0], POLLIN);
-	sqe->len = 1;
+	sqe->len = IORING_POLL_ADD_MULTI;
 	sqe->user_data = off;
 	return 0;
 }
@@ -88,7 +88,7 @@ static int reap_polls(struct io_uring *ring)
 		sqe = io_uring_get_sqe(ring);
 		/* update event */
 		io_uring_prep_poll_update(sqe, (void *)(unsigned long)i, NULL,
-					  POLLIN, 2);
+					  POLLIN, IORING_POLL_UPDATE_EVENTS);
 		sqe->user_data = 0x12345678;
 	}
 
@@ -107,7 +107,6 @@ static int reap_polls(struct io_uring *ring)
 		off = cqe->user_data;
 		if (off == 0x12345678)
 			goto seen;
-		p[off].triggered = 0;
 		ret = read(p[off].fd[0], &c, 1);
 		if (ret != 1) {
 			if (ret == -1 && errno == EAGAIN)
@@ -195,7 +194,7 @@ int main(int argc, char *argv[])
 	struct io_uring_params params = { };
 	struct rlimit rlim;
 	pthread_t thread;
-	int i, ret;
+	int i, j, ret;
 
 	if (argc > 1)
 		return 0;
@@ -256,6 +255,9 @@ int main(int argc, char *argv[])
 		if (ret)
 			goto err;
 		pthread_join(thread, NULL);
+
+		for (j = 0; j < NFILES; j++)
+			p[j].triggered = 0;
 	}
 
 	io_uring_queue_exit(&ring);
