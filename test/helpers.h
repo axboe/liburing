@@ -54,6 +54,10 @@ enum t_setup_ret t_create_ring_params(int depth, struct io_uring *ring,
 enum t_setup_ret t_create_ring(int depth, struct io_uring *ring,
 			       unsigned int flags);
 
+enum t_setup_ret t_register_buffers(struct io_uring *ring,
+				    const struct iovec *iovecs,
+				    unsigned nr_iovecs);
+
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
 
 #ifdef __cplusplus

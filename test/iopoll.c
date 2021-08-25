@@ -60,14 +60,13 @@ static int __test_io(const char *file, struct io_uring *ring, int write, int sqt
 	struct io_uring_sqe *sqe;
 	struct io_uring_cqe *cqe;
 	int open_flags;
-	int i, fd, ret;
+	int i, fd = -1, ret;
 	off_t offset;
 
-	if (buf_select && write)
+	if (buf_select) {
 		write = 0;
-	if (buf_select && fixed)
 		fixed = 0;
-
+	}
 	if (buf_select && provide_buffers(ring))
 		return 1;
 
@@ -77,18 +76,19 @@ static int __test_io(const char *file, struct io_uring *ring, int write, int sqt
 		open_flags = O_RDONLY;
 	open_flags |= O_DIRECT;
 
+	if (fixed) {
+		ret = t_register_buffers(ring, vecs, BUFFERS);
+		if (ret == T_SETUP_SKIP)
+			return 0;
+		if (ret != T_SETUP_OK) {
+			fprintf(stderr, "buffer reg failed: %d\n", ret);
+			goto err;
+		}
+	}
 	fd = open(file, open_flags);
 	if (fd < 0) {
 		perror("file open");
 		goto err;
-	}
-
-	if (fixed) {
-		ret = io_uring_register_buffers(ring, vecs, BUFFERS);
-		if (ret) {
-			fprintf(stderr, "buffer reg failed: %d\n", ret);
-			goto err;
-		}
 	}
 	if (sqthread) {
 		ret = io_uring_register_files(ring, &fd, 1);

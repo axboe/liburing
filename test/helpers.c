@@ -114,3 +114,22 @@ enum t_setup_ret t_create_ring(int depth, struct io_uring *ring,
 	p.flags = flags;
 	return t_create_ring_params(depth, ring, &p);
 }
+
+enum t_setup_ret t_register_buffers(struct io_uring *ring,
+				    const struct iovec *iovecs,
+				    unsigned nr_iovecs)
+{
+	int ret;
+
+	ret = io_uring_register_buffers(ring, iovecs, nr_iovecs);
+	if (!ret)
+		return T_SETUP_OK;
+
+	if ((ret == -EPERM || ret == -ENOMEM) && geteuid()) {
+		fprintf(stdout, "too large non-root buffer registration, skip\n");
+		return T_SETUP_SKIP;
+	}
+
+	fprintf(stderr, "buffer register failed: %s\n", strerror(-ret));
+	return ret;
+}
