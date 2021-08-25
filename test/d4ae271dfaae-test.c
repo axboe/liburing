@@ -27,11 +27,6 @@ int main(int argc, char *argv[])
 	char *fname;
 	void *buf;
 
-	if (geteuid()) {
-		fprintf(stdout, "Test requires root, skipping\n");
-		return 0;
-	}
-
 	memset(&p, 0, sizeof(p));
 	p.flags = IORING_SETUP_SQPOLL;
 	ret = t_create_ring_params(4, &ring, &p);

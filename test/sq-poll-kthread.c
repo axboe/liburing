@@ -17,6 +17,7 @@
 #include <sys/epoll.h>
 
 #include "liburing.h"
+#include "helpers.h"
 
 #define SQ_THREAD_IDLE  2000
 #define BUF_SIZE        128
@@ -38,23 +39,20 @@ static int do_test_sq_poll_kthread_stopped(bool do_exit)
 	uint8_t buf[BUF_SIZE];
 	struct iovec iov;
 
-	if (geteuid()) {
-		fprintf(stderr, "sqpoll requires root!\n");
-		return TEST_SKIPPED;
-	}
-
 	if (pipe(pipe1) != 0) {
 		perror("pipe");
 		return TEST_FAILED;
 	}
 
 	memset(&param, 0, sizeof(param));
-
 	param.flags |= IORING_SETUP_SQPOLL;
 	param.sq_thread_idle = SQ_THREAD_IDLE;
 
-	ret = io_uring_queue_init_params(16, &ring, &param);
-	if (ret) {
+	ret = t_create_ring_params(16, &ring, &param);
+	if (ret == T_SETUP_SKIP) {
+		ret = TEST_FAILED;
+		goto err_pipe;
+	} else if (ret != T_SETUP_OK) {
 		fprintf(stderr, "ring setup failed\n");
 		ret = TEST_FAILED;
 		goto err_pipe;
