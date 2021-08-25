@@ -316,14 +316,19 @@ static inline void io_uring_prep_sendmsg(struct io_uring_sqe *sqe, int fd,
 	sqe->msg_flags = flags;
 }
 
+static inline unsigned __io_uring_prep_poll_mask(unsigned poll_mask)
+{
+#if __BYTE_ORDER == __BIG_ENDIAN
+	poll_mask = __swahw32(poll_mask);
+#endif
+	return poll_mask;
+}
+
 static inline void io_uring_prep_poll_add(struct io_uring_sqe *sqe, int fd,
 					  unsigned poll_mask)
 {
 	io_uring_prep_rw(IORING_OP_POLL_ADD, sqe, fd, NULL, 0, 0);
-#if __BYTE_ORDER == __BIG_ENDIAN
-	poll_mask = __swahw32(poll_mask);
-#endif
-	sqe->poll32_events = poll_mask;
+	sqe->poll32_events = __io_uring_prep_poll_mask(poll_mask);
 }
 
 static inline void io_uring_prep_poll_multishot(struct io_uring_sqe *sqe,
@@ -346,10 +351,7 @@ static inline void io_uring_prep_poll_update(struct io_uring_sqe *sqe,
 {
 	io_uring_prep_rw(IORING_OP_POLL_REMOVE, sqe, -1, old_user_data, flags,
 			 (__u64)(uintptr_t)new_user_data);
-#if __BYTE_ORDER == __BIG_ENDIAN
-	poll_mask = __swahw32(poll_mask);
-#endif
-	sqe->poll32_events = poll_mask;
+	sqe->poll32_events = __io_uring_prep_poll_mask(poll_mask);
 }
 
 static inline void io_uring_prep_fsync(struct io_uring_sqe *sqe, int fd,
