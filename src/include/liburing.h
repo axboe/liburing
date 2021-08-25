@@ -224,7 +224,10 @@ static inline void io_uring_prep_rw(int op, struct io_uring_sqe *sqe, int fd,
 	sqe->len = len;
 	sqe->rw_flags = 0;
 	sqe->user_data = 0;
-	sqe->__pad2[0] = sqe->__pad2[1] = sqe->__pad2[2] = 0;
+	sqe->buf_index = 0;
+	sqe->personality = 0;
+	sqe->file_index = 0;
+	sqe->__pad2[0] = sqe->__pad2[1] = 0;
 }
 
 /**
