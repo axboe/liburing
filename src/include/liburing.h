@@ -326,6 +326,13 @@ static inline void io_uring_prep_poll_add(struct io_uring_sqe *sqe, int fd,
 	sqe->poll32_events = poll_mask;
 }
 
+static inline void io_uring_prep_poll_multishot(struct io_uring_sqe *sqe,
+						int fd, unsigned poll_mask)
+{
+	io_uring_prep_poll_add(sqe, fd, poll_mask);
+	sqe->len = IORING_POLL_ADD_MULTI;
+}
+
 static inline void io_uring_prep_poll_remove(struct io_uring_sqe *sqe,
 					     void *user_data)
 {

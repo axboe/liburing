@@ -70,8 +70,7 @@ static int arm_poll(struct io_uring *ring, int off)
 		return 1;
 	}
 
-	io_uring_prep_poll_add(sqe, p[off].fd[0], POLLIN);
-	sqe->len = IORING_POLL_ADD_MULTI;
+	io_uring_prep_poll_multishot(sqe, p[off].fd[0], POLLIN);
 	sqe->user_data = off;
 	return 0;
 }
