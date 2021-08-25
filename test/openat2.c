@@ -29,7 +29,7 @@ static int test_openat2(struct io_uring *ring, const char *path, int dfd,
 	memset(&how, 0, sizeof(how));
 	how.flags = O_RDWR;
 	io_uring_prep_openat2(sqe, dfd, path, &how);
-	sqe->splice_fd_in = fixed_slot;
+	sqe->file_index = fixed_slot;
 
 	ret = io_uring_submit(ring);
 	if (ret <= 0) {
