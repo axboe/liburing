@@ -75,17 +75,17 @@ static int update_rsrc(struct io_uring *ring, int type, int nr, int off,
 static bool has_rsrc_update(void)
 {
 	struct io_uring ring;
-	char buf[1024];
-	struct iovec vec = {.iov_base = buf, .iov_len = sizeof(buf), };
 	int ret;
 
 	ret = io_uring_queue_init(1, &ring, 0);
-	if (ret)
-		return false;
+	if (ret) {
+		fprintf(stderr, "io_uring_queue_init() failed, %d\n", ret);
+		exit(1);
+	}
 
-	ret = register_rsrc(&ring, TEST_IORING_RSRC_BUFFER, 1, &vec, NULL);
+	ret = ring.features & IORING_FEAT_RSRC_TAGS;
 	io_uring_queue_exit(&ring);
-	return ret != -EINVAL;
+	return ret;
 }
 
 static int test_tags_generic(int nr, int type, void *rsrc, int ring_flags)
