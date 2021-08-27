@@ -19,7 +19,8 @@
 #include "liburing.h"
 
 static int no_connect;
-static int use_port;
+static unsigned short use_port;
+static unsigned int use_addr;
 
 static int create_socket(void)
 {
@@ -90,7 +91,7 @@ static int listen_on_socket(int fd)
 	memset(&addr, 0, sizeof(addr));
 	addr.sin_family = AF_INET;
 	addr.sin_port = use_port;
-	addr.sin_addr.s_addr = 0x0100007fU;
+	addr.sin_addr.s_addr = use_addr;
 
 	ret = bind(fd, (struct sockaddr*)&addr, sizeof(addr));
 	if (ret == -1) {
@@ -369,6 +370,8 @@ int main(int argc, char *argv[])
 
 	srand(getpid());
 	use_port = (rand() % 61440) + 4096;
+	use_port = htons(use_port);
+	use_addr = inet_addr("127.0.0.1");
 
 	ret = test_connect_with_no_peer(&ring);
 	if (ret == -1) {
