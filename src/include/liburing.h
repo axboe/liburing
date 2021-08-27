@@ -208,14 +208,14 @@ static inline void *io_uring_cqe_get_data(const struct io_uring_cqe *cqe)
 static inline void io_uring_sqe_set_flags(struct io_uring_sqe *sqe,
 					  unsigned flags)
 {
-	sqe->flags = flags;
+	sqe->flags = (__u8) flags;
 }
 
 static inline void io_uring_prep_rw(int op, struct io_uring_sqe *sqe, int fd,
 				    const void *addr, unsigned len,
 				    __u64 offset)
 {
-	sqe->opcode = op;
+	sqe->opcode = (__u8) op;
 	sqe->flags = 0;
 	sqe->ioprio = 0;
 	sqe->fd = fd;
@@ -255,8 +255,9 @@ static inline void io_uring_prep_splice(struct io_uring_sqe *sqe,
 					unsigned int nbytes,
 					unsigned int splice_flags)
 {
-	io_uring_prep_rw(IORING_OP_SPLICE, sqe, fd_out, NULL, nbytes, off_out);
-	sqe->splice_off_in = off_in;
+	io_uring_prep_rw(IORING_OP_SPLICE, sqe, fd_out, NULL, nbytes,
+				(__u64) off_out);
+	sqe->splice_off_in = (__u64) off_in;
 	sqe->splice_fd_in = fd_in;
 	sqe->splice_flags = splice_flags;
 }
@@ -284,7 +285,7 @@ static inline void io_uring_prep_read_fixed(struct io_uring_sqe *sqe, int fd,
 					    __u64 offset, int buf_index)
 {
 	io_uring_prep_rw(IORING_OP_READ_FIXED, sqe, fd, buf, nbytes, offset);
-	sqe->buf_index = buf_index;
+	sqe->buf_index = (__u16) buf_index;
 }
 
 static inline void io_uring_prep_writev(struct io_uring_sqe *sqe, int fd,
@@ -299,7 +300,7 @@ static inline void io_uring_prep_write_fixed(struct io_uring_sqe *sqe, int fd,
 					     __u64 offset, int buf_index)
 {
 	io_uring_prep_rw(IORING_OP_WRITE_FIXED, sqe, fd, buf, nbytes, offset);
-	sqe->buf_index = buf_index;
+	sqe->buf_index = (__u16) buf_index;
 }
 
 static inline void io_uring_prep_recvmsg(struct io_uring_sqe *sqe, int fd,
@@ -398,14 +399,14 @@ static inline void io_uring_prep_accept(struct io_uring_sqe *sqe, int fd,
 {
 	io_uring_prep_rw(IORING_OP_ACCEPT, sqe, fd, addr, 0,
 				(__u64) (unsigned long) addrlen);
-	sqe->accept_flags = flags;
+	sqe->accept_flags = (__u32) flags;
 }
 
 static inline void io_uring_prep_cancel(struct io_uring_sqe *sqe, void *user_data,
 					int flags)
 {
 	io_uring_prep_rw(IORING_OP_ASYNC_CANCEL, sqe, -1, user_data, 0, 0);
-	sqe->cancel_flags = flags;
+	sqe->cancel_flags = (__u32) flags;
 }
 
 static inline void io_uring_prep_link_timeout(struct io_uring_sqe *sqe,
@@ -427,7 +428,8 @@ static inline void io_uring_prep_files_update(struct io_uring_sqe *sqe,
 					      int *fds, unsigned nr_fds,
 					      int offset)
 {
-	io_uring_prep_rw(IORING_OP_FILES_UPDATE, sqe, -1, fds, nr_fds, offset);
+	io_uring_prep_rw(IORING_OP_FILES_UPDATE, sqe, -1, fds, nr_fds,
+				(__u64) offset);
 }
 
 static inline void io_uring_prep_fallocate(struct io_uring_sqe *sqe, int fd,
@@ -435,14 +437,15 @@ static inline void io_uring_prep_fallocate(struct io_uring_sqe *sqe, int fd,
 {
 
 	io_uring_prep_rw(IORING_OP_FALLOCATE, sqe, fd,
-			(const uintptr_t *) (unsigned long) len, mode, offset);
+			(const uintptr_t *) (unsigned long) len,
+			(unsigned int) mode, (__u64) offset);
 }
 
 static inline void io_uring_prep_openat(struct io_uring_sqe *sqe, int dfd,
 					const char *path, int flags, mode_t mode)
 {
 	io_uring_prep_rw(IORING_OP_OPENAT, sqe, dfd, path, mode, 0);
-	sqe->open_flags = flags;
+	sqe->open_flags = (__u32) flags;
 }
 
 static inline void io_uring_prep_close(struct io_uring_sqe *sqe, int fd)
@@ -469,35 +472,35 @@ static inline void io_uring_prep_statx(struct io_uring_sqe *sqe, int dfd,
 {
 	io_uring_prep_rw(IORING_OP_STATX, sqe, dfd, path, mask,
 				(__u64) (unsigned long) statxbuf);
-	sqe->statx_flags = flags;
+	sqe->statx_flags = (__u32) flags;
 }
 
 static inline void io_uring_prep_fadvise(struct io_uring_sqe *sqe, int fd,
 					 __u64 offset, off_t len, int advice)
 {
-	io_uring_prep_rw(IORING_OP_FADVISE, sqe, fd, NULL, len, offset);
-	sqe->fadvise_advice = advice;
+	io_uring_prep_rw(IORING_OP_FADVISE, sqe, fd, NULL, (__u32) len, offset);
+	sqe->fadvise_advice = (__u32) advice;
 }
 
 static inline void io_uring_prep_madvise(struct io_uring_sqe *sqe, void *addr,
 					 off_t length, int advice)
 {
-	io_uring_prep_rw(IORING_OP_MADVISE, sqe, -1, addr, length, 0);
-	sqe->fadvise_advice = advice;
+	io_uring_prep_rw(IORING_OP_MADVISE, sqe, -1, addr, (__u32) length, 0);
+	sqe->fadvise_advice = (__u32) advice;
 }
 
 static inline void io_uring_prep_send(struct io_uring_sqe *sqe, int sockfd,
 				      const void *buf, size_t len, int flags)
 {
-	io_uring_prep_rw(IORING_OP_SEND, sqe, sockfd, buf, len, 0);
-	sqe->msg_flags = flags;
+	io_uring_prep_rw(IORING_OP_SEND, sqe, sockfd, buf, (__u32) len, 0);
+	sqe->msg_flags = (__u32) flags;
 }
 
 static inline void io_uring_prep_recv(struct io_uring_sqe *sqe, int sockfd,
 				      void *buf, size_t len, int flags)
 {
-	io_uring_prep_rw(IORING_OP_RECV, sqe, sockfd, buf, len, 0);
-	sqe->msg_flags = flags;
+	io_uring_prep_rw(IORING_OP_RECV, sqe, sockfd, buf, (__u32) len, 0);
+	sqe->msg_flags = (__u32) flags;
 }
 
 static inline void io_uring_prep_openat2(struct io_uring_sqe *sqe, int dfd,
@@ -512,44 +515,46 @@ static inline void io_uring_prep_epoll_ctl(struct io_uring_sqe *sqe, int epfd,
 					   int fd, int op,
 					   struct epoll_event *ev)
 {
-	io_uring_prep_rw(IORING_OP_EPOLL_CTL, sqe, epfd, ev, op, fd);
+	io_uring_prep_rw(IORING_OP_EPOLL_CTL, sqe, epfd, ev,
+				(__u32) op, (__u32) fd);
 }
 
 static inline void io_uring_prep_provide_buffers(struct io_uring_sqe *sqe,
 						 void *addr, int len, int nr,
 						 int bgid, int bid)
 {
-	io_uring_prep_rw(IORING_OP_PROVIDE_BUFFERS, sqe, nr, addr, len, bid);
-	sqe->buf_group = bgid;
+	io_uring_prep_rw(IORING_OP_PROVIDE_BUFFERS, sqe, nr, addr, (__u32) len,
+				(__u64) bid);
+	sqe->buf_group = (__u16) bgid;
 }
 
 static inline void io_uring_prep_remove_buffers(struct io_uring_sqe *sqe,
 						int nr, int bgid)
 {
 	io_uring_prep_rw(IORING_OP_REMOVE_BUFFERS, sqe, nr, NULL, 0, 0);
-	sqe->buf_group = bgid;
+	sqe->buf_group = (__u16) bgid;
 }
 
 static inline void io_uring_prep_shutdown(struct io_uring_sqe *sqe, int fd,
 					  int how)
 {
-	io_uring_prep_rw(IORING_OP_SHUTDOWN, sqe, fd, NULL, how, 0);
+	io_uring_prep_rw(IORING_OP_SHUTDOWN, sqe, fd, NULL, (__u32) how, 0);
 }
 
 static inline void io_uring_prep_unlinkat(struct io_uring_sqe *sqe, int dfd,
 					  const char *path, int flags)
 {
 	io_uring_prep_rw(IORING_OP_UNLINKAT, sqe, dfd, path, 0, 0);
-	sqe->unlink_flags = flags;
+	sqe->unlink_flags = (__u32) flags;
 }
 
 static inline void io_uring_prep_renameat(struct io_uring_sqe *sqe, int olddfd,
 					  const char *oldpath, int newdfd,
 					  const char *newpath, int flags)
 {
-	io_uring_prep_rw(IORING_OP_RENAMEAT, sqe, olddfd, oldpath, newdfd,
+	io_uring_prep_rw(IORING_OP_RENAMEAT, sqe, olddfd, oldpath, (__u32) newdfd,
 				(uint64_t) (uintptr_t) newpath);
-	sqe->rename_flags = flags;
+	sqe->rename_flags = (__u32) flags;
 }
 
 static inline void io_uring_prep_sync_file_range(struct io_uring_sqe *sqe,
@@ -557,7 +562,7 @@ static inline void io_uring_prep_sync_file_range(struct io_uring_sqe *sqe,
 						 __u64 offset, int flags)
 {
 	io_uring_prep_rw(IORING_OP_SYNC_FILE_RANGE, sqe, fd, NULL, len, offset);
-	sqe->sync_range_flags = flags;
+	sqe->sync_range_flags = (__u32) flags;
 }
 
 static inline void io_uring_prep_mkdirat(struct io_uring_sqe *sqe, int dfd,
@@ -577,9 +582,9 @@ static inline void io_uring_prep_linkat(struct io_uring_sqe *sqe, int olddfd,
 					const char *oldpath, int newdfd,
 					const char *newpath, int flags)
 {
-	io_uring_prep_rw(IORING_OP_LINKAT, sqe, olddfd, oldpath, newdfd,
+	io_uring_prep_rw(IORING_OP_LINKAT, sqe, olddfd, oldpath, (__u32) newdfd,
 				(uint64_t) (uintptr_t) newpath);
-	sqe->hardlink_flags = flags;
+	sqe->hardlink_flags = (__u32) flags;
 }
 
 /*
