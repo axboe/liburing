@@ -32,6 +32,10 @@ static bool check_cq_empty(struct io_uring *ring)
 	return ret == -EAGAIN;
 }
 
+/*
+ * There are io_uring_register_buffers_tags() and other wrappers,
+ * but they may change, so hand-code to specifically test this ABI.
+ */
 static int register_rsrc(struct io_uring *ring, int type, int nr,
 			  const void *arg, const __u64 *tags)
 {
@@ -52,6 +56,10 @@ static int register_rsrc(struct io_uring *ring, int type, int nr,
 	return ret ? -errno : 0;
 }
 
+/*
+ * There are io_uring_register_buffers_update_tag() and other wrappers,
+ * but they may change, so hand-code to specifically test this ABI.
+ */
 static int update_rsrc(struct io_uring *ring, int type, int nr, int off,
 			const void *arg, const __u64 *tags)
 {

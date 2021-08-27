@@ -125,9 +125,29 @@ extern struct io_uring_sqe *io_uring_get_sqe(struct io_uring *ring);
 extern int io_uring_register_buffers(struct io_uring *ring,
 					const struct iovec *iovecs,
 					unsigned nr_iovecs);
+extern int io_uring_register_buffers_tags(struct io_uring *ring,
+					  const struct iovec *iovecs,
+					  const __u64 *tags,
+					  unsigned nr);
+extern int io_uring_register_buffers_update_tag(struct io_uring *ring,
+						unsigned off,
+						const struct iovec *iovecs,
+						const __u64 *tags,
+						unsigned nr);
 extern int io_uring_unregister_buffers(struct io_uring *ring);
+
 extern int io_uring_register_files(struct io_uring *ring, const int *files,
 					unsigned nr_files);
+extern int io_uring_register_files_tags(struct io_uring *ring,
+					const int *files,
+					const __u64 *tags,
+					unsigned nr);
+extern int io_uring_register_files_update_tag(struct io_uring *ring,
+					      unsigned off,
+					      const int *files,
+					      const __u64 *tags,
+					      unsigned nr_files);
+
 extern int io_uring_unregister_files(struct io_uring *ring);
 extern int io_uring_register_files_update(struct io_uring *ring, unsigned off,
 					int *files, unsigned nr_files);

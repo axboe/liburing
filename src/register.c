@@ -14,6 +14,42 @@
 
 #include "syscall.h"
 
+int io_uring_register_buffers_update_tag(struct io_uring *ring, unsigned off,
+					 const struct iovec *iovecs,
+					 const __u64 *tags,
+					 unsigned nr)
+{
+	struct io_uring_rsrc_update2 up = {
+		.offset	= off,
+		.data = (unsigned long)iovecs,
+		.tags = (unsigned long)tags,
+		.nr = nr,
+	};
+	int ret;
+
+	ret = __sys_io_uring_register(ring->ring_fd,
+				      IORING_REGISTER_BUFFERS_UPDATE,
+				      &up, sizeof(up));
+	return ret < 0 ? -errno : ret;
+}
+
+int io_uring_register_buffers_tags(struct io_uring *ring,
+				   const struct iovec *iovecs,
+				   const __u64 *tags,
+				   unsigned nr)
+{
+	struct io_uring_rsrc_register reg = {
+		.nr = nr,
+		.data = (unsigned long)iovecs,
+		.tags = (unsigned long)tags,
+	};
+	int ret;
+
+	ret = __sys_io_uring_register(ring->ring_fd, IORING_REGISTER_BUFFERS2,
+				      &reg, sizeof(reg));
+	return ret < 0 ? -errno : ret;
+}
+
 int io_uring_register_buffers(struct io_uring *ring, const struct iovec *iovecs,
 			      unsigned nr_iovecs)
 {
@@ -39,6 +75,24 @@ int io_uring_unregister_buffers(struct io_uring *ring)
 	return 0;
 }
 
+int io_uring_register_files_update_tag(struct io_uring *ring, unsigned off,
+					const int *files, const __u64 *tags,
+					unsigned nr_files)
+{
+	struct io_uring_rsrc_update2 up = {
+		.offset	= off,
+		.data = (unsigned long)files,
+		.tags = (unsigned long)tags,
+		.nr = nr_files,
+	};
+	int ret;
+
+	ret = __sys_io_uring_register(ring->ring_fd,
+					IORING_REGISTER_FILES_UPDATE2,
+					&up, sizeof(up));
+	return ret < 0 ? -errno : ret;
+}
+
 /*
  * Register an update for an existing file set. The updates will start at
  * 'off' in the original array, and 'nr_files' is the number of files we'll
@@ -62,6 +116,23 @@ int io_uring_register_files_update(struct io_uring *ring, unsigned off,
 		return -errno;
 
 	return ret;
+}
+
+
+int io_uring_register_files_tags(struct io_uring *ring,
+				 const int *files, const __u64 *tags,
+				 unsigned nr)
+{
+	struct io_uring_rsrc_register reg = {
+		.nr = nr,
+		.data = (unsigned long)files,
+		.tags = (unsigned long)tags,
+	};
+	int ret;
+
+	ret = __sys_io_uring_register(ring->ring_fd, IORING_REGISTER_FILES2,
+				      &reg, sizeof(reg));
+	return ret < 0 ? -errno : ret;
 }
 
 int io_uring_register_files(struct io_uring *ring, const int *files,
