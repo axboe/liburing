@@ -89,6 +89,8 @@ int main(int argc, char *argv[])
 	vecs = t_create_buffers(BUFFERS, BS);
 
 	fd = open(fname, O_RDONLY | O_DIRECT);
+	if (fname != argv[1])
+		unlink(fname);
 	if (fd < 0) {
 		perror("open");
 		return -1;
@@ -129,11 +131,7 @@ int main(int argc, char *argv[])
 		ios += BUFFERS;
 	}
 
-	if (fname != argv[1])
-		unlink(fname);
 	return 0;
 err:
-	if (fname != argv[1])
-		unlink(fname);
 	return 1;
 }

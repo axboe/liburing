@@ -86,12 +86,12 @@ int main(int argc, char *argv[])
 	} else {
 		fname = ".thread.exit";
 		do_unlink = 1;
+		t_create_file(fname, 4096);
 	}
 
-	if (do_unlink)
-		t_create_file(fname, 4096);
-
 	fd = open(fname, O_WRONLY);
+	if (do_unlink)
+		unlink(fname);
 	if (fd < 0) {
 		perror("open");
 		return 1;
@@ -125,11 +125,7 @@ int main(int argc, char *argv[])
 		io_uring_cqe_seen(&ring, cqe);
 	}
 
-	if (do_unlink)
-		unlink(fname);
 	return d.err;
 err:
-	if (do_unlink)
-		unlink(fname);
 	return 1;
 }

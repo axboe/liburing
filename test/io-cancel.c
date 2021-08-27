@@ -486,6 +486,7 @@ static int test_sqpoll_cancel_iowq_requests(void)
 
 int main(int argc, char *argv[])
 {
+	const char *fname = ".io-cancel-test";
 	int i, ret;
 
 	if (argc > 1)
@@ -511,7 +512,7 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-	t_create_file(".basic-rw", FILE_SIZE);
+	t_create_file(fname, FILE_SIZE);
 
 	vecs = t_create_buffers(BUFFERS, BS);
 
@@ -520,7 +521,7 @@ int main(int argc, char *argv[])
 		int partial = (i & 2) != 0;
 		int async = (i & 4) != 0;
 
-		ret = test_io_cancel(".basic-rw", write, partial, async);
+		ret = test_io_cancel(fname, write, partial, async);
 		if (ret) {
 			fprintf(stderr, "test_io_cancel %d %d %d failed\n",
 				write, partial, async);
@@ -528,9 +529,9 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	unlink(".basic-rw");
+	unlink(fname);
 	return 0;
 err:
-	unlink(".basic-rw");
+	unlink(fname);
 	return 1;
 }

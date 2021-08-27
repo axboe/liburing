@@ -42,6 +42,7 @@ static int test_fallocate_rlimit(struct io_uring *ring)
 		perror("open");
 		return 1;
 	}
+	unlink(buf);
 
 	sqe = io_uring_get_sqe(ring);
 	if (!sqe) {
@@ -72,10 +73,8 @@ static int test_fallocate_rlimit(struct io_uring *ring)
 	}
 	io_uring_cqe_seen(ring, cqe);
 out:
-	unlink(buf);
 	return 0;
 err:
-	unlink(buf);
 	return 1;
 }
 
@@ -93,6 +92,7 @@ static int test_fallocate(struct io_uring *ring)
 		perror("open");
 		return 1;
 	}
+	unlink(buf);
 
 	sqe = io_uring_get_sqe(ring);
 	if (!sqe) {
@@ -136,10 +136,8 @@ static int test_fallocate(struct io_uring *ring)
 	}
 
 out:
-	unlink(buf);
 	return 0;
 err:
-	unlink(buf);
 	return 1;
 }
 
@@ -160,6 +158,7 @@ static int test_fallocate_fsync(struct io_uring *ring)
 		perror("open");
 		return 1;
 	}
+	unlink(buf);
 
 	sqe = io_uring_get_sqe(ring);
 	if (!sqe) {
@@ -209,10 +208,8 @@ static int test_fallocate_fsync(struct io_uring *ring)
 		goto err;
 	}
 
-	unlink(buf);
 	return 0;
 err:
-	unlink(buf);
 	return 1;
 }
 

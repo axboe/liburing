@@ -243,6 +243,7 @@ err:
 
 int main(int argc, char *argv[])
 {
+	const char *fname = ".cq-overflow";
 	unsigned iters, drops;
 	unsigned long usecs;
 	int ret;
@@ -256,7 +257,7 @@ int main(int argc, char *argv[])
 		return ret;
 	}
 
-	t_create_file(".basic-rw", FILE_SIZE);
+	t_create_file(fname, FILE_SIZE);
 
 	vecs = t_create_buffers(BUFFERS, BS);
 
@@ -265,7 +266,7 @@ int main(int argc, char *argv[])
 	do {
 		drops = 0;
 
-		if (test_io(".basic-rw", usecs, &drops, 0)) {
+		if (test_io(fname, usecs, &drops, 0)) {
 			fprintf(stderr, "test_io nofault failed\n");
 			goto err;
 		}
@@ -275,19 +276,19 @@ int main(int argc, char *argv[])
 		iters++;
 	} while (iters < 40);
 
-	if (test_io(".basic-rw", usecs, &drops, 0)) {
+	if (test_io(fname, usecs, &drops, 0)) {
 		fprintf(stderr, "test_io nofault failed\n");
 		goto err;
 	}
 
-	if (test_io(".basic-rw", usecs, &drops, 1)) {
+	if (test_io(fname, usecs, &drops, 1)) {
 		fprintf(stderr, "test_io fault failed\n");
 		goto err;
 	}
 
-	unlink(".basic-rw");
+	unlink(fname);
 	return 0;
 err:
-	unlink(".basic-rw");
+	unlink(fname);
 	return 1;
 }

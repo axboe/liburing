@@ -43,6 +43,8 @@ int main(int argc, char *argv[])
 	}
 
 	fd = open(fname, O_RDONLY | O_DIRECT);
+	if (fname != argv[1])
+		unlink(fname);
 	if (fd < 0) {
 		perror("open");
 		goto out;
@@ -89,8 +91,6 @@ int main(int argc, char *argv[])
 
 	close(fd);
 out:
-	if (fname != argv[1])
-		unlink(fname);
 	io_uring_queue_exit(&ring);
 	return ret;
 }

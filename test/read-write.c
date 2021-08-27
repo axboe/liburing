@@ -670,6 +670,7 @@ static int test_write_efbig(void)
 		perror("file open");
 		goto err;
 	}
+	unlink(".efbig");
 
 	ret = io_uring_queue_init(32, &ring, 0);
 	if (ret) {
@@ -726,7 +727,6 @@ static int test_write_efbig(void)
 err:
 	if (fd != -1)
 		close(fd);
-	unlink(".efbig");
 	return 1;
 }
 

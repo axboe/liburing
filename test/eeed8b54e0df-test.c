@@ -26,6 +26,7 @@ static int get_file_fd(void)
 	int fd;
 
 	fd = open("testfile", O_RDWR | O_CREAT, 0644);
+	unlink("testfile");
 	if (fd < 0) {
 		perror("open file");
 		return -1;
@@ -52,12 +53,6 @@ err:
 
 	free(buf);
 	return fd;
-}
-
-static void put_file_fd(int fd)
-{
-	close(fd);
-	unlink("testfile");
 }
 
 int main(int argc, char *argv[])
@@ -111,9 +106,9 @@ int main(int argc, char *argv[])
 		goto err;
 	}
 
-	put_file_fd(fd);
+	close(fd);
 	return 0;
 err:
-	put_file_fd(fd);
+	close(fd);
 	return 1;
 }

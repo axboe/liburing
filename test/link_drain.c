@@ -111,6 +111,7 @@ int test_link_drain_multi(struct io_uring *ring)
 		perror("open");
 		return 1;
 	}
+	unlink("testfile");
 
 	iovecs.iov_base = t_malloc(4096);
 	iovecs.iov_len = 4096;
@@ -189,12 +190,10 @@ int test_link_drain_multi(struct io_uring *ring)
 
 	free(iovecs.iov_base);
 	close(fd);
-	unlink("testfile");
 	return 0;
 err:
 	free(iovecs.iov_base);
 	close(fd);
-	unlink("testfile");
 	return 1;
 
 }
