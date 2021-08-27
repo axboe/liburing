@@ -69,6 +69,8 @@ Options: [defaults in brackets after descriptions]
   --libdevdir=PATH         install development libraries in PATH [$libdevdir]
   --mandir=PATH            install man pages in PATH [$mandir]
   --datadir=PATH           install shared data in PATH [$datadir]
+  --cc=CMD                 use CMD as the C compiler
+  --cxx=CMD                use CMD as the C++ compiler
 EOF
 exit 0
 fi
