@@ -321,6 +321,9 @@ int main(int argc, char *argv[])
 		return 0;
 	signal(SIGINT, sig_int);
 	mmap((void *) 0x20000000, 0x1000000, 3, 0x32, -1, 0);
+	signal(SIGALRM, sig_int);
+	alarm(5);
+
 	loop();
 	return 0;
 }
