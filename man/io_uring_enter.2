@@ -423,13 +423,14 @@ If
 .I timeout_flags
 contain
 .I IORING_TIMEOUT_UPDATE,
-instead of removing an existing operation it updates it.
+instead of removing an existing operation, it updates it.
 .I addr
 and return values are same as before.
 .I addr2
 field must contain a pointer to a struct timespec64 structure.
 .I timeout_flags
-may also contain IORING_TIMEOUT_ABS.
+may also contain IORING_TIMEOUT_ABS, in which case the value given is an
+absolute one, not a relative one.
 Available since 5.11.
 
 .TP
