@@ -399,6 +399,28 @@ the timeout was cancelled before it expired, the request will complete with
 .I -ECANCELED.
 Available since 5.4.
 
+Since 5.15, this command also supports the following modifiers in
+.I timeout_flags:
+
+.PP
+.in +12
+.B IORING_TIMEOUT_BOOTTIME
+If set, then the clocksource used is
+.I CLOCK_BOOTTIME
+instead of
+.I CLOCK_MONOTONIC.
+This clocksource differs in that it includes time elapsed if the system was
+suspend while having a timeout request in-flight.
+
+.B IORING_TIMEOUT_REALTIME
+If set, then the clocksource used is
+.I CLOCK_BOOTTIME
+instead of
+.I CLOCK_MONOTONIC.
+.EE
+.in
+.PP
+
 .TP
 .B IORING_OP_TIMEOUT_REMOVE
 If
