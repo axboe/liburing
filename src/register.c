@@ -258,3 +258,28 @@ int io_uring_enable_rings(struct io_uring *ring)
 
 	return ret;
 }
+
+int io_uring_register_iowq_aff(struct io_uring *ring, size_t cpusz,
+			       const cpu_set_t *mask)
+{
+	int ret;
+
+	ret = __sys_io_uring_register(ring->ring_fd,
+					IORING_REGISTER_IOWQ_AFF, mask, cpusz);
+	if (ret < 0)
+		return -errno;
+
+	return ret;
+}
+
+int io_uring_unregister_iowq_aff(struct io_uring *ring)
+{
+	int ret;
+
+	ret = __sys_io_uring_register(ring->ring_fd,
+					IORING_REGISTER_IOWQ_AFF, NULL, 0);
+	if (ret < 0)
+		return -errno;
+
+	return ret;
+}

@@ -40,4 +40,6 @@ LIBURING_2.1 {
 		io_uring_register_buffers_update_tag;
 		io_uring_register_files_tags;
 		io_uring_register_files_update_tag;
+		io_uring_register_iowq_aff;
+		io_uring_unregister_iowq_aff;
 } LIBURING_2.0;

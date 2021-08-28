@@ -14,6 +14,7 @@
 #include <stdbool.h>
 #include <inttypes.h>
 #include <time.h>
+#include <sched.h>
 #include <linux/swab.h>
 #include "liburing/compat.h"
 #include "liburing/io_uring.h"
@@ -163,6 +164,9 @@ extern int io_uring_register_restrictions(struct io_uring *ring,
 					  unsigned int nr_res);
 extern int io_uring_enable_rings(struct io_uring *ring);
 extern int __io_uring_sqring_wait(struct io_uring *ring);
+int io_uring_register_iowq_aff(struct io_uring *ring, size_t cpusz,
+				const cpu_set_t *mask);
+int io_uring_unregister_iowq_aff(struct io_uring *ring);
 
 /*
  * Helper for the peek/wait single cqe functions. Exported because of that,
