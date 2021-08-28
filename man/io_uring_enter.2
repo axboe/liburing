@@ -983,7 +983,11 @@ is copied from the field of the same name in the submission queue
 entry.  The primary use case is to store data that the application
 will need to access upon completion of this particular I/O.  The
 .I flags
-is reserved for future use.
+is used for certain commands, like
+.B IORING_OP_POLL_ADD
+or in conjunction with
+.B IOSQE_BUFFER_SELECT
+, see those entries.
 .I res
 is the operation-specific result, but io_uring-specific errors
 (e.g. flags or opcode invalid) are returned through this field.
