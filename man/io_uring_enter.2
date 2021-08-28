@@ -899,7 +899,10 @@ is an index into the files array registered with the io_uring instance (see the
 .B IORING_REGISTER_FILES
 section of the
 .BR io_uring_register (2)
-man page). Available since 5.1.
+man page). Note that this isn't always available for all commands. If used on
+a command that doesn't support fixed files, the SQE will error with
+.B -EBADF.
+Available since 5.1.
 .TP
 .B IOSQE_IO_DRAIN
 When this flag is specified, the SQE will not be started before previously
