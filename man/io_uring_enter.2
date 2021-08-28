@@ -228,11 +228,55 @@ specified in the
 .I poll_events
 field.  Unlike poll or epoll without
 .BR EPOLLONESHOT ,
-this interface always works in one shot mode.  That is, once the poll
-operation is completed, it will have to be resubmitted. This command works like
+by default this interface always works in one shot mode.  That is, once the poll
+operation is completed, it will have to be resubmitted.
+
+If
+.B IORING_POLL_ADD_MULTI
+is set in the SQE
+.I len
+field, then the poll will work in multi shot mode instead. That means it'll
+repatedly trigger when the requested event becomes true, and hence multiple
+CQEs can be generated from this single SQE. The CQE
+.I flags
+field will have
+.B IORING_CQE_F_MORE
+set on completion if the application should expect further CQE entries from
+the original request. If this flag isn't set on completion, then the poll
+request has been terminated and no further events will be generated. This mode
+is available since 5.13.
+
+If
+.B IORING_POLL_UPDATE_EVENTS
+is set in the SQE
+.I len
+field, then the request will update an existing poll request with the mask of
+events passed in with this request. The lookup is based on the
+.I user_data
+field of the original SQE submitted, and this values is passed in the
+.I addr
+field of the SQE. This mode is available since 5.13.
+
+If
+.B IORING_POLL_UPDATE_USER_DATA
+is set in the SQE
+.I len
+field, then the request will update the
+.I user_data
+of an existing poll request based on the value passed in the
+.I off
+field. This mode is available since 5.13.
+
+This command works like
 an async
 .BR poll(2)
-and the completion event result is the returned mask of events.
+and the completion event result is the returned mask of events. For the
+variants that update
+.I user_data
+or
+.I events
+, the completion result will be similar to
+.B IORING_OP_POLL_REMOVE.
 
 .TP
 .B IORING_OP_POLL_REMOVE
@@ -243,7 +287,10 @@ field of the
 will contain 0.  If not found,
 .I res
 will contain
-.B -ENOENT.
+.B -ENOENT,
+or
+.B -EALREADY
+if the poll request was in the process of completing already.
 
 .TP
 .B IORING_OP_EPOLL_CTL
