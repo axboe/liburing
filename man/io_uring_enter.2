@@ -824,6 +824,69 @@ being passed in to
 .BR unlinkat(2).
 Available since 5.11.
 
+.TP
+.B IORING_OP_MKDIRAT
+Issue the equivalent of a
+.BR mkdirat2(2)
+system call.
+.I fd
+should be set to the
+.I dirfd,
+.I addr
+should be set to the
+.I pathname,
+and
+.I len
+should be set to the
+.I mode
+being passed in to
+.BR mkdirat(2).
+Available since 5.15.
+
+.TP
+.B IORING_OP_SYMLINKAT
+Issue the equivalent of a
+.BR symlinkat2(2)
+system call.
+.I fd
+should be set to the
+.I newdirfd,
+.I addr
+should be set to the
+.I target
+and
+.I addr2
+should be set to the
+.I linkpath
+being passed in to
+.BR symlinkat(2).
+Available since 5.15.
+
+.TP
+.B IORING_OP_LINKAT
+Issue the equivalent of a
+.BR linkat2(2)
+system call.
+.I fd
+should be set to the
+.I olddirfd,
+.I addr
+should be set to the
+.I oldpath,
+.I len
+should be set to the
+.I newdirfd,
+.I addr2
+should be set to the
+.I newpath,
+and
+.I hardlink_flags
+should be set to the
+.I flags
+being passed in to
+.BR linkat(2).
+Available since 5.15.
+
 .PP
 The
 .I flags
