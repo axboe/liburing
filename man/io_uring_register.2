@@ -292,6 +292,28 @@ must be specified in the call to
 
 Available since 5.10.
 
+.TP
+.B IORING_REGISTER_IOWQ_AFF
+By default, async workers created by io_uring will inherit the CPU mask of its
+parent. This is usually all the CPUs in the system, unless the parent is being
+run with a limited set. If this isn't the desired outcome, the application
+may explicitly tell io_uring what CPUs the async workers may run on.
+.I arg
+must point to a
+.B cpu_set_t
+mask, and
+.I nr_args
+the byte size of that mask.
+
+Available since 5.14.
+
+.TP
+.B IORING_UNREGISTER_IOWQ_AFF
+Undoes a CPU mask previously set with
+.B IORING_REGISTER_IOWQ_AFF
+
+Available since 5.14.
+
 .SH RETURN VALUE
 
 On success,
