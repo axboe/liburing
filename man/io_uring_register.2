@@ -88,9 +88,9 @@ then issuing a new call to
 .BR io_uring_register ()
 with the new buffers.
 
-Note that registering buffers will wait for the ring to idle. If the application
-currently has requests in-flight, the registration will wait for those to
-finish before proceeding.
+Note that before 5.13 registering buffers would wait for the ring to idle.
+If the application currently has requests in-flight, the registration will
+wait for those to finish before proceeding.
 
 An application need not unregister buffers explicitly before shutting
 down the io_uring instance. Available since 5.1.
@@ -128,9 +128,9 @@ See
 .B IORING_REGISTER_FILES_UPDATE
 for how to update files in place.
 
-Note that registering files will wait for the ring to idle. If the application
-currently has requests in-flight, the registration will wait for those to
-finish before proceeding. See
+Note that before 5.13 registering files would wait for the ring to idle.
+If the application currently has requests in-flight, the registration will
+wait for those to finish before proceeding. See
 .B IORING_REGISTER_FILES_UPDATE
 for how to update an existing set without that limitation.
 
