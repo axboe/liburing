@@ -100,6 +100,10 @@ run_test()
 	T_END=$(date +%s)
 	local status=$?
 
+	if [ -e ./core ]; then
+		mv core core-$test_name
+	fi
+
 	# Check test status
 	if [ "$status" -eq 124 ]; then
 		echo "Test $test_name timed out (may not be a failure)"
