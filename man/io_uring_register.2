@@ -320,23 +320,26 @@ set.
 Available since 5.14.
 
 .TP
-.B IORING_REGISTER_IOWQ_MAX_UNBOUND
+.B IORING_REGISTER_IOWQ_MAX_WORKERS
 By default, io_uring limits the unbounded workers created to the maximum
 processor count set by
-.I RLIMIT_NPROC.
-Sometimes this can be excessive, and this command provides a way to limit
-the count per ring (per NUMA node) instead.
+.I RLIMIT_NPROC
+and the bounded workers is a function of the SQ ring size and the number
+of CPUs in the system. Sometimes this can be excessive (or too little, for
+bounded), and this command provides a way to change the count per ring (per NUMA
+node) instead.
+
 .I arg
 must be set to an
 .I unsigned int
-pointer, with the value in the variable being set to the maximum count of
-unbounded workers per NUMA node. If the count being passed in is 0, then
-this command returns the current maximum values. If any other values is set,
-this command returns either the old value, or -1 and
-.I errno
-set appropriately.
+pointer to an array of two values, with the values in the array being set to
+the maximum count of workers per NUMA node. Index 0 holds the bounded worker
+count, and index 1 holds the unbounded worker count. On successful return, the
+passed in array will contain the previous maximum valyes for each type. If the
+count being passed in is 0, then this command returns the current maximum values
+and doesn't modify the current setting.
 .I nr_args
-must be set to 1, as the command only takes one argument.
+must be set to 2, as the command takes two values.
 
 Available since 5.15.
 

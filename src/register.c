@@ -284,13 +284,13 @@ int io_uring_unregister_iowq_aff(struct io_uring *ring)
 	return ret;
 }
 
-int io_uring_register_iowq_max_unbound(struct io_uring *ring, unsigned int val)
+int io_uring_register_iowq_max_workers(struct io_uring *ring, unsigned int *val)
 {
 	int ret;
 
 	ret = __sys_io_uring_register(ring->ring_fd,
 					IORING_REGISTER_IOWQ_MAX_UNBOUND,
-					&val, 1);
+					val, 2);
 	if (ret < 0)
 		return -errno;
 

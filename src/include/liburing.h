@@ -161,8 +161,8 @@ int __io_uring_sqring_wait(struct io_uring *ring);
 int io_uring_register_iowq_aff(struct io_uring *ring, size_t cpusz,
 				const cpu_set_t *mask);
 int io_uring_unregister_iowq_aff(struct io_uring *ring);
-int io_uring_unregister_iowq_max_unbound(struct io_uring *ring,
-					 unsigned int value);
+int io_uring_unregister_iowq_max_workers(struct io_uring *ring,
+					 unsigned int *values);
 
 /*
  * Helper for the peek/wait single cqe functions. Exported because of that,
