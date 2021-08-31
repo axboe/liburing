@@ -289,7 +289,7 @@ int io_uring_register_iowq_max_workers(struct io_uring *ring, unsigned int *val)
 	int ret;
 
 	ret = __sys_io_uring_register(ring->ring_fd,
-					IORING_REGISTER_IOWQ_MAX_UNBOUND,
+					IORING_REGISTER_IOWQ_MAX_WORKERS,
 					val, 2);
 	if (ret < 0)
 		return -errno;

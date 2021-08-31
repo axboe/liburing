@@ -317,8 +317,8 @@ enum {
 	IORING_REGISTER_IOWQ_AFF		= 17,
 	IORING_UNREGISTER_IOWQ_AFF		= 18,
 
-	/* set/get max number of unbounded workers */
-	IORING_REGISTER_IOWQ_MAX_UNBOUND	= 19,
+	/* set/get max number of async workers */
+	IORING_REGISTER_IOWQ_MAX_WORKERS	= 19,
 
 	/* this goes last */
 	IORING_REGISTER_LAST
