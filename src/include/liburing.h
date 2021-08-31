@@ -231,6 +231,13 @@ static inline void io_uring_sqe_set_flags(struct io_uring_sqe *sqe,
 	sqe->flags = (__u8) flags;
 }
 
+static inline void __io_uring_set_target_fixed_file(struct io_uring_sqe *sqe,
+						    unsigned int file_index)
+{
+	/* 0 means no fixed files, indexes should be encoded as "index + 1" */
+	sqe->file_index = file_index + 1;
+}
+
 static inline void io_uring_prep_rw(int op, struct io_uring_sqe *sqe, int fd,
 				    const void *addr, unsigned len,
 				    __u64 offset)
@@ -422,6 +429,16 @@ static inline void io_uring_prep_accept(struct io_uring_sqe *sqe, int fd,
 	sqe->accept_flags = (__u32) flags;
 }
 
+/* accept directly into the fixed file table */
+static inline void io_uring_prep_accept_direct(struct io_uring_sqe *sqe, int fd,
+					       struct sockaddr *addr,
+					       socklen_t *addrlen, int flags,
+					       unsigned int file_index)
+{
+	io_uring_prep_accept(sqe, fd, addr, addrlen, flags);
+	__io_uring_set_target_fixed_file(sqe, file_index);
+}
+
 static inline void io_uring_prep_cancel(struct io_uring_sqe *sqe, void *user_data,
 					int flags)
 {
@@ -467,6 +484,17 @@ static inline void io_uring_prep_openat(struct io_uring_sqe *sqe, int dfd,
 	io_uring_prep_rw(IORING_OP_OPENAT, sqe, dfd, path, mode, 0);
 	sqe->open_flags = (__u32) flags;
 }
+
+/* open directly into the fixed file table */
+static inline void io_uring_prep_openat_direct(struct io_uring_sqe *sqe,
+					       int dfd, const char *path,
+					       int flags, mode_t mode,
+					       unsigned file_index)
+{
+	io_uring_prep_openat(sqe, dfd, path, flags, mode);
+	__io_uring_set_target_fixed_file(sqe, file_index);
+}
+
 
 static inline void io_uring_prep_close(struct io_uring_sqe *sqe, int fd)
 {
@@ -528,6 +556,16 @@ static inline void io_uring_prep_openat2(struct io_uring_sqe *sqe, int dfd,
 {
 	io_uring_prep_rw(IORING_OP_OPENAT2, sqe, dfd, path, sizeof(*how),
 				(uint64_t) (uintptr_t) how);
+}
+
+/* open directly into the fixed file table */
+static inline void io_uring_prep_openat2_direct(struct io_uring_sqe *sqe,
+						int dfd, const char *path,
+						struct open_how *how,
+						unsigned file_index)
+{
+	io_uring_prep_openat2(sqe, dfd, path, how);
+	__io_uring_set_target_fixed_file(sqe, file_index);
 }
 
 struct epoll_event;
