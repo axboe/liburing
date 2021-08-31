@@ -123,6 +123,7 @@ test_targets += \
 	sq-space_left \
 	stdout \
 	submit-reuse \
+	submit-link-fail \
 	symlink \
 	teardowns \
 	thread-exit \
@@ -263,6 +264,7 @@ test_srcs := \
 	statx.c \
 	stdout.c \
 	submit-reuse.c \
+	submit-link-fail.c \
 	symlink.c \
 	teardowns.c \
 	thread-exit.c \
