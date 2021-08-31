@@ -77,7 +77,11 @@ static int test_underprep_fail(bool hardlink, bool drain, bool link_last,
 
 	if (drain) {
 		/* unclog drain */
-		write(fds[1], buffer, sizeof(buffer));
+		ret = write(fds[1], buffer, sizeof(buffer));
+		if (ret < 0) {
+			perror("write");
+			return 1;
+		}
 	}
 
 	for (i = 0; i < total_submit; i++) {
