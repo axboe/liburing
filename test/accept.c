@@ -65,9 +65,10 @@ static int accept_conn(struct io_uring *ring, int fd, bool fixed)
 	int ret, fixed_idx = 0;
 
 	sqe = io_uring_get_sqe(ring);
-	io_uring_prep_accept(sqe, fd, NULL, NULL, 0);
-	if (fixed)
-		sqe->file_index = fixed_idx + 1;
+	if (!fixed)
+		io_uring_prep_accept(sqe, fd, NULL, NULL, 0);
+	else
+		io_uring_prep_accept_direct(sqe, fd, NULL, NULL, 0, fixed_idx);
 
 	ret = io_uring_submit(ring);
 	assert(ret != -1);

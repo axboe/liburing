@@ -14,7 +14,7 @@
 #include "liburing.h"
 
 static int test_openat2(struct io_uring *ring, const char *path, int dfd,
-			int fixed_slot)
+			bool direct, int fixed_index)
 {
 	struct io_uring_cqe *cqe;
 	struct io_uring_sqe *sqe;
@@ -28,8 +28,11 @@ static int test_openat2(struct io_uring *ring, const char *path, int dfd,
 	}
 	memset(&how, 0, sizeof(how));
 	how.flags = O_RDWR;
-	io_uring_prep_openat2(sqe, dfd, path, &how);
-	sqe->file_index = fixed_slot;
+
+	if (!direct)
+		io_uring_prep_openat2(sqe, dfd, path, &how);
+	else
+		io_uring_prep_openat2_direct(sqe, dfd, path, &how, fixed_index);
 
 	ret = io_uring_submit(ring);
 	if (ret <= 0) {
@@ -45,7 +48,7 @@ static int test_openat2(struct io_uring *ring, const char *path, int dfd,
 	ret = cqe->res;
 	io_uring_cqe_seen(ring, cqe);
 
-	if (fixed_slot && ret > 0) {
+	if (direct && ret > 0) {
 		close(ret);
 		return -EINVAL;
 	}
@@ -72,7 +75,7 @@ static int test_open_fixed(const char *path, int dfd)
 		return -1;
 	}
 
-	ret = test_openat2(&ring, path, dfd, 1);
+	ret = test_openat2(&ring, path, dfd, true, 0);
 	if (ret == -EINVAL) {
 		printf("fixed open isn't supported\n");
 		return 1;
@@ -114,7 +117,7 @@ static int test_open_fixed(const char *path, int dfd)
 		return -1;
 	}
 
-	ret = test_openat2(&ring, path, dfd, 1);
+	ret = test_openat2(&ring, path, dfd, true, 0);
 	if (ret != -EBADF) {
 		fprintf(stderr, "bogus double register %d\n", ret);
 		return -1;
@@ -134,7 +137,7 @@ static int test_open_fixed_fail(const char *path, int dfd)
 		return -1;
 	}
 
-	ret = test_openat2(&ring, path, dfd, 1);
+	ret = test_openat2(&ring, path, dfd, true, 0);
 	if (ret != -ENXIO) {
 		fprintf(stderr, "install into not existing table, %i\n", ret);
 		return 1;
@@ -146,19 +149,19 @@ static int test_open_fixed_fail(const char *path, int dfd)
 		return -1;
 	}
 
-	ret = test_openat2(&ring, path, dfd, 2);
+	ret = test_openat2(&ring, path, dfd, true, 1);
 	if (ret != -EINVAL) {
 		fprintf(stderr, "install out of bounds, %i\n", ret);
 		return 1;
 	}
 
-	ret = test_openat2(&ring, path, dfd, (1u << 16));
+	ret = test_openat2(&ring, path, dfd, true, (1u << 16));
 	if (ret != -EINVAL) {
 		fprintf(stderr, "install out of bounds or u16 overflow, %i\n", ret);
 		return 1;
 	}
 
-	ret = test_openat2(&ring, path, dfd, (1u << 16) + 1);
+	ret = test_openat2(&ring, path, dfd, true, (1u << 16) + 1);
 	if (ret != -EINVAL) {
 		fprintf(stderr, "install out of bounds or u16 overflow, %i\n", ret);
 		return 1;
@@ -196,7 +199,7 @@ int main(int argc, char *argv[])
 	if (do_unlink)
 		t_create_file(path_rel, 4096);
 
-	ret = test_openat2(&ring, path, -1, 0);
+	ret = test_openat2(&ring, path, -1, false, 0);
 	if (ret < 0) {
 		if (ret == -EINVAL) {
 			fprintf(stdout, "openat2 not supported, skipping\n");
@@ -206,7 +209,7 @@ int main(int argc, char *argv[])
 		goto err;
 	}
 
-	ret = test_openat2(&ring, path_rel, AT_FDCWD, 0);
+	ret = test_openat2(&ring, path_rel, AT_FDCWD, false, 0);
 	if (ret < 0) {
 		fprintf(stderr, "test_openat2 relative failed: %d\n", ret);
 		goto err;
