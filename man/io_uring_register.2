@@ -96,6 +96,99 @@ An application need not unregister buffers explicitly before shutting
 down the io_uring instance. Available since 5.1.
 
 .TP
+.B IORING_REGISTER_BUFFERS2
+Register buffers for I/O. Similar to
+.B IORING_REGISTER_BUFFERS
+but aims to have a more extensible ABI.
+
+.I arg
+points to a
+.I struct io_uring_rsrc_register,
+and
+.I nr_args
+should be set to the number of bytes in the structure.
+
+.PP
+.in +8n
+.EX
+struct io_uring_rsrc_register {
+    __u32 nr;
+    __u32 resv;
+    __u64 resv2;
+    __aligned_u64 data;
+    __aligned_u64 tags;
+};
+
+.EE
+.in
+.PP
+
+.in +8n
+
+The
+.I data
+field contains a pointer to a
+.I struct iovec
+array of
+.I nr
+entries.
+The
+.I tags
+field should either be 0, then tagging is disabled, or point to an array
+of
+.I nr
+"tags" (unsigned 64 bit integers). If a tag is zero, then tagging for this
+particular resource (a buffer in this case) is disabled. Otherwise, after the
+resource had been unregistered and it's not used anymore, a CQE will be
+posted with
+.I user_data
+set to the specified tag and all other fields zeroed.
+
+Note that resource updates, e.g.
+.B IORING_REGISTER_BUFFERS_UPDATE,
+don't necessarily deallocate resources by the time it returns, but they might
+be held alive until all requests using it complete.
+
+Available since 5.13.
+
+.TP
+.B IORING_REGISTER_BUFFERS_UPDATE
+Updates registered buffers with new ones, either turning a sparse entry into
+a real one, or replacing an existing entry.
+
+.I arg
+must contain a pointer to a struct io_uring_rsrc_update2, which contains
+an offset on which to start the update, and an array of
+.I struct iovec.
+.I tags
+points to an array of tags.
+.I nr
+must contain the number of descriptors in the passed in arrays.
+See
+.B IORING_REGISTER_BUFFERS2
+for the resource tagging description.
+
+.PP
+.in +8n
+.EX
+
+struct io_uring_rsrc_update2 {
+    __u32 offset;
+    __u32 resv;
+    __aligned_u64 data;
+    __aligned_u64 tags;
+    __u32 nr;
+    __u32 resv2;
+};
+.EE
+.in
+.PP
+
+.in +8n
+
+Available since 5.13.
+
+.TP
 .B IORING_UNREGISTER_BUFFERS
 This operation takes no argument, and
 .I arg
@@ -139,6 +232,37 @@ torn down. An application need only unregister if it wishes to
 register a new set of fds. Available since 5.1.
 
 .TP
+.B IORING_REGISTER_FILES2
+Register files for I/O. Similar to
+.B IORING_REGISTER_FILES.
+
+.I arg
+points to a
+.I struct io_uring_rsrc_register,
+and
+.I nr_args
+should be set to the number of bytes in the structure.
+
+The
+.I data
+field contains a pointer to an array of
+.I nr
+file descriptors (signed 32 bit integers).
+.I tags
+field should either be 0 or or point to an array of
+.I nr
+"tags" (unsigned 64 bit integers). See
+.B IORING_REGISTER_BUFFERS2
+for more info on resource tagging.
+
+Note that resource updates, e.g.
+.B IORING_REGISTER_FILES_UPDATE,
+don't necessarily deallocate resources, they might be held until all requests
+using that resource complete.
+
+Available since 5.13.
+
+.TP
 .B IORING_REGISTER_FILES_UPDATE
 This operation replaces existing files in the registered file set with new
 ones, either turning a sparse entry (one where fd is equal to -1) into a
@@ -146,7 +270,9 @@ real one, removing an existing entry (new one is set to -1), or replacing
 an existing entry with a new existing entry.
 
 .I arg
-must contain a pointer to a struct io_uring_files_update, which contains
+must contain a pointer to a
+.I struct io_uring_files_update,
+which contains
 an offset on which to start the update, and an array of file descriptors to
 use for the update.
 .I nr_args
@@ -158,6 +284,29 @@ File descriptors can be skipped if they are set to
 Skipping an fd will not touch the file associated with the previous
 fd at that index. Available since 5.12.
 
+.TP
+.B IORING_REGISTER_FILES_UPDATE2
+Similar to IORING_REGISTER_FILES_UPDATE, replaces existing files in the
+registered file set with new ones, either turning a sparse entry (one where
+fd is equal to -1) into a real one, removing an existing entry (new one is
+set to -1), or replacing an existing entry with a new existing entry.
+
+.I arg
+must contain a pointer to a
+.I struct io_uring_rsrc_update2,
+which contains
+an offset on which to start the update, and an array of file descriptors to
+use for the update stored in
+.I data.
+.I tags
+points to an array of tags.
+.I nr
+must contain the number of descriptors in the passed in arrays.
+See
+.B IORING_REGISTER_BUFFERS2
+for the resource tagging description.
+
+Available since 5.13.
 
 .TP
 .B IORING_UNREGISTER_FILES
