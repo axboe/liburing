@@ -511,6 +511,22 @@ field. See also
 .BR accept4(2)
 for the general description of the related system call. Available since 5.5.
 
+If the
+.I file_index
+field is set to a positive number, the file won't be installed into the
+normal file table as usual but will be placed into the fixed file table at index
+.I file_index - 1.
+In this case, instead of returning a file descriptor, the result will contain
+either 0 on success or an error. If there is already a file registered at this
+index, the request will fail with
+.B -EBADF.
+Only io_uring has access to such files and no other syscall can use them. See
+.B IOSQE_FIXED_FILE
+and
+.B IORING_REGISTER_FILES.
+
+Available since 5.15.
+
 .TP
 .B IORING_OP_ASYNC_CANCEL
 Attempt to cancel an already issued request.
@@ -634,6 +650,22 @@ is access mode of the file. See also
 .BR openat(2)
 for the general description of the related system call. Available since 5.6.
 
+If the
+.I file_index
+field is set to a positive number, the file won't be installed into the
+normal file table as usual but will be placed into the fixed file table at index
+.I file_index - 1.
+In this case, instead of returning a file descriptor, the result will contain
+either 0 on success or an error. If there is already a file registered at this
+index, the request will fail with
+.B -EBADF.
+Only io_uring has access to such files and no other syscall can use them. See
+.B IOSQE_FIXED_FILE
+and
+.B IORING_REGISTER_FILES.
+
+Available since 5.15.
+
 .TP
 .B IORING_OP_OPENAT2
 Issue the equivalent of a
@@ -653,6 +685,22 @@ should contain the size of the open_how structure, and
 should be set to the address of the open_how structure. See also
 .BR openat2(2)
 for the general description of the related system call. Available since 5.6.
+
+If the
+.I file_index
+field is set to a positive number, the file won't be installed into the
+normal file table as usual but will be placed into the fixed file table at index
+.I file_index - 1.
+In this case, instead of returning a file descriptor, the result will contain
+either 0 on success or an error. If there is already a file registered at this
+index, the request will fail with
+.B -EBADF.
+Only io_uring has access to such files and no other syscall can use them. See
+.B IOSQE_FIXED_FILE
+and
+.B IORING_REGISTER_FILES.
+
+Available since 5.15.
 
 .TP
 .B IORING_OP_CLOSE
