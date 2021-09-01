@@ -12,7 +12,8 @@ override CPPFLAGS += -D_GNU_SOURCE -D__SANE_USERSPACE_TYPES__ \
 	-I../src/include/ -include ../config-host.h
 CFLAGS ?= -g -O2
 XCFLAGS =
-override CFLAGS += -Wall -Wextra -Wno-unused-parameter -Wno-sign-compare \
+override CFLAGS += -D_GNU_SOURCE \
+	-Wall -Wextra -Wno-unused-parameter -Wno-sign-compare \
 	-L../src/
 
 ifdef CONFIG_HAVE_STRINGOP_OVERFLOW

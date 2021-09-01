@@ -2,7 +2,7 @@ CPPFLAGS ?=
 override CPPFLAGS += -D_GNU_SOURCE -I../src/include/
 CFLAGS ?= -g -O2
 XCFLAGS =
-override CFLAGS += -Wall -L../src/
+override CFLAGS += -D_GNU_SOURCE -Wall -L../src/
 
 include ../Makefile.quiet
 
