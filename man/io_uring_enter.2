@@ -1061,7 +1061,7 @@ Used in conjunction with the
 command, which registers a pool of buffers to be used by commands that read
 or receive data. When buffers are registered for this use case, and this
 flag is set in the command, io_uring will grab a buffer from this pool when
-the request is ready to receive or read data. If succesful, the resulting CQE
+the request is ready to receive or read data. If successful, the resulting CQE
 will have
 .B IORING_CQE_F_BUFFER
 set in the flags part of the struct, and the upper
@@ -1189,7 +1189,7 @@ res
 holding the equivalent of
 .I -errno
 for error cases, or the transferred number of bytes in case the operation
-is succesful. Hence both error and success return can be found in that
+is successful. Hence both error and success return can be found in that
 field in the CQE. For other request types, the return values are documented
 in the matching man page for that type, or in the opcodes section above for
 io_uring-specific opcodes.
