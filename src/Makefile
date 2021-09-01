@@ -4,9 +4,11 @@ libdir ?= $(prefix)/lib
 libdevdir ?= $(prefix)/lib
 
 CPPFLAGS ?=
-override CPPFLAGS += -Iinclude/ -include ../config-host.h
+override CPPFLAGS += -D_GNU_SOURCE \
+	-Iinclude/ -include ../config-host.h
 CFLAGS ?= -g -fomit-frame-pointer -O2
-override CFLAGS += -Wall -Wextra -Wno-unused-parameter -Wno-sign-compare
+override CFLAGS += -D_GNU_SOURCE \
+	-Wall -Wextra -Wno-unused-parameter -Wno-sign-compare
 SO_CFLAGS=-fPIC $(CFLAGS)
 L_CFLAGS=$(CFLAGS)
 LINK_FLAGS=
