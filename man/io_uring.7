@@ -425,7 +425,7 @@ successful read and update of the head.
 Because of the shared ring buffers between kernel and user space,
 .B io_uring
 can be a zero-copy system.
-Copying buffers to and fro becomes necessary when system calls that
+Copying buffers to and from becomes necessary when system calls that
 transfer data between kernel and user space are involved.
 But since the bulk of the communication in 
 .B io_uring
@@ -435,7 +435,7 @@ this huge performance overhead is completely avoided.
 While system calls may not seem like a significant overhead,
 in high performance applications,
 making a lot of them will begin to matter.
-While workarounds the operating system has in place to deal with Specter
+While workarounds the operating system has in place to deal with Spectre
 and Meltdown are ideally best done away with,
 unfortunately,
 some of these workarounds are around the system call interface,
