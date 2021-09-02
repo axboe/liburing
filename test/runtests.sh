@@ -7,7 +7,6 @@ DMESG_FILTER="cat"
 TEST_DIR=$(dirname $0)
 FAILED=""
 SKIPPED=""
-MAYBE_FAILED=""
 TIMED_OUT=""
 TEST_FILES=""
 declare -A TEST_MAP
@@ -107,12 +106,6 @@ run_test()
 		echo "Test $test_name failed dmesg check"
 		FAILED="$FAILED <$test_string>"
 		RET=1
-	elif [ -n "$dev" ]; then
-		sleep .1
-		ps aux | grep "\[io_wq_manager\]" > /dev/null
-		if [ $? -eq 0 ]; then
-			MAYBE_FAILED="$MAYBE_FAILED $test_string"
-		fi
 	fi
 }
 
@@ -138,14 +131,6 @@ if [ "${RET}" -ne 0 ]; then
 	echo "Tests failed: $FAILED"
 	exit $RET
 else
-	sleep 1
-	ps aux | grep "\[io_wq_manager\]" > /dev/null
-	if [ $? -ne 0 ]; then
-		MAYBE_FAILED=""
-	fi
-	if [ ! -z "$MAYBE_FAILED" ]; then
-		echo "Tests _maybe_ failed: $MAYBE_FAILED"
-	fi
 	if [ ! -z "$TIMED_OUT" ]; then
 		echo "Tests timed out: $TIMED_OUT"
 	fi
