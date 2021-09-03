@@ -67,19 +67,23 @@ run_test()
 	local test_name="$1"
 	local dev="$2"
 	local test_string=$test_name
+	local out_name=$test_name
 
 	# Specify test string to print
 	if [ -n "$dev" ]; then
 		test_string="$test_name $dev"
+		local suffix=$(basename $dev)
+		out_name="$out_name.$suffix"
 	fi
 
 	# Log start of the test
 	if [ "$DO_KMSG" -eq 1 ]; then
 		local dmesg_marker="Running test $test_string:"
-		echo $dmesg_marker | tee /dev/kmsg
+		echo $dmesg_marker > /dev/kmsg
+		echo -n $dmesg_marker
 	else
 		local dmesg_marker=""
-		echo Running test $test_name $dev
+		echo -n Running test $test_name $dev
 	fi
 
 	# Do we have to exclude the test ?
@@ -91,7 +95,9 @@ run_test()
 	fi
 
 	# Run the test
+	T_START=$(date +%s)
 	timeout -s INT -k $TIMEOUT $TIMEOUT ./$test_name $dev
+	T_END=$(date +%s)
 	local status=$?
 
 	# Check test status
@@ -106,11 +112,27 @@ run_test()
 		echo "Test $test_name failed dmesg check"
 		FAILED="$FAILED <$test_string>"
 		RET=1
+	else
+		if [ -f "output/$out_name" ]; then
+			T_PREV=$(cat output/$out_name)
+		else
+			T_PREV=""
+		fi
+		T_DIFF=$(($T_END-$T_START))
+		if [ ! -z $T_PREV ]; then
+			echo -e "\t\t\t $T_DIFF sec [$T_PREV]"
+		else
+			echo -e "\t\t\t $T_DIFF sec"
+		fi
+		echo $T_DIFF > "output/$out_name"
 	fi
 }
 
 # Run all specified tests
 for tst in $TESTS; do
+	if [ ! -d output ]; then
+		mkdir output
+	fi
 	if [ ! -n "${TEST_MAP[$tst]}" ]; then
 		run_test $tst
 		if [ ! -z "$TEST_FILES" ]; then
