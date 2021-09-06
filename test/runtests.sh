@@ -152,13 +152,14 @@ if [ -n "$SKIPPED" ]; then
 	echo "Tests skipped: $SKIPPED"
 fi
 
+if [ ! -z "$TIMED_OUT" ]; then
+	echo "Tests timed out: $TIMED_OUT"
+fi
+
 if [ "${RET}" -ne 0 ]; then
 	echo "Tests failed: $FAILED"
 	exit $RET
 else
-	if [ ! -z "$TIMED_OUT" ]; then
-		echo "Tests timed out: $TIMED_OUT"
-	fi
 	echo "All tests passed"
 	exit 0
 fi
