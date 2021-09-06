@@ -80,11 +80,10 @@ run_test()
 	if [ "$DO_KMSG" -eq 1 ]; then
 		local dmesg_marker="Running test $test_string:"
 		echo $dmesg_marker > /dev/kmsg
-		echo -n $dmesg_marker
 	else
 		local dmesg_marker=""
-		echo -n Running test $test_name $dev
 	fi
+	printf "Running test %-25s" "$test_string"
 
 	# Do we have to exclude the test ?
 	echo $TEST_EXCLUDE | grep -w "$test_name" > /dev/null 2>&1
@@ -124,9 +123,9 @@ run_test()
 		fi
 		T_DIFF=$(($T_END-$T_START))
 		if [ ! -z $T_PREV ]; then
-			echo -e "\t\t\t $T_DIFF sec [$T_PREV]"
+			echo "$T_DIFF sec [$T_PREV]"
 		else
-			echo -e "\t\t\t $T_DIFF sec"
+			echo "$T_DIFF sec"
 		fi
 		echo $T_DIFF > "output/$out_name"
 	fi
