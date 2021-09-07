@@ -87,7 +87,7 @@ run_test()
 	else
 		local dmesg_marker=""
 	fi
-	printf "Running test %-25s" "$test_string"
+	printf "Running test %-55s" "$test_string"
 
 	# Do we have to exclude the test ?
 	echo "$TEST_EXCLUDE" | grep -w "$test_name" > /dev/null 2>&1
