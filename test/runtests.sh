@@ -66,11 +66,13 @@ run_test()
 {
 	local test_name="$1"
 	local dev="$2"
+	local test_exec=("./$test_name")
 	local test_string=$test_name
 	local out_name=$test_name
 
 	# Specify test string to print
 	if [ -n "$dev" ]; then
+		test_exec+=("$dev")
 		test_string="$test_name $dev"
 		local suffix=$(basename $dev)
 		out_name="$out_name.$suffix"
@@ -95,7 +97,7 @@ run_test()
 
 	# Run the test
 	T_START=$(date +%s)
-	timeout -s INT -k $TIMEOUT $TIMEOUT ./$test_name $dev
+	timeout -s INT -k $TIMEOUT $TIMEOUT "${test_exec[@]}"
 	T_END=$(date +%s)
 	local status=$?
 
