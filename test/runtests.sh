@@ -122,7 +122,7 @@ run_test()
 			T_PREV=""
 		fi
 		T_DIFF=$(($T_END-$T_START))
-		if [ ! -z $T_PREV ]; then
+		if [ -n $T_PREV ]; then
 			echo "$T_DIFF sec [$T_PREV]"
 		else
 			echo "$T_DIFF sec"
@@ -138,7 +138,7 @@ for tst in $TESTS; do
 	fi
 	if [ ! -n "${TEST_MAP[$tst]}" ]; then
 		run_test $tst
-		if [ ! -z "$TEST_FILES" ]; then
+		if [ -n "$TEST_FILES" ]; then
 			for dev in $TEST_FILES; do
 				run_test $tst $dev
 			done
@@ -152,7 +152,7 @@ if [ -n "$SKIPPED" ]; then
 	echo "Tests skipped: $SKIPPED"
 fi
 
-if [ ! -z "$TIMED_OUT" ]; then
+if [ -n "$TIMED_OUT" ]; then
 	echo "Tests timed out: $TIMED_OUT"
 fi
 
