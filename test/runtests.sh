@@ -17,6 +17,7 @@ DO_KMSG="1"
 
 # Include config.local if exists and check TEST_FILES for valid devices
 if [ -f "$TEST_DIR/config.local" ]; then
+	# shellcheck disable=SC1091
 	. "$TEST_DIR/config.local"
 	for dev in $TEST_FILES; do
 		if [ ! -e "$dev" ]; then
@@ -90,6 +91,7 @@ run_test()
 
 	# Do we have to exclude the test ?
 	echo "$TEST_EXCLUDE" | grep -w "$test_name" > /dev/null 2>&1
+	# shellcheck disable=SC2181
 	if [ $? -eq 0 ]; then
 		echo "Test skipped"
 		SKIPPED="$SKIPPED <$test_string>"
