@@ -74,7 +74,8 @@ run_test()
 	if [ -n "$dev" ]; then
 		test_exec+=("$dev")
 		test_string="$test_name $dev"
-		local suffix=$(basename "$dev")
+		local suffix
+		suffix=$(basename "$dev")
 		out_name="$out_name.$suffix"
 	fi
 
