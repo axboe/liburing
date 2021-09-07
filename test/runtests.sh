@@ -136,7 +136,7 @@ for tst in $TESTS; do
 	if [ ! -d output ]; then
 		mkdir output
 	fi
-	if [ ! -n "${TEST_MAP[$tst]}" ]; then
+	if [ -z "${TEST_MAP[$tst]}" ]; then
 		run_test $tst
 		if [ -n "$TEST_FILES" ]; then
 			for dev in $TEST_FILES; do
