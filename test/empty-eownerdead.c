@@ -32,14 +32,11 @@ int main(int argc, char *argv[])
 	if (ret < 0) {
 		int __e = errno;
 
-		if (errno == EOWNERDEAD)
-			return 0;
-
-		fprintf(stderr, "sqe submit failed: %s\n", strerror(__e));
-	} else {
-		fprintf(stderr, "sqe submit unexpected success, expecting EOWNERDEAD\n");
+		fprintf(stderr, "child: sqe submit failed: %s\n", strerror(__e));
+		goto err;
 	}
 
+	return 0;
 err:
 	return 1;
 }
