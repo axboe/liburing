@@ -1,6 +1,6 @@
 #!/bin/bash
 
-TESTS="$@"
+TESTS=("$@")
 RET=0
 TIMEOUT=60
 DMESG_FILTER="cat"
@@ -132,7 +132,7 @@ run_test()
 }
 
 # Run all specified tests
-for tst in $TESTS; do
+for tst in "${TESTS[@]}"; do
 	if [ ! -d output ]; then
 		mkdir output
 	fi
