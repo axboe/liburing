@@ -157,7 +157,7 @@ int generate_opcode(int i, int pre_flags)
 	return sqe_op;
 }
 
-inline void add_multishot_sqe(int index)
+static inline void add_multishot_sqe(int index)
 {
 	multi_sqes[cnt++] = index;
 }

@@ -80,11 +80,10 @@ run_test()
 	if [ "$DO_KMSG" -eq 1 ]; then
 		local dmesg_marker="Running test $test_string:"
 		echo $dmesg_marker > /dev/kmsg
-		echo -n $dmesg_marker
 	else
 		local dmesg_marker=""
-		echo -n Running test $test_name $dev
 	fi
+	printf "Running test %-25s" "$test_string"
 
 	# Do we have to exclude the test ?
 	echo $TEST_EXCLUDE | grep -w "$test_name" > /dev/null 2>&1
@@ -99,6 +98,10 @@ run_test()
 	timeout -s INT -k $TIMEOUT $TIMEOUT ./$test_name $dev
 	T_END=$(date +%s)
 	local status=$?
+
+	if [ -e ./core ]; then
+		mv core core-$test_name
+	fi
 
 	# Check test status
 	if [ "$status" -eq 124 ]; then
@@ -120,9 +123,9 @@ run_test()
 		fi
 		T_DIFF=$(($T_END-$T_START))
 		if [ ! -z $T_PREV ]; then
-			echo -e "\t\t\t $T_DIFF sec [$T_PREV]"
+			echo "$T_DIFF sec [$T_PREV]"
 		else
-			echo -e "\t\t\t $T_DIFF sec"
+			echo "$T_DIFF sec"
 		fi
 		echo $T_DIFF > "output/$out_name"
 	fi
@@ -149,13 +152,14 @@ if [ -n "$SKIPPED" ]; then
 	echo "Tests skipped: $SKIPPED"
 fi
 
+if [ ! -z "$TIMED_OUT" ]; then
+	echo "Tests timed out: $TIMED_OUT"
+fi
+
 if [ "${RET}" -ne 0 ]; then
 	echo "Tests failed: $FAILED"
 	exit $RET
 else
-	if [ ! -z "$TIMED_OUT" ]; then
-		echo "Tests timed out: $TIMED_OUT"
-	fi
 	echo "All tests passed"
 	exit 0
 fi

@@ -254,6 +254,10 @@ test_memlock_exceeded(int fd)
 				iov.iov_len /= 2;
 				continue;
 			}
+			if (errno == EFAULT) {
+				free(buf);
+				return 0;
+			}
 			printf("expected success or EFAULT, got %d\n", errno);
 			free(buf);
 			return 1;
