@@ -123,7 +123,7 @@ run_test()
 		else
 			T_PREV=""
 		fi
-		T_DIFF=$(($T_END-$T_START))
+		T_DIFF=$((T_END-T_START))
 		if [ -n "$T_PREV" ]; then
 			echo "$T_DIFF sec [$T_PREV]"
 		else
