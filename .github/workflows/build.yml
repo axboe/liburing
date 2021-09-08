@@ -1,0 +1,40 @@
+name: Build test
+
+on:
+  # Trigger the workflow on push or pull requests.
+  push:
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - cc: gcc
+            cxx: g++
+          - cc: clang
+            cxx: clang++
+
+    steps:
+    - name: Checkout source
+      uses: actions/checkout@v2
+
+    - name: Display compiler versions
+      run: |
+        ${{matrix.cc}} --version
+        ${{matrix.cxx}} --version
+
+    - name: Build
+      run: |
+        ./configure --cc=${{matrix.cc}} --cxx=${{matrix.cxx}}
+        make V=1 -j$(nproc) \
+             CPPFLAGS="-Werror" \
+             CFLAGS="-Werror" \
+             CXXFLAGS="-Werror"
+
+    - name: Test install command
+      run: |
+        sudo make install
