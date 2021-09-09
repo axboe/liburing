@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <fcntl.h>
+#include <sys/resource.h>
 
 #include "helpers.h"
 #include "liburing.h"
@@ -494,6 +495,18 @@ static int test_fixed_read_write(struct io_uring *ring, int index)
 	return 0;
 }
 
+static void adjust_nfiles(int want_files)
+{
+	struct rlimit rlim;
+
+	if (getrlimit(RLIMIT_NOFILE, &rlim) < 0)
+		return;
+	if (rlim.rlim_cur >= want_files)
+		return;
+	rlim.rlim_cur = want_files;
+	setrlimit(RLIMIT_NOFILE, &rlim);
+}
+
 /*
  * Register 8K of sparse files, update one at a random spot, then do some
  * file IO to verify it works.
@@ -502,6 +515,8 @@ static int test_huge(struct io_uring *ring)
 {
 	int *files;
 	int ret;
+
+	adjust_nfiles(16384);
 
 	files = open_files(0, 8192, 0);
 	ret = io_uring_register_files(ring, files, 8192);
