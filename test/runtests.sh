@@ -101,8 +101,8 @@ run_test()
 	# Run the test
 	T_START=$(date +%s)
 	timeout -s INT -k $TIMEOUT $TIMEOUT "${test_exec[@]}"
-	T_END=$(date +%s)
 	local status=$?
+	T_END=$(date +%s)
 
 	if [ -e ./core ]; then
 		mv core "core-$test_name"
