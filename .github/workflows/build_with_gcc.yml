@@ -1,0 +1,32 @@
+name: Build with GCC
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+    
+jobs:
+  main:
+    name: Build with GCC
+    strategy:
+      fail-fast: false
+
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Install Toolchains
+      run: |
+        sudo apt install -y man git gcc g++ make && \
+        git --version && \
+        gcc --version && \
+        g++ --version && \
+        make --version;
+
+    - name: Build
+      run: |
+        make -j$(nproc) V=1 CFLAGS="-Werror" CPPFLAGS="-Werror" CXXFLAGS="-Werror" CC=gcc CXX=g++;
+
+    - name: Test install command
+      run: sudo make install;
