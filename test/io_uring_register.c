@@ -31,6 +31,17 @@ static int pagesize;
 static rlim_t mlock_limit;
 static int devnull;
 
+#if !defined(CONFIG_HAVE_MEMFD_CREATE)
+#include <sys/syscall.h>
+#include <linux/memfd.h>
+
+static int memfd_create(const char *name, unsigned int flags)
+{
+	return (int)syscall(SYS_memfd_create, name, flags);
+}
+#endif
+
+
 int
 expect_fail(int fd, unsigned int opcode, void *arg,
 	    unsigned int nr_args, int error)
