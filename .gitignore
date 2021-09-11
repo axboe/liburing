@@ -129,6 +129,7 @@
 /test/sqpoll-cancel-hang
 /test/testfile
 /test/submit-link-fail
+/test/exec-target
 /test/*.dmesg
 
 config-host.h
