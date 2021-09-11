@@ -10,6 +10,8 @@
 #include <string.h>
 #include <fcntl.h>
 #include <sys/time.h>
+#include <sys/wait.h>
+#include <sys/types.h>
 
 #include "liburing.h"
 #include "../src/syscall.h"
@@ -1171,6 +1173,82 @@ err:
 	return 1;
 }
 
+static int test_timeout_link_cancel(void)
+{
+	struct io_uring ring;
+	struct io_uring_cqe *cqe;
+	pid_t p;
+	int ret, i, wstatus;
+
+	ret = io_uring_queue_init(8, &ring, 0);
+	if (ret) {
+		fprintf(stderr, "ring create failed: %d\n", ret);
+		return 1;
+	}
+
+	p = fork();
+	if (p == -1) {
+		fprintf(stderr, "fork() failed\n");
+		return 1;
+	}
+
+	if (p == 0) {
+		struct io_uring_sqe *sqe;
+		struct __kernel_timespec ts;
+		const char *prog_path = "./exec-target";
+
+		msec_to_ts(&ts, 10000);
+		sqe = io_uring_get_sqe(&ring);
+		io_uring_prep_timeout(sqe, &ts, 0, 0);
+		sqe->flags |= IOSQE_IO_LINK;
+		sqe->user_data = 0;
+
+		sqe = io_uring_get_sqe(&ring);
+		io_uring_prep_nop(sqe);
+		sqe->user_data = 1;
+
+		ret = io_uring_submit(&ring);
+		if (ret != 2) {
+			fprintf(stderr, "%s: got %d, wanted 1\n", __FUNCTION__, ret);
+			exit(1);
+		}
+
+		/* trigger full cancellation */
+		ret = execl(prog_path, prog_path, NULL);
+		if (ret) {
+			fprintf(stderr, "exec failed %i\n", errno);
+			exit(1);
+		}
+		exit(0);
+	}
+
+	if (waitpid(p, &wstatus, 0) == (pid_t)-1) {
+		perror("waitpid()");
+		return 1;
+	}
+	if (!WIFEXITED(wstatus) || WEXITSTATUS(wstatus)) {
+		fprintf(stderr, "child failed %i\n", WEXITSTATUS(wstatus));
+		return 1;
+	}
+
+	for (i = 0; i < 2; ++i) {
+		ret = io_uring_wait_cqe(&ring, &cqe);
+		if (ret) {
+			fprintf(stderr, "wait_cqe=%d\n", ret);
+			return 1;
+		}
+		if (cqe->res != -ECANCELED) {
+			fprintf(stderr, "invalid result, user_data: %i res: %i\n",
+					(int)cqe->user_data, cqe->res);
+			return 1;
+		}
+		io_uring_cqe_seen(&ring, cqe);
+	}
+
+	io_uring_queue_exit(&ring);
+	return 0;
+}
+
 int main(int argc, char *argv[])
 {
 	struct io_uring ring, sqpoll_ring;
@@ -1345,6 +1423,12 @@ int main(int argc, char *argv[])
 	ret = test_single_timeout_exit(&ring);
 	if (ret) {
 		fprintf(stderr, "test_single_timeout_exit failed\n");
+		return ret;
+	}
+
+	ret = test_timeout_link_cancel();
+	if (ret) {
+		fprintf(stderr, "test_timeout_link_cancel failed\n");
 		return ret;
 	}
 
