@@ -103,10 +103,6 @@ static long syz_open_dev(volatile long a0, volatile long a1, volatile long a2)
   }
 }
 
-#ifndef __NR_io_uring_enter
-#define __NR_io_uring_enter 426
-#endif
-
 uint64_t r[4] = {0xffffffffffffffff, 0x0, 0x0, 0xffffffffffffffff};
 
 int main(int argc, char *argv[])

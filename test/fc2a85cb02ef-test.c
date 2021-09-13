@@ -78,13 +78,6 @@ static int setup_fault()
   return 0;
 }
 
-#ifndef __NR_io_uring_register
-#define __NR_io_uring_register 427
-#endif
-#ifndef __NR_io_uring_setup
-#define __NR_io_uring_setup 425
-#endif
-
 uint64_t r[2] = {0xffffffffffffffff, 0xffffffffffffffff};
 
 int main(int argc, char *argv[])
