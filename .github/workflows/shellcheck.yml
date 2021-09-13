@@ -1,0 +1,20 @@
+name: Shellcheck
+
+on:
+  # Trigger the workflow on push or pull requests.
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout source
+      uses: actions/checkout@v2
+
+    - name: Display shellcheck version
+      run: shellcheck --version
+
+    - name: Shellcheck execution
+      run: shellcheck test/runtest*.sh

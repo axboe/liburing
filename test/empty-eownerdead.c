@@ -32,7 +32,10 @@ int main(int argc, char *argv[])
 	if (ret < 0) {
 		int __e = errno;
 
-		fprintf(stderr, "child: sqe submit failed: %s\n", strerror(__e));
+		if (__e == EOWNERDEAD)
+			fprintf(stderr, "sqe submit unexpected failure due old kernel bug: %s\n", strerror(__e));
+		else
+			fprintf(stderr, "sqe submit unexpected failure: %s\n", strerror(__e));
 		goto err;
 	}
 

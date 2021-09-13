@@ -17,7 +17,7 @@ DO_KMSG="1"
 
 # Include config.local if exists and check TEST_FILES for valid devices
 if [ -f "$TEST_DIR/config.local" ]; then
-	# shellcheck disable=SC1091
+	# shellcheck source=/dev/null disable=SC1091
 	. "$TEST_DIR/config.local"
 	for dev in $TEST_FILES; do
 		if [ ! -e "$dev" ]; then

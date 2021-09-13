@@ -71,10 +71,10 @@ static int del_polls(struct io_uring *ring, int fd, int nr)
 
 static int add_polls(struct io_uring *ring, int fd, int nr)
 {
-	int pending, batch, i, count, ret;
+	int batch, i, count, ret;
 	struct io_uring_sqe *sqe;
 
-	pending = count = 0;
+	count = 0;
 	while (nr) {
 		batch = 1024;
 		if (batch > nr)
@@ -93,7 +93,6 @@ static int add_polls(struct io_uring *ring, int fd, int nr)
 			return 1;
 		}
 		nr -= batch;
-		pending += batch;
 		reap_events(ring, batch, 1);
 	}
 	return 0;
