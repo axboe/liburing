@@ -4,7 +4,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/mman.h>
-#include <sys/syscall.h>
 #include <sys/wait.h>
 #include <time.h>
 #include <unistd.h>
@@ -29,8 +28,6 @@ static uint64_t current_time_ms(void)
 
 #define IORING_OFF_SQES 0x10000000ULL
 
-#define sys_io_uring_setup 425
-
 static void kill_and_wait(int pid, int* status)
 {
     kill(-pid, SIGKILL);
@@ -53,7 +50,7 @@ a5)
     void* vma2 = (void*)a3;
     void** ring_ptr_out = (void**)a4;
     void** sqes_ptr_out = (void**)a5;
-    uint32_t fd_io_uring = syscall(sys_io_uring_setup, entries, setup_params);
+    uint32_t fd_io_uring = __sys_io_uring_setup(entries, setup_params);
     uint32_t sq_ring_sz = setup_params->sq_off.array +
 setup_params->sq_entries * sizeof(uint32_t);
     uint32_t cq_ring_sz = setup_params->cq_off.cqes +
@@ -135,7 +132,7 @@ void trigger_bug(void)
 }
 int main(void)
 {
-    syscall(__NR_mmap, 0x20000000ul, 0x1000000ul, 7ul, 0x32ul, -1, 0ul);
+    mmap((void *)0x20000000ul, 0x1000000ul, 7ul, 0x32ul, -1, 0ul);
     int pid = fork();
     if (pid < 0)
         exit(1);
