@@ -12,6 +12,7 @@
 #include <sys/time.h>
 #include <sys/wait.h>
 #include <sys/types.h>
+#include <sys/stat.h>
 
 #include "liburing.h"
 #include "../src/syscall.h"
@@ -1173,12 +1174,30 @@ err:
 	return 1;
 }
 
+static int fill_exec_target(char *dst, char *path)
+{
+	struct stat sb;
+
+	/*
+	 * Should either be ./exec-target or test/exec-target
+	 */
+	sprintf(dst, "%s", path);
+	return stat(dst, &sb);
+}
+
 static int test_timeout_link_cancel(void)
 {
 	struct io_uring ring;
 	struct io_uring_cqe *cqe;
+	char prog_path[PATH_MAX];
 	pid_t p;
 	int ret, i, wstatus;
+
+	if (fill_exec_target(prog_path, "./exec-target") &&
+	    fill_exec_target(prog_path, "test/exec-target")) {
+		fprintf(stdout, "Can't find exec-target, skipping\n");
+		return 0;
+	}
 
 	ret = io_uring_queue_init(8, &ring, 0);
 	if (ret) {
@@ -1195,7 +1214,6 @@ static int test_timeout_link_cancel(void)
 	if (p == 0) {
 		struct io_uring_sqe *sqe;
 		struct __kernel_timespec ts;
-		const char *prog_path = "./exec-target";
 
 		msec_to_ts(&ts, 10000);
 		sqe = io_uring_get_sqe(&ring);
