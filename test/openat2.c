@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <fcntl.h>
+#include <sys/uio.h>
 
 #include "helpers.h"
 #include "liburing.h"
@@ -117,11 +118,6 @@ static int test_open_fixed(const char *path, int dfd)
 		return -1;
 	}
 
-	ret = test_openat2(&ring, path, dfd, true, 0);
-	if (ret != -EBADF) {
-		fprintf(stderr, "bogus double register %d\n", ret);
-		return -1;
-	}
 	io_uring_queue_exit(&ring);
 	return 0;
 }
@@ -152,25 +148,90 @@ static int test_open_fixed_fail(const char *path, int dfd)
 	ret = test_openat2(&ring, path, dfd, true, 1);
 	if (ret != -EINVAL) {
 		fprintf(stderr, "install out of bounds, %i\n", ret);
-		return 1;
+		return -1;
 	}
 
 	ret = test_openat2(&ring, path, dfd, true, (1u << 16));
 	if (ret != -EINVAL) {
 		fprintf(stderr, "install out of bounds or u16 overflow, %i\n", ret);
-		return 1;
+		return -1;
 	}
 
 	ret = test_openat2(&ring, path, dfd, true, (1u << 16) + 1);
 	if (ret != -EINVAL) {
 		fprintf(stderr, "install out of bounds or u16 overflow, %i\n", ret);
-		return 1;
+		return -1;
 	}
 
 	io_uring_queue_exit(&ring);
 	return 0;
 }
 
+static int test_direct_reinstall(const char *path, int dfd)
+{
+	struct io_uring_cqe *cqe;
+	struct io_uring_sqe *sqe;
+	char buf[1] = { 0xfa };
+	struct io_uring ring;
+	int ret, pipe_fds[2];
+	ssize_t ret2;
+
+	if (pipe2(pipe_fds, O_NONBLOCK)) {
+		fprintf(stderr, "pipe() failed\n");
+		return -1;
+	}
+	ret = io_uring_queue_init(8, &ring, 0);
+	if (ret) {
+		fprintf(stderr, "ring setup failed\n");
+		return -1;
+	}
+	ret = io_uring_register_files(&ring, pipe_fds, 2);
+	if (ret) {
+		fprintf(stderr, "%s: register ret=%d\n", __FUNCTION__, ret);
+		return -1;
+	}
+
+	/* reinstall into the second slot */
+	ret = test_openat2(&ring, path, dfd, true, 1);
+	if (ret != 0) {
+		fprintf(stderr, "reinstall failed, %i\n", ret);
+		return -1;
+	}
+
+	/* verify it's reinstalled, first write into the slot... */
+	sqe = io_uring_get_sqe(&ring);
+	io_uring_prep_write(sqe, 1, buf, sizeof(buf), 0);
+	sqe->flags |= IOSQE_FIXED_FILE;
+
+	ret = io_uring_submit(&ring);
+	if (ret != 1) {
+		fprintf(stderr, "sqe submit failed: %d\n", ret);
+		return -1;
+	}
+	ret = io_uring_wait_cqe(&ring, &cqe);
+	if (ret < 0) {
+		fprintf(stderr, "wait completion %d\n", ret);
+		return ret;
+	}
+	ret = cqe->res;
+	io_uring_cqe_seen(&ring, cqe);
+	if (ret != 1) {
+		fprintf(stderr, "invalid write %i\n", ret);
+		return -1;
+	}
+
+	/* ... and make sure nothing has been written to the pipe */
+	ret2 = read(pipe_fds[0], buf, 1);
+	if (ret2 != 0 && !(ret2 < 0 && errno == EAGAIN)) {
+		fprintf(stderr, "invalid pipe read, %d %d\n", errno, (int)ret2);
+		return -1;
+	}
+
+	close(pipe_fds[0]);
+	close(pipe_fds[1]);
+	io_uring_queue_exit(&ring);
+	return 0;
+}
 
 int main(int argc, char *argv[])
 {
@@ -227,6 +288,13 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "test_open_fixed_fail failed\n");
 		goto err;
 	}
+
+	ret = test_direct_reinstall(path, -1);
+	if (ret) {
+		fprintf(stderr, "test_direct_reinstall failed\n");
+		goto err;
+	}
+
 done:
 	unlink(path);
 	if (do_unlink)
