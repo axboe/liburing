@@ -127,7 +127,8 @@ static int copy_file(struct io_uring *ring, off_t insize)
 	writes = reads = offset = 0;
 
 	while (insize || write_left) {
-		int had_reads, got_comp;
+		unsigned long had_reads;
+		int got_comp;
 	
 		/*
 		 * Queue up as many reads as we can
@@ -194,7 +195,7 @@ static int copy_file(struct io_uring *ring, off_t insize)
 				fprintf(stderr, "cqe failed: %s\n",
 						strerror(-cqe->res));
 				return 1;
-			} else if (cqe->res != data->iov.iov_len) {
+			} else if ((size_t)cqe->res != data->iov.iov_len) {
 				/* Short read/write, adjust and requeue */
 				data->iov.iov_base += cqe->res;
 				data->iov.iov_len -= cqe->res;

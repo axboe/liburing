@@ -26,7 +26,7 @@ struct io_data {
 };
 
 static int infd, outfd;
-static unsigned inflight;
+static int inflight;
 
 static int setup_context(unsigned entries, struct io_uring *ring)
 {
@@ -115,7 +115,7 @@ static int handle_cqe(struct io_uring *ring, struct io_uring_cqe *cqe)
 static int copy_file(struct io_uring *ring, off_t insize)
 {
 	struct io_uring_cqe *cqe;
-	size_t this_size;
+	off_t this_size;
 	off_t offset;
 
 	offset = 0;
