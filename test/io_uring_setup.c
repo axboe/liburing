@@ -99,7 +99,7 @@ dump_resv(struct io_uring_params *p)
 int
 try_io_uring_setup(unsigned entries, struct io_uring_params *p, int expect, int error)
 {
-	int ret, __errno;
+	int ret, err;
 
 	printf("io_uring_setup(%u, %p), flags: %s, feat: %s, resv: %s, sq_thread_cpu: %u\n",
 	       entries, p, flags_string(p), features_string(p), dump_resv(p),
@@ -113,13 +113,13 @@ try_io_uring_setup(unsigned entries, struct io_uring_params *p, int expect, int 
 			close(ret);
 		return 1;
 	}
-	__errno = errno;
-	if (expect == -1 && error != __errno) {
-		if (__errno == EPERM && geteuid() != 0) {
+	err = errno;
+	if (expect == -1 && error != err) {
+		if (err == EPERM && geteuid() != 0) {
 			printf("Needs root, not flagging as an error\n");
 			return 0;
 		}
-		printf("expected errno %d, got %d\n", error, __errno);
+		printf("expected errno %d, got %d\n", error, err);
 		return 1;
 	}
 
