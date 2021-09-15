@@ -18,6 +18,9 @@ jobs:
           - cc: clang
             cxx: clang++
 
+    env:
+      FLAGS: -g -O2 -Wall -Wextra -Werror
+
     steps:
     - name: Checkout source
       uses: actions/checkout@v2
@@ -32,8 +35,8 @@ jobs:
         ./configure --cc=${{matrix.cc}} --cxx=${{matrix.cxx}}
         make V=1 -j$(nproc) \
              CPPFLAGS="-Werror" \
-             CFLAGS="-Werror" \
-             CXXFLAGS="-Werror"
+             CFLAGS="$FLAGS" \
+             CXXFLAGS="$FLAGS"
 
     - name: Test install command
       run: |
