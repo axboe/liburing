@@ -131,6 +131,7 @@
 /test/submit-link-fail
 /test/exec-target
 /test/*.dmesg
+/test/output/
 
 config-host.h
 config-host.mak
