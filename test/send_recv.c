@@ -200,7 +200,7 @@ static int do_send(void)
 		return 1;
 	}
 
-	ret = connect(sockfd, &saddr, sizeof(saddr));
+	ret = connect(sockfd, (struct sockaddr *)&saddr, sizeof(saddr));
 	if (ret < 0) {
 		perror("connect");
 		return 1;
