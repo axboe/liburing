@@ -329,7 +329,7 @@ static int test(struct io_uring *ring, const char *fname, int buffered,
 				else
 					io_uring_prep_read(sqe, fd, buf[i], this, off);
 			}
-			sqe->user_data = (off << 32) | i;
+			sqe->user_data = ((uint64_t)off << 32) | i;
 			off += this;
 			left -= this;
 			pending++;
