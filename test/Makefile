@@ -63,6 +63,7 @@ test_targets += \
 	fallocate \
 	fc2a85cb02ef-test \
 	file-register \
+	file-verify \
 	file-update \
 	files-exit-hang-poll \
 	files-exit-hang-timeout \
@@ -203,6 +204,7 @@ test_srcs := \
 	fallocate.c \
 	fc2a85cb02ef-test.c \
 	file-register.c \
+	file-verify.c \
 	file-update.c \
 	files-exit-hang-poll.c \
 	files-exit-hang-timeout.c \
