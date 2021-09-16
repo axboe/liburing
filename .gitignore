@@ -54,6 +54,7 @@
 /test/fc2a85cb02ef-test
 /test/file-register
 /test/file-update
+/test/file-verify
 /test/files-exit-hang-poll
 /test/files-exit-hang-timeout
 /test/fixed-link
