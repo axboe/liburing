@@ -92,9 +92,13 @@ int main(int argc, char *argv[])
 	}
 
 	struct io_uring m_io_uring;
+	struct io_uring_params p = { };
 
-	ret = io_uring_queue_init(32, &m_io_uring, 0);
+	ret = io_uring_queue_init_params(32, &m_io_uring, &p);
 	assert(ret >= 0);
+
+	if (p.features & IORING_FEAT_FAST_POLL)
+		return 0;
 
 	char recv_buff[128];
 	char send_buff[128];
