@@ -56,7 +56,7 @@ static int verify_buf(void *buf, size_t size, off_t off)
 }
 
 static int test_truncate(struct io_uring *ring, const char *fname, int buffered,
-			 int vectored)
+			 int vectored, int provide_buf)
 {
 	struct io_uring_cqe *cqe;
 	struct io_uring_sqe *sqe;
@@ -135,6 +135,27 @@ again:
 		goto err;
 	}
 
+	if (provide_buf) {
+		sqe = io_uring_get_sqe(ring);
+		io_uring_prep_provide_buffers(sqe, buf, CHUNK_SIZE, 1, 0, 0);
+		ret = io_uring_submit(ring);
+		if (ret != 1) {
+			fprintf(stderr, "submit failed %d\n", ret);
+			goto err;
+		}
+		ret = io_uring_wait_cqe(ring, &cqe);
+		if (ret < 0) {
+			fprintf(stderr, "wait completion %d\n", ret);
+			goto err;
+		}
+		ret = cqe->res;
+		io_uring_cqe_seen(ring, cqe);
+		if (ret) {
+			fprintf(stderr, "Provide buffer failed %d\n", ret);
+			goto err;
+		}
+	}
+
 	sqe = io_uring_get_sqe(ring);
 	if (!sqe) {
 		fprintf(stderr, "get sqe failed\n");
@@ -142,11 +163,17 @@ again:
 	}
 
 	if (vectored) {
+		assert(!provide_buf);
 		vec.iov_base = buf;
 		vec.iov_len = CHUNK_SIZE;
 		io_uring_prep_readv(sqe, fd, &vec, 1, off);
 	} else {
-		io_uring_prep_read(sqe, fd, buf, CHUNK_SIZE, off);
+		if (provide_buf) {
+			io_uring_prep_read(sqe, fd, NULL, CHUNK_SIZE, off);
+			sqe->flags |= IOSQE_BUFFER_SELECT;
+		} else {
+			io_uring_prep_read(sqe, fd, buf, CHUNK_SIZE, off);
+		}
 	}
 	memset(buf, 0, CHUNK_SIZE);
 
@@ -499,25 +526,35 @@ int main(int argc, char *argv[])
 		goto err;
 	}
 
-	ret = test_truncate(&ring, fname, 1, 0);
+	ret = test_truncate(&ring, fname, 1, 0, 0);
 	if (ret) {
 		fprintf(stderr, "Buffered end truncate read failed\n");
 		goto err;
 	}
-	ret = test_truncate(&ring, fname, 1, 1);
+	ret = test_truncate(&ring, fname, 1, 1, 0);
 	if (ret) {
 		fprintf(stderr, "Buffered end truncate vec read failed\n");
 		goto err;
 	}
+	ret = test_truncate(&ring, fname, 1, 0, 1);
+	if (ret) {
+		fprintf(stderr, "Buffered end truncate pbuf read failed\n");
+		goto err;
+	}
 
-	ret = test_truncate(&ring, fname, 0, 0);
+	ret = test_truncate(&ring, fname, 0, 0, 0);
 	if (ret) {
 		fprintf(stderr, "O_DIRECT end truncate read failed\n");
 		goto err;
 	}
-	ret = test_truncate(&ring, fname, 0, 1);
+	ret = test_truncate(&ring, fname, 0, 1, 0);
 	if (ret) {
 		fprintf(stderr, "O_DIRECT end truncate vec read failed\n");
+		goto err;
+	}
+	ret = test_truncate(&ring, fname, 0, 0, 1);
+	if (ret) {
+		fprintf(stderr, "O_DIRECT end truncate pbuf read failed\n");
 		goto err;
 	}
 
