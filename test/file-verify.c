@@ -10,6 +10,9 @@
 #include <string.h>
 #include <fcntl.h>
 #include <assert.h>
+#include <string.h>
+#include <sys/ioctl.h>
+#include <linux/fs.h>
 
 #include "helpers.h"
 #include "liburing.h"
@@ -50,6 +53,142 @@ static int verify_buf(void *buf, size_t size, off_t off)
 	}
 
 	return 0;
+}
+
+static int test_truncate(struct io_uring *ring, const char *fname, int buffered,
+			 int vectored)
+{
+	struct io_uring_cqe *cqe;
+	struct io_uring_sqe *sqe;
+	struct iovec vec;
+	struct stat sb;
+	off_t punch_off, off, file_size;
+	void *buf = NULL;
+	int u_in_buf, i, ret, fd, first_pass = 1;
+	unsigned int *ptr;
+
+	if (buffered)
+		fd = open(fname, O_RDWR);
+	else
+		fd = open(fname, O_DIRECT | O_RDWR);
+	if (fd < 0) {
+		perror("open");
+		return 1;
+	}
+
+	if (fstat(fd, &sb) < 0) {
+		perror("stat");
+		close(fd);
+		return 1;
+	}
+
+	if (S_ISREG(sb.st_mode)) {
+		file_size = sb.st_size;
+	} else if (S_ISBLK(sb.st_mode)) {
+		unsigned long long bytes;
+
+		if (ioctl(fd, BLKGETSIZE64, &bytes) < 0) {
+			perror("ioctl");
+			close(fd);
+			return 1;
+		}
+		file_size = bytes;
+	} else {
+		goto out;
+	}
+
+	if (file_size < CHUNK_SIZE)
+		goto out;
+
+	t_posix_memalign(&buf, 4096, CHUNK_SIZE);
+
+	off = file_size - (CHUNK_SIZE / 2);
+	punch_off = off + CHUNK_SIZE / 4;
+
+	u_in_buf = CHUNK_SIZE / sizeof(unsigned int);
+	ptr = buf;
+	for (i = 0; i < u_in_buf; i++) {
+		*ptr = i;
+		ptr++;
+	}
+	ret = pwrite(fd, buf, CHUNK_SIZE / 2, off);
+	if (ret < 0) {
+		perror("pwrite");
+		goto err;
+	} else if (ret != CHUNK_SIZE / 2)
+		goto out;
+
+again:
+	/*
+	 * Read in last bit of file so it's known cached, then remove half of that
+	 * last bit so we get a short read that needs retry
+	 */
+	ret = pread(fd, buf, CHUNK_SIZE / 2, off);
+	if (ret < 0) {
+		perror("pread");
+		goto err;
+	} else if (ret != CHUNK_SIZE / 2)
+		goto out;
+
+	if (posix_fadvise(fd, punch_off, CHUNK_SIZE / 4, POSIX_FADV_DONTNEED) < 0) {
+		perror("posix_fadivse");
+		goto err;
+	}
+
+	sqe = io_uring_get_sqe(ring);
+	if (!sqe) {
+		fprintf(stderr, "get sqe failed\n");
+		goto err;
+	}
+
+	if (vectored) {
+		vec.iov_base = buf;
+		vec.iov_len = CHUNK_SIZE;
+		io_uring_prep_readv(sqe, fd, &vec, 1, off);
+	} else {
+		io_uring_prep_read(sqe, fd, buf, CHUNK_SIZE, off);
+	}
+	memset(buf, 0, CHUNK_SIZE);
+
+	ret = io_uring_submit(ring);
+	if (ret != 1) {
+		fprintf(stderr, "Submit failed %d\n", ret);
+		goto err;
+	}
+
+	ret = io_uring_wait_cqe(ring, &cqe);
+	if (ret < 0) {
+		fprintf(stderr, "wait completion %d\n", ret);
+		goto err;
+	}
+
+	ret = cqe->res;
+	io_uring_cqe_seen(ring, cqe);
+	if (ret != CHUNK_SIZE / 2) {
+		fprintf(stderr, "Unexpected truncated read %d\n", ret);
+		goto err;
+	}
+
+	if (verify_buf(buf, CHUNK_SIZE / 2, 0))
+		goto err;
+
+	/*
+	 * Repeat, but punch first part instead of last
+	 */
+	if (first_pass) {
+		punch_off = file_size - CHUNK_SIZE / 4;
+		first_pass = 0;
+		goto again;
+	}
+
+out:
+	free(buf);
+	close(fd);
+	return 0;
+err:
+	free(buf);
+	close(fd);
+	return 1;
 }
 
 enum {
@@ -357,6 +496,28 @@ int main(int argc, char *argv[])
 	ret = test(&ring, fname, 0, 1, 1, 0);
 	if (ret) {
 		fprintf(stderr, "O_DIRECT small vec test failed\n");
+		goto err;
+	}
+
+	ret = test_truncate(&ring, fname, 1, 0);
+	if (ret) {
+		fprintf(stderr, "Buffered end truncate read failed\n");
+		goto err;
+	}
+	ret = test_truncate(&ring, fname, 1, 1);
+	if (ret) {
+		fprintf(stderr, "Buffered end truncate vec read failed\n");
+		goto err;
+	}
+
+	ret = test_truncate(&ring, fname, 0, 0);
+	if (ret) {
+		fprintf(stderr, "O_DIRECT end truncate read failed\n");
+		goto err;
+	}
+	ret = test_truncate(&ring, fname, 0, 1);
+	if (ret) {
+		fprintf(stderr, "O_DIRECT end truncate vec read failed\n");
 		goto err;
 	}
 
