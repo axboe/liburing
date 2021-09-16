@@ -268,8 +268,42 @@ static int do_punch(int fd)
 	return 0;
 }
 
+static int provide_buffers(struct io_uring *ring, void **buf)
+{
+	struct io_uring_cqe *cqe;
+	struct io_uring_sqe *sqe;
+	int i, ret;
+
+	/* real use case would have one buffer chopped up, but... */
+	for (i = 0; i < READ_BATCH; i++) {
+		sqe = io_uring_get_sqe(ring);
+		io_uring_prep_provide_buffers(sqe, buf[i], CHUNK_SIZE, 1, 0, i);
+	}
+
+	ret = io_uring_submit(ring);
+	if (ret != READ_BATCH) {
+		fprintf(stderr, "Submit failed %d\n", ret);
+		return 1;
+	}
+
+	for (i = 0; i < READ_BATCH; i++) {
+		ret = io_uring_wait_cqe(ring, &cqe);
+		if (ret) {
+			fprintf(stderr, "wait cqe %d\n", ret);
+			return 1;
+		}
+		if (cqe->res < 0) {
+			fprintf(stderr, "cqe res provide %d\n", cqe->res);
+			return 1;
+		}
+		io_uring_cqe_seen(ring, cqe);
+	}
+
+	return 0;
+}
+
 static int test(struct io_uring *ring, const char *fname, int buffered,
-		int vectored, int small_vecs, int registered)
+		int vectored, int small_vecs, int registered, int provide)
 {
 	struct iovec vecs[READ_BATCH][MAX_VECS];
 	struct io_uring_cqe *cqe;
@@ -280,8 +314,14 @@ static int test(struct io_uring *ring, const char *fname, int buffered,
 	off_t off, voff;
 	size_t left;
 
-	if (registered)
+	if (registered) {
+		assert(!provide);
 		assert(!vectored && !small_vecs);
+	}
+	if (provide) {
+		assert(!registered);
+		assert(!vectored && !small_vecs);
+	}
 
 	flags = O_RDONLY;
 	if (!buffered)
@@ -336,6 +376,9 @@ static int test(struct io_uring *ring, const char *fname, int buffered,
 	while (left) {
 		int pending = 0;
 
+		if (provide && provide_buffers(ring, buf))
+			goto err;
+
 		for (i = 0; i < READ_BATCH; i++) {
 			size_t this = left;
 
@@ -351,10 +394,14 @@ static int test(struct io_uring *ring, const char *fname, int buffered,
 			if (vectored) {
 				io_uring_prep_readv(sqe, fd, vecs[i], nr_vecs, off);
 			} else {
-				if (registered)
+				if (registered) {
 					io_uring_prep_read_fixed(sqe, fd, buf[i], this, off, i);
-				else
+				} else if (provide) {
+					io_uring_prep_read(sqe, fd, NULL, this, off);
+					sqe->flags |= IOSQE_BUFFER_SELECT;
+				} else {
 					io_uring_prep_read(sqe, fd, buf[i], this, off);
+				}
 			}
 			sqe->user_data = ((uint64_t)off << 32) | i;
 			off += this;
@@ -382,7 +429,10 @@ static int test(struct io_uring *ring, const char *fname, int buffered,
 				fprintf(stderr, "bad read %d, read %d\n", cqe->res, i);
 				goto err;
 			}
-			index = cqe->user_data & 0xffffffff;
+			if (cqe->flags & IORING_CQE_F_BUFFER)
+				index = cqe->flags >> 16;
+			else
+				index = cqe->user_data & 0xffffffff;
 			voff = cqe->user_data >> 32;
 			io_uring_cqe_seen(ring, cqe);
 			if (vectored) {
@@ -484,43 +534,53 @@ int main(int argc, char *argv[])
 	if (fill_pattern(fname))
 		goto err;
 
-	ret = test(&ring, fname, 1, 0, 0, 0);
+	ret = test(&ring, fname, 1, 0, 0, 0, 0);
 	if (ret) {
 		fprintf(stderr, "Buffered novec test failed\n");
 		goto err;
 	}
-	ret = test(&ring, fname, 1, 0, 0, 1);
+	ret = test(&ring, fname, 1, 0, 0, 1, 0);
 	if (ret) {
 		fprintf(stderr, "Buffered novec reg test failed\n");
 		goto err;
 	}
-	ret = test(&ring, fname, 1, 1, 0, 0);
+	ret = test(&ring, fname, 1, 0, 0, 0, 1);
+	if (ret) {
+		fprintf(stderr, "Buffered novec provide test failed\n");
+		goto err;
+	}
+	ret = test(&ring, fname, 1, 1, 0, 0, 0);
 	if (ret) {
 		fprintf(stderr, "Buffered vec test failed\n");
 		goto err;
 	}
-	ret = test(&ring, fname, 1, 1, 1, 0);
+	ret = test(&ring, fname, 1, 1, 1, 0, 0);
 	if (ret) {
 		fprintf(stderr, "Buffered small vec test failed\n");
 		goto err;
 	}
 
-	ret = test(&ring, fname, 0, 0, 0, 0);
+	ret = test(&ring, fname, 0, 0, 0, 0, 0);
 	if (ret) {
 		fprintf(stderr, "O_DIRECT novec test failed\n");
 		goto err;
 	}
-	ret = test(&ring, fname, 0, 0, 0, 1);
+	ret = test(&ring, fname, 0, 0, 0, 1, 0);
 	if (ret) {
 		fprintf(stderr, "O_DIRECT novec reg test failed\n");
 		goto err;
 	}
-	ret = test(&ring, fname, 0, 1, 0, 0);
+	ret = test(&ring, fname, 0, 0, 0, 0, 1);
+	if (ret) {
+		fprintf(stderr, "O_DIRECT novec provide test failed\n");
+		goto err;
+	}
+	ret = test(&ring, fname, 0, 1, 0, 0, 0);
 	if (ret) {
 		fprintf(stderr, "O_DIRECT vec test failed\n");
 		goto err;
 	}
-	ret = test(&ring, fname, 0, 1, 1, 0);
+	ret = test(&ring, fname, 0, 1, 1, 0, 0);
 	if (ret) {
 		fprintf(stderr, "O_DIRECT small vec test failed\n");
 		goto err;
