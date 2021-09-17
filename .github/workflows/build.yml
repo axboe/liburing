@@ -27,17 +27,26 @@ jobs:
 
     - name: Display compiler versions
       run: |
-        ${{matrix.cc}} --version
-        ${{matrix.cxx}} --version
+        ${{matrix.cc}} --version;
+        ${{matrix.cxx}} --version;
 
     - name: Build
       run: |
-        ./configure --cc=${{matrix.cc}} --cxx=${{matrix.cxx}}
+        ./configure --cc=${{matrix.cc}} --cxx=${{matrix.cxx}};
         make V=1 -j$(nproc) \
              CPPFLAGS="-Werror" \
              CFLAGS="$FLAGS" \
-             CXXFLAGS="$FLAGS"
+             CXXFLAGS="$FLAGS";
+
+    - name: Build (32 bit)
+      run: |
+        sudo apt-get install libc6-dev-i386 gcc-multilib g++-multilib -y;
+        make clean;
+        make V=1 -j$(nproc) \
+             CPPFLAGS="-Werror" \
+             CFLAGS="$FLAGS -m32" \
+             CXXFLAGS="$FLAGS -m32";
 
     - name: Test install command
       run: |
-        sudo make install
+        sudo make install;
