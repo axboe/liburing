@@ -4,6 +4,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
+#include <sys/resource.h>
 #include <unistd.h>
 #include <errno.h>
 #include <string.h>
@@ -118,6 +119,21 @@ int io_uring_register_files_update(struct io_uring *ring, unsigned off,
 	return ret;
 }
 
+static int bump_rlimit_nofile(unsigned nr)
+{
+	struct rlimit rlim;
+
+	if (getrlimit(RLIMIT_NOFILE, &rlim) < 0)
+		return -errno;
+	if (rlim.rlim_cur < nr) {
+		if (nr > rlim.rlim_max)
+			return -EMFILE;
+		rlim.rlim_cur = nr;
+		setrlimit(RLIMIT_NOFILE, &rlim);
+	}
+
+	return 0;
+}
 
 int io_uring_register_files_tags(struct io_uring *ring,
 				 const int *files, const __u64 *tags,
@@ -130,6 +146,10 @@ int io_uring_register_files_tags(struct io_uring *ring,
 	};
 	int ret;
 
+	ret = bump_rlimit_nofile(nr);
+	if (ret)
+		return ret;
+
 	ret = __sys_io_uring_register(ring->ring_fd, IORING_REGISTER_FILES2,
 				      &reg, sizeof(reg));
 	return ret < 0 ? -errno : ret;
@@ -139,6 +159,10 @@ int io_uring_register_files(struct io_uring *ring, const int *files,
 			      unsigned nr_files)
 {
 	int ret;
+
+	ret = bump_rlimit_nofile(nr_files);
+	if (ret)
+		return ret;
 
 	ret = __sys_io_uring_register(ring->ring_fd, IORING_REGISTER_FILES,
 					files, nr_files);
