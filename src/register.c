@@ -119,16 +119,14 @@ int io_uring_register_files_update(struct io_uring *ring, unsigned off,
 	return ret;
 }
 
-static int bump_rlimit_nofile(unsigned nr)
+static int increase_rlimit_nofile(unsigned nr)
 {
 	struct rlimit rlim;
 
 	if (getrlimit(RLIMIT_NOFILE, &rlim) < 0)
 		return -errno;
 	if (rlim.rlim_cur < nr) {
-		if (nr > rlim.rlim_max)
-			return -EMFILE;
-		rlim.rlim_cur = nr;
+		rlim.rlim_cur += nr;
 		setrlimit(RLIMIT_NOFILE, &rlim);
 	}
 
@@ -144,32 +142,45 @@ int io_uring_register_files_tags(struct io_uring *ring,
 		.data = (unsigned long)files,
 		.tags = (unsigned long)tags,
 	};
-	int ret;
+	int ret, did_increase = 0;
 
-	ret = bump_rlimit_nofile(nr);
-	if (ret)
-		return ret;
+	do {
+		ret = __sys_io_uring_register(ring->ring_fd,
+					      IORING_REGISTER_FILES2, &reg,
+					      sizeof(reg));
+		if (ret >= 0)
+			break;
+		if (errno == EMFILE && !did_increase) {
+			did_increase = 1;
+			increase_rlimit_nofile(nr);
+			continue;
+		}
+		break;
+	} while (1);
 
-	ret = __sys_io_uring_register(ring->ring_fd, IORING_REGISTER_FILES2,
-				      &reg, sizeof(reg));
 	return ret < 0 ? -errno : ret;
 }
 
 int io_uring_register_files(struct io_uring *ring, const int *files,
 			      unsigned nr_files)
 {
-	int ret;
+	int ret, did_increase = 0;
 
-	ret = bump_rlimit_nofile(nr_files);
-	if (ret)
-		return ret;
+	do {
+		ret = __sys_io_uring_register(ring->ring_fd,
+					      IORING_REGISTER_FILES, files,
+					      nr_files);
+		if (ret >= 0)
+			break;
+		if (errno == EMFILE && !did_increase) {
+			did_increase = 1;
+			increase_rlimit_nofile(nr_files);
+			continue;
+		}
+		break;
+	} while (1);
 
-	ret = __sys_io_uring_register(ring->ring_fd, IORING_REGISTER_FILES,
-					files, nr_files);
-	if (ret < 0)
-		return -errno;
-
-	return 0;
+	return ret < 0 ? -errno : ret;
 }
 
 int io_uring_unregister_files(struct io_uring *ring)
