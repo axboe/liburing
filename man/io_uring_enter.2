@@ -896,8 +896,11 @@ Issue the equivalent of a
 .BR shutdown(2)
 system call.
 .I fd
-is the file descriptor to the socket being shutdown, no other fields should
-be set. Available since 5.11.
+is the file descriptor to the socket being shutdown, and
+.I len
+must be set to the
+.I how
+argument. No no other fields should be set. Available since 5.11.
 
 .TP
 .B IORING_OP_RENAMEAT
