@@ -36,7 +36,7 @@ static int verify_probe(struct io_uring_probe *p, int full)
 		return 1;
 	}
 	if (!(p->ops[IORING_OP_WRITE].flags & IO_URING_OP_SUPPORTED)) {
-		fprintf(stderr, "READV not supported!?\n");
+		fprintf(stderr, "WRITE not supported!?\n");
 		return 1;
 	}
 
