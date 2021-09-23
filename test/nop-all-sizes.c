@@ -37,10 +37,6 @@ static int test_nops(struct io_uring *ring)
 	int ret, nr, total = 0, i;
 
 	nr = fill_nops(ring);
-	if (nr < 0) {
-		fprintf(stderr, "Fill: %d\n", nr);
-		goto err;
-	}
 
 	ret = io_uring_submit(ring);
 	if (ret != nr) {
@@ -50,10 +46,6 @@ static int test_nops(struct io_uring *ring)
 	total += ret;
 
 	nr = fill_nops(ring);
-	if (nr < 0) {
-		fprintf(stderr, "Fill: %d\n", nr);
-		goto err;
-	}
 
 	ret = io_uring_submit(ring);
 	if (ret != nr) {
