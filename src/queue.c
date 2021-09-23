@@ -112,10 +112,8 @@ static int _io_uring_get_cqe(struct io_uring *ring, struct io_uring_cqe **cqe_pt
 			flags = IORING_ENTER_GETEVENTS | data->get_flags;
 			need_enter = true;
 		}
-		if (data->submit) {
-			sq_ring_needs_enter(ring, &flags);
+		if (data->submit && sq_ring_needs_enter(ring, &flags))
 			need_enter = true;
-		}
 		if (!need_enter)
 			break;
 
