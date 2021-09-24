@@ -9,9 +9,118 @@
 #include <stdlib.h>
 #include <string.h>
 #include <fcntl.h>
+#include <assert.h>
 
 #include "helpers.h"
 #include "liburing.h"
+
+static int submit_wait(struct io_uring *ring)
+{
+	struct io_uring_cqe *cqe;
+	int ret;
+
+	ret = io_uring_submit(ring);
+	if (ret <= 0) {
+		fprintf(stderr, "sqe submit failed: %d\n", ret);
+		return 1;
+	}
+	ret = io_uring_wait_cqe(ring, &cqe);
+	if (ret < 0) {
+		fprintf(stderr, "wait completion %d\n", ret);
+		return 1;
+	}
+
+	ret = cqe->res;
+	io_uring_cqe_seen(ring, cqe);
+	return ret;
+}
+
+static inline int try_close(struct io_uring *ring, int fd, int slot)
+{
+	struct io_uring_sqe *sqe;
+
+	sqe = io_uring_get_sqe(ring);
+	io_uring_prep_close(sqe, fd);
+	__io_uring_set_target_fixed_file(sqe, slot);
+	return submit_wait(ring);
+}
+
+static int test_close_fixed(void)
+{
+	struct io_uring ring;
+	struct io_uring_sqe *sqe;
+	int ret, fds[2];
+	char buf[1];
+
+	ret = io_uring_queue_init(8, &ring, 0);
+	if (ret) {
+		fprintf(stderr, "ring setup failed\n");
+		return -1;
+	}
+	if (pipe(fds)) {
+		perror("pipe");
+		return -1;
+	}
+
+	ret = try_close(&ring, 0, 0);
+	if (ret == -EINVAL) {
+		fprintf(stderr, "close for fixed files is not supported\n");
+		return 0;
+	} else if (ret != -ENXIO) {
+		fprintf(stderr, "no table failed %i\n", ret);
+		return -1;
+	}
+
+	ret = try_close(&ring, 1, 0);
+	if (ret != -EINVAL) {
+		fprintf(stderr, "set fd failed %i\n", ret);
+		return -1;
+	}
+
+	ret = io_uring_register_files(&ring, fds, 2);
+	if (ret) {
+		fprintf(stderr, "file_register: %d\n", ret);
+		return ret;
+	}
+
+	ret = try_close(&ring, 0, 2);
+	if (ret != -EINVAL) {
+		fprintf(stderr, "out of table failed %i\n", ret);
+		return -1;
+	}
+
+	ret = try_close(&ring, 0, 0);
+	if (ret != 0) {
+		fprintf(stderr, "close failed %i\n", ret);
+		return -1;
+	}
+
+	sqe = io_uring_get_sqe(&ring);
+	io_uring_prep_read(sqe, 0, buf, sizeof(buf), 0);
+	sqe->flags |= IOSQE_FIXED_FILE;
+	ret = submit_wait(&ring);
+	if (ret != -EBADF) {
+		fprintf(stderr, "read failed %i\n", ret);
+		return -1;
+	}
+
+	ret = try_close(&ring, 0, 1);
+	if (ret != 0) {
+		fprintf(stderr, "close 2 failed %i\n", ret);
+		return -1;
+	}
+
+	ret = try_close(&ring, 0, 0);
+	if (ret != -EBADF) {
+		fprintf(stderr, "empty slot failed %i\n", ret);
+		return -1;
+	}
+
+	close(fds[0]);
+	close(fds[1]);
+	io_uring_queue_exit(&ring);
+	return 0;
+}
 
 static int test_close(struct io_uring *ring, int fd, int is_ring_fd)
 {
@@ -130,6 +239,12 @@ int main(int argc, char *argv[])
 	ret = test_close(&ring, ring.ring_fd, 1);
 	if (ret != -EBADF) {
 		fprintf(stderr, "test_close ring_fd failed\n");
+		goto err;
+	}
+
+	ret = test_close_fixed();
+	if (ret) {
+		fprintf(stderr, "test_close_fixed failed\n");
 		goto err;
 	}
 
