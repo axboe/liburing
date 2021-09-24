@@ -322,7 +322,7 @@ static int test_files(int ring_flags)
 	struct io_uring ring;
 	const int nr = 50;
 	int off = 5, i, ret, fd;
-	int files[nr];
+	__s32 files[nr];
 	__u64 tags[nr], tag;
 
 	for (i = 0; i < nr; ++i) {
