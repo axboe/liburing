@@ -717,6 +717,18 @@ system call.
 is the file descriptor to be closed. See also
 .BR close(2)
 for the general description of the related system call. Available since 5.6.
+If the
+.I file_index
+field is set to a positive number, this command can be used to close files
+that were direct opened through
+.B IORING_OP_OPENAT
+,
+.B IORING_OP_OPENAT2
+, or
+.B IORING_OP_ACCEPT
+using the io_uring specific direct descriptors. Note that only one of the
+descriptor fields may be set. The direct close feature is available since
+the 5.15 kernel, where direct descriptors were introduced.
 
 .TP
 .B IORING_OP_STATX
