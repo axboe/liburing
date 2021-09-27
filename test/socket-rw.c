@@ -17,6 +17,7 @@
 #include <sys/un.h>
 #include <netinet/tcp.h>
 #include <netinet/in.h>
+#include <arpa/inet.h>
 
 #include "liburing.h"
 
@@ -40,10 +41,10 @@ int main(int argc, char *argv[])
 	assert(ret != -1);
 
 	addr.sin_family = AF_INET;
-	addr.sin_addr.s_addr = 0x0100007fU;
+	addr.sin_addr.s_addr = inet_addr("127.0.0.1");
 
 	do {
-		addr.sin_port = (rand() % 61440) + 4096;
+		addr.sin_port = htons((rand() % 61440) + 4096);
 		ret = bind(recv_s0, (struct sockaddr*)&addr, sizeof(addr));
 		if (!ret)
 			break;

@@ -11,6 +11,7 @@
 #include <netinet/tcp.h>
 #include <netinet/in.h>
 #include <poll.h>
+#include <arpa/inet.h>
 
 #include "liburing.h"
 
@@ -42,7 +43,8 @@ struct data {
 	unsigned expected[2];
 	unsigned is_mask[2];
 	unsigned long timeout;
-	int port;
+	unsigned short port;
+	unsigned int addr;
 	int stop;
 };
 
@@ -59,7 +61,7 @@ static void *send_thread(void *arg)
 
 	addr.sin_family = AF_INET;
 	addr.sin_port = data->port;
-	addr.sin_addr.s_addr = 0x0100007fU;
+	addr.sin_addr.s_addr = data->addr;
 
 	if (connect(s0, (struct sockaddr*)&addr, sizeof(addr)) != -1)
 		wait_for_var(&recv_thread_done);
@@ -90,11 +92,12 @@ void *recv_thread(void *arg)
 	struct sockaddr_in addr;
 
 	addr.sin_family = AF_INET;
-	addr.sin_addr.s_addr = 0x0100007fU;
+	data->addr = inet_addr("127.0.0.1");
+	addr.sin_addr.s_addr = data->addr;
 
 	i = 0;
 	do {
-		data->port = 1025 + (rand() % 64510);
+		data->port = htons(1025 + (rand() % 64510));
 		addr.sin_port = data->port;
 
 		if (bind(s0, (struct sockaddr*)&addr, sizeof(addr)) != -1)

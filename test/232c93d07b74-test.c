@@ -19,6 +19,7 @@
 #include <sys/un.h>
 #include <netinet/tcp.h>
 #include <netinet/in.h>
+#include <arpa/inet.h>
 
 #include "liburing.h"
 
@@ -75,8 +76,8 @@ static void *rcv(void *arg)
 		struct sockaddr_in addr;
 
 		addr.sin_family = AF_INET;
-		addr.sin_port = PORT;
-		addr.sin_addr.s_addr = 0x0100007fU;
+		addr.sin_port = htons(PORT);
+		addr.sin_addr.s_addr = inet_addr("127.0.0.1");
 		res = bind(s0, (struct sockaddr *) &addr, sizeof(addr));
 		assert(res != -1);
 	} else {
@@ -190,8 +191,8 @@ static void *snd(void *arg)
 		struct sockaddr_in addr;
 
 		addr.sin_family = AF_INET;
-		addr.sin_port = PORT;
-		addr.sin_addr.s_addr = 0x0100007fU;
+		addr.sin_port = htons(PORT);
+		addr.sin_addr.s_addr = inet_addr("127.0.0.1");
 		ret = connect(s0, (struct sockaddr*) &addr, sizeof(addr));
 		assert(ret != -1);
 	} else {

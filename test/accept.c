@@ -17,6 +17,7 @@
 #include <sys/un.h>
 #include <netinet/tcp.h>
 #include <netinet/in.h>
+#include <arpa/inet.h>
 
 #include "helpers.h"
 #include "liburing.h"
@@ -107,8 +108,8 @@ static int start_accept_listen(struct sockaddr_in *addr, int port_off)
 		addr = &laddr;
 
 	addr->sin_family = AF_INET;
-	addr->sin_port = 0x1235 + port_off;
-	addr->sin_addr.s_addr = 0x0100007fU;
+	addr->sin_port = htons(0x1235 + port_off);
+	addr->sin_addr.s_addr = inet_addr("127.0.0.1");
 
 	ret = bind(fd, (struct sockaddr*)addr, sizeof(*addr));
 	assert(ret != -1);
