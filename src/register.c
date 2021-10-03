@@ -6,7 +6,6 @@
 #include <sys/mman.h>
 #include <sys/resource.h>
 #include <unistd.h>
-#include <errno.h>
 #include <string.h>
 
 #include "liburing/compat.h"
@@ -104,13 +103,16 @@ int io_uring_register_files_update(struct io_uring *ring, unsigned off,
 
 static int increase_rlimit_nofile(unsigned nr)
 {
+	int ret;
 	struct rlimit rlim;
 
-	if (getrlimit(RLIMIT_NOFILE, &rlim) < 0)
-		return -errno;
+	ret = uring_getrlimit(RLIMIT_NOFILE, &rlim);
+	if (ret < 0)
+		return ret;
+
 	if (rlim.rlim_cur < nr) {
 		rlim.rlim_cur += nr;
-		setrlimit(RLIMIT_NOFILE, &rlim);
+		uring_setrlimit(RLIMIT_NOFILE, &rlim);
 	}
 
 	return 0;

@@ -4,10 +4,14 @@
 
 #include <errno.h>
 #include <signal.h>
+#include <stdint.h>
 #include <unistd.h>
+#include <stdbool.h>
 #include <sys/mman.h>
 #include <sys/syscall.h>
 #include <sys/resource.h>
+
+#include <liburing.h>
 
 #ifdef __alpha__
 /*
@@ -59,7 +63,20 @@ int __sys_io_uring_enter2(int fd, unsigned to_submit, unsigned min_complete,
 int __sys_io_uring_register(int fd, unsigned int opcode, const void *arg,
 			    unsigned int nr_args);
 
+static inline void *ERR_PTR(intptr_t n)
+{
+	return (void *) n;
+}
 
+static inline intptr_t PTR_ERR(void *ptr)
+{
+	return (intptr_t) ptr;
+}
+
+static inline bool IS_ERR(void *ptr)
+{
+	return uring_unlikely((uintptr_t) ptr >= (uintptr_t) -4095UL);
+}
 
 static inline int ____sys_io_uring_register(int fd, unsigned opcode,
 					    const void *arg, unsigned nr_args)
@@ -96,6 +113,47 @@ static inline int ____sys_io_uring_enter(int fd, unsigned to_submit,
 {
 	return ____sys_io_uring_enter2(fd, to_submit, min_complete, flags, sig,
 				       _NSIG / 8);
+}
+
+static inline void *uring_mmap(void *addr, size_t length, int prot, int flags,
+			       int fd, off_t offset)
+{
+	void *ret;
+
+	ret = mmap(addr, length, prot, flags, fd, offset);
+	return (ret == MAP_FAILED) ? ERR_PTR(-errno) : ret;
+}
+
+static inline int uring_munmap(void *addr, size_t length)
+{
+	int ret;
+
+	ret = munmap(addr, length);
+	return (ret < 0) ? -errno : ret;
+}
+
+static inline int uring_madvise(void *addr, size_t length, int advice)
+{
+	int ret;
+
+	ret = madvise(addr, length, advice);
+	return (ret < 0) ? -errno : ret;
+}
+
+static inline int uring_getrlimit(int resource, struct rlimit *rlim)
+{
+	int ret;
+
+	ret = getrlimit(resource, rlim);
+	return (ret < 0) ? -errno : ret;
+}
+
+static inline int uring_setrlimit(int resource, const struct rlimit *rlim)
+{
+	int ret;
+
+	ret = setrlimit(resource, rlim);
+	return (ret < 0) ? -errno : ret;
 }
 
 #endif
