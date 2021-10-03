@@ -1267,6 +1267,67 @@ static int test_timeout_link_cancel(void)
 	return 0;
 }
 
+
+static int test_not_failing_links(void)
+{
+	struct io_uring ring;
+	struct io_uring_sqe *sqe;
+	struct io_uring_cqe *cqe;
+	struct __kernel_timespec ts;
+	int ret;
+
+	ret = io_uring_queue_init(8, &ring, 0);
+	if (ret) {
+		fprintf(stderr, "ring create failed: %d\n", ret);
+		return 1;
+	}
+
+	msec_to_ts(&ts, 1);
+	sqe = io_uring_get_sqe(&ring);
+	io_uring_prep_timeout(sqe, &ts, 0, IORING_TIMEOUT_ETIME_SUCCESS);
+	sqe->user_data = 1;
+	sqe->flags |= IOSQE_IO_LINK;
+
+	sqe = io_uring_get_sqe(&ring);
+	io_uring_prep_nop(sqe);
+	sqe->user_data = 2;
+
+	ret = io_uring_submit(&ring);
+	if (ret != 2) {
+		fprintf(stderr, "%s: sqe submit failed: %d\n", __FUNCTION__, ret);
+		return 1;
+	}
+
+	ret = io_uring_wait_cqe(&ring, &cqe);
+	if (ret < 0) {
+		fprintf(stderr, "%s: wait completion %d\n", __FUNCTION__, ret);
+		return 1;
+	} else if (cqe->user_data == 1 && cqe->res == -EINVAL) {
+		fprintf(stderr, "ETIME_SUCCESS is not supported, skip\n");
+		goto done;
+	} else if (cqe->res != -ETIME || cqe->user_data != 1) {
+		fprintf(stderr, "timeout failed %i %i\n", cqe->res,
+				(int)cqe->user_data);
+		return 1;
+	}
+	io_uring_cqe_seen(&ring, cqe);
+
+	ret = io_uring_wait_cqe(&ring, &cqe);
+	if (ret < 0) {
+		fprintf(stderr, "%s: wait completion %d\n", __FUNCTION__, ret);
+		return 1;
+	} else if (cqe->res || cqe->user_data != 2) {
+		fprintf(stderr, "nop failed %i %i\n", cqe->res,
+				(int)cqe->user_data);
+		return 1;
+	}
+done:
+	io_uring_cqe_seen(&ring, cqe);
+	io_uring_queue_exit(&ring);
+	return 0;
+}
+
+
 int main(int argc, char *argv[])
 {
 	struct io_uring ring, sqpoll_ring;
@@ -1447,6 +1508,12 @@ int main(int argc, char *argv[])
 	ret = test_timeout_link_cancel();
 	if (ret) {
 		fprintf(stderr, "test_timeout_link_cancel failed\n");
+		return ret;
+	}
+
+	ret = test_not_failing_links();
+	if (ret) {
+		fprintf(stderr, "test_not_failing_links failed\n");
 		return ret;
 	}
 
