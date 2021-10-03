@@ -45,6 +45,7 @@ static int verify_probe(struct io_uring_probe *p, int full)
 
 static int test_probe_helper(struct io_uring *ring)
 {
+	int ret;
 	struct io_uring_probe *p;
 
 	p = io_uring_get_probe_ring(ring);
@@ -53,12 +54,9 @@ static int test_probe_helper(struct io_uring *ring)
 		return 1;
 	}
 
-	if (verify_probe(p, 1)) {
-		free(p);
-		return 1;
-	}
-
-	return 0;
+	ret = verify_probe(p, 1);
+	io_uring_free_probe(p);
+	return ret;
 }
 
 static int test_probe(struct io_uring *ring)
