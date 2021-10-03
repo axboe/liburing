@@ -53,14 +53,12 @@ static int test_return_before_timeout(struct io_uring *ring)
 	struct io_uring_cqe *cqe;
 	struct io_uring_sqe *sqe;
 	int ret;
+	bool retried = false;
 	struct __kernel_timespec ts;
 
-	sqe = io_uring_get_sqe(ring);
-	if (!sqe) {
-		fprintf(stderr, "%s: get sqe failed\n", __FUNCTION__);
-		return 1;
-	}
+	msec_to_ts(&ts, TIMEOUT_MSEC);
 
+	sqe = io_uring_get_sqe(ring);
 	io_uring_prep_nop(sqe);
 
 	ret = io_uring_submit(ring);
@@ -69,13 +67,21 @@ static int test_return_before_timeout(struct io_uring *ring)
 		return 1;
 	}
 
-	msec_to_ts(&ts, TIMEOUT_MSEC);
+again:
 	ret = io_uring_wait_cqe_timeout(ring, &cqe, &ts);
-	if (ret < 0) {
+	if (ret == -ETIME && (ring->flags & IORING_SETUP_SQPOLL) && !retried) {
+		/*
+		 * there is a small chance SQPOLL hasn't been waked up yet,
+		 * give it one more try.
+		 */
+		printf("warning: funky SQPOLL timing\n");
+		sleep(1);
+		retried = true;
+		goto again;
+	} else if (ret < 0) {
 		fprintf(stderr, "%s: timeout error: %d\n", __FUNCTION__, ret);
 		return 1;
 	}
-
 	io_uring_cqe_seen(ring, cqe);
 	return 0;
 }
