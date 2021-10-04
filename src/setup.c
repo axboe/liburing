@@ -145,7 +145,7 @@ int io_uring_queue_init_params(unsigned entries, struct io_uring *ring,
 
 	ret = io_uring_queue_mmap(fd, p, ring);
 	if (ret) {
-		close(fd);
+		uring_close(fd);
 		return ret;
 	}
 
@@ -174,7 +174,7 @@ void io_uring_queue_exit(struct io_uring *ring)
 
 	uring_munmap(sq->sqes, *sq->kring_entries * sizeof(struct io_uring_sqe));
 	io_uring_unmap_rings(sq, cq);
-	close(ring->ring_fd);
+	uring_close(ring->ring_fd);
 }
 
 struct io_uring_probe *io_uring_get_probe_ring(struct io_uring *ring)

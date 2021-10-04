@@ -156,4 +156,12 @@ static inline int uring_setrlimit(int resource, const struct rlimit *rlim)
 	return (ret < 0) ? -errno : ret;
 }
 
+static inline int uring_close(int fd)
+{
+	int ret;
+
+	ret = close(fd);
+	return (ret < 0) ? -errno : ret;
+}
+
 #endif
