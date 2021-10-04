@@ -44,3 +44,8 @@ LIBURING_2.1 {
 		io_uring_unregister_iowq_aff;
 		io_uring_register_iowq_max_workers;
 } LIBURING_2.0;
+
+LIBURING_2.2 {
+	global:
+		io_uring_submit_and_wait_timout;
+} LIBURING_2.1;

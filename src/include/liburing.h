@@ -122,6 +122,11 @@ int io_uring_wait_cqe_timeout(struct io_uring *ring,
 			      struct __kernel_timespec *ts);
 int io_uring_submit(struct io_uring *ring);
 int io_uring_submit_and_wait(struct io_uring *ring, unsigned wait_nr);
+int io_uring_submit_and_wait_timout(struct io_uring *ring,
+				    struct io_uring_cqe **cqe_ptr,
+				    unsigned wait_nr,
+				    struct __kernel_timespec *ts,
+				    sigset_t *sigmask);
 struct io_uring_sqe *io_uring_get_sqe(struct io_uring *ring);
 
 int io_uring_register_buffers(struct io_uring *ring, const struct iovec *iovecs,

@@ -271,36 +271,78 @@ static int io_uring_wait_cqes_new(struct io_uring *ring,
  * hence this function is safe to use for applications that split SQ and CQ
  * handling between two threads.
  */
+
+static int __io_uring_submit_timeout(struct io_uring *ring, unsigned wait_nr,
+				     struct __kernel_timespec *ts)
+{
+	struct io_uring_sqe *sqe;
+	int ret;
+
+	/*
+	 * If the SQ ring is full, we may need to submit IO first
+	 */
+	sqe = io_uring_get_sqe(ring);
+	if (!sqe) {
+		ret = io_uring_submit(ring);
+		if (ret < 0)
+			return ret;
+		sqe = io_uring_get_sqe(ring);
+		if (!sqe)
+			return -EAGAIN;
+	}
+	io_uring_prep_timeout(sqe, ts, wait_nr, 0);
+	sqe->user_data = LIBURING_UDATA_TIMEOUT;
+	return __io_uring_flush_sq(ring);
+}
+
 int io_uring_wait_cqes(struct io_uring *ring, struct io_uring_cqe **cqe_ptr,
 		       unsigned wait_nr, struct __kernel_timespec *ts,
 		       sigset_t *sigmask)
 {
-	unsigned to_submit = 0;
+	int to_submit = 0;
 
 	if (ts) {
-		struct io_uring_sqe *sqe;
-		int ret;
-
 		if (ring->features & IORING_FEAT_EXT_ARG)
 			return io_uring_wait_cqes_new(ring, cqe_ptr, wait_nr,
 							ts, sigmask);
-
-		/*
-		 * If the SQ ring is full, we may need to submit IO first
-		 */
-		sqe = io_uring_get_sqe(ring);
-		if (!sqe) {
-			ret = io_uring_submit(ring);
-			if (ret < 0)
-				return ret;
-			sqe = io_uring_get_sqe(ring);
-			if (!sqe)
-				return -EAGAIN;
-		}
-		io_uring_prep_timeout(sqe, ts, wait_nr, 0);
-		sqe->user_data = LIBURING_UDATA_TIMEOUT;
-		to_submit = __io_uring_flush_sq(ring);
+		to_submit = __io_uring_submit_timeout(ring, wait_nr, ts);
+		if (to_submit < 0)
+			return to_submit;
 	}
+
+	return __io_uring_get_cqe(ring, cqe_ptr, to_submit, wait_nr, sigmask);
+}
+
+int io_uring_submit_and_wait_timout(struct io_uring *ring,
+				    struct io_uring_cqe **cqe_ptr,
+				    unsigned wait_nr,
+				    struct __kernel_timespec *ts,
+				    sigset_t *sigmask)
+{
+	int to_submit;
+
+	if (ts) {
+		if (ring->features & IORING_FEAT_EXT_ARG) {
+			struct io_uring_getevents_arg arg = {
+				.sigmask	= (unsigned long) sigmask,
+				.sigmask_sz	= _NSIG / 8,
+				.ts		= (unsigned long) ts
+			};
+			struct get_data data = {
+				.submit		= __io_uring_flush_sq(ring),
+				.wait_nr	= wait_nr,
+				.get_flags	= IORING_ENTER_EXT_ARG,
+				.sz		= sizeof(arg),
+				.arg		= &arg
+			};
+
+			return _io_uring_get_cqe(ring, cqe_ptr, &data);
+		}
+		to_submit = __io_uring_submit_timeout(ring, wait_nr, ts);
+		if (to_submit < 0)
+			return to_submit;
+	} else
+		to_submit = __io_uring_flush_sq(ring);
 
 	return __io_uring_get_cqe(ring, cqe_ptr, to_submit, wait_nr, sigmask);
 }
