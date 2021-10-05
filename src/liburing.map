@@ -47,5 +47,5 @@ LIBURING_2.1 {
 
 LIBURING_2.2 {
 	global:
-		io_uring_submit_and_wait_timout;
+		io_uring_submit_and_wait_timeout;
 } LIBURING_2.1;
