@@ -268,6 +268,7 @@ cat > $TMPC << EOF
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <string.h>
+#include <linux/openat2.h>
 int main(int argc, char **argv)
 {
   struct open_how how;
@@ -431,6 +432,10 @@ struct open_how {
 	uint64_t	mode;
 	uint64_t	resolve;
 };
+
+EOF
+else cat >> $compat_h << EOF
+#include <linux/openat2.h>
 
 EOF
 fi
