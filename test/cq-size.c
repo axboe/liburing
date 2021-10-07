@@ -45,14 +45,20 @@ int main(int argc, char *argv[])
 	p.cq_entries = 0;
 
 	ret = io_uring_queue_init_params(4, &ring, &p);
-	if (ret >= 0 || errno != EINVAL) {
+	if (ret >= 0) {
 		printf("zero sized cq ring succeeded\n");
+		io_uring_queue_exit(&ring);
+		goto err;
+	}
+
+	if (ret != -EINVAL) {
+		printf("io_uring_queue_init_params failed, but not with -EINVAL"
+		       ", returned error %d (%s)\n", ret, strerror(-ret));
 		goto err;
 	}
 
 done:
 	return 0;
 err:
-	io_uring_queue_exit(&ring);
 	return 1;
 }
