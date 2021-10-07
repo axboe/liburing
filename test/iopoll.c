@@ -306,7 +306,7 @@ static int probe_buf_select(void)
 		fprintf(stdout, "Buffer select not supported, skipping\n");
 		return 0;
 	}
-	free(p);
+	io_uring_free_probe(p);
 	return 0;
 }
 

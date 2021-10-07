@@ -480,7 +480,7 @@ static int test_buf_select(const char *filename, int nonvec)
 		fprintf(stdout, "Buffer select not supported, skipping\n");
 		return 0;
 	}
-	free(p);
+	io_uring_free_probe(p);
 
 	/*
 	 * Write out data with known pattern
