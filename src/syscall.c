@@ -2,6 +2,16 @@
 #define _DEFAULT_SOURCE
 
 /*
+ * Functions in this file require libc, only build them when we use libc.
+ *
+ * Note:
+ * liburing's tests still need these functions.
+ */
+#if defined(CONFIG_NOLIBC) && !defined(LIBURING_BUILD_TEST)
+# error "This file should only be compiled for libc build, or for liburing tests"
+#endif
+
+/*
  * Will go away once libc support is there
  */
 #include <unistd.h>
@@ -10,7 +20,6 @@
 #include "liburing/compat.h"
 #include "liburing/io_uring.h"
 #include "syscall.h"
-
 
 int __sys_io_uring_register(int fd, unsigned opcode, const void *arg,
 			    unsigned nr_args)
