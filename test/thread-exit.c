@@ -26,7 +26,17 @@ struct d {
 	unsigned long off;
 	int pipe_fd;
 	int err;
+	int i;
 };
+
+static char *g_buf[NR_IOS] = {NULL};
+
+static void free_g_buf(void)
+{
+	int i;
+	for (i = 0; i < NR_IOS; i++)
+		free(g_buf[i]);
+}
 
 static void *do_io(void *data)
 {
@@ -36,6 +46,7 @@ static void *do_io(void *data)
 	int ret;
 
 	buffer = t_malloc(WSIZE);
+	g_buf[d->i] = buffer;
 	memset(buffer, 0x5a, WSIZE);
 	sqe = io_uring_get_sqe(d->ring);
 	if (!sqe) {
@@ -55,8 +66,6 @@ static void *do_io(void *data)
 	ret = io_uring_submit(d->ring);
 	if (ret != 2)
 		d->err++;
-
-	free(buffer);
 	return NULL;
 }
 
@@ -103,6 +112,7 @@ int main(int argc, char *argv[])
 	d.pipe_fd = fds[0];
 	d.err = 0;
 	for (i = 0; i < NR_IOS; i++) {
+		d.i = i;
 		memset(&thread, 0, sizeof(thread));
 		pthread_create(&thread, NULL, do_io, &d);
 		pthread_join(thread, NULL);
@@ -125,7 +135,9 @@ int main(int argc, char *argv[])
 		io_uring_cqe_seen(&ring, cqe);
 	}
 
+	free_g_buf();
 	return d.err;
 err:
+	free_g_buf();
 	return 1;
 }
