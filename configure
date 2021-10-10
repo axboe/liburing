@@ -24,6 +24,8 @@ for opt do
   ;;
   --cxx=*) cxx="$optarg"
   ;;
+  --nolibc) liburing_nolibc="yes"
+  ;;
   *)
     echo "ERROR: unknown option $opt"
     echo "Try '$0 --help' for more information"
@@ -71,6 +73,7 @@ Options: [defaults in brackets after descriptions]
   --datadir=PATH           install shared data in PATH [$datadir]
   --cc=CMD                 use CMD as the C compiler
   --cxx=CMD                use CMD as the C++ compiler
+  --nolibc                 build liburing without libc
 EOF
 exit 0
 fi
@@ -358,6 +361,12 @@ print_config "has_memfd_create" "$has_memfd_create"
 
 
 #############################################################################
+if test "$liburing_nolibc" = "yes"; then
+  output_sym "CONFIG_NOLIBC"
+else
+  liburing_nolibc="no"
+fi
+print_config "liburing_nolibc" "$liburing_nolibc"
 
 if test "$__kernel_rwf_t" = "yes"; then
   output_sym "CONFIG_HAVE_KERNEL_RWF_T"
