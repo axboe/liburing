@@ -33,10 +33,12 @@ jobs:
     - name: Build
       run: |
         ./configure --cc=${{matrix.cc}} --cxx=${{matrix.cxx}};
-        make V=1 -j$(nproc) \
-             CPPFLAGS="-Werror" \
-             CFLAGS="$FLAGS" \
-             CXXFLAGS="$FLAGS";
+        make -j$(nproc) V=1 CPPFLAGS="-Werror" CFLAGS="$FLAGS" CXXFLAGS="$FLAGS";
+
+    - name: Build nolibc x86-64
+      run: |
+        ./configure --cc=${{matrix.cc}} --cxx=${{matrix.cxx}} --nolibc;
+        make -j$(nproc) V=1 CPPFLAGS="-Werror" CFLAGS="$FLAGS" CXXFLAGS="$FLAGS";
 
     - name: Build (32 bit)
       run: |
