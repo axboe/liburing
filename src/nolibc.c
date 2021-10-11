@@ -20,7 +20,7 @@ void *memset(void *s, int c, size_t n)
 
 struct uring_heap {
 	size_t		len;
-	char		user_p[];
+	char		user_p[] __attribute__((__aligned__));
 };
 
 void *malloc(size_t len)
