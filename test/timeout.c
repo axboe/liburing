@@ -563,8 +563,8 @@ static int test_multi_timeout(struct io_uring *ring)
 
 	gettimeofday(&tv, NULL);
 	for (i = 0; i < 2; i++) {
-		unsigned int time;
-		__u64 user_data;
+		unsigned int time = 0;
+		__u64 user_data = 0;
 
 		ret = io_uring_wait_cqe(ring, &cqe);
 		if (ret < 0) {
