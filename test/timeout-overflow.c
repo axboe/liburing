@@ -101,7 +101,7 @@ static int test_timeout_overflow(void)
 
 	msec_to_ts(&ts, TIMEOUT_MSEC);
 	for (i = 0; i < 4; i++) {
-		unsigned num;
+		unsigned num = 0;
 		sqe = io_uring_get_sqe(&ring);
 		switch (i) {
 		case 0:
