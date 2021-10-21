@@ -312,6 +312,14 @@ static inline void io_uring_prep_readv(struct io_uring_sqe *sqe, int fd,
 	io_uring_prep_rw(IORING_OP_READV, sqe, fd, iovecs, nr_vecs, offset);
 }
 
+static inline void io_uring_prep_readv2(struct io_uring_sqe *sqe, int fd,
+				       const struct iovec *iovecs,
+				       unsigned nr_vecs, __u64 offset, int flags)
+{
+	io_uring_prep_readv(sqe, fd, iovecs, nr_vecs, offset);
+	sqe->rw_flags = flags;
+}
+
 static inline void io_uring_prep_read_fixed(struct io_uring_sqe *sqe, int fd,
 					    void *buf, unsigned nbytes,
 					    __u64 offset, int buf_index)
@@ -325,6 +333,14 @@ static inline void io_uring_prep_writev(struct io_uring_sqe *sqe, int fd,
 					unsigned nr_vecs, __u64 offset)
 {
 	io_uring_prep_rw(IORING_OP_WRITEV, sqe, fd, iovecs, nr_vecs, offset);
+}
+
+static inline void io_uring_prep_writev2(struct io_uring_sqe *sqe, int fd,
+				       const struct iovec *iovecs,
+				       unsigned nr_vecs, __u64 offset, int flags)
+{
+	io_uring_prep_writev(sqe, fd, iovecs, nr_vecs, offset);
+	sqe->rw_flags = flags;
 }
 
 static inline void io_uring_prep_write_fixed(struct io_uring_sqe *sqe, int fd,
