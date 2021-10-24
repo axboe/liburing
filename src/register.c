@@ -248,7 +248,7 @@ int io_uring_register_iowq_aff(struct io_uring *ring, size_t cpusz,
 int io_uring_unregister_iowq_aff(struct io_uring *ring)
 {
 	return  ____sys_io_uring_register(ring->ring_fd,
-					  IORING_REGISTER_IOWQ_AFF, NULL, 0);
+					  IORING_UNREGISTER_IOWQ_AFF, NULL, 0);
 }
 
 int io_uring_register_iowq_max_workers(struct io_uring *ring, unsigned int *val)
