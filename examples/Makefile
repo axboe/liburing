@@ -10,20 +10,29 @@ ifneq ($(MAKECMDGOALS),clean)
 include ../config-host.mak
 endif
 
-all_targets += io_uring-test io_uring-cp link-cp
+example_srcs := \
+	io_uring-cp.c \
+	io_uring-test.c \
+	link-cp.c
+
+all_targets :=
+
 
 ifdef CONFIG_HAVE_UCONTEXT
-all_targets += ucontext-cp
+	example_srcs += ucontext-cp.c
 endif
+all_targets += ucontext-cp
 
-all: $(all_targets)
+example_targets := $(patsubst %.c,%,$(patsubst %.cc,%,$(example_srcs)))
+all_targets += $(example_targets)
 
-test_srcs := io_uring-test.c io_uring-cp.c link-cp.c
 
-test_objs := $(patsubst %.c,%.ol,$(test_srcs))
+all: $(example_targets)
 
 %: %.c
 	$(QUIET_CC)$(CC) $(CPPFLAGS) $(CFLAGS) -o $@ $< $(LDFLAGS)
 
 clean:
-	@rm -f $(all_targets) $(test_objs)
+	@rm -f $(all_targets)
+
+.PHONY: all clean
