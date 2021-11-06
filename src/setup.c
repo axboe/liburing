@@ -60,8 +60,9 @@ static int get_sq_cq_entries(unsigned entries, struct io_uring_params *p,
 
 static void io_uring_unmap_rings(struct io_uring_sq *sq, struct io_uring_cq *cq)
 {
-	__sys_munmap(sq->ring_ptr, sq->ring_sz);
-	if (cq->ring_ptr && cq->ring_ptr != sq->ring_ptr)
+	if (sq->ring_sz)
+		__sys_munmap(sq->ring_ptr, sq->ring_sz);
+	if (cq->ring_ptr && cq->ring_sz && cq->ring_ptr != sq->ring_ptr)
 		__sys_munmap(cq->ring_ptr, cq->ring_sz);
 }
 
@@ -148,16 +149,8 @@ err:
  */
 int io_uring_queue_mmap(int fd, struct io_uring_params *p, struct io_uring *ring)
 {
-	int ret;
-
 	memset(ring, 0, sizeof(*ring));
-	ret = io_uring_mmap(fd, p, &ring->sq, &ring->cq);
-	if (!ret) {
-		ring->flags = p->flags;
-		ring->ring_fd = ring->enter_ring_fd = fd;
-		ring->int_flags = 0;
-	}
-	return ret;
+	return io_uring_mmap(fd, p, &ring->sq, &ring->cq);
 }
 
 /*
@@ -195,22 +188,97 @@ int io_uring_ring_dontfork(struct io_uring *ring)
 	return 0;
 }
 
+/* FIXME */
+static int huge_page_size = 2 * 1024 * 1024;
+
+static int io_uring_alloc_huge(unsigned entries, struct io_uring_params *p,
+			       struct io_uring_sq *sq, struct io_uring_cq *cq)
+{
+	unsigned sq_entries, cq_entries;
+	size_t ring_mem, sqes_mem;
+	void *ptr;
+	int ret;
+
+	ret = get_sq_cq_entries(entries, p, &sq_entries, &cq_entries);
+	if (ret)
+		return ret;
+
+	sqes_mem = sq_entries * sizeof(struct io_uring_sqe);
+	ring_mem = cq_entries * sizeof(struct io_uring_cqe);
+	ring_mem += sq_entries * sizeof(unsigned);
+
+	ptr = __sys_mmap(NULL, huge_page_size, PROT_READ|PROT_WRITE,
+				MAP_SHARED|MAP_ANONYMOUS|MAP_HUGETLB, -1, 0);
+	if (IS_ERR(ptr))
+		return PTR_ERR(ptr);
+
+	sq->sqes = ptr;
+	memset(ptr, 0, huge_page_size);
+	if (sqes_mem + ring_mem <= huge_page_size) {
+		size_t sqes_size = sq_entries * sizeof(struct io_uring_sqe);
+		unsigned long page_size = get_page_size();
+
+		/* everything fits in one huge page */
+		sqes_size = (sqes_size + page_size - 1) & ~(page_size - 1);
+		sq->ring_ptr = (void *) sq->sqes + sqes_size;
+		/* clear ring sizes, we have just one mmap() to undo */
+		cq->ring_sz = 0;
+		sq->ring_sz = 0;
+	} else {
+		ptr = __sys_mmap(NULL, huge_page_size, PROT_READ|PROT_WRITE,
+					MAP_SHARED|MAP_ANONYMOUS|MAP_HUGETLB,
+					-1, 0);
+		if (IS_ERR(ptr)) {
+			__sys_munmap(sq->sqes, huge_page_size);
+			return PTR_ERR(ptr);
+		}
+		memset(ptr, 0, huge_page_size);
+		sq->ring_ptr = ptr;
+		sq->ring_sz = huge_page_size;
+		cq->ring_sz = 0;
+	}
+
+	cq->ring_ptr = (void *) sq->ring_ptr;
+	p->sq_off.user_addr = (unsigned long) sq->sqes;
+	p->cq_off.user_addr = (unsigned long) sq->ring_ptr;
+	return 0;
+}
+
 int io_uring_queue_init_params(unsigned entries, struct io_uring *ring,
 			       struct io_uring_params *p)
 {
 	int fd, ret;
 
-	fd = ____sys_io_uring_setup(entries, p);
-	if (fd < 0)
-		return fd;
+	memset(ring, 0, sizeof(*ring));
 
-	ret = io_uring_queue_mmap(fd, p, ring);
-	if (ret) {
-		__sys_close(fd);
-		return ret;
+	if (p->flags & IORING_SETUP_NO_MMAP) {
+		ret = io_uring_alloc_huge(entries, p, &ring->sq, &ring->cq);
+		if (ret)
+			return ret;
+	}
+
+	fd = ____sys_io_uring_setup(entries, p);
+	if (fd < 0) {
+		if (p->flags & IORING_SETUP_NO_MMAP) {
+			__sys_munmap(ring->sq.sqes, huge_page_size);
+			io_uring_unmap_rings(&ring->sq, &ring->cq);
+		}
+		return fd;
+	}
+
+	if (!(p->flags & IORING_SETUP_NO_MMAP)) {
+		ret = io_uring_queue_mmap(fd, p, ring);
+		if (ret) {
+			__sys_close(fd);
+			return ret;
+		}
+	} else {
+		io_uring_setup_ring_pointers(p, &ring->sq, &ring->cq);
 	}
 
 	ring->features = p->features;
+	ring->flags = p->flags;
+	ring->ring_fd = ring->enter_ring_fd = fd;
 	return 0;
 }
 
@@ -234,11 +302,19 @@ void io_uring_queue_exit(struct io_uring *ring)
 	struct io_uring_cq *cq = &ring->cq;
 	size_t sqe_size;
 
-	sqe_size = sizeof(struct io_uring_sqe);
-	if (ring->flags & IORING_SETUP_SQE128)
-		sqe_size += 64;
-	__sys_munmap(sq->sqes, sqe_size * *sq->kring_entries);
-	io_uring_unmap_rings(sq, cq);
+	if (!sq->ring_sz) {
+		sqe_size = sizeof(struct io_uring_sqe);
+		if (ring->flags & IORING_SETUP_SQE128)
+			sqe_size += 64;
+		__sys_munmap(sq->sqes, sqe_size * *sq->kring_entries);
+		io_uring_unmap_rings(sq, cq);
+	} else {
+		__sys_munmap(sq->sqes,
+				*sq->kring_entries * sizeof(struct io_uring_sqe));
+		io_uring_unmap_rings(sq, cq);
+		__sys_close(ring->ring_fd);
+	}
+
 	/*
 	 * Not strictly required, but frees up the slot we used now rather
 	 * than at process exit time.
