@@ -83,6 +83,7 @@ test_srcs := \
 	io_uring_enter.c \
 	io_uring_register.c \
 	io_uring_setup.c \
+	kworker-hang.c \
 	lfs-openat.c \
 	lfs-openat-write.c \
 	link.c \

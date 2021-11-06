@@ -65,6 +65,7 @@
 /test/io_uring_register
 /test/io_uring_setup
 /test/iopoll
+/test/kworker-hang
 /test/lfs-openat
 /test/lfs-openat-write
 /test/link
