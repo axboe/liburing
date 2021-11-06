@@ -8,6 +8,56 @@
 #include "liburing/compat.h"
 #include "liburing/io_uring.h"
 
+#define KERN_MAX_ENTRIES	32768
+#define KERN_MAX_CQ_ENTRIES	(2 * KERN_MAX_ENTRIES)
+
+static inline int __fls(int x)
+{
+	if (!x)
+		return 0;
+	return 8 * sizeof(x) - __builtin_clz(x);
+}
+
+static unsigned roundup_pow2(unsigned depth)
+{
+	return 1UL << __fls(depth - 1);
+}
+
+static int get_sq_cq_entries(unsigned entries, struct io_uring_params *p,
+			     unsigned *sq, unsigned *cq)
+{
+	unsigned cq_entries;
+
+	if (!entries)
+		return -EINVAL;
+	if (entries > KERN_MAX_ENTRIES) {
+		if (!(p->flags & IORING_SETUP_CLAMP))
+			return -EINVAL;
+		entries = KERN_MAX_ENTRIES;
+	}
+
+	entries = roundup_pow2(entries);
+	if (p->flags & IORING_SETUP_CQSIZE) {
+		if (!p->cq_entries)
+			return -EINVAL;
+		cq_entries = p->cq_entries;
+		if (cq_entries > KERN_MAX_CQ_ENTRIES) {
+			if (!(p->flags & IORING_SETUP_CLAMP))
+				return -EINVAL;
+			cq_entries = KERN_MAX_CQ_ENTRIES;
+		}
+		cq_entries = roundup_pow2(cq_entries);
+		if (cq_entries < entries)
+			return -EINVAL;
+	} else {
+		cq_entries = 2 * entries;
+	}
+
+	*sq = entries;
+	*cq = cq_entries;
+	return 0;
+}
+
 static void io_uring_unmap_rings(struct io_uring_sq *sq, struct io_uring_cq *cq)
 {
 	__sys_munmap(sq->ring_ptr, sq->ring_sz);
@@ -238,18 +288,6 @@ void io_uring_free_probe(struct io_uring_probe *probe)
 	uring_free(probe);
 }
 
-static inline int __fls(int x)
-{
-	if (!x)
-		return 0;
-	return 8 * sizeof(x) - __builtin_clz(x);
-}
-
-static unsigned roundup_pow2(unsigned depth)
-{
-	return 1UL << __fls(depth - 1);
-}
-
 static size_t npages(size_t size, unsigned page_size)
 {
 	size--;
@@ -280,9 +318,6 @@ static size_t rings_size(struct io_uring_params *p, unsigned entries,
 	return pages * page_size;
 }
 
-#define KERN_MAX_ENTRIES	32768
-#define KERN_MAX_CQ_ENTRIES	(2 * KERN_MAX_ENTRIES)
-
 /*
  * Return the required ulimit -l memlock memory required for a given ring
  * setup, in bytes. May return -errno on error. On newer (5.12+) kernels,
@@ -295,9 +330,10 @@ ssize_t io_uring_mlock_size_params(unsigned entries, struct io_uring_params *p)
 {
 	struct io_uring_params lp = { };
 	struct io_uring ring;
-	unsigned cq_entries;
+	unsigned cq_entries, sq;
 	long page_size;
 	ssize_t ret;
+	int cret;
 
 	/*
 	 * We only really use this inited ring to see if the kernel is newer
@@ -325,25 +361,12 @@ ssize_t io_uring_mlock_size_params(unsigned entries, struct io_uring_params *p)
 		entries = KERN_MAX_ENTRIES;
 	}
 
-	entries = roundup_pow2(entries);
-	if (p->flags & IORING_SETUP_CQSIZE) {
-		if (!p->cq_entries)
-			return -EINVAL;
-		cq_entries = p->cq_entries;
-		if (cq_entries > KERN_MAX_CQ_ENTRIES) {
-			if (!(p->flags & IORING_SETUP_CLAMP))
-				return -EINVAL;
-			cq_entries = KERN_MAX_CQ_ENTRIES;
-		}
-		cq_entries = roundup_pow2(cq_entries);
-		if (cq_entries < entries)
-			return -EINVAL;
-	} else {
-		cq_entries = 2 * entries;
-	}
+	cret = get_sq_cq_entries(entries, p, &sq, &cq_entries);
+	if (cret)
+		return cret;
 
 	page_size = get_page_size();
-	return rings_size(p, entries, cq_entries, page_size);
+	return rings_size(p, sq, cq_entries, page_size);
 }
 
 /*
