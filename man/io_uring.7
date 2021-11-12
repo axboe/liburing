@@ -641,7 +641,7 @@ int app_setup_uring(void) {
 
 int read_from_cq() {
     struct io_uring_cqe *cqe;
-    unsigned head, reaped = 0;
+    unsigned head;
 
     /* Read barrier */
     head = io_uring_smp_load_acquire(cring_head);
