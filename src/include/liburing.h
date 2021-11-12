@@ -8,7 +8,6 @@
 
 #include <sys/socket.h>
 #include <sys/uio.h>
-#include <sys/stat.h>
 #include <errno.h>
 #include <signal.h>
 #include <stdbool.h>
