@@ -268,7 +268,6 @@ print_config "__kernel_timespec" "$__kernel_timespec"
 open_how="no"
 cat > $TMPC << EOF
 #include <sys/types.h>
-#include <sys/stat.h>
 #include <fcntl.h>
 #include <string.h>
 #include <linux/openat2.h>
@@ -307,6 +306,27 @@ if compile_prog "" "" "statx"; then
   statx="yes"
 fi
 print_config "statx" "$statx"
+
+##########################################
+# check for glibc statx
+glibc_statx="no"
+cat > $TMPC << EOF
+#include <sys/types.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <string.h>
+#include <linux/stat.h>
+int main(int argc, char **argv)
+{
+  struct statx x;
+
+  return memset(&x, 0, sizeof(x)) != NULL;
+}
+EOF
+if compile_prog "" "" "glibc_statx"; then
+  glibc_statx="yes"
+fi
+print_config "glibc_statx" "$glibc_statx"
 
 ##########################################
 # check for C++
@@ -380,6 +400,9 @@ fi
 if test "$statx" = "yes"; then
   output_sym "CONFIG_HAVE_STATX"
 fi
+if test "$glibc_statx" = "yes"; then
+  output_sym "CONFIG_HAVE_GLIBC_STATX"
+fi
 if test "$has_cxx" = "yes"; then
   output_sym "CONFIG_HAVE_CXX"
 fi
@@ -445,6 +468,12 @@ struct open_how {
 EOF
 else cat >> $compat_h << EOF
 #include <linux/openat2.h>
+
+EOF
+fi
+if test "$glibc_statx" = "no" && "$statx" = "yes"; then
+cat >> $compat_h << EOF
+#include <sys/stat.h>
 
 EOF
 fi

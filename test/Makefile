@@ -157,6 +157,10 @@ include ../Makefile.quiet
 ifdef CONFIG_HAVE_STATX
 	test_srcs += statx.c
 endif
+
+ifdef CONFIG_HAVE_GLIBC_STATX
+	test_srcs += statx.c
+endif
 all_targets += statx
 
 
