@@ -1,3 +1,5 @@
+include ../Makefile.common
+
 prefix ?= /usr
 includedir ?= $(prefix)/include
 libdir ?= $(prefix)/lib
@@ -14,10 +16,8 @@ LINK_FLAGS=
 LINK_FLAGS+=$(LDFLAGS)
 ENABLE_SHARED ?= 1
 
-soname=liburing.so.2
-minor=1
-micro=0
-libname=$(soname).$(minor).$(micro)
+soname=liburing.so
+libname=$(soname).$(VERSION)
 all_targets += liburing.a
 
 ifeq ($(ENABLE_SHARED),1)

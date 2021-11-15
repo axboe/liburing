@@ -1,7 +1,5 @@
-NAME=liburing
-SPECFILE=$(NAME).spec
-VERSION=$(shell awk '/Version:/ { print $$2 }' $(SPECFILE))
-TAG = $(NAME)-$(VERSION)
+include Makefile.common
+
 RPMBUILD=$(shell `which rpmbuild >&/dev/null` && echo "rpmbuild" || echo "rpm")
 
 INSTALL=install
