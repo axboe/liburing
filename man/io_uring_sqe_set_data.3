@@ -1,0 +1,30 @@
+.\" Copyright (C) 2021 Stefan Roesch <shr@fb.com>
+.\"
+.\" SPDX-License-Identifier: LGPL-2.0-or-later
+.\"
+.TH io_uring_sqe_set_data 3 "November 15, 2021" "liburing-2.1" "liburing Manual"
+.SH NAME
+io_uring_sqe_set_data - set user data for submission queue event
+.SH SYNOPSIS
+.nf
+.BR "#include <liburing.h>"
+.PP
+.BI "void io_uring_sqe_set_data(struct io_uring_sqe *sqe,"
+.BI "                           void *user_data)"
+.fi
+.PP
+.SH DESCRIPTION
+.PP
+The io_uring_sqe_set_data() function stores a
+.I user_data
+pointer with the submission queue entry
+.I sqe.
+
+After the caller has requested an submission queue entry (SQE) with io_uring_get_sqe(),
+he can associate a data pointer with the SQE. Once the completion arrives, the
+function io_uring_cqe_get_data() can be called to identify the user request.
+
+.SH RETURN VALUE
+None
+.SH SEE ALSO
+.BR io_uring_get_sqe (3),  io_uring_cqe_get_data (3)

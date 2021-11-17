@@ -1,0 +1,34 @@
+.\" Copyright (C) 2021 Stefan Roesch <shr@fb.com>
+.\"
+.\" SPDX-License-Identifier: LGPL-2.0-or-later
+.\"
+.TH io_uring_register_buffers 3 "November 15, 2021" "liburing-2.1" "liburing Manual"
+.SH NAME
+io_uring_register_buffers - register buffers for fixed buffer operations
+.fi
+.SH SYNOPSIS
+.nf
+.BR "#include <liburing.h>"
+.PP
+.BI "int io_uring_register_buffers(struct io_uring *ring,"
+.BI "                              const struct iovec *iovecs,
+.BI "                              unsigned nr_iovecs)"
+.PP
+.SH DESCRIPTION
+.PP
+The io_uring_register_buffers() function registers
+.I nr_iovecs
+number of buffers defined by the array
+.I iovecs
+belonging to the
+.I ring.
+
+After the caller has registered the buffers, they can be used with one of the
+fixed buffers functions.
+
+.SH RETURN VALUE
+On success
+.BR io_uring_register_buffers (3)
+returns 0. On failure it returns -errno.
+.SH SEE ALSO
+.BR io_uring_get_sqe (3), io_uring_unregister_buffers (3)

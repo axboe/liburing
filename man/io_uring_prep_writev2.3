@@ -1,0 +1,60 @@
+.\" Copyright (C) 2021 Stefan Roesch <shr@fb.com>
+.\"
+.\" SPDX-License-Identifier: LGPL-2.0-or-later
+.\"
+.TH io_uring_prep_writev2 3 "November 15, 2021" "liburing-2.1" "liburing Manual"
+.SH NAME
+io_uring_prep_writev2 - prepare vector I/O write request with flags
+
+.SH SYNOPSIS
+.nf
+.BR "#include <liburing.h>"
+.PP
+.BI "void io_uring_prep_writev2(struct io_uring_sqe *sqe,"
+.BI "                           int fd,"
+.BI "                           const struct iovec *iovecs,"
+.BI "                           unsigned nr_vecs,"
+.BI "                           __u64 offset,"
+.BI "                           int flags)"
+.fi
+.PP
+.SH DESCRIPTION
+.PP
+The io_uring_prep_writev2() prepares a vectored IO write request. The submission queue entry
+.I sqe
+is setup to use the file descriptor
+.I fd
+to start writing
+.I nr_vecs
+from the
+.I iovecs
+array at file
+.I offset.
+The behavior of the function can be controlled with the
+.I flags
+parameter.
+
+Supported values for flags are:
+.TP
+.B RWF_HIPRI
+High priority request, poll if possible
+.TP
+.B RWF_DSYNC
+per-IO O_DSYNC
+.TP
+.B RWF_SYNC
+per-IO O_SYNC
+.TP
+.B RWF_NOWAIT
+per-IO, return -EAGAIN if operation would block
+.TP
+.B RWF_APPEND
+per-IO O_APPEND
+
+.TP
+After the write has been prepared, it can be submitted with one of the submit functions.
+
+.SH RETURN VALUE
+None
+.SH SEE ALSO
+.BR io_uring_get_sqe (3), io_uring_prep_write (3), io_uring_prep_writev (3), io_uring_submit (3)

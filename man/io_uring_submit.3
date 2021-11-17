@@ -1,0 +1,29 @@
+.\" Copyright (C) 2021 Stefan Roesch <shr@fb.com>
+.\"
+.\" SPDX-License-Identifier: LGPL-2.0-or-later
+.\"
+.TH io_uring_submit 3 "November 15, 2021" "liburing-2.1" "liburing Manual"
+.SH NAME
+io_uring_submit - submit requests to the submission queue
+.fi
+.SH SYNOPSIS
+.nf
+.BR "#include <liburing.h>"
+.PP
+.BI "int io_uring_submit(struct io_uring *ring)"
+.PP
+.SH DESCRIPTION
+.PP
+The io_uring_submit() function submits the next events to the submission
+queue belonging to the
+.I ring.
+
+After the caller retrieves a submission queue entry (SQE) with io_uring_get_sqe(),
+prepares the SQE, it can be submitted with io_uring_submit().
+
+.SH RETURN VALUE
+On success
+.BR io_uring_submit (3)
+returns the number of submitted submission queue entries. On failure it returns -errno.
+.SH SEE ALSO
+.BR io_uring_get_sqe (3),  io_uring_submit_and_wait (3), io_uring_submit_and_wait_timeout (3)

@@ -1,0 +1,49 @@
+.\" Copyright (C) 2021 Stefan Roesch <shr@fb.com>
+.\"
+.\" SPDX-License-Identifier: LGPL-2.0-or-later
+.\"
+.TH io_uring_submit_and_wait_timeout 3 "November 15, 2021" "liburing-2.1" "liburing Manual"
+.SH NAME
+io_uring_submit_and_wait_timeout - submit requests to the submission queue and
+wait for the completion with timeout
+.fi
+.SH SYNOPSIS
+.nf
+.BR "#include <liburing.h>"
+.PP
+.BI "int io_uring_submit_and_wait_timeout(struct io_uring *ring,"
+.fi
+.BI "                                     struct io_uring_cqe **cqe_ptr,"
+.fi
+.BI "                                     unsigned wait_nr,"
+.fi
+.BI "                                     struct __kernel_timespec *ts,"
+.fi
+.BI "                                     sigset_t *sigmask)"
+.PP
+.SH DESCRIPTION
+.PP
+The io_uring_submit_and_wait_timeout() function submits the next events to the submission
+queue belonging to the
+.I ring
+and waits for
+.I wait_nr
+completion events or until the timeout
+.I ts
+expires.The completion events are stored in the
+.I cqe_ptr array.
+The
+.I sigmask
+specifies the set of signals to block. The prevailing signal mask is restored
+before returning.
+
+After the caller retrieves a submission queue entry (SQE) with io_uring_get_sqe(),
+prepares the SQE, it can be submitted with io_uring_submit_and_wait_timeout().
+
+
+.SH RETURN VALUE
+On success
+.BR io_uring_submit_and_wait_timeout (3)
+returns the number of submitted submission queue entries. On failure it returns -errno.
+.SH SEE ALSO
+.BR io_uring_get_sqe (3),  io_uring_submit (3), io_uring_submit_and_wait (3), io_uring_wait_cqe (3)

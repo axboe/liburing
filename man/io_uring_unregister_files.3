@@ -1,0 +1,26 @@
+.\" Copyright (C) 2021 Stefan Roesch <shr@fb.com>
+.\"
+.\" SPDX-License-Identifier: LGPL-2.0-or-later
+.\"
+.TH io_uring_unregister_files 3 "November 15, 2021" "liburing-2.1" "liburing Manual"
+.SH NAME
+io_uring_unregister_files - unregister file descriptors
+.fi
+.SH SYNOPSIS
+.nf
+.BR "#include <liburing.h>"
+.PP
+.BI "int io_uring_unregister_files(struct io_uring *ring)"
+.PP
+.SH DESCRIPTION
+.PP
+The io_uring_unregister_files() function unregisters
+the file descriptors previously registered to the
+.I ring.
+
+.SH RETURN VALUE
+On success
+.BR io_uring_unregister_files (3)
+returns 0. On failure it returns -errno.
+.SH SEE ALSO
+.BR io_uring_register_files (3)

@@ -1,0 +1,34 @@
+.\" Copyright (C) 2021 Stefan Roesch <shr@fb.com>
+.\"
+.\" SPDX-License-Identifier: LGPL-2.0-or-later
+.\"
+.TH io_uring_submit_and_wait 3 "November 15, 2021" "liburing-2.1" "liburing Manual"
+.SH NAME
+io_uring_submit_and_wait - submit requests to the submission queue and wait for completion
+.fi
+.SH SYNOPSIS
+.nf
+.BR "#include <liburing.h>"
+.PP
+.BI "int io_uring_submit_and_wait(struct io_uring *ring,"
+.fi
+.BI "                             unsigned wait_nr)"
+.PP
+.SH DESCRIPTION
+.PP
+The io_uring_submit_and_wait() function submits the next events to the submission
+queue belonging to the
+.I ring
+and waits for
+.I wait_nr
+completion events.
+
+After the caller retrieves a submission queue entry (SQE) with io_uring_get_sqe(),
+prepares the SQE, it can be submitted with io_uring_submit_and_wait().
+
+.SH RETURN VALUE
+On success
+.BR io_uring_submit_and_wait (3)
+returns the number of submitted submission queue entries. On failure it returns -errno.
+.SH SEE ALSO
+.BR io_uring_get_sqe (3),  io_uring_submit (3), io_uring_submit_and_wait_timeout (3)
