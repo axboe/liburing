@@ -36,9 +36,9 @@ liburing_srcs := setup.c queue.c register.c
 
 ifeq ($(CONFIG_NOLIBC),y)
 	liburing_srcs += nolibc.c
-	override CFLAGS += -nostdlib -nodefaultlibs -ffreestanding -fno-stack-protector
-	override CPPFLAGS += -nostdlib -nodefaultlibs -ffreestanding -fno-stack-protector
-	override LINK_FLAGS += -nostdlib -nodefaultlibs
+	override CFLAGS += -fpic -fPIC -nostdlib -nodefaultlibs -ffreestanding -fno-stack-protector
+	override CPPFLAGS += -fpic -fPIC -nostdlib -nodefaultlibs -ffreestanding -fno-stack-protector
+	override LINK_FLAGS += -fpic -fPIC -nostdlib -nodefaultlibs
 else
 	liburing_srcs += syscall.c
 endif
