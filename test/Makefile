@@ -147,6 +147,7 @@ test_srcs := \
 	timeout-overflow.c \
 	unlink.c \
 	wakeup-hang.c \
+	skip-cqe.c \
 	# EOL
 
 

@@ -131,6 +131,7 @@
 /test/testfile
 /test/submit-link-fail
 /test/exec-target
+/test/skip-cqe
 /test/*.dmesg
 /test/output/
 
