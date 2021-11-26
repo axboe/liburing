@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <fcntl.h>
+#include <assert.h>
 
 #include "liburing.h"
 
@@ -232,10 +233,79 @@ static int test_ltimeout_fire(struct io_uring *ring, bool async,
 	return 0;
 }
 
+static int test_hardlink(struct io_uring *ring, int nr, int fail_idx,
+			int skip_idx, bool hardlink_last)
+{
+	struct io_uring_cqe *cqe;
+	struct io_uring_sqe *sqe;
+	int ret, i;
+
+	assert(fail_idx < nr);
+	assert(skip_idx < nr);
+
+	for (i = 0; i < nr; i++) {
+		sqe = io_uring_get_sqe(ring);
+		if (i == fail_idx)
+			prep_exec_fail_req(sqe);
+		else
+			io_uring_prep_nop(sqe);
+		if (i != nr - 1 || hardlink_last)
+			sqe->flags |= IOSQE_IO_HARDLINK;
+		if (i == skip_idx)
+			sqe->flags |= IOSQE_CQE_SKIP_SUCCESS;
+		sqe->user_data = i;
+	}
+
+	ret = io_uring_submit(ring);
+	if (ret != nr) {
+		fprintf(stderr, "sqe submit failed: %d\n", ret);
+		goto err;
+	}
+
+	for (i = 0; i < nr; i++) {
+		if (i == skip_idx && fail_idx != skip_idx)
+			continue;
+
+		ret = io_uring_wait_cqe(ring, &cqe);
+		if (ret != 0) {
+			fprintf(stderr, "wait completion %d\n", ret);
+			goto err;
+		}
+		if (cqe->user_data != i) {
+			fprintf(stderr, "invalid user_data %d (%i)\n",
+				(int)cqe->user_data, i);
+			goto err;
+		}
+		if (i == fail_idx) {
+			if (cqe->res >= 0) {
+				fprintf(stderr, "req should've failed %d %d\n",
+					(int)cqe->user_data, cqe->res);
+				goto err;
+			}
+		} else {
+			if (cqe->res) {
+				fprintf(stderr, "req error %d %d\n",
+					(int)cqe->user_data, cqe->res);
+				goto err;
+			}
+		}
+
+		io_uring_cqe_seen(ring, cqe);
+	}
+
+	if (io_uring_peek_cqe(ring, &cqe) >= 0) {
+		fprintf(stderr, "single CQE expected %i\n", (int)cqe->user_data);
+		goto err;
+	}
+	return 0;
+err:
+	return 1;
+}
+
 int main(int argc, char *argv[])
 {
 	struct io_uring ring;
-	int ret, i;
+	int ret, i, j, k;
 	int mid_idx = LINK_SIZE / 2;
 	int last_idx = LINK_SIZE - 1;
 
@@ -328,6 +398,23 @@ int main(int argc, char *argv[])
 		if (ret) {
 			fprintf(stderr, "test_ltimeout_fire failed\n");
 			return ret;
+		}
+	}
+
+	/* test 3 positions, start/middle/end of the link, i.e. indexes 0, 3, 6 */
+	for (i = 0; i < 3; i++) {
+		for (j = 0; j < 3; j++) {
+			for (k = 0; k < 2; k++) {
+				bool mark_last = k & 1;
+
+				ret = test_hardlink(&ring, 7, i * 3, j * 3, mark_last);
+				if (ret) {
+					fprintf(stderr, "test_hardlink failed"
+							"fail %i skip %i mark last %i\n",
+						i * 3, j * 3, k);
+					return 1;
+				}
+			}
 		}
 	}
 
