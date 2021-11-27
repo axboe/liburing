@@ -1094,6 +1094,28 @@ are available and this flag is set, then the request will fail with
 as the error code. Once a buffer has been used, it is no longer available in
 the kernel pool. The application must re-register the given buffer again when
 it is ready to recycle it (eg has completed using it). Available since 5.7.
+.TP
+.B IOSQE_CQE_SKIP_SUCCESS
+Don't generate a CQE if the request completes successfully. If the request
+fails, an appropriate CQE will be posted as usual and if there is no
+.B IOSQE_IO_HARDLINK,
+CQEs for all linked requests will be omitted. The notion of failure/success is
+opcode specific and is the same as with breaking chains of
+.B IOSQE_IO_LINK.
+One special case is when the request has a linked timeout, then the CQE
+generation for the linked timeout is decided solely by whether it has
+.B IOSQE_CQE_SKIP_SUCCESS
+set, regardless whether it timed out or was cancelled. In other words, if a
+linked timeout has the flag set, it's guaranteed to not post a CQE.
+
+The semantics are chosen to accommodate several use cases. First, when all but
+the last request of a normal link without linked timeouts are marked with the
+flag, only one CQE per lin is posted. Additionally, it enables supression of
+CQEs in cases where the side effects of a successfully executed operation is
+enough for userspace to know the state of the system. One such example would
+be writing to a synchronisation file.
+
+Available since 5.17.
 
 .PP
 .I ioprio
