@@ -16,7 +16,7 @@ static int fds[2];
 /* should be successfully submitted but fails during execution */
 static void prep_exec_fail_req(struct io_uring_sqe *sqe)
 {
-	io_uring_prep_write(sqe, fds[2], NULL, 100, 0);
+	io_uring_prep_write(sqe, fds[1], NULL, 100, 0);
 }
 
 static int test_link_success(struct io_uring *ring, int nr, bool skip_last)
