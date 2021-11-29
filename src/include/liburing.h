@@ -708,6 +708,29 @@ static inline void io_uring_prep_getdents(struct io_uring_sqe *sqe, int fd,
 	io_uring_prep_rw(IORING_OP_GETDENTS, sqe, fd, buf, count, offset);
 }
 
+static inline void io_uring_prep_setxattr(struct io_uring_sqe *sqe,
+					  const char *name,
+					  const char *value,
+					  const char *path,
+					  int flags,
+					  size_t len)
+{
+	io_uring_prep_rw(IORING_OP_SETXATTR, sqe, 0, name, len, (__u64) value);
+	sqe->addr3 = (__u64) path;
+	sqe->xattr_flags = flags;
+}
+
+static inline void io_uring_prep_fsetxattr(struct io_uring_sqe *sqe,
+					   int         fd,
+					   const char *name,
+					   const char *value,
+					   int         flags,
+					   size_t      len)
+{
+	io_uring_prep_rw(IORING_OP_FSETXATTR, sqe, fd, name, len, (__u64) value);
+	sqe->xattr_flags = flags;
+}
+
 /*
  * Returns number of unconsumed (if SQPOLL) or unsubmitted entries exist in
  * the SQ ring
