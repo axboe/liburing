@@ -1115,6 +1115,15 @@ CQEs in cases where the side effects of a successfully executed operation is
 enough for userspace to know the state of the system. One such example would
 be writing to a synchronisation file.
 
+This flag is incompatible with
+.B IOSQE_IO_DRAIN.
+Using both of them in a single ring is undefined behavior, even when they are
+not used together in a single request. Currently, after the first request with
+.B IOSQE_CQE_SKIP_SUCCESS,
+all subsequent requests marked with drain will be failed at submission time.
+Note that the error reporting is best effort only, and restrictions may change
+in the future.
+
 Available since 5.17.
 
 .PP
