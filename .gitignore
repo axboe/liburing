@@ -49,6 +49,7 @@
 /test/eventfd
 /test/eventfd-disable
 /test/eventfd-ring
+/test/exit-no-cleanup
 /test/fadvise
 /test/fallocate
 /test/fc2a85cb02ef-test

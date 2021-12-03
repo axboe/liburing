@@ -67,6 +67,7 @@ test_srcs := \
 	eventfd-disable.c \
 	eventfd-ring.c \
 	exec-target.c \
+	exit-no-cleanup.c \
 	fadvise.c \
 	fallocate.c \
 	fc2a85cb02ef-test.c \
@@ -215,6 +216,7 @@ timeout-new: override LDFLAGS += -lpthread
 thread-exit: override LDFLAGS += -lpthread
 ring-leak2: override LDFLAGS += -lpthread
 poll-mshot-update: override LDFLAGS += -lpthread
+exit-no-cleanup: override LDFLAGS += -lpthread
 
 install: $(test_targets) runtests.sh runtests-loop.sh
 	$(INSTALL) -D -d -m 755 $(datadir)/liburing-test/
