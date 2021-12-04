@@ -425,8 +425,8 @@ static inline void io_uring_prep_timeout(struct io_uring_sqe *sqe,
 static inline void io_uring_prep_timeout_remove(struct io_uring_sqe *sqe,
 						__u64 user_data, unsigned flags)
 {
-	io_uring_prep_rw(IORING_OP_TIMEOUT_REMOVE, sqe, -1,
-				(void *)(unsigned long)user_data, 0, 0);
+	io_uring_prep_rw(IORING_OP_TIMEOUT_REMOVE, sqe, -1, NULL, 0, 0);
+	sqe->addr = user_data;
 	sqe->timeout_flags = flags;
 }
 
@@ -434,9 +434,9 @@ static inline void io_uring_prep_timeout_update(struct io_uring_sqe *sqe,
 						struct __kernel_timespec *ts,
 						__u64 user_data, unsigned flags)
 {
-	io_uring_prep_rw(IORING_OP_TIMEOUT_REMOVE, sqe, -1,
-				(void *)(unsigned long)user_data, 0,
-				(uintptr_t)ts);
+	io_uring_prep_rw(IORING_OP_TIMEOUT_REMOVE, sqe, -1, NULL, 0,
+				(uintptr_t) ts);
+	sqe->addr = user_data;
 	sqe->timeout_flags = flags | IORING_TIMEOUT_UPDATE;
 }
 
