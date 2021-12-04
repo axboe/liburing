@@ -55,7 +55,7 @@ static int del_polls(struct io_uring *ring, int fd, int nr)
 
 			sqe = io_uring_get_sqe(ring);
 			data = sqe_index[lrand48() % nr];
-			io_uring_prep_poll_remove(sqe, data);
+			io_uring_prep_poll_remove(sqe, (__u64)(uintptr_t)data);
 		}
 
 		ret = io_uring_submit(ring);

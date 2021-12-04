@@ -91,7 +91,7 @@ void io_uring_sqe_prep(int op, struct io_uring_sqe *sqe, unsigned sqe_flags, int
 			io_uring_prep_nop(sqe);
 			break;
 		case cancel:
-			io_uring_prep_poll_remove(sqe, (void *)(long)arg);
+			io_uring_prep_poll_remove(sqe, arg);
 			break;
 	}
 	sqe->flags = sqe_flags;

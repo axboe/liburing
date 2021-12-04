@@ -79,7 +79,7 @@ static int test_poll_cancel(void)
 
 	pds[1].is_poll = 0;
 	pds[1].is_cancel = 1;
-	io_uring_prep_poll_remove(sqe, &pds[0]);
+	io_uring_prep_poll_remove(sqe, (__u64)(uintptr_t)&pds[0]);
 	io_uring_sqe_set_data(sqe, &pds[1]);
 
 	ret = io_uring_submit(&ring);

@@ -219,6 +219,11 @@ static inline void io_uring_cqe_seen(struct io_uring *ring,
 /*
  * Command prep helpers
  */
+
+/*
+ * Associate pointer @data with the sqe, for later retrieval from the cqe
+ * at command completion time with io_uring_cqe_get_data().
+ */
 static inline void io_uring_sqe_set_data(struct io_uring_sqe *sqe, void *data)
 {
 	sqe->user_data = (unsigned long) data;
@@ -228,6 +233,27 @@ static inline void *io_uring_cqe_get_data(const struct io_uring_cqe *cqe)
 {
 	return (void *) (uintptr_t) cqe->user_data;
 }
+
+/*
+ * Assign a 64-bit value to this sqe, which can get retrieved at completion
+ * time with io_uring_cqe_get_data64. Just like the non-64 variants, except
+ * these store a 64-bit type rather than a data pointer.
+ */
+static inline void io_uring_sqe_set_data64(struct io_uring_sqe *sqe,
+					   __u64 data)
+{
+	sqe->user_data = data;
+}
+
+static inline __u64 io_uring_cqe_get_data64(const struct io_uring_cqe *cqe)
+{
+	return cqe->user_data;
+}
+
+/*
+ * Tell the app the have the 64-bit variants of the get/set userdata
+ */
+#define LIBURING_HAVE_DATA64
 
 static inline void io_uring_sqe_set_flags(struct io_uring_sqe *sqe,
 					  unsigned flags)
@@ -387,18 +413,20 @@ static inline void io_uring_prep_poll_multishot(struct io_uring_sqe *sqe,
 }
 
 static inline void io_uring_prep_poll_remove(struct io_uring_sqe *sqe,
-					     void *user_data)
+					     __u64 user_data)
 {
-	io_uring_prep_rw(IORING_OP_POLL_REMOVE, sqe, -1, user_data, 0, 0);
+	io_uring_prep_rw(IORING_OP_POLL_REMOVE, sqe, -1, NULL, 0, 0);
+	sqe->addr = user_data;
 }
 
 static inline void io_uring_prep_poll_update(struct io_uring_sqe *sqe,
-					     void *old_user_data,
-					     void *new_user_data,
+					     __u64 old_user_data,
+					     __u64 new_user_data,
 					     unsigned poll_mask, unsigned flags)
 {
-	io_uring_prep_rw(IORING_OP_POLL_REMOVE, sqe, -1, old_user_data, flags,
-			 (__u64)(uintptr_t)new_user_data);
+	io_uring_prep_rw(IORING_OP_POLL_REMOVE, sqe, -1, NULL, flags,
+			 new_user_data);
+	sqe->addr = old_user_data;
 	sqe->poll32_events = __io_uring_prep_poll_mask(poll_mask);
 }
 
@@ -459,10 +487,11 @@ static inline void io_uring_prep_accept_direct(struct io_uring_sqe *sqe, int fd,
 	__io_uring_set_target_fixed_file(sqe, file_index);
 }
 
-static inline void io_uring_prep_cancel(struct io_uring_sqe *sqe, void *user_data,
-					int flags)
+static inline void io_uring_prep_cancel(struct io_uring_sqe *sqe,
+					__u64 user_data, int flags)
 {
-	io_uring_prep_rw(IORING_OP_ASYNC_CANCEL, sqe, -1, user_data, 0, 0);
+	io_uring_prep_rw(IORING_OP_ASYNC_CANCEL, sqe, -1, NULL, 0, 0);
+	sqe->addr = user_data;
 	sqe->cancel_flags = (__u32) flags;
 }
 
