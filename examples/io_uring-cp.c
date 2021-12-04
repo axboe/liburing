@@ -74,7 +74,7 @@ static void queue_prepped(struct io_uring *ring, struct io_data *data)
 	else
 		io_uring_prep_writev(sqe, outfd, &data->iov, 1, data->offset);
 
-	io_uring_sqe_set_data(sqe, data);
+	io_uring_sqe_set_data(sqe, (__u64) (uintptr_t) data);
 }
 
 static int queue_read(struct io_uring *ring, off_t size, off_t offset)
@@ -100,7 +100,7 @@ static int queue_read(struct io_uring *ring, off_t size, off_t offset)
 	data->first_len = size;
 
 	io_uring_prep_readv(sqe, infd, &data->iov, 1, offset);
-	io_uring_sqe_set_data(sqe, data);
+	io_uring_sqe_set_data(sqe, (__u64) (uintptr_t) data);
 	return 0;
 }
 
@@ -185,7 +185,7 @@ static int copy_file(struct io_uring *ring, off_t insize)
 			if (!cqe)
 				break;
 
-			data = io_uring_cqe_get_data(cqe);
+			data = (void *) (uintptr_t) io_uring_cqe_get_data(cqe);
 			if (cqe->res < 0) {
 				if (cqe->res == -EAGAIN) {
 					queue_prepped(ring, data);
@@ -235,7 +235,7 @@ static int copy_file(struct io_uring *ring, off_t insize)
 			fprintf(stderr, "write res=%d\n", cqe->res);
 			return 1;
 		}
-		data = io_uring_cqe_get_data(cqe);
+		data = (void *) (uintptr_t) io_uring_cqe_get_data(cqe);
 		free(data);
 		writes--;
 		io_uring_cqe_seen(ring, cqe);

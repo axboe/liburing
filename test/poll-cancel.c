@@ -63,7 +63,7 @@ static int test_poll_cancel(void)
 
 	pds[0].is_poll = 1;
 	pds[0].is_cancel = 0;
-	io_uring_sqe_set_data(sqe, &pds[0]);
+	io_uring_sqe_set_data(sqe, (__u64) (uintptr_t) &pds[0]);
 
 	ret = io_uring_submit(&ring);
 	if (ret <= 0) {
@@ -79,8 +79,8 @@ static int test_poll_cancel(void)
 
 	pds[1].is_poll = 0;
 	pds[1].is_cancel = 1;
-	io_uring_prep_poll_remove(sqe, &pds[0]);
-	io_uring_sqe_set_data(sqe, &pds[1]);
+	io_uring_prep_poll_remove(sqe, (__u64) (uintptr_t) &pds[0]);
+	io_uring_sqe_set_data(sqe, (__u64) (uintptr_t) &pds[1]);
 
 	ret = io_uring_submit(&ring);
 	if (ret <= 0) {
@@ -94,7 +94,7 @@ static int test_poll_cancel(void)
 		return 1;
 	}
 
-	pd = io_uring_cqe_get_data(cqe);
+	pd = (void *) (uintptr_t) io_uring_cqe_get_data(cqe);
 	if (pd->is_poll && cqe->res != -ECANCELED) {
 		fprintf(stderr ,"sqe (add=%d/remove=%d) failed with %ld\n",
 					pd->is_poll, pd->is_cancel,
@@ -114,7 +114,7 @@ static int test_poll_cancel(void)
 		return 1;
 	}
 
-	pd = io_uring_cqe_get_data(cqe);
+	pd = (void *) (uintptr_t) io_uring_cqe_get_data(cqe);
 	if (pd->is_poll && cqe->res != -ECANCELED) {
 		fprintf(stderr, "sqe (add=%d/remove=%d) failed with %ld\n",
 					pd->is_poll, pd->is_cancel,

@@ -55,7 +55,7 @@ static ssize_t await_##operation(					\
 		return -1;						\
 									\
 	io_uring_prep_##operation(sqe, fd, ioves, nr_vecs, offset);	\
-	io_uring_sqe_set_data(sqe, pctx);				\
+	io_uring_sqe_set_data(sqe, (__u64) (uintptr_t) pctx);		\
 	swapcontext(&pctx->ctx_fnew, &pctx->ctx_main);			\
 	io_uring_peek_cqe(pctx->ring, &cqe);				\
 	assert(cqe);							\
@@ -75,7 +75,7 @@ int await_poll(async_context *pctx, int fd, short poll_mask) {
 		return -1;
 
 	io_uring_prep_poll_add(sqe, fd, poll_mask);
-	io_uring_sqe_set_data(sqe, pctx);
+	io_uring_sqe_set_data(sqe, (__u64) (uintptr_t) pctx);
 	swapcontext(&pctx->ctx_fnew, &pctx->ctx_main);
 	io_uring_peek_cqe(pctx->ring, &cqe);
 	assert(cqe);
@@ -96,7 +96,7 @@ int await_delay(async_context *pctx, time_t seconds) {
 		return -1;
 
 	io_uring_prep_timeout(sqe, &ts, 0, 0);
-	io_uring_sqe_set_data(sqe, pctx);
+	io_uring_sqe_set_data(sqe, (__u64) (uintptr_t) pctx);
 	swapcontext(&pctx->ctx_fnew, &pctx->ctx_main);
 	io_uring_peek_cqe(pctx->ring, &cqe);
 	assert(cqe);
@@ -257,7 +257,7 @@ int main(int argc, char *argv[])
 			return 1;
 		}
 
-		async_context *pctx = io_uring_cqe_get_data(cqe);
+		async_context *pctx = (void *) (uintptr_t) io_uring_cqe_get_data(cqe);
 
 		if (swapcontext(&pctx->ctx_main, &pctx->ctx_fnew)) {
 			perror("swapcontext");

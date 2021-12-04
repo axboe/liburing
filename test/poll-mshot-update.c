@@ -42,7 +42,7 @@ static int has_poll_update(void)
 		return -1;
 
 	sqe = io_uring_get_sqe(&ring);
-	io_uring_prep_poll_update(sqe, NULL, NULL, POLLIN, IORING_TIMEOUT_UPDATE);
+	io_uring_prep_poll_update(sqe, 0, 0, POLLIN, IORING_TIMEOUT_UPDATE);
 
 	ret = io_uring_submit(&ring);
 	if (ret != 1)
@@ -86,8 +86,7 @@ static int reap_polls(struct io_uring *ring)
 
 		sqe = io_uring_get_sqe(ring);
 		/* update event */
-		io_uring_prep_poll_update(sqe, (void *)(unsigned long)i, NULL,
-					  POLLIN, IORING_POLL_UPDATE_EVENTS);
+		io_uring_prep_poll_update(sqe, i, 0, POLLIN, IORING_POLL_UPDATE_EVENTS);
 		sqe->user_data = 0x12345678;
 	}
 

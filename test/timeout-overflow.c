@@ -121,7 +121,7 @@ static int test_timeout_overflow(void)
 	for (i = 0; i < 2; i++) {
 		sqe = io_uring_get_sqe(&ring);
 		io_uring_prep_nop(sqe);
-		io_uring_sqe_set_data(sqe, (void *) 1);
+		io_uring_sqe_set_data(sqe, 1);
 	}
 	ret = io_uring_submit(&ring);
 	if (ret < 0) {
@@ -147,7 +147,7 @@ static int test_timeout_overflow(void)
 		switch (i) {
 		case 0:
 		case 3:
-			if (io_uring_cqe_get_data(cqe) != (void *) 1) {
+			if (io_uring_cqe_get_data(cqe) != 1) {
 				fprintf(stderr, "nop not seen as 1 or 2\n");
 				goto err;
 			}

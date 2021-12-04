@@ -46,7 +46,7 @@ int main(int argc, char *argv[])
 	}
 
 	io_uring_prep_nop(sqe);
-	io_uring_sqe_set_data(sqe, (void *) (unsigned long) 42);
+	io_uring_sqe_set_data(sqe, 42);
 	io_uring_submit_and_wait(&ring, 1);
 
 	ret = io_uring_peek_cqe(&ring, &cqe);

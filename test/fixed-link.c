@@ -52,7 +52,7 @@ int main(int argc, char *argv[])
 		io_uring_prep_read_fixed(sqe, fd, iovecs[i].iov_base, strlen(str), 0, i);
 		if (i == 0)
 			io_uring_sqe_set_flags(sqe, IOSQE_IO_LINK);
-		io_uring_sqe_set_data(sqe, (void *)str);
+		io_uring_sqe_set_data(sqe, (__u64) (uintptr_t) str);
 	}
 
 	ret = io_uring_submit_and_wait(&ring, IOVECS_LEN);

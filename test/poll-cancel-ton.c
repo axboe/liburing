@@ -51,10 +51,10 @@ static int del_polls(struct io_uring *ring, int fd, int nr)
 			batch = nr;
 
 		for (i = 0; i < batch; i++) {
-			void *data;
+			__u64 data;
 
 			sqe = io_uring_get_sqe(ring);
-			data = sqe_index[lrand48() % nr];
+			data = (__u64) (uintptr_t) sqe_index[lrand48() % nr];
 			io_uring_prep_poll_remove(sqe, data);
 		}
 
@@ -84,7 +84,7 @@ static int add_polls(struct io_uring *ring, int fd, int nr)
 			sqe = io_uring_get_sqe(ring);
 			io_uring_prep_poll_add(sqe, fd, POLLIN);
 			sqe_index[count++] = sqe;
-			sqe->user_data = (unsigned long) sqe;
+			sqe->user_data = (__u64) (uintptr_t) sqe;
 		}
 
 		ret = io_uring_submit(ring);

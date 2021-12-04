@@ -79,16 +79,16 @@ static void queue_rw_pair(struct io_uring *ring, off_t size, off_t offset)
 	sqe = io_uring_get_sqe(ring);
 	io_uring_prep_readv(sqe, infd, &data->iov, 1, offset);
 	sqe->flags |= IOSQE_IO_LINK;
-	io_uring_sqe_set_data(sqe, data);
+	io_uring_sqe_set_data(sqe, (__u64) (uintptr_t) data);
 
 	sqe = io_uring_get_sqe(ring);
 	io_uring_prep_writev(sqe, outfd, &data->iov, 1, offset);
-	io_uring_sqe_set_data(sqe, data);
+	io_uring_sqe_set_data(sqe, (__u64) (uintptr_t) data);
 }
 
 static int handle_cqe(struct io_uring *ring, struct io_uring_cqe *cqe)
 {
-	struct io_data *data = io_uring_cqe_get_data(cqe);
+	struct io_data *data = (void *) (uintptr_t) io_uring_cqe_get_data(cqe);
 	int ret = 0;
 
 	data->index++;

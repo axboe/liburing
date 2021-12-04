@@ -36,7 +36,7 @@ int main(int argc, char *argv[])
 	}
 
 	io_uring_prep_poll_add(sqe, ring.ring_fd, POLLIN);
-	io_uring_sqe_set_data(sqe, sqe);
+	io_uring_sqe_set_data(sqe, (__u64) (uintptr_t) sqe);
 
 	ret = io_uring_submit(&ring);
 	if (ret <= 0) {

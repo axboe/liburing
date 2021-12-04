@@ -329,7 +329,7 @@ static int test_accept_cancel(unsigned usecs)
 		usleep(usecs);
 
 	sqe = io_uring_get_sqe(&m_io_uring);
-	io_uring_prep_cancel(sqe, (void *) 1, 0);
+	io_uring_prep_cancel(sqe, 1, 0);
 	sqe->user_data = 2;
 	ret = io_uring_submit(&m_io_uring);
 	assert(ret == 1);

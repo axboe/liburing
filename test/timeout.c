@@ -133,10 +133,10 @@ static int test_single_timeout_nr(struct io_uring *ring, int nr)
 
 	sqe = io_uring_get_sqe(ring);
 	io_uring_prep_nop(sqe);
-	io_uring_sqe_set_data(sqe, (void *) 1);
+	io_uring_sqe_set_data(sqe, 1);
 	sqe = io_uring_get_sqe(ring);
 	io_uring_prep_nop(sqe);
-	io_uring_sqe_set_data(sqe, (void *) 1);
+	io_uring_sqe_set_data(sqe, 1);
 
 	ret = io_uring_submit_and_wait(ring, 3);
 	if (ret <= 0) {
@@ -158,7 +158,7 @@ static int test_single_timeout_nr(struct io_uring *ring, int nr)
 		 * NOP commands have user_data as 1. Check that we get the
 		 * at least 'nr' NOPs first, then the successfully removed timout.
 		 */
-		if (io_uring_cqe_get_data(cqe) == NULL) {
+		if (!io_uring_cqe_get_data(cqe)) {
 			if (i < nr) {
 				fprintf(stderr, "%s: timeout received too early\n", __FUNCTION__);
 				goto err;
@@ -193,11 +193,11 @@ static int test_single_timeout_wait(struct io_uring *ring,
 
 	sqe = io_uring_get_sqe(ring);
 	io_uring_prep_nop(sqe);
-	io_uring_sqe_set_data(sqe, (void *) 1);
+	io_uring_sqe_set_data(sqe, 1);
 
 	sqe = io_uring_get_sqe(ring);
 	io_uring_prep_nop(sqe);
-	io_uring_sqe_set_data(sqe, (void *) 1);
+	io_uring_sqe_set_data(sqe, 1);
 
 	/* no implied submit for newer kernels */
 	if (p->features & IORING_FEAT_EXT_ARG) {
@@ -648,7 +648,7 @@ static int test_multi_timeout_nr(struct io_uring *ring)
 		goto err;
 	}
 	io_uring_prep_nop(sqe);
-	io_uring_sqe_set_data(sqe, (void *) 1);
+	io_uring_sqe_set_data(sqe, 1);
 
 	ret = io_uring_submit(ring);
 	if (ret <= 0) {
@@ -670,7 +670,7 @@ static int test_multi_timeout_nr(struct io_uring *ring)
 		switch (i) {
 		case 0:
 			/* Should be nop req */
-			if (io_uring_cqe_get_data(cqe) != (void *) 1) {
+			if (io_uring_cqe_get_data(cqe) != 1) {
 				fprintf(stderr, "%s: nop not seen as 1 or 2\n", __FUNCTION__);
 				goto err;
 			}

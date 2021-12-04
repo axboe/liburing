@@ -135,7 +135,7 @@ io_prep_read(struct io_uring_sqe *sqe, int fd, off_t offset, size_t len)
 	iov->iov_len = len;
 
 	io_uring_prep_readv(sqe, fd, iov, 1, offset);
-	io_uring_sqe_set_data(sqe, iov); // free on completion
+	io_uring_sqe_set_data(sqe, (__u64) (uintptr_t) iov); // free on completion
 }
 
 void
@@ -158,7 +158,7 @@ reap_events(struct io_uring *ring, unsigned nr)
 		}
 		if (cqe->res != 4096)
 			printf("cqe->res: %d, expected 4096\n", cqe->res);
-		iov = io_uring_cqe_get_data(cqe);
+		iov = (void *) (uintptr_t) io_uring_cqe_get_data(cqe);
 		free(iov->iov_base);
 		free(iov);
 		left--;
