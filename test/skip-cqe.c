@@ -309,6 +309,9 @@ int main(int argc, char *argv[])
 	int mid_idx = LINK_SIZE / 2;
 	int last_idx = LINK_SIZE - 1;
 
+	if (argc > 1)
+		return 0;
+
 	if (pipe(fds)) {
 		fprintf(stderr, "pipe() failed\n");
 		return 1;
