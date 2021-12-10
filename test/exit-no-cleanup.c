@@ -73,6 +73,9 @@ int main(int argc, char *argv[])
 	int res, fds[2], i, cpus;
 	const uint64_t n = 0x42;
 
+	if (argc > 1)
+		return 0;
+
 	cpus = get_nprocs();
 	res = pthread_barrier_init(&init_barrier, NULL, cpus);
 	if (res)
