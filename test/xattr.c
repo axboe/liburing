@@ -194,7 +194,7 @@ int test_fxattr(void)
 	}
 
 	/* Create the test file. */
-	int fd = open(FILENAME, O_CREAT | O_RDWR);
+	int fd = open(FILENAME, O_CREAT | O_RDWR, 0644);
 	if (fd < 0) {
 		fprintf(stderr, "Error: cannot open file: ret=%d\n", fd);
 		return -1;
@@ -307,7 +307,7 @@ int test_failure_fxattr(void)
 	}
 
 	/* Create the test file. */
-	int fd = open(FILENAME, O_CREAT | O_RDWR);
+	int fd = open(FILENAME, O_CREAT | O_RDWR, 0644);
 	if (fd < 0) {
 		fprintf(stderr, "Error: cannot open file: ret=%d\n", fd);
 		return -1;
