@@ -687,7 +687,8 @@ static inline void io_uring_prep_mkdirat(struct io_uring_sqe *sqe, int dfd,
 }
 
 static inline void io_uring_prep_symlinkat(struct io_uring_sqe *sqe,
-					const char *target, int newdirfd, const char *linkpath)
+					   const char *target, int newdirfd,
+					   const char *linkpath)
 {
 	io_uring_prep_rw(IORING_OP_SYMLINKAT, sqe, newdirfd, target, 0,
 				(uint64_t) (uintptr_t) linkpath);
@@ -703,16 +704,15 @@ static inline void io_uring_prep_linkat(struct io_uring_sqe *sqe, int olddfd,
 }
 
 static inline void io_uring_prep_getdents(struct io_uring_sqe *sqe, int fd,
-					  void *buf, unsigned int count, uint64_t offset)
+					  void *buf, unsigned int count,
+					  uint64_t offset)
 {
 	io_uring_prep_rw(IORING_OP_GETDENTS, sqe, fd, buf, count, offset);
 }
 
 static inline void io_uring_prep_getxattr(struct io_uring_sqe *sqe,
-					  const char *name,
-					  const char *value,
-					  const char *path,
-					  size_t len)
+					  const char *name, const char *value,
+					  const char *path, size_t len)
 {
 	io_uring_prep_rw(IORING_OP_GETXATTR, sqe, 0, name, len,
 				(__u64) (uintptr_t) value);
@@ -721,10 +721,8 @@ static inline void io_uring_prep_getxattr(struct io_uring_sqe *sqe,
 }
 
 static inline void io_uring_prep_setxattr(struct io_uring_sqe *sqe,
-					  const char *name,
-					  const char *value,
-					  const char *path,
-					  int flags,
+					  const char *name, const char *value,
+					  const char *path, int flags,
 					  size_t len)
 {
 	io_uring_prep_rw(IORING_OP_SETXATTR, sqe, 0, name, len,
@@ -734,10 +732,8 @@ static inline void io_uring_prep_setxattr(struct io_uring_sqe *sqe,
 }
 
 static inline void io_uring_prep_fgetxattr(struct io_uring_sqe *sqe,
-		                           int         fd,
-					   const char *name,
-					   const char *value,
-					   size_t      len)
+		                           int fd, const char *name,
+					   const char *value, size_t len)
 {
 	io_uring_prep_rw(IORING_OP_FGETXATTR, sqe, fd, name, len,
 				(__u64) (uintptr_t) value);
@@ -745,11 +741,9 @@ static inline void io_uring_prep_fgetxattr(struct io_uring_sqe *sqe,
 }
 
 static inline void io_uring_prep_fsetxattr(struct io_uring_sqe *sqe,
-					   int         fd,
-					   const char *name,
-					   const char *value,
-					   int         flags,
-					   size_t      len)
+					   int fd, const char *name,
+					   const char *value, int flags,
+					   size_t len)
 {
 	io_uring_prep_rw(IORING_OP_FSETXATTR, sqe, fd, name, len,
 				(__u64) (uintptr_t) value);
