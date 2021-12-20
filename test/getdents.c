@@ -11,6 +11,8 @@
 #include "helpers.h"
 #include "liburing.h"
 
+static int no_getdents;
+
 #define BUFFER_SIZE 512
 
 #define LIST_INIT(name) { &(name), &(name) }
@@ -174,6 +176,11 @@ static void readdir_completion(struct dir *dir, int ret)
 	uint8_t *end;
 
 	if (ret < 0) {
+		if (ret == -EINVAL) {
+			fprintf(stdout, "Kernel doesn't support getdents, skipping\n");
+			no_getdents = 1;
+			return;
+		}
 		fprintf(stderr, "error reading ");
 		fprintf(stderr, ": %s (%d)\n", strerror(-ret), ret);
 		return;
@@ -249,9 +256,14 @@ int main(int argc, char *argv[])
 				opendir_completion(dir, dir->ret);
 			else
 				readdir_completion(dir, dir->ret);
+			if (no_getdents) {
+				num_dir_entries = 50;
+				goto done;
+			}
 		}
 	}
 
+done:
 	io_uring_queue_exit(&ring);
 	return num_dir_entries < 50;
 }
