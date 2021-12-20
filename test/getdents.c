@@ -56,8 +56,7 @@ static void drain_cqes(void);
 static void schedule_readdir(struct dir *dir);
 
 /* List helper functions. */
-static inline void
-list_add_tail(struct list *l, struct list *head)
+static inline void list_add_tail(struct list *l, struct list *head)
 {
 	l->next = head;
 	l->prev = head->prev;
@@ -101,9 +100,9 @@ static struct io_uring_sqe *get_sqe(void)
 
 static void drain_cqes(void)
 {
-	int 			count;
-	uint32_t 		head;
-	struct io_uring_cqe 	*cqe;
+	struct io_uring_cqe *cqe;
+	uint32_t head;
+	int count;
 
 	count = 0;
 	io_uring_for_each_cqe (&ring, head, cqe) {
@@ -123,9 +122,9 @@ static void drain_cqes(void)
 
 static void schedule_opendir(struct dir *parent, const char *name)
 {
-	int 			len = strlen(name);
-	struct dir 		*dir;
-	struct io_uring_sqe 	*sqe;
+	struct io_uring_sqe *sqe;
+	int len = strlen(name);
+	struct dir *dir;
 
 	dir = malloc(sizeof(*dir) + len + 1);
 	if (dir == NULL) {
