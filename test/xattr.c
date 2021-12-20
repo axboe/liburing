@@ -21,12 +21,8 @@
 
 
 /* Call fsetxattr. */
-int io_uring_fsetxattr(struct io_uring *ring,
-		       int              fd,
-		       const char      *name,
-		       const void      *value,
-		       size_t           size,
-		       int              flags)
+static int io_uring_fsetxattr(struct io_uring *ring, int fd, const char *name,
+			      const void *value, size_t size, int flags)
 {
 	struct io_uring_sqe *sqe;
 	struct io_uring_cqe *cqe;
@@ -59,11 +55,8 @@ int io_uring_fsetxattr(struct io_uring *ring,
 }
 
 /* Submit fgetxattr request. */
-int io_uring_fgetxattr(struct io_uring *ring,
-		       int              fd,
-		       const char      *name,
-		       void            *value,
-		       size_t           size)
+static int io_uring_fgetxattr(struct io_uring *ring, int fd, const char *name,
+			      void *value, size_t size)
 {
 	struct io_uring_sqe *sqe;
 	struct io_uring_cqe *cqe;
@@ -100,12 +93,9 @@ int io_uring_fgetxattr(struct io_uring *ring,
 }
 
 /* Call setxattr. */
-int io_uring_setxattr(struct io_uring *ring,
-		      const char      *path,
-		      const char      *name,
-		      const void      *value,
-		      size_t           size,
-		      int              flags)
+static int io_uring_setxattr(struct io_uring *ring, const char *path,
+			     const char *name, const void *value, size_t size,
+			     int flags)
 {
 	struct io_uring_sqe *sqe;
 	struct io_uring_cqe *cqe;
@@ -138,11 +128,8 @@ int io_uring_setxattr(struct io_uring *ring,
 }
 
 /* Submit getxattr request. */
-int io_uring_getxattr(struct io_uring *ring,
-		      const char      *path,
-		      const char      *name,
-		      void            *value,
-		      size_t           size)
+static int io_uring_getxattr(struct io_uring *ring, const char *path,
+			     const char *name, void *value, size_t size)
 {
 	struct io_uring_sqe *sqe;
 	struct io_uring_cqe *cqe;
@@ -179,7 +166,7 @@ int io_uring_getxattr(struct io_uring *ring,
 }
 
 /* Test driver for fsetxattr and fgetxattr. */
-int test_fxattr(void)
+static int test_fxattr(void)
 {
 	int rc = 0;
 	size_t value_len;
@@ -239,7 +226,7 @@ Exit:
 }
 
 /* Test driver for setxattr and getxattr. */
-int test_xattr(void)
+static int test_xattr(void)
 {
 	int rc = 0;
 	int value_len;
@@ -293,7 +280,7 @@ Exit:
 }
 
 /* Test driver for failure cases of fsetxattr and fgetxattr. */
-int test_failure_fxattr(void)
+static int test_failure_fxattr(void)
 {
 	int rc = 0;
 	struct io_uring ring;
@@ -336,7 +323,7 @@ int test_failure_fxattr(void)
 
 
 /* Test driver for failure cases for setxattr and getxattr. */
-int test_failure_xattr(void)
+static int test_failure_xattr(void)
 {
 	int rc = 0;
 	struct io_uring ring;
@@ -374,7 +361,7 @@ int test_failure_xattr(void)
 }
 
 /* Test for invalid SQE, this will cause a segmentation fault if enabled. */
-int test_invalid_sqe(void)
+static int test_invalid_sqe(void)
 {
 #ifdef DESTRUCTIVE_TEST
 	struct io_uring_sqe *sqe = NULL;
@@ -413,12 +400,13 @@ int test_invalid_sqe(void)
 }
 
 /* Test driver. */
-int main(int argc, char **argv) {
-	if (test_fxattr()
-		|| test_xattr()
-	    || test_failure_fxattr()
-		|| test_failure_xattr()
-	    || test_invalid_sqe())
+int main(int argc, char *argv[])
+{
+	if (argc > 1)
+		return 0;
+
+	if (test_fxattr() || test_xattr() || test_failure_fxattr() ||
+	    test_failure_xattr() || test_invalid_sqe())
 		return EXIT_FAILURE;
 
 	return EXIT_SUCCESS;
