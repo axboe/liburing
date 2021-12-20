@@ -9,6 +9,8 @@
 #include "helpers.h"
 #include "liburing.h"
 
+static int no_xattr;
+
 /* Define constants. */
 #define XATTR_SIZE  255
 #define QUEUE_DEPTH 32
@@ -49,6 +51,8 @@ static int io_uring_fsetxattr(struct io_uring *ring, int fd, const char *name,
 	}
 
 	ret = cqe->res;
+	if (ret == -EINVAL)
+		no_xattr = 1;
 	io_uring_cqe_seen(ring, cqe);
 
 	return ret;
@@ -188,13 +192,17 @@ static int test_fxattr(void)
 	}
 
 	/* Test writing attributes. */
-	if (io_uring_fsetxattr(&ring, fd, KEY1, VALUE1, strlen(VALUE1), 0) == -1) {
+	if (io_uring_fsetxattr(&ring, fd, KEY1, VALUE1, strlen(VALUE1), 0) < 0) {
+		if (no_xattr) {
+			fprintf(stdout, "No xattr support, skipping\n");
+			goto Exit;
+		}
 		fprintf(stderr, "Error fsetxattr cannot write key1\n");
 		rc = -1;
 		goto Exit;
 	}
 
-	if (io_uring_fsetxattr(&ring, fd, KEY2, VALUE2, strlen(VALUE2), 0) == -1) {
+	if (io_uring_fsetxattr(&ring, fd, KEY2, VALUE2, strlen(VALUE2), 0) < 0) {
 		fprintf(stderr, "Error fsetxattr cannot write key1\n");
 		rc = -1;
 		goto Exit;
@@ -203,14 +211,14 @@ static int test_fxattr(void)
 	/* Test reading attributes. */
 	value_len = io_uring_fgetxattr(&ring, fd, KEY1, value, XATTR_SIZE);
 	if (value_len != strlen(value) || strncmp(value, VALUE1, value_len)) {
-		fprintf(stderr, "Error: fgetxattr expectd value: %s, returned value: %s\n", VALUE1, value);
+		fprintf(stderr, "Error: fgetxattr expected value: %s, returned value: %s\n", VALUE1, value);
 		rc = -1;
 		goto Exit;
 	}
 
 	value_len = io_uring_fgetxattr(&ring, fd, KEY2, value, XATTR_SIZE);
 	if (value_len != strlen(value)|| strncmp(value, VALUE2, value_len)) {
-		fprintf(stderr, "Error: fgetxattr expectd value: %s, returned value: %s\n", VALUE2, value);
+		fprintf(stderr, "Error: fgetxattr expected value: %s, returned value: %s\n", VALUE2, value);
 		rc = -1;
 		goto Exit;
 	}
@@ -244,13 +252,13 @@ static int test_xattr(void)
 	t_create_file(FILENAME, 0);
 
 	/* Test writing attributes. */
-	if (io_uring_setxattr(&ring, FILENAME, KEY1, VALUE1, strlen(VALUE1), 0) == -1) {
+	if (io_uring_setxattr(&ring, FILENAME, KEY1, VALUE1, strlen(VALUE1), 0) < 0) {
 		fprintf(stderr, "Error setxattr cannot write key1\n");
 		rc = -1;
 		goto Exit;
 	}
 
-	if (io_uring_setxattr(&ring, FILENAME, KEY2, VALUE2, strlen(VALUE2), 0) == -1) {
+	if (io_uring_setxattr(&ring, FILENAME, KEY2, VALUE2, strlen(VALUE2), 0) < 0) {
 		fprintf(stderr, "Error setxattr cannot write key1\n");
 		rc = -1;
 		goto Exit;
@@ -259,14 +267,14 @@ static int test_xattr(void)
 	/* Test reading attributes. */
 	value_len = io_uring_getxattr(&ring, FILENAME, KEY1, value, XATTR_SIZE);
 	if (value_len != strlen(VALUE1) || strncmp(value, VALUE1, value_len)) {
-		fprintf(stderr, "Error: getxattr expectd value: %s, returned value: %s\n", VALUE1, value);
+		fprintf(stderr, "Error: getxattr expected value: %s, returned value: %s\n", VALUE1, value);
 		rc = -1;
 		goto Exit;
 	}
 
 	value_len = io_uring_getxattr(&ring, FILENAME, KEY2, value, XATTR_SIZE);
 	if (value_len != strlen(VALUE2) || strncmp(value, VALUE2, value_len)) {
-		fprintf(stderr, "Error: getxattr expectd value: %s, returned value: %s\n", VALUE2, value);
+		fprintf(stderr, "Error: getxattr expected value: %s, returned value: %s\n", VALUE2, value);
 		rc = -1;
 		goto Exit;
 	}
@@ -405,8 +413,12 @@ int main(int argc, char *argv[])
 	if (argc > 1)
 		return 0;
 
-	if (test_fxattr() || test_xattr() || test_failure_fxattr() ||
-	    test_failure_xattr() || test_invalid_sqe())
+	if (test_fxattr())
+		return EXIT_FAILURE;
+	if (no_xattr)
+		return EXIT_SUCCESS;
+	if (test_xattr() || test_failure_fxattr() || test_failure_xattr() ||
+	    test_invalid_sqe())
 		return EXIT_FAILURE;
 
 	return EXIT_SUCCESS;
