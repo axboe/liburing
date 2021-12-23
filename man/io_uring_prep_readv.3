@@ -26,11 +26,20 @@ to start reading
 .I nr_vecs
 into the
 .I iovecs
-array at
+array at the specified
 .I offset.
+
+On files that support seeking, if the offset is set to -1, the read operation
+commences at the file offset, and the file offset is incremented by the number
+of bytes read. See
+.BR read (2)
+for more details.
+
+On files that are not capable of seeking, the offset is ignored.
 
 After the write has been prepared it can be submitted with one of the submit
 functions.
+
 .SH RETURN VALUE
 None
 .SH SEE ALSO
