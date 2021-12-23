@@ -22,11 +22,6 @@ static char str[] = "This is a test of send and recv over io_uring!";
 #define PORT	10200
 #define HOST	"127.0.0.1"
 
-#if 0
-#	define io_uring_prep_send io_uring_prep_write
-#	define io_uring_prep_recv io_uring_prep_read
-#endif
-
 static int recv_prep(struct io_uring *ring, struct iovec *iov, int *sock,
 		     int registerfiles)
 {

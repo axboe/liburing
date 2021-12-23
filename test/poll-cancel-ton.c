@@ -128,9 +128,6 @@ int main(int argc, char *argv[])
 	}
 
 	add_polls(&ring, pipe1[0], 30000);
-#if 0
-	usleep(1000);
-#endif
 	del_polls(&ring, pipe1[0], 30000);
 
 	io_uring_queue_exit(&ring);
