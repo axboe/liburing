@@ -126,6 +126,7 @@ test_srcs := \
 	sigfd-deadlock.c \
 	socket-rw.c \
 	socket-rw-eagain.c \
+	socket-rw-offset.c \
 	splice.c \
 	sq-full.c \
 	sq-full-cpp.cc \

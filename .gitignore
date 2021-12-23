@@ -103,6 +103,7 @@
 /test/sigfd-deadlock
 /test/socket-rw
 /test/socket-rw-eagain
+/test/socket-rw-offset
 /test/splice
 /test/sq-full
 /test/sq-full-cpp
