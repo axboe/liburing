@@ -189,6 +189,7 @@ static int copy_file(struct io_uring *ring, off_t insize)
 			if (cqe->res < 0) {
 				if (cqe->res == -EAGAIN) {
 					queue_prepped(ring, data);
+					io_uring_submit(ring);
 					io_uring_cqe_seen(ring, cqe);
 					continue;
 				}
@@ -201,6 +202,7 @@ static int copy_file(struct io_uring *ring, off_t insize)
 				data->iov.iov_len -= cqe->res;
 				data->offset += cqe->res;
 				queue_prepped(ring, data);
+				io_uring_submit(ring);
 				io_uring_cqe_seen(ring, cqe);
 				continue;
 			}
