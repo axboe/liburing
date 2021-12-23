@@ -216,6 +216,9 @@ int main(int argc, char *argv[])
 {
 	struct rlimit rlim;
 
+	if (argc > 0)
+		return 0;
+
 	/* Increase number of files rlimit to 1M. */
 	if (getrlimit(RLIMIT_NOFILE, &rlim) < 0) {
 		perror("getrlimit");
