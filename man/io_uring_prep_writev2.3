@@ -28,7 +28,7 @@ to start writing
 .I nr_vecs
 from the
 .I iovecs
-array at file
+array at the specified
 .I offset.
 The behavior of the function can be controlled with the
 .I flags
@@ -51,8 +51,16 @@ per-IO, return -EAGAIN if operation would block
 .B RWF_APPEND
 per-IO O_APPEND
 
-.TP
-After the write has been prepared, it can be submitted with one of the submit functions.
+On files that support seeking, if the offset is set to -1, the write operation
+commences at the file offset, and the file offset is incremented by the number
+of bytes written. See
+.BR write (2)
+for more details.
+
+On files that are not capable of seeking, the offset is ignored.
+
+After the write has been prepared, it can be submitted with one of the submit
+functions.
 
 .SH RETURN VALUE
 None
