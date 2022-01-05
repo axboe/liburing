@@ -78,7 +78,6 @@ test_srcs := \
 	file-verify.c \
 	fixed-link.c \
 	fsync.c \
-	getdents.c \
 	hardlink.c \
 	io-cancel.c \
 	iopoll.c \
