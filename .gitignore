@@ -87,6 +87,7 @@
 /test/poll-many
 /test/poll-ring
 /test/poll-v-poll
+/test/pollfree
 /test/probe
 /test/read-write
 /test/register-restrictions
