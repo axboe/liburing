@@ -23,7 +23,7 @@ struct uring_heap {
 	char		user_p[] __attribute__((__aligned__));
 };
 
-void *malloc(size_t len)
+void *__uring_malloc(size_t len)
 {
 	struct uring_heap *heap;
 
@@ -36,7 +36,7 @@ void *malloc(size_t len)
 	return heap->user_p;
 }
 
-void free(void *p)
+void __uring_free(void *p)
 {
 	struct uring_heap *heap;
 
