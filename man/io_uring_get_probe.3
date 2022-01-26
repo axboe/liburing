@@ -1,0 +1,25 @@
+.\" Copyright (C) 2022 Stefan Roesch <shr@fb.com>
+.\"
+.\" SPDX-License-Identifier: LGPL-2.0-or-later
+.\"
+.TH io_uring_get_probe "January 25, 2022" "liburing-2.1" "liburing Manual"
+.SH NAME
+io_uring_get_probe - get probe instance
+.SH SYNOPSIS
+.nf
+.BR "#include <liburing.h>"
+.PP
+.BI "io_uring_probe *io_uring_get_probe(void)"
+.fi
+.PP
+.SH DESCRIPTION
+.PP
+The function io_uring_get_probe() returns an allocated io_uring_probe
+structure to the caller. The caller is responsible for freeing the
+structure with the function io_uring_free_probe().
+
+.SH RETURN VALUE
+On success it returns an allocated io_uring_probe structure, otherwise
+it returns NULL.
+.SH SEE ALSO
+.BR io_uring_free_probe (3)
