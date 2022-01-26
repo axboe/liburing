@@ -1051,7 +1051,7 @@ When this flag is specified, the SQE forms a link with the next SQE in the
 submission ring. That next SQE will not be started before the previous request
 completes. This, in effect, forms a chain of SQEs, which can be arbitrarily
 long. The tail of the chain is denoted by the first SQE that does not have this
-flag set. Chains are not supported across submission boundaries. EVen if the
+flag set. Chains are not supported across submission boundaries. Even if the
 last SQE in a submission has this flag set, it will still terminate the current
 chain. This flag has no effect on previous SQE submissions, nor does it impact
 SQEs that are outside of the chain tail. This means that multiple chains can be
