@@ -138,7 +138,6 @@ test_srcs := \
 	sq-poll-share.c \
 	sqpoll-sleep.c \
 	sq-space_left.c \
-	statx.c \
 	stdout.c \
 	submit-link-fail.c \
 	submit-reuse.c \
