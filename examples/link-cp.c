@@ -95,7 +95,7 @@ static int handle_cqe(struct io_uring *ring, struct io_uring_cqe *cqe)
 
 	if (cqe->res < 0) {
 		if (cqe->res == -ECANCELED) {
-			queue_rw_pair(ring, BS, data->offset);
+			queue_rw_pair(ring, data->iov.iov_len, data->offset);
 			inflight += 2;
 		} else {
 			printf("cqe error: %s\n", strerror(-cqe->res));
