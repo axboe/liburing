@@ -471,7 +471,7 @@ else cat >> $compat_h << EOF
 
 EOF
 fi
-if test "$glibc_statx" = "no" && "$statx" = "yes"; then
+if [ "$glibc_statx" = "no" ] && [ "$statx" = "yes" ]; then
 cat >> $compat_h << EOF
 #include <sys/stat.h>
 
