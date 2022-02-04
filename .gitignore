@@ -48,6 +48,7 @@
 /test/empty-eownerdead
 /test/eventfd
 /test/eventfd-disable
+/test/eventfd-reg
 /test/eventfd-ring
 /test/exit-no-cleanup
 /test/fadvise

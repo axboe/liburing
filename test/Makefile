@@ -65,6 +65,7 @@ test_srcs := \
 	empty-eownerdead.c \
 	eventfd.c \
 	eventfd-disable.c \
+	eventfd-reg.c \
 	eventfd-ring.c \
 	exec-target.c \
 	exit-no-cleanup.c \
