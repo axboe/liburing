@@ -16,8 +16,8 @@
 #include "helpers.h"
 #include "liburing.h"
 
-#define FILE_SIZE	(128 * 1024)
-#define BS		4096
+#define FILE_SIZE	(256 * 1024)
+#define BS		8192
 #define BUFFERS		(FILE_SIZE / BS)
 
 static struct iovec *vecs;
