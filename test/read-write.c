@@ -658,8 +658,8 @@ static int test_write_efbig(void)
 		return 1;
 	}
 	rlim = old_rlim;
-	rlim.rlim_cur = 64 * 1024;
-	rlim.rlim_max = 64 * 1024;
+	rlim.rlim_cur = 128 * 1024;
+	rlim.rlim_max = 128 * 1024;
 	if (setrlimit(RLIMIT_FSIZE, &rlim) < 0) {
 		perror("setrlimit");
 		return 1;
