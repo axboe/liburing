@@ -41,7 +41,7 @@ static inline int ____sys_io_uring_enter(int fd, unsigned to_submit,
 				       _NSIG / 8);
 }
 
-static inline void *uring_mmap(void *addr, size_t length, int prot, int flags,
+static inline void *__sys_mmap(void *addr, size_t length, int prot, int flags,
 			       int fd, off_t offset)
 {
 	void *ret;
@@ -49,35 +49,35 @@ static inline void *uring_mmap(void *addr, size_t length, int prot, int flags,
 	return (ret == MAP_FAILED) ? ERR_PTR(-errno) : ret;
 }
 
-static inline int uring_munmap(void *addr, size_t length)
+static inline int __sys_munmap(void *addr, size_t length)
 {
 	int ret;
 	ret = munmap(addr, length);
 	return (ret < 0) ? -errno : ret;
 }
 
-static inline int uring_madvise(void *addr, size_t length, int advice)
+static inline int __sys_madvise(void *addr, size_t length, int advice)
 {
 	int ret;
 	ret = madvise(addr, length, advice);
 	return (ret < 0) ? -errno : ret;
 }
 
-static inline int uring_getrlimit(int resource, struct rlimit *rlim)
+static inline int __sys_getrlimit(int resource, struct rlimit *rlim)
 {
 	int ret;
 	ret = getrlimit(resource, rlim);
 	return (ret < 0) ? -errno : ret;
 }
 
-static inline int uring_setrlimit(int resource, const struct rlimit *rlim)
+static inline int __sys_setrlimit(int resource, const struct rlimit *rlim)
 {
 	int ret;
 	ret = setrlimit(resource, rlim);
 	return (ret < 0) ? -errno : ret;
 }
 
-static inline int uring_close(int fd)
+static inline int __sys_close(int fd)
 {
 	int ret;
 	ret = close(fd);

@@ -29,7 +29,7 @@
  *   %r11 == %rflags and %rcx == %rip.
  */
 
-static inline void *uring_mmap(void *addr, size_t length, int prot, int flags,
+static inline void *__sys_mmap(void *addr, size_t length, int prot, int flags,
 			       int fd, off_t offset)
 {
 	void *rax;
@@ -52,7 +52,7 @@ static inline void *uring_mmap(void *addr, size_t length, int prot, int flags,
 	return rax;
 }
 
-static inline int uring_munmap(void *addr, size_t length)
+static inline int __sys_munmap(void *addr, size_t length)
 {
 	long rax;
 
@@ -67,7 +67,7 @@ static inline int uring_munmap(void *addr, size_t length)
 	return (int) rax;
 }
 
-static inline int uring_madvise(void *addr, size_t length, int advice)
+static inline int __sys_madvise(void *addr, size_t length, int advice)
 {
 	long rax;
 
@@ -83,7 +83,7 @@ static inline int uring_madvise(void *addr, size_t length, int advice)
 	return (int) rax;
 }
 
-static inline int uring_getrlimit(int resource, struct rlimit *rlim)
+static inline int __sys_getrlimit(int resource, struct rlimit *rlim)
 {
 	long rax;
 
@@ -98,7 +98,7 @@ static inline int uring_getrlimit(int resource, struct rlimit *rlim)
 	return (int) rax;
 }
 
-static inline int uring_setrlimit(int resource, const struct rlimit *rlim)
+static inline int __sys_setrlimit(int resource, const struct rlimit *rlim)
 {
 	long rax;
 
@@ -113,7 +113,7 @@ static inline int uring_setrlimit(int resource, const struct rlimit *rlim)
 	return (int) rax;
 }
 
-static inline int uring_close(int fd)
+static inline int __sys_close(int fd)
 {
 	long rax;
 
