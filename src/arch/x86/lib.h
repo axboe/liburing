@@ -1,15 +1,15 @@
 /* SPDX-License-Identifier: MIT */
 
+#ifndef __INTERNAL__LIBURING_LIB_H
+	#error "This file should be included from src/lib.h (liburing)"
+#endif
+
 #ifndef LIBURING_ARCH_X86_LIB_H
 #define LIBURING_ARCH_X86_LIB_H
 
-#ifndef LIBURING_LIB_H
-#  error "This file should be included from src/lib.h (liburing)"
-#endif
-
 #if defined(__x86_64__)
 
-static inline long __arch_impl_get_page_size(void)
+static inline long get_page_size(void)
 {
 	return 4096;
 }
@@ -17,9 +17,15 @@ static inline long __arch_impl_get_page_size(void)
 #else /* #if defined(__x86_64__) */
 
 /*
- * TODO: Add x86 (32-bit) support here.
+ * For x86 (32-bit), fallback to libc wrapper.
+ * We can't use CONFIG_NOLIBC for x86 (32-bit) at the moment.
+ *
+ * TODO: Add x86 (32-bit) nolibc support.
  */
-#error "x86 (32-bit) is currently not supported for nolibc builds"
+#ifdef CONFIG_NOLIBC
+	#error "x86 (32-bit) is currently not supported for nolibc builds"
+#endif
+#include "../generic/lib.h"
 
 #endif /* #if defined(__x86_64__) */
 
