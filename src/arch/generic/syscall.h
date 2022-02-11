@@ -1,5 +1,9 @@
 /* SPDX-License-Identifier: MIT */
 
+#ifndef __INTERNAL__LIBURING_SYSCALL_H
+	#error "This file should be included from src/syscall.h (liburing)"
+#endif
+
 #ifndef LIBURING_ARCH_GENERIC_SYSCALL_H
 #define LIBURING_ARCH_GENERIC_SYSCALL_H
 

@@ -1,11 +1,11 @@
 /* SPDX-License-Identifier: MIT */
 
+#ifndef __INTERNAL__LIBURING_SYSCALL_H
+	#error "This file should be included from src/syscall.h (liburing)"
+#endif
+
 #ifndef LIBURING_ARCH_X86_SYSCALL_H
 #define LIBURING_ARCH_X86_SYSCALL_H
-
-#ifndef LIBURING_SYSCALL_H
-#  error "This file should be included from src/syscall.h (liburing)"
-#endif
 
 #if defined(__x86_64__)
 /**
@@ -29,8 +29,8 @@
  *   %r11 == %rflags and %rcx == %rip.
  */
 
-static inline void *__arch_impl_mmap(void *addr, size_t length, int prot,
-				     int flags, int fd, off_t offset)
+static inline void *uring_mmap(void *addr, size_t length, int prot, int flags,
+			       int fd, off_t offset)
 {
 	void *rax;
 	register int r10 __asm__("r10") = flags;
@@ -52,7 +52,7 @@ static inline void *__arch_impl_mmap(void *addr, size_t length, int prot,
 	return rax;
 }
 
-static inline int __arch_impl_munmap(void *addr, size_t length)
+static inline int uring_munmap(void *addr, size_t length)
 {
 	long rax;
 
@@ -67,7 +67,7 @@ static inline int __arch_impl_munmap(void *addr, size_t length)
 	return (int) rax;
 }
 
-static inline int __arch_impl_madvise(void *addr, size_t length, int advice)
+static inline int uring_madvise(void *addr, size_t length, int advice)
 {
 	long rax;
 
@@ -83,7 +83,7 @@ static inline int __arch_impl_madvise(void *addr, size_t length, int advice)
 	return (int) rax;
 }
 
-static inline int __arch_impl_getrlimit(int resource, struct rlimit *rlim)
+static inline int uring_getrlimit(int resource, struct rlimit *rlim)
 {
 	long rax;
 
@@ -98,7 +98,7 @@ static inline int __arch_impl_getrlimit(int resource, struct rlimit *rlim)
 	return (int) rax;
 }
 
-static inline int __arch_impl_setrlimit(int resource, const struct rlimit *rlim)
+static inline int uring_setrlimit(int resource, const struct rlimit *rlim)
 {
 	long rax;
 
@@ -113,7 +113,7 @@ static inline int __arch_impl_setrlimit(int resource, const struct rlimit *rlim)
 	return (int) rax;
 }
 
-static inline int __arch_impl_close(int fd)
+static inline int uring_close(int fd)
 {
 	long rax;
 
@@ -127,9 +127,9 @@ static inline int __arch_impl_close(int fd)
 	return (int) rax;
 }
 
-static inline int __arch_impl_io_uring_register(int fd, unsigned opcode,
-						const void *arg,
-						unsigned nr_args)
+static inline int ____sys_io_uring_register(int fd, unsigned opcode,
+					    const void *arg,
+					    unsigned nr_args)
 {
 	long rax;
 	register unsigned r10 __asm__("r10") = nr_args;
@@ -147,8 +147,8 @@ static inline int __arch_impl_io_uring_register(int fd, unsigned opcode,
 	return (int) rax;
 }
 
-static inline int __arch_impl_io_uring_setup(unsigned entries,
-					     struct io_uring_params *p)
+static inline int ____sys_io_uring_setup(unsigned entries,
+					 struct io_uring_params *p)
 {
 	long rax;
 
@@ -163,10 +163,9 @@ static inline int __arch_impl_io_uring_setup(unsigned entries,
 	return (int) rax;
 }
 
-static inline int __arch_impl_io_uring_enter(int fd, unsigned to_submit,
-					     unsigned min_complete,
-					     unsigned flags, sigset_t *sig,
-					     int sz)
+static inline int ____sys_io_uring_enter2(int fd, unsigned to_submit,
+					  unsigned min_complete, unsigned flags,
+					  sigset_t *sig, int sz)
 {
 	long rax;
 	register unsigned r10 __asm__("r10") = flags;
@@ -188,12 +187,26 @@ static inline int __arch_impl_io_uring_enter(int fd, unsigned to_submit,
 	return (int) rax;
 }
 
+static inline int ____sys_io_uring_enter(int fd, unsigned to_submit,
+					 unsigned min_complete, unsigned flags,
+					 sigset_t *sig)
+{
+	return ____sys_io_uring_enter2(fd, to_submit, min_complete, flags, sig,
+				       _NSIG / 8);
+}
+
 #else /* #if defined(__x86_64__) */
 
 /*
- * TODO: Add x86 (32-bit) support here.
+ * For x86 (32-bit), fallback to libc wrapper.
+ * We can't use CONFIG_NOLIBC for x86 (32-bit) at the moment.
+ *
+ * TODO: Add x86 (32-bit) nolibc support.
  */
-#error "x86 (32-bit) is currently not supported for nolibc builds"
+#ifdef CONFIG_NOLIBC
+	#error "x86 (32-bit) is currently not supported for nolibc builds"
+#endif
+#include "../generic/syscall.h"
 
 #endif /* #if defined(__x86_64__) */
 
