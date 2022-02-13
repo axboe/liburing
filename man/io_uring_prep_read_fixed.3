@@ -1,0 +1,54 @@
+.\" Copyright (C) 2022 Jens Axboe <axboe@kernel.dk>
+.\"
+.\" SPDX-License-Identifier: LGPL-2.0-or-later
+.\"
+.TH io_uring_prep_read 3 "February 13, 2022" "liburing-2.1" "liburing Manual"
+.SH NAME
+io_uring_prep_read_fixed   - prepare I/O read request with registered buffer
+
+.SH SYNOPSIS
+.nf
+.BR "#include <liburing.h>"
+.PP
+.BI "void io_uring_prep_read_fixed(struct io_uring_sqe *sqe,"
+.BI "                        int fd,"
+.BI "                        void *buf,"
+.BI "                        unsigned nbytes,"
+.BI "                        __u64 offset,"
+.BI "                        int buf_index)"
+
+.SH DESCRIPTION
+.PP
+The io_uring_prep_read_fixed() prepares an IO read request with a previously
+registered IO buffer. The submission queue entry
+.I sqe
+is setup to use the file descriptor
+.I fd
+to start reading
+.I nbytes
+into the buffer
+.I buf
+at the specified
+.I offset,
+and with the buffer matching the registered index of
+.I buf_index.
+
+This work just like
+.B io_uring_prep_read(3)
+except it requires the user of buffers that have been registered with
+.B io_uring_register_buffers(3). The
+.I buf
+and
+.I nbytes
+arguments must fall within a region specificed by
+.I buf_index.
+in the previously registered buffer. The buffer need not be aligned with
+the start of the registered buffer.
+
+After the read has been prepared it can be submitted with one of the submit
+functions.
+
+.SH RETURN VALUE
+None
+.SH SEE ALSO
+.BR io_uring_prep_read (3), io_uring_register_buffers (3)
