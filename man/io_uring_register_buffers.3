@@ -26,9 +26,16 @@ belonging to the
 After the caller has registered the buffers, they can be used with one of the
 fixed buffers functions.
 
+Registered buffers is an optimization that is useful in conjunction with
+.B O_DIRECT
+reads and writes, where maps the specified range into the kernel once when
+the buffer is registered, rather than doing a map and unmap for each IO
+every time IO is performed to that region. Additionally, it also avoids
+manipulating the page reference counts for each IO.
+
 .SH RETURN VALUE
 On success
 .BR io_uring_register_buffers (3)
 returns 0. On failure it returns -errno.
 .SH SEE ALSO
-.BR io_uring_get_sqe (3), io_uring_unregister_buffers (3)
+.BR io_uring_get_sqe (3), io_uring_unregister_buffers (3), io_uring_prep_read_fixed (3), io_uring_prep_write_fixed (3)
