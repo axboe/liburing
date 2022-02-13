@@ -34,7 +34,9 @@ The behavior of the function can be controlled with the
 .I flags
 parameter.
 
-Supported values for flags are:
+Supported values for
+.I flags
+are:
 .TP
 .B RWF_HIPRI
 High priority request, poll if possible
@@ -51,9 +53,11 @@ per-IO, return -EAGAIN if operation would block
 .B RWF_APPEND
 per-IO O_APPEND
 
-On files that support seeking, if the offset is set to -1, the write operation
-commences at the file offset, and the file offset is incremented by the number
-of bytes written. See
+.P
+On files that support seeking, if the offset is set to
+.B -1,
+the write operation commences at the file offset, and the file offset is
+incremented by the number of bytes written. See
 .BR write (2)
 for more details.
 
