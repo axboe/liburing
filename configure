@@ -78,14 +78,17 @@ EOF
 exit 0
 fi
 
-TMPC="$(mktemp --tmpdir fio-conf-XXXXXXXXXX.c)"
-TMPC2="$(mktemp --tmpdir fio-conf-XXXXXXXXXX-2.c)"
-TMPO="$(mktemp --tmpdir fio-conf-XXXXXXXXXX.o)"
-TMPE="$(mktemp --tmpdir fio-conf-XXXXXXXXXX.exe)"
+TMP_DIRECTORY="$(mktemp -d)"
+TMPC="$TMP_DIRECTORY/liburing-conf.c"
+TMPC2="$TMP_DIRECTORY/liburing-conf-2.c"
+TMPO="$TMP_DIRECTORY/liburing-conf.o"
+TMPE="$TMP_DIRECTORY/liburing-conf.exe"
+
+touch $TMPC $TMPC2 $TMPO $TMPE
 
 # NB: do not call "exit" in the trap handler; this is buggy with some shells;
 # see <1285349658-3122-1-git-send-email-loic.minier@linaro.org>
-trap "rm -f $TMPC $TMPC2 $TMPO $TMPE" EXIT INT QUIT TERM
+trap "rm -rf $TMP_DIRECTORY" EXIT INT QUIT TERM
 
 rm -rf config.log
 
