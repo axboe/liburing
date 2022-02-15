@@ -29,162 +29,168 @@
  *   %r11 == %rflags and %rcx == %rip.
  */
 
+#define __do_syscall0(NUM) ({			\
+	intptr_t rax;				\
+						\
+	__asm__ volatile(			\
+		"syscall"			\
+		: "=a"(rax)	/* %rax */	\
+		: "a"(NUM)	/* %rax */	\
+		: "rcx", "r11", "memory"	\
+	);					\
+	rax;					\
+})
+
+#define __do_syscall1(NUM, ARG1) ({		\
+	intptr_t rax;				\
+						\
+	__asm__ volatile(			\
+		"syscall"			\
+		: "=a"(rax)	/* %rax */	\
+		: "a"((NUM)),	/* %rax */	\
+		  "D"((ARG1))	/* %rdi */	\
+		: "rcx", "r11", "memory"	\
+	);					\
+	rax;					\
+})
+
+#define __do_syscall2(NUM, ARG1, ARG2) ({	\
+	intptr_t rax;				\
+						\
+	__asm__ volatile(			\
+		"syscall"			\
+		: "=a"(rax)	/* %rax */	\
+		: "a"((NUM)),	/* %rax */	\
+		  "D"((ARG1)),	/* %rdi */	\
+		  "S"((ARG2))	/* %rsi */	\
+		: "rcx", "r11", "memory"	\
+	);					\
+	rax;					\
+})
+
+#define __do_syscall3(NUM, ARG1, ARG2, ARG3) ({	\
+	intptr_t rax;				\
+						\
+	__asm__ volatile(			\
+		"syscall"			\
+		: "=a"(rax)	/* %rax */	\
+		: "a"((NUM)),	/* %rax */	\
+		  "D"((ARG1)),	/* %rdi */	\
+		  "S"((ARG2)),	/* %rsi */	\
+		  "d"((ARG3))	/* %rdx */	\
+		: "rcx", "r11", "memory"	\
+	);					\
+	rax;					\
+})
+
+#define __do_syscall4(NUM, ARG1, ARG2, ARG3, ARG4) ({			\
+	intptr_t rax;							\
+	register __typeof__(ARG4) __r10 __asm__("r10") = (ARG4);	\
+									\
+	__asm__ volatile(						\
+		"syscall"						\
+		: "=a"(rax)	/* %rax */				\
+		: "a"((NUM)),	/* %rax */				\
+		  "D"((ARG1)),	/* %rdi */				\
+		  "S"((ARG2)),	/* %rsi */				\
+		  "d"((ARG3)),	/* %rdx */				\
+		  "r"(__r10)	/* %r10 */				\
+		: "rcx", "r11", "memory"				\
+	);								\
+	rax;								\
+})
+
+#define __do_syscall5(NUM, ARG1, ARG2, ARG3, ARG4, ARG5) ({		\
+	intptr_t rax;							\
+	register __typeof__(ARG4) __r10 __asm__("r10") = (ARG4);	\
+	register __typeof__(ARG5) __r8 __asm__("r8") = (ARG5);		\
+									\
+	__asm__ volatile(						\
+		"syscall"						\
+		: "=a"(rax)	/* %rax */				\
+		: "a"((NUM)),	/* %rax */				\
+		  "D"((ARG1)),	/* %rdi */				\
+		  "S"((ARG2)),	/* %rsi */				\
+		  "d"((ARG3)),	/* %rdx */				\
+		  "r"(__r10),	/* %r10 */				\
+		  "r"(__r8)	/* %r8 */				\
+		: "rcx", "r11", "memory"				\
+	);								\
+	rax;								\
+})
+
+#define __do_syscall6(NUM, ARG1, ARG2, ARG3, ARG4, ARG5, ARG6) ({	\
+	intptr_t rax;							\
+	register __typeof__(ARG4) __r10 __asm__("r10") = (ARG4);	\
+	register __typeof__(ARG5) __r8 __asm__("r8") = (ARG5);		\
+	register __typeof__(ARG6) __r9 __asm__("r9") = (ARG6);		\
+									\
+	__asm__ volatile(						\
+		"syscall"						\
+		: "=a"(rax)	/* %rax */				\
+		: "a"((NUM)),	/* %rax */				\
+		  "D"((ARG1)),	/* %rdi */				\
+		  "S"((ARG2)),	/* %rsi */				\
+		  "d"((ARG3)),	/* %rdx */				\
+		  "r"(__r10),	/* %r10 */				\
+		  "r"(__r8),	/* %r8 */				\
+		  "r"(__r9)	/* %r9 */				\
+		: "rcx", "r11", "memory"				\
+	);								\
+	rax;								\
+})
+
 static inline void *__sys_mmap(void *addr, size_t length, int prot, int flags,
 			       int fd, off_t offset)
 {
-	void *rax;
-	register int r10 __asm__("r10") = flags;
-	register int r8 __asm__("r8") = fd;
-	register off_t r9 __asm__("r9") = offset;
-
-	__asm__ volatile(
-		"syscall"
-		: "=a"(rax)		/* %rax */
-		: "a"(__NR_mmap),	/* %rax */
-		  "D"(addr),		/* %rdi */
-		  "S"(length),		/* %rsi */
-		  "d"(prot),		/* %rdx */
-		  "r"(r10),		/* %r10 */
-		  "r"(r8),		/* %r8  */
-		  "r"(r9)		/* %r9  */
-		: "memory", "rcx", "r11"
-	);
-	return rax;
+	return (void *) __do_syscall6(__NR_mmap, addr, length, prot, flags, fd,
+				      offset);
 }
 
 static inline int __sys_munmap(void *addr, size_t length)
 {
-	long rax;
-
-	__asm__ volatile(
-		"syscall"
-		: "=a"(rax)		/* %rax */
-		: "a"(__NR_munmap),	/* %rax */
-		  "D"(addr),		/* %rdi */
-		  "S"(length)		/* %rsi */
-		: "memory", "rcx", "r11"
-	);
-	return (int) rax;
+	return (int) __do_syscall2(__NR_munmap, addr, length);
 }
 
 static inline int __sys_madvise(void *addr, size_t length, int advice)
 {
-	long rax;
-
-	__asm__ volatile(
-		"syscall"
-		: "=a"(rax)		/* %rax */
-		: "a"(__NR_madvise),	/* %rax */
-		  "D"(addr),		/* %rdi */
-		  "S"(length),		/* %rsi */
-		  "d"(advice)		/* %rdx */
-		: "memory", "rcx", "r11"
-	);
-	return (int) rax;
+	return (int) __do_syscall2(__NR_madvise, addr, length);
 }
 
 static inline int __sys_getrlimit(int resource, struct rlimit *rlim)
 {
-	long rax;
-
-	__asm__ volatile(
-		"syscall"
-		: "=a"(rax)		/* %rax */
-		: "a"(__NR_getrlimit),	/* %rax */
-		  "D"(resource),	/* %rdi */
-		  "S"(rlim)		/* %rsi */
-		: "memory", "rcx", "r11"
-	);
-	return (int) rax;
+	return (int) __do_syscall2(__NR_getrlimit, resource, rlim);
 }
 
 static inline int __sys_setrlimit(int resource, const struct rlimit *rlim)
 {
-	long rax;
-
-	__asm__ volatile(
-		"syscall"
-		: "=a"(rax)		/* %rax */
-		: "a"(__NR_setrlimit),	/* %rax */
-		  "D"(resource),	/* %rdi */
-		  "S"(rlim)		/* %rsi */
-		: "memory", "rcx", "r11"
-	);
-	return (int) rax;
+	return (int) __do_syscall2(__NR_setrlimit, resource, rlim);
 }
 
 static inline int __sys_close(int fd)
 {
-	long rax;
-
-	__asm__ volatile(
-		"syscall"
-		: "=a"(rax)		/* %rax */
-		: "a"(__NR_close),	/* %rax */
-		  "D"(fd)		/* %rdi */
-		: "memory", "rcx", "r11"
-	);
-	return (int) rax;
+	return (int) __do_syscall1(__NR_close, fd);
 }
 
 static inline int ____sys_io_uring_register(int fd, unsigned opcode,
-					    const void *arg,
-					    unsigned nr_args)
+					    const void *arg, unsigned nr_args)
 {
-	long rax;
-	register unsigned r10 __asm__("r10") = nr_args;
-
-	__asm__ volatile(
-		"syscall"
-		: "=a"(rax)			/* %rax */
-		: "a"(__NR_io_uring_register),	/* %rax */
-		  "D"(fd),			/* %rdi */
-		  "S"(opcode),			/* %rsi */
-		  "d"(arg),			/* %rdx */
-		  "r"(r10)			/* %r10 */
-		: "memory", "rcx", "r11"
-	);
-	return (int) rax;
+	return (int) __do_syscall4(__NR_io_uring_register, fd, opcode, arg,
+				   nr_args);
 }
 
 static inline int ____sys_io_uring_setup(unsigned entries,
 					 struct io_uring_params *p)
 {
-	long rax;
-
-	__asm__ volatile(
-		"syscall"
-		: "=a"(rax)			/* %rax */
-		: "a"(__NR_io_uring_setup),	/* %rax */
-		  "D"(entries),			/* %rdi */
-		  "S"(p)			/* %rsi */
-		: "memory", "rcx", "r11"
-	);
-	return (int) rax;
+	return (int) __do_syscall2(__NR_io_uring_setup, entries, p);
 }
 
 static inline int ____sys_io_uring_enter2(int fd, unsigned to_submit,
 					  unsigned min_complete, unsigned flags,
 					  sigset_t *sig, int sz)
 {
-	long rax;
-	register unsigned r10 __asm__("r10") = flags;
-	register sigset_t *r8 __asm__("r8") = sig;
-	register int r9 __asm__("r9") = sz;
-
-	__asm__ volatile(
-		"syscall"
-		: "=a"(rax)			/* %rax */
-		: "a"(__NR_io_uring_enter),	/* %rax */
-		  "D"(fd),			/* %rdi */
-		  "S"(to_submit),		/* %rsi */
-		  "d"(min_complete),		/* %rdx */
-		  "r"(r10),			/* %r10 */
-		  "r"(r8),			/* %r8  */
-		  "r"(r9)			/* %r9  */
-		: "memory", "rcx", "r11"
-	);
-	return (int) rax;
+	return (int) __do_syscall6(__NR_io_uring_enter, fd, to_submit,
+				   min_complete, flags, sig, sz);
 }
 
 static inline int ____sys_io_uring_enter(int fd, unsigned to_submit,
