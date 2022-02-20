@@ -628,7 +628,8 @@ main(int argc, char **argv)
 		return 1;
 	}
 	mlock_limit = rlim.rlim_cur;
-	printf("RELIMIT_MEMLOCK: %lu (%lu)\n", rlim.rlim_cur, rlim.rlim_max);
+	printf("RELIMIT_MEMLOCK: %llu (%llu)\n", (unsigned long long) rlim.rlim_cur,
+		(unsigned long long) rlim.rlim_max);
 	devnull = open("/dev/null", O_RDWR);
 	if (devnull < 0) {
 		perror("open /dev/null");

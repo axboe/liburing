@@ -10,7 +10,7 @@
 #include <string.h>
 #include <signal.h>
 #include <fcntl.h>
-#include <sys/poll.h>
+#include <poll.h>
 #include <sys/wait.h>
 #include <sys/select.h>
 #include <pthread.h>
