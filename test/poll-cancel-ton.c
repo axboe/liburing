@@ -9,9 +9,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <inttypes.h>
-#include <sys/poll.h>
+#include <poll.h>
 #include <sys/wait.h>
-#include <sys/signal.h>
+#include <signal.h>
 
 #include "liburing.h"
 

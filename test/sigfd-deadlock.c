@@ -8,7 +8,7 @@
 #include <unistd.h>
 #include <sys/signalfd.h>
 #include <sys/epoll.h>
-#include <sys/poll.h>
+#include <poll.h>
 #include <stdio.h>
 #include "liburing.h"
 
