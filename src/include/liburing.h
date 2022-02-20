@@ -293,7 +293,7 @@ static inline void io_uring_prep_rw(int op, struct io_uring_sqe *sqe, int fd,
 	sqe->buf_index = 0;
 	sqe->personality = 0;
 	sqe->file_index = 0;
-	sqe->__pad2[0] = sqe->__pad2[1] = 0;
+	sqe->__pad[0] = sqe->__pad[1] = 0;
 }
 
 /**
@@ -912,13 +912,20 @@ static inline struct io_uring_sqe *_io_uring_get_sqe(struct io_uring *ring)
 	struct io_uring_sq *sq = &ring->sq;
 	unsigned int head = io_uring_smp_load_acquire(sq->khead);
 	unsigned int next = sq->sqe_tail + 1;
-	struct io_uring_sqe *sqe = NULL;
+	int shift = 0;
+
+	if (ring->flags & IORING_SETUP_SQE128)
+		shift = 1;
 
 	if (next - head <= *sq->kring_entries) {
-		sqe = &sq->sqes[sq->sqe_tail & *sq->kring_mask];
+		struct io_uring_sqe *sqe;
+
+		sqe = &sq->sqes[(sq->sqe_tail & *sq->kring_mask) << shift];
 		sq->sqe_tail = next;
+		return sqe;
 	}
-	return sqe;
+
+	return NULL;
 }
 
 #ifndef LIBURING_INTERNAL

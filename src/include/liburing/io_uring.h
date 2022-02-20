@@ -50,7 +50,7 @@ struct io_uring_sqe {
 		__u32		unlink_flags;
 		__u32		hardlink_flags;
 	};
-	__u64	user_data;	/* data to be passed back at completion time */
+	__u64	user_data; /* data to be passed back at completion time */
 	/* pack this to avoid bogus arm OABI complaints */
 	union {
 		/* index into fixed buffers, if used */
@@ -64,7 +64,13 @@ struct io_uring_sqe {
 		__s32	splice_fd_in;
 		__u32	file_index;
 	};
-	__u64	__pad2[2];
+	__u64	__pad[2];
+
+	/*
+	 * If the ring is initializefd with IORING_SETUP_SQE128, then this field
+	 * contains 64-bytes of padding, doubling the size of the SQE.
+	 */
+	__u64	__big_sqe_pad[0];
 };
 
 enum {
