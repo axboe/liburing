@@ -24,6 +24,8 @@
 
 #include <linux/futex.h>
 
+#ifdef __NR_futex
+
 static void sleep_ms(uint64_t ms)
 {
   usleep(ms * 1000);
@@ -77,13 +79,13 @@ static void event_set(event_t* ev)
   if (ev->state)
     exit(1);
   __atomic_store_n(&ev->state, 1, __ATOMIC_RELEASE);
-  syscall(SYS_futex, &ev->state, FUTEX_WAKE | FUTEX_PRIVATE_FLAG, 1000000);
+  syscall(__NR_futex, &ev->state, FUTEX_WAKE | FUTEX_PRIVATE_FLAG, 1000000);
 }
 
 static void event_wait(event_t* ev)
 {
   while (!__atomic_load_n(&ev->state, __ATOMIC_ACQUIRE))
-    syscall(SYS_futex, &ev->state, FUTEX_WAIT | FUTEX_PRIVATE_FLAG, 0, 0);
+    syscall(__NR_futex, &ev->state, FUTEX_WAIT | FUTEX_PRIVATE_FLAG, 0, 0);
 }
 
 static int event_isset(event_t* ev)
@@ -100,7 +102,7 @@ static int event_timedwait(event_t* ev, uint64_t timeout)
     struct timespec ts;
     ts.tv_sec = remain / 1000;
     ts.tv_nsec = (remain % 1000) * 1000 * 1000;
-    syscall(SYS_futex, &ev->state, FUTEX_WAIT | FUTEX_PRIVATE_FLAG, 0, &ts);
+    syscall(__NR_futex, &ev->state, FUTEX_WAIT | FUTEX_PRIVATE_FLAG, 0, &ts);
     if (__atomic_load_n(&ev->state, __ATOMIC_ACQUIRE))
       return 1;
     now = current_time_ms();
@@ -412,3 +414,12 @@ int main(int argc, char *argv[])
   loop();
   return 0;
 }
+
+#else /* __NR_futex */
+
+int main(int argc, char *argv[])
+{
+  return 0;
+}
+
+#endif /* __NR_futex */
