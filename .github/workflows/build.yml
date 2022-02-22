@@ -83,3 +83,7 @@ jobs:
     - name: Test install command
       run: |
         sudo make install;
+
+    - name: Run unit tests
+      run: |
+        make runtests;
