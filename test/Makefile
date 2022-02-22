@@ -78,6 +78,7 @@ test_srcs := \
 	file-update.c \
 	file-verify.c \
 	fixed-link.c \
+	fpos.c \
 	fsync.c \
 	hardlink.c \
 	io-cancel.c \
