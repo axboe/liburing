@@ -369,7 +369,6 @@ print_config "has_ucontext" "$has_ucontext"
 # check for memfd_create(2)
 has_memfd_create="no"
 cat > $TMPC << EOF
-#define _GNU_SOURCE
 #include <sys/mman.h>
 int main(int argc, char **argv)
 {
