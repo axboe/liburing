@@ -224,7 +224,9 @@ since kernel 5.5.
 .B IORING_FEAT_RW_CUR_POS
 If this flag is set, applications can specify
 .I offset
-== -1 with
+==
+.B -1
+with
 .B IORING_OP_{READV,WRITEV}
 ,
 .B IORING_OP_{READ,WRITE}_FIXED
@@ -236,7 +238,9 @@ and
 .I pwritev2(2)
 with
 .I offset
-== -1. It'll use (and update) the current file position. This obviously comes
+==
+.B -1.
+It'll use (and update) the current file position. This obviously comes
 with the caveat that if the application has multiple reads or writes in flight,
 then the end result will not be as expected. This is similar to threads sharing
 a file descriptor and doing IO using the current file position. Available since
@@ -470,7 +474,9 @@ or
 .BR io_uring_enter (2)
 system calls.
 
-On error, -1 is returned and
+On error,
+.B -1
+is returned and
 .I errno
 is set appropriately.
 .PP

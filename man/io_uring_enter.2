@@ -780,7 +780,9 @@ does not refer to a seekable file,
 .I off
 must be set to zero. If
 .I offs
-is set to -1, the offset will use (and advance) the file position, like the
+is set to
+.B -1
+, the offset will use (and advance) the file position, like the
 .BR read(2)
 and
 .BR write(2)
@@ -806,8 +808,9 @@ is an offset to read from,
 .I fd
 is the file descriptor to write to,
 .I off
-is an offset from which to start writing to. A sentinel value of -1 is used
-to pass the equivalent of a NULL for the offsets to
+is an offset from which to start writing to. A sentinel value of
+.B -1
+is used to pass the equivalent of a NULL for the offsets to
 .BR splice(2).
 .I len
 contains the number of bytes to copy.
@@ -1266,7 +1269,9 @@ completion queue entry (see section
 rather than through the system call itself.
 
 Errors that occur not on behalf of a submission queue entry are returned via the
-system call directly. On such an error, -1 is returned and
+system call directly. On such an error,
+.B -1
+is returned and
 .I errno
 is set appropriately.
 .PP

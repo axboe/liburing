@@ -265,9 +265,11 @@ Available since 5.13.
 .TP
 .B IORING_REGISTER_FILES_UPDATE
 This operation replaces existing files in the registered file set with new
-ones, either turning a sparse entry (one where fd is equal to -1) into a
-real one, removing an existing entry (new one is set to -1), or replacing
-an existing entry with a new existing entry.
+ones, either turning a sparse entry (one where fd is equal to
+.B -1
+) into a real one, removing an existing entry (new one is set to
+.B -1
+), or replacing an existing entry with a new existing entry.
 
 .I arg
 must contain a pointer to a
@@ -288,8 +290,11 @@ fd at that index. Available since 5.12.
 .B IORING_REGISTER_FILES_UPDATE2
 Similar to IORING_REGISTER_FILES_UPDATE, replaces existing files in the
 registered file set with new ones, either turning a sparse entry (one where
-fd is equal to -1) into a real one, removing an existing entry (new one is
-set to -1), or replacing an existing entry with a new existing entry.
+fd is equal to
+.B -1
+) into a real one, removing an existing entry (new one is set to
+.B -1
+), or replacing an existing entry with a new existing entry.
 
 .I arg
 must contain a pointer to a
@@ -496,7 +501,9 @@ Available since 5.15.
 
 On success,
 .BR io_uring_register ()
-returns 0.  On error, -1 is returned, and
+returns 0.  On error,
+.B -1
+is returned, and
 .I errno
 is set accordingly.
 
