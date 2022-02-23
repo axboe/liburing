@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: MIT */
+
 /*
  * Test that closed pipe reads returns 0, instead of waiting for more
  * data.

@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 /*
  * Test that the sqthread goes to sleep around the specified time, and that
  * the NEED_WAKEUP flag is then set.
