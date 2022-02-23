@@ -127,7 +127,7 @@ static int test_read(struct io_uring *ring, bool async, bool link,
 		if (current < expected || (current != expected && link)) {
 			/* accept that with !link current may be > expected */
 			fprintf(stderr, "f_pos incorrect, expected %ld have %ld\n",
-					expected, current);
+					(long) expected, (long) current);
 			ret = -1;
 		}
 		if (ret)
@@ -193,7 +193,7 @@ static int test_write(struct io_uring *ring, bool async,
 	current = lseek(fd, 0, SEEK_CUR);
 	if (current != QUEUE_SIZE) {
 		fprintf(stderr, "f_pos incorrect, expected %ld have %d\n",
-				current, QUEUE_SIZE);
+				(long) current, QUEUE_SIZE);
 		fail = true;
 	}
 	current = lseek(fd, 0, SEEK_SET);
