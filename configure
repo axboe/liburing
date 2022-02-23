@@ -81,10 +81,11 @@ fi
 TMP_DIRECTORY="$(mktemp -d)"
 TMPC="$TMP_DIRECTORY/liburing-conf.c"
 TMPC2="$TMP_DIRECTORY/liburing-conf-2.c"
+TMPCXX="$TMP_DIRECTORY/liburing-conf-2.cpp"
 TMPO="$TMP_DIRECTORY/liburing-conf.o"
 TMPE="$TMP_DIRECTORY/liburing-conf.exe"
 
-touch $TMPC $TMPC2 $TMPO $TMPE
+touch $TMPC $TMPC2 $TMPCXX $TMPO $TMPE
 
 # NB: do not call "exit" in the trap handler; this is buggy with some shells;
 # see <1285349658-3122-1-git-send-email-loic.minier@linaro.org>
@@ -171,7 +172,7 @@ compile_prog_cxx() {
   local_cflags="$1"
   local_ldflags="$2 $LIBS"
   echo "Compiling test case $3" >> config.log
-  do_cxx $CFLAGS $local_cflags -o $TMPE $TMPC $LDFLAGS $local_ldflags
+  do_cxx $CFLAGS $local_cflags -o $TMPE $TMPCXX $LDFLAGS $local_ldflags
 }
 
 has() {
@@ -334,7 +335,7 @@ print_config "glibc_statx" "$glibc_statx"
 ##########################################
 # check for C++
 has_cxx="no"
-cat > $TMPC << EOF
+cat > $TMPCXX << EOF
 #include <iostream>
 int main(int argc, char **argv)
 {
@@ -369,7 +370,6 @@ print_config "has_ucontext" "$has_ucontext"
 # check for memfd_create(2)
 has_memfd_create="no"
 cat > $TMPC << EOF
-#define _GNU_SOURCE
 #include <sys/mman.h>
 int main(int argc, char **argv)
 {
