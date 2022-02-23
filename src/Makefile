@@ -9,7 +9,7 @@ CPPFLAGS ?=
 override CPPFLAGS += -D_GNU_SOURCE \
 	-Iinclude/ -include ../config-host.h
 CFLAGS ?= -g -fomit-frame-pointer -O2 -Wall -Wextra
-override CFLAGS += -Wno-unused-parameter -Wno-sign-compare
+override CFLAGS += -Wno-unused-parameter -Wno-sign-compare -DLIBURING_INTERNAL
 SO_CFLAGS=-fPIC $(CFLAGS)
 L_CFLAGS=$(CFLAGS)
 LINK_FLAGS=

@@ -403,6 +403,20 @@ int io_uring_submit_and_wait(struct io_uring *ring, unsigned wait_nr)
 	return __io_uring_submit_and_wait(ring, wait_nr);
 }
 
+struct io_uring_sqe *io_uring_get_sqe(struct io_uring *ring)
+{
+	struct io_uring_sq *sq = &ring->sq;
+	unsigned int head = io_uring_smp_load_acquire(sq->khead);
+	unsigned int next = sq->sqe_tail + 1;
+	struct io_uring_sqe *sqe = NULL;
+
+	if (next - head <= *sq->kring_entries) {
+		sqe = &sq->sqes[sq->sqe_tail & *sq->kring_mask];
+		sq->sqe_tail = next;
+	}
+	return sqe;
+}
+
 int __io_uring_sqring_wait(struct io_uring *ring)
 {
 	return  ____sys_io_uring_enter(ring->ring_fd, 0, 0,
