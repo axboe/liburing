@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 #include <fcntl.h>
 #include <signal.h>
 #include <stdint.h>

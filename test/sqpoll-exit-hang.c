@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 /*
  * Test that we exit properly with SQPOLL and having a request that
  * adds a circular reference to the ring itself.

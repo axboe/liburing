@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 /*
  * repro-CVE-2020-29373 -- Reproducer for CVE-2020-29373.
  *

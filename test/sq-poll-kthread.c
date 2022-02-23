@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 /*
  * Description: test if io_uring SQ poll kthread is stopped when the userspace
  *              process ended with or without closing the io_uring fd

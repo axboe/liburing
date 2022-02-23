@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 /*
  * Test 5.7 regression with task_work not being run while a task is
  * waiting on another event in the kernel.
