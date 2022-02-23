@@ -21,7 +21,8 @@ io_uring_prep_readv2 - prepare vector I/O read request with flags
 .PP
 .SH DESCRIPTION
 .PP
-The io_uring_prep_readv2() prepares a vectored IO read request. The submission queue entry
+The io_uring_prep_readv2() prepares a vectored IO read request. The submission
+queue entry
 .I sqe
 is setup to use the file descriptor
 .I fd
@@ -49,7 +50,9 @@ per-IO O_DSYNC
 per-IO O_SYNC
 .TP
 .B RWF_NOWAIT
-per-IO, return -EAGAIN if operation would block
+per-IO, return
+.B -EAGAIN
+if operation would block
 .TP
 .B RWF_APPEND
 per-IO O_APPEND
@@ -60,7 +63,10 @@ On files that support seeking, if the offset is set to
 the read operation commences at the file offset, and the file offset is
 incremented by the number of bytes read. See
 .BR read (2)
-for more details.
+for more details. Note that for an async API, reading and updating the
+current file offset may result in unpredictable behavior, unless access
+to the file is serialized. It is not encouraged to use this feature, if it's
+possible to provide the desired IO offset from the application or library.
 
 On files that are not capable of seeking, the offset is ignored.
 
