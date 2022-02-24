@@ -40,8 +40,7 @@ static void create_file(const char *file, size_t size)
 	assert(ret == size);
 }
 
-static int test_read(struct io_uring *ring, bool async, bool link,
-		     int blocksize)
+static int test_read(struct io_uring *ring, bool async, int blocksize)
 {
 	int ret, fd, i;
 	bool done = false;
@@ -71,7 +70,7 @@ static int test_read(struct io_uring *ring, bool async, bool link,
 			sqe->user_data = i;
 			if (async)
 				sqe->flags |= IOSQE_ASYNC;
-			if (link && i != QUEUE_SIZE - 1)
+			if (i != QUEUE_SIZE - 1)
 				sqe->flags |= IOSQE_IO_LINK;
 		}
 		ret = io_uring_submit_and_wait(ring, QUEUE_SIZE);
@@ -124,8 +123,7 @@ static int test_read(struct io_uring *ring, bool async, bool link,
 			ret = -1;
 		}
 		current = lseek(fd, 0, SEEK_CUR);
-		if (current < expected || (current != expected && link)) {
-			/* accept that with !link current may be > expected */
+		if (current != expected) {
 			fprintf(stderr, "f_pos incorrect, expected %ld have %ld\n",
 					(long) expected, (long) current);
 			ret = -1;
@@ -137,8 +135,7 @@ static int test_read(struct io_uring *ring, bool async, bool link,
 }
 
 
-static int test_write(struct io_uring *ring, bool async,
-		      bool link, int blocksize)
+static int test_write(struct io_uring *ring, bool async, int blocksize)
 {
 	int ret, fd, i;
 	struct io_uring_sqe *sqe;
@@ -167,7 +164,7 @@ static int test_write(struct io_uring *ring, bool async,
 		sqe->user_data = 1;
 		if (async)
 			sqe->flags |= IOSQE_ASYNC;
-		if (link && i != QUEUE_SIZE - 1)
+		if (i != QUEUE_SIZE - 1)
 			sqe->flags |= IOSQE_IO_LINK;
 	}
 	ret = io_uring_submit_and_wait(ring, QUEUE_SIZE);
@@ -236,19 +233,18 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-	for (int test = 0; test < 16; test++) {
+	for (int test = 0; test < 8; test++) {
 		int async = test & 0x01;
-		int link = test & 0x02;
-		int write = test & 0x04;
-		int blocksize = test & 0x08 ? 1 : 7;
+		int write = test & 0x02;
+		int blocksize = test & 0x04 ? 1 : 7;
 
 		ret = write
-			? test_write(&ring, !!async, !!link, blocksize)
-			: test_read(&ring, !!async, !!link, blocksize);
+			? test_write(&ring, !!async, blocksize)
+			: test_read(&ring, !!async, blocksize);
 		if (ret) {
-			fprintf(stderr, "failed %s async=%d link=%d blocksize=%d\n",
+			fprintf(stderr, "failed %s async=%d blocksize=%d\n",
 					write ? "write" : "read",
-					async, link, blocksize);
+					async, blocksize);
 			return -1;
 		}
 	}
