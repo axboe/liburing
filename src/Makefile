@@ -8,7 +8,7 @@ libdevdir ?= $(prefix)/lib
 CPPFLAGS ?=
 override CPPFLAGS += -D_GNU_SOURCE \
 	-Iinclude/ -include ../config-host.h
-CFLAGS ?= -g -fomit-frame-pointer -O2 -Wall -Wextra
+CFLAGS ?= -g -fomit-frame-pointer -O2 -Wall -Wextra -fno-stack-protector
 override CFLAGS += -Wno-unused-parameter -Wno-sign-compare -DLIBURING_INTERNAL
 SO_CFLAGS=-fPIC $(CFLAGS)
 L_CFLAGS=$(CFLAGS)
@@ -36,8 +36,8 @@ liburing_srcs := setup.c queue.c register.c
 
 ifeq ($(CONFIG_NOLIBC),y)
 	liburing_srcs += nolibc.c
-	override CFLAGS += -nostdlib -nodefaultlibs -ffreestanding -fno-stack-protector
-	override CPPFLAGS += -nostdlib -nodefaultlibs -ffreestanding -fno-stack-protector
+	override CFLAGS += -nostdlib -nodefaultlibs -ffreestanding
+	override CPPFLAGS += -nostdlib -nodefaultlibs -ffreestanding
 	override LINK_FLAGS += -nostdlib -nodefaultlibs
 else
 	liburing_srcs += syscall.c
