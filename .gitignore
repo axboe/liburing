@@ -60,6 +60,7 @@
 /test/files-exit-hang-poll
 /test/files-exit-hang-timeout
 /test/fixed-link
+/test/fpos
 /test/fsync
 /test/hardlink
 /test/io-cancel
