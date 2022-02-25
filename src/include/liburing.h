@@ -831,8 +831,7 @@ static inline int io_uring_wait_cqe(struct io_uring *ring,
  *
  * Returns a vacant sqe, or NULL if we're full.
  */
-#ifndef LIBURING_INTERNAL
-static inline struct io_uring_sqe *io_uring_get_sqe(struct io_uring *ring)
+static inline struct io_uring_sqe *_io_uring_get_sqe(struct io_uring *ring)
 {
 	struct io_uring_sq *sq = &ring->sq;
 	unsigned int head = io_uring_smp_load_acquire(sq->khead);
@@ -844,6 +843,12 @@ static inline struct io_uring_sqe *io_uring_get_sqe(struct io_uring *ring)
 		sq->sqe_tail = next;
 	}
 	return sqe;
+}
+
+#ifndef LIBURING_INTERNAL
+static inline struct io_uring_sqe *io_uring_get_sqe(struct io_uring *ring)
+{
+	return _io_uring_get_sqe(ring);
 }
 #else
 struct io_uring_sqe *io_uring_get_sqe(struct io_uring *ring);
