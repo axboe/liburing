@@ -4,6 +4,7 @@
 #include "lib.h"
 #include "syscall.h"
 #include "liburing.h"
+#include "int_flags.h"
 #include "liburing/compat.h"
 #include "liburing/io_uring.h"
 
@@ -169,6 +170,12 @@ void io_uring_queue_exit(struct io_uring *ring)
 
 	__sys_munmap(sq->sqes, *sq->kring_entries * sizeof(struct io_uring_sqe));
 	io_uring_unmap_rings(sq, cq);
+	/*
+	 * Not strictly required, but frees up the slot we used now rather
+	 * than at process exit time.
+	 */
+	if (ring->int_flags & INT_FLAG_REG_RING)
+		io_uring_unregister_ring_fd(ring);
 	__sys_close(ring->ring_fd);
 }
 
