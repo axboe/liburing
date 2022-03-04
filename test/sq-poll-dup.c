@@ -10,7 +10,6 @@
 #include <string.h>
 #include <fcntl.h>
 #include <sys/types.h>
-#include <poll.h>
 #include <sys/eventfd.h>
 #include <sys/resource.h>
 
@@ -29,9 +28,14 @@ static struct io_uring rings[NR_RINGS];
 static int wait_io(struct io_uring *ring, int nr_ios)
 {
 	struct io_uring_cqe *cqe;
+	int ret;
 
 	while (nr_ios) {
-		io_uring_wait_cqe(ring, &cqe);
+		ret = io_uring_wait_cqe(ring, &cqe);
+		if (ret) {
+			fprintf(stderr, "wait_ret=%d\n", ret);
+			return 1;
+		}
 		if (cqe->res != BS) {
 			fprintf(stderr, "Unexpected ret %d\n", cqe->res);
 			return 1;
@@ -123,7 +127,7 @@ static int test(int fd, int do_dup_and_close, int close_ring)
 	ring_fd = dup(rings[0].ring_fd);
 	if (close_ring)
 		close(rings[0].ring_fd);
-	rings[0].ring_fd = ring_fd;
+	rings[0].ring_fd = rings[0].enter_ring_fd = ring_fd;
 	if (do_dup_and_close)
 		goto done;
 
