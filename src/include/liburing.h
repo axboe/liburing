@@ -76,7 +76,10 @@ struct io_uring {
 	int ring_fd;
 
 	unsigned features;
-	unsigned pad[3];
+	int enter_ring_fd;
+	__u8 int_flags;
+	__u8 pad[3];
+	unsigned pad2;
 };
 
 /*

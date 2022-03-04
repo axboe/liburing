@@ -91,7 +91,8 @@ int io_uring_queue_mmap(int fd, struct io_uring_params *p, struct io_uring *ring
 	ret = io_uring_mmap(fd, p, &ring->sq, &ring->cq);
 	if (!ret) {
 		ring->flags = p->flags;
-		ring->ring_fd = fd;
+		ring->ring_fd = ring->enter_ring_fd = fd;
+		ring->int_flags = 0;
 	}
 	return ret;
 }
