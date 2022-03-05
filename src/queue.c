@@ -85,6 +85,7 @@ static int _io_uring_get_cqe(struct io_uring *ring, struct io_uring_cqe **cqe_pt
 			     struct get_data *data)
 {
 	struct io_uring_cqe *cqe = NULL;
+	bool looped = false;
 	int err;
 
 	do {
@@ -97,7 +98,12 @@ static int _io_uring_get_cqe(struct io_uring *ring, struct io_uring_cqe **cqe_pt
 		if (err)
 			break;
 		if (!cqe && !data->wait_nr && !data->submit) {
-			if (!cq_ring_needs_enter(ring)) {
+			/*
+			 * If we already looped once, we already entererd
+			 * the kernel. Since there's nothing to submit or
+			 * wait for, don't keep retrying.
+			 */
+			if (looped || !cq_ring_needs_enter(ring)) {
 				err = -EAGAIN;
 				break;
 			}
@@ -123,6 +129,7 @@ static int _io_uring_get_cqe(struct io_uring *ring, struct io_uring_cqe **cqe_pt
 		data->submit -= ret;
 		if (cqe)
 			break;
+		looped = true;
 	} while (1);
 
 	*cqe_ptr = cqe;
