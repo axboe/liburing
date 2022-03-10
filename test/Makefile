@@ -93,6 +93,7 @@ test_srcs := \
 	link-timeout.c \
 	madvise.c \
 	mkdir.c \
+	msg-ring.c \
 	multicqes_drain.c \
 	nop-all-sizes.c \
 	nop.c \
@@ -221,6 +222,7 @@ ring-leak2: override LDFLAGS += -lpthread
 poll-mshot-update: override LDFLAGS += -lpthread
 exit-no-cleanup: override LDFLAGS += -lpthread
 pollfree: override LDFLAGS += -lpthread
+msg-ring: override LDFLAGS += -lpthread
 
 install: $(test_targets) runtests.sh runtests-loop.sh
 	$(INSTALL) -D -d -m 755 $(datadir)/liburing-test/

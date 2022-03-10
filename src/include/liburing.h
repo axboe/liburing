@@ -703,6 +703,14 @@ static inline void io_uring_prep_linkat(struct io_uring_sqe *sqe, int olddfd,
 	sqe->hardlink_flags = (__u32) flags;
 }
 
+static inline void io_uring_prep_msg_ring(struct io_uring_sqe *sqe, int fd,
+					  unsigned int len, __u64 data,
+					  unsigned int flags)
+{
+	io_uring_prep_rw(IORING_OP_MSG_RING, sqe, fd, NULL, len, data);
+	sqe->rw_flags = flags;
+}
+
 /*
  * Returns number of unconsumed (if SQPOLL) or unsubmitted entries exist in
  * the SQ ring
