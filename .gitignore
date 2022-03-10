@@ -76,6 +76,7 @@
 /test/link_drain
 /test/madvise
 /test/mkdir
+/test/msg-ring
 /test/nop
 /test/nop-all-sizes
 /test/open-close
