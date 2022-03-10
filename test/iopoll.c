@@ -151,6 +151,12 @@ static int __test_io(const char *file, struct io_uring *ring, int write, int sqt
 
 	ret = io_uring_submit(ring);
 	if (ret != BUFFERS) {
+		ret = io_uring_peek_cqe(ring, &cqe);
+		if (!ret && cqe->res == -EOPNOTSUPP) {
+			no_iopoll = 1;
+			io_uring_cqe_seen(ring, cqe);
+			goto out;
+		}
 		fprintf(stderr, "submit got %d, wanted %d\n", ret, BUFFERS);
 		goto err;
 	}
