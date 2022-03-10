@@ -43,18 +43,19 @@ else
 	liburing_srcs += syscall.c
 endif
 
+override CPPFLAGS += -MT "$@" -MMD -MP -MF "$@.d"
 liburing_objs := $(patsubst %.c,%.ol,$(liburing_srcs))
 liburing_sobjs := $(patsubst %.c,%.os,$(liburing_srcs))
-
-$(liburing_srcs): syscall.h lib.h
-
-$(liburing_objs) $(liburing_sobjs): include/liburing/io_uring.h
 
 %.os: %.c
 	$(QUIET_CC)$(CC) $(CPPFLAGS) $(SO_CFLAGS) -c -o $@ $<
 
 %.ol: %.c
 	$(QUIET_CC)$(CC) $(CPPFLAGS) $(L_CFLAGS) -c -o $@ $<
+
+# Include compiler generated dependency files.
+-include $(liburing_objs:%=%.d)
+-include $(liburing_sobjs:%=%.d)
 
 AR ?= ar
 RANLIB ?= ranlib
@@ -78,11 +79,9 @@ ifeq ($(ENABLE_SHARED),1)
 	ln -sf $(relativelibdir)$(libname) $(libdevdir)/liburing.so
 endif
 
-$(liburing_objs): include/liburing.h
-
 clean:
 	@rm -f $(all_targets) $(liburing_objs) $(liburing_sobjs) $(soname).new
-	@rm -f *.so* *.a *.o
+	@rm -f *.so* *.a *.o *.d
 	@rm -f include/liburing/compat.h
 
 	@# When cleaning, we don't include ../config-host.mak,
