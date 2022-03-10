@@ -29,7 +29,7 @@ all_targets += $(example_targets)
 
 all: $(example_targets)
 
-%: %.c
+%: %.c ../src/liburing.a
 	$(QUIET_CC)$(CC) $(CPPFLAGS) $(CFLAGS) -o $@ $< $(LDFLAGS)
 
 clean:
