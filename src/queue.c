@@ -43,43 +43,6 @@ static inline bool cq_ring_needs_enter(struct io_uring *ring)
 	return (ring->flags & IORING_SETUP_IOPOLL) || cq_ring_needs_flush(ring);
 }
 
-static int __io_uring_peek_cqe(struct io_uring *ring,
-			       struct io_uring_cqe **cqe_ptr,
-			       unsigned *nr_available)
-{
-	struct io_uring_cqe *cqe;
-	int err = 0;
-	unsigned available;
-	unsigned mask = *ring->cq.kring_mask;
-
-	do {
-		unsigned tail = io_uring_smp_load_acquire(ring->cq.ktail);
-		unsigned head = *ring->cq.khead;
-
-		cqe = NULL;
-		available = tail - head;
-		if (!available)
-			break;
-
-		cqe = &ring->cq.cqes[head & mask];
-		if (!(ring->features & IORING_FEAT_EXT_ARG) &&
-				cqe->user_data == LIBURING_UDATA_TIMEOUT) {
-			if (cqe->res < 0)
-				err = cqe->res;
-			io_uring_cq_advance(ring, 1);
-			if (!err)
-				continue;
-			cqe = NULL;
-		}
-
-		break;
-	} while (1);
-
-	*cqe_ptr = cqe;
-	*nr_available = available;
-	return err;
-}
-
 struct get_data {
 	unsigned submit;
 	unsigned wait_nr;

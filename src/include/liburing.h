@@ -817,6 +817,44 @@ static inline int io_uring_wait_cqe_nr(struct io_uring *ring,
 	return __io_uring_get_cqe(ring, cqe_ptr, 0, wait_nr, NULL);
 }
 
+static inline int __io_uring_peek_cqe(struct io_uring *ring,
+				      struct io_uring_cqe **cqe_ptr,
+				      unsigned *nr_available)
+{
+	struct io_uring_cqe *cqe;
+	int err = 0;
+	unsigned available;
+	unsigned mask = *ring->cq.kring_mask;
+
+	do {
+		unsigned tail = io_uring_smp_load_acquire(ring->cq.ktail);
+		unsigned head = *ring->cq.khead;
+
+		cqe = NULL;
+		available = tail - head;
+		if (!available)
+			break;
+
+		cqe = &ring->cq.cqes[head & mask];
+		if (!(ring->features & IORING_FEAT_EXT_ARG) &&
+				cqe->user_data == LIBURING_UDATA_TIMEOUT) {
+			if (cqe->res < 0)
+				err = cqe->res;
+			io_uring_cq_advance(ring, 1);
+			if (!err)
+				continue;
+			cqe = NULL;
+		}
+
+		break;
+	} while (1);
+
+	*cqe_ptr = cqe;
+	if (nr_available)
+		*nr_available = available;
+	return err;
+}
+
 /*
  * Return an IO completion, if one is readily available. Returns 0 with
  * cqe_ptr filled in on success, -errno on failure.
@@ -824,6 +862,9 @@ static inline int io_uring_wait_cqe_nr(struct io_uring *ring,
 static inline int io_uring_peek_cqe(struct io_uring *ring,
 				    struct io_uring_cqe **cqe_ptr)
 {
+	if (__io_uring_peek_cqe(ring, cqe_ptr, NULL))
+		return 0;
+
 	return io_uring_wait_cqe_nr(ring, cqe_ptr, 0);
 }
 
@@ -834,6 +875,9 @@ static inline int io_uring_peek_cqe(struct io_uring *ring,
 static inline int io_uring_wait_cqe(struct io_uring *ring,
 				    struct io_uring_cqe **cqe_ptr)
 {
+	if (__io_uring_peek_cqe(ring, cqe_ptr, NULL))
+		return 0;
+
 	return io_uring_wait_cqe_nr(ring, cqe_ptr, 1);
 }
 
