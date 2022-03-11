@@ -497,6 +497,82 @@ must be set to 2, as the command takes two values.
 
 Available since 5.15.
 
+.TP
+.B IORING_REGISTER_RING_FDS
+Whenever
+.BR io_uring_enter (2)
+is called to submit request or wait for completions, the kernel must grab a
+reference to the file descriptor. If the application using io_uring is threaded,
+the file table is marked as shared, and the reference grab and put of the file
+descriptor count is more expensive than it is for a non-threaded application.
+
+Similarly to how io_uring allows registration of files, this allow registration
+of the ring file descriptor itself. This reduces the overhead of the
+.BR io_uring_enter (2)
+system call.
+
+.I arg
+must be set to an unsigned int pointer to an array of type
+.I struct io_uring_rsrc_register
+of
+.I nr_args
+number of entries. The
+.B data
+field of this struct must point to an io_uring file descriptor, and the
+.B offset
+field can be either
+.B -1
+or an explicit offset desired for the registered file descriptor value. If
+.B -1
+is used, then upon successful return of this system call, the field will
+contain the value of the registered file descriptor to be used for future
+.BR io_uring_enter (2)
+system calls.
+
+On successful completion of this request, the returned descriptors may be used
+instead of the real file descriptor for
+.BR io_uring_enter (2),
+provided that
+.B IORING_ENTER_REGISTERED_RING
+is set in the
+.I flags
+for the system call. This flag tells the kernel that a registered descriptor
+is used rather than a real file descriptor.
+
+Each thread or process using a ring must register the file descriptor directly
+by issuing this request.o
+
+The maximum number of supported registered ring descriptors is currently
+limited to
+.B 16.
+
+Available since 5.18.
+
+.TP
+.B IORING_UNREGISTER_RING_FDS
+Unregister descriptors previously registered with
+.B IORING_REGISTER_RING_FDS.
+
+.I arg
+must be set to an unsigned int pointer to an array of type
+.I struct io_uring_rsrc_register
+of
+.I nr_args
+number of entries. Only the
+.B offset
+field should be set in the structure, containing the registered file descriptor
+offset previously returned from
+.B IORING_REGISTER_RING_FDS
+that the application wishes to unregister.
+
+Note that this isn't done automatically on ring exit, if the thread or task
+that previously registered a ring file descriptor isn't exiting. It is
+recommended to manually unregister any previously registered ring descriptors
+if the ring is closed and the task persists. This will free up a registration
+slot, making it available for future use.
+
+Available since 5.18.
+
 .SH RETURN VALUE
 
 On success,
