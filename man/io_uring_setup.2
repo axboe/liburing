@@ -184,6 +184,18 @@ In this state, restrictions can be registered, but submissions are not allowed.
 See
 .BR io_uring_register (2)
 for details on how to enable the ring. Available since 5.10.
+.TP
+.B IORING_SETUP_SUBMIT_ALL
+Normally io_uring stops submitting a batch of request, if one of these requests
+results in an error. This can cause submission of less than what is expected,
+if a request ends in error while being submitted. If the ring is creted with
+this flag,
+.BR io_uring_enter (2)
+will continue submitting requests even if it encounters an error submitting
+a request. CQEs are still posted for errored request regardless of whether or
+not this flag is set at ring creation time, the only difference is if the
+submit sequence is halted or continued when an error is observed. Available
+since 5.18.
 .PP
 If no flags are specified, the io_uring instance is setup for
 interrupt driven I/O.  I/O may be submitted using
