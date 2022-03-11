@@ -61,6 +61,7 @@ test_srcs := \
 	d77a67ed5f27-test.c \
 	defer.c \
 	double-poll-crash.c \
+	drop-submit.c \
 	eeed8b54e0df-test.c \
 	empty-eownerdead.c \
 	eventfd.c \
