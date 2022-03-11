@@ -76,7 +76,10 @@ struct io_uring {
 	int ring_fd;
 
 	unsigned features;
-	unsigned pad[3];
+	int enter_ring_fd;
+	__u8 int_flags;
+	__u8 pad[3];
+	unsigned pad2;
 };
 
 /*
@@ -167,6 +170,8 @@ int io_uring_register_iowq_aff(struct io_uring *ring, size_t cpusz,
 int io_uring_unregister_iowq_aff(struct io_uring *ring);
 int io_uring_register_iowq_max_workers(struct io_uring *ring,
 				       unsigned int *values);
+int io_uring_register_ring_fd(struct io_uring *ring);
+int io_uring_unregister_ring_fd(struct io_uring *ring);
 
 /*
  * Helper for the peek/wait single cqe functions. Exported because of that,

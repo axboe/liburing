@@ -4,6 +4,7 @@
 #include "lib.h"
 #include "syscall.h"
 #include "liburing.h"
+#include "int_flags.h"
 #include "liburing/compat.h"
 #include "liburing/io_uring.h"
 
@@ -124,7 +125,9 @@ static int _io_uring_get_cqe(struct io_uring *ring, struct io_uring_cqe **cqe_pt
 		if (!need_enter)
 			break;
 
-		ret = ____sys_io_uring_enter2(ring->ring_fd, data->submit,
+		if (ring->int_flags & INT_FLAG_REG_RING)
+			flags |= IORING_ENTER_REGISTERED_RING;
+		ret = ____sys_io_uring_enter2(ring->enter_ring_fd, data->submit,
 					      data->wait_nr, flags, data->arg,
 					      data->sz);
 		if (ret < 0) {
@@ -186,8 +189,11 @@ again:
 		goto done;
 
 	if (cq_ring_needs_flush(ring)) {
-		____sys_io_uring_enter(ring->ring_fd, 0, 0,
-				       IORING_ENTER_GETEVENTS, NULL);
+		int flags = IORING_ENTER_GETEVENTS;
+
+		if (ring->int_flags & INT_FLAG_REG_RING)
+			flags |= IORING_ENTER_REGISTERED_RING;
+		____sys_io_uring_enter(ring->enter_ring_fd, 0, 0, flags, NULL);
 		overflow_checked = true;
 		goto again;
 	}
@@ -382,9 +388,11 @@ static int __io_uring_submit(struct io_uring *ring, unsigned submitted,
 	if (sq_ring_needs_enter(ring, &flags) || wait_nr) {
 		if (wait_nr || (ring->flags & IORING_SETUP_IOPOLL))
 			flags |= IORING_ENTER_GETEVENTS;
+		if (ring->int_flags & INT_FLAG_REG_RING)
+			flags |= IORING_ENTER_REGISTERED_RING;
 
-		ret = ____sys_io_uring_enter(ring->ring_fd, submitted, wait_nr,
-					     flags, NULL);
+		ret = ____sys_io_uring_enter(ring->enter_ring_fd, submitted,
+						wait_nr, flags, NULL);
 	} else
 		ret = submitted;
 
@@ -423,6 +431,10 @@ struct io_uring_sqe *io_uring_get_sqe(struct io_uring *ring)
 
 int __io_uring_sqring_wait(struct io_uring *ring)
 {
-	return  ____sys_io_uring_enter(ring->ring_fd, 0, 0,
-				       IORING_ENTER_SQ_WAIT, NULL);
+	int flags = IORING_ENTER_SQ_WAIT;
+
+	if (ring->int_flags & INT_FLAG_REG_RING)
+		flags |= IORING_ENTER_REGISTERED_RING;
+
+	return  ____sys_io_uring_enter(ring->enter_ring_fd, 0, 0, flags, NULL);
 }

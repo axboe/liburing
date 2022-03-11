@@ -4,6 +4,7 @@
 #include "lib.h"
 #include "syscall.h"
 #include "liburing.h"
+#include "int_flags.h"
 #include "liburing/compat.h"
 #include "liburing/io_uring.h"
 
@@ -256,4 +257,37 @@ int io_uring_register_iowq_max_workers(struct io_uring *ring, unsigned int *val)
 	return ____sys_io_uring_register(ring->ring_fd,
 					 IORING_REGISTER_IOWQ_MAX_WORKERS, val,
 					 2);
+}
+
+int io_uring_register_ring_fd(struct io_uring *ring)
+{
+	struct io_uring_rsrc_update up = {
+		.data = ring->ring_fd,
+		.offset = -1U,
+	};
+	int ret;
+
+	ret = ____sys_io_uring_register(ring->ring_fd, IORING_REGISTER_RING_FDS,
+					&up, 1);
+	if (ret == 1) {
+		ring->enter_ring_fd = up.offset;
+		ring->int_flags |= INT_FLAG_REG_RING;
+	}
+	return ret;
+}
+
+int io_uring_unregister_ring_fd(struct io_uring *ring)
+{
+	struct io_uring_rsrc_update up = {
+		.offset = ring->enter_ring_fd,
+	};
+	int ret;
+
+	ret = ____sys_io_uring_register(ring->ring_fd,
+					IORING_UNREGISTER_RING_FDS, &up, 1);
+	if (ret == 1) {
+		ring->enter_ring_fd = ring->ring_fd;
+		ring->int_flags &= ~INT_FLAG_REG_RING;
+	}
+	return ret;
 }
