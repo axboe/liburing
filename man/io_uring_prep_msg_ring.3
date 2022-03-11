@@ -1,0 +1,58 @@
+.\" Copyright (C) 2022 Jens Axboe <axboe@kernel.dk>
+.\"
+.\" SPDX-License-Identifier: LGPL-2.0-or-later
+.\"
+.TH io_uring_prep_msg_ring 3 "March 10, 2022" "liburing-2.2" "liburing Manual"
+.SH NAME
+io_uring_prep_msg_ring   - send a message to another ring
+
+.SH SYNOPSIS
+.nf
+.BR "#include <liburing.h>"
+.PP
+.BI "void io_uring_msg_ring(struct io_uring_sqe *sqe,"
+.BI "                        int fd,"
+.BI "                        unsigned int len,"
+.BI "                        __u64 data,"
+.BI "                        unsigned int flags)"
+
+.SH DESCRIPTION
+.PP
+io_uring_prep_msg_ring() prepares a to send a CQE to an io_uring file
+descriptor. The submission queue entry
+.I sqe
+is setup to use the file descriptor
+.I fd
+, which must identify a io_uring context, to post a CQE on that ring where
+the target CQE
+.BR res
+field will contain the content of
+.I len
+and the
+.BR user_data
+of
+.I data
+with the request modifier flags set by
+.I flags.
+Currently there are no valid flag modifiers, this field must contain
+.B 0.
+
+The targeted ring may be any ring that the user has access to, even the ring
+itself. This request can be used for simple message passing to another ring,
+allowing 32+64 bits of data to be transferred through the
+.I len
+and
+.I data
+fields. The use case may be anything from simply waking up someone waiting
+on the targeted ring, or it can be used to pass messages between the two
+rings.
+
+The resulting CQE posted on the target ring will have
+.B IORING_CQE_F_MSG
+set in its
+.I flags
+member, indicating to the target ring that this CQE is posted without having
+a relationship to an SQE issued on this ring.
+
+.SH RETURN VALUE
+None
