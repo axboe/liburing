@@ -56,3 +56,24 @@ a relationship to an SQE issued on this ring.
 
 .SH RETURN VALUE
 None
+
+.SH ERRORS
+These are the errors that are reported in the CQE
+.I res
+field.
+.TP
+.B -ENOMEM
+The kernel was unable to allocate memory for the request.
+.TP
+.B -EINVAL
+One of the fields set in the SQE was invalid.
+.TP
+.B -EBADFD
+The descriptor passed in
+.I fd
+does not refer to an io_uring file descriptor.
+.TP
+.B -EOVERFLOW
+The kernel was unable to fill a CQE on the target ring. This can happen if
+the target CQ ring is in an overflow state and the kernel wasn't able to
+allocate memory for a new CQE entry.
