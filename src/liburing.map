@@ -48,4 +48,6 @@ LIBURING_2.1 {
 LIBURING_2.2 {
 	global:
 		io_uring_submit_and_wait_timeout;
+		io_uring_register_ring_fd;
+		io_uring_unregister_ring_fd;
 } LIBURING_2.1;
