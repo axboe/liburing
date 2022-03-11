@@ -1027,6 +1027,27 @@ being passed in to
 .BR linkat(2).
 Available since 5.15.
 
+.TP
+.B IORING_OP_MSG_RING
+Send a message to an io_uring.
+.I fd
+must be set to a file descriptor of a ring that the application has access to,
+.I len
+can be set to any 32-bit value that the application wishes to pass on, and
+.I off
+should be set any 64-bit value that the application wishes to send. On the
+target ring, a CQE will be posted with the
+.I res
+field matching the
+.I len
+set, and a
+.I user_data
+field matching the
+.I off
+value being passed in. This request type can be used to either just wake or
+interrupt anyone waiting for completions on the target ring, ot it can be used
+to pass messages via the two fields. Available since 5.18.
+
 .PP
 The
 .I flags
