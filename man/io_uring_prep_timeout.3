@@ -1,0 +1,82 @@
+.\" Copyright (C) 2022 Jens Axboe <axboe@kernel.dk>
+.\"
+.\" SPDX-License-Identifier: LGPL-2.0-or-later
+.\"
+.TH io_uring_prep_poll_timeout 3 "March 12, 2022" "liburing-2.2" "liburing Manual"
+.SH NAME
+io_uring_prep_timeoute  - prepare a timeout request
+.fi
+.SH SYNOPSIS
+.nf
+.BR "#include <liburing.h>"
+.PP
+.BI "void io_uring_prep_timeout(struct io_uring_sqe *sqe,"
+.BI "                           struct __kernel_timespec *ts,"
+.BI "                           unsigned count,"
+.BI "                           unsigned flags);"
+.PP
+.SH DESCRIPTION
+.PP
+The io_uring_prep_timeout() function prepares a timeout request. The submission
+queue entry
+.I sqe
+is setup to arm a timeout specified by
+.I ts
+and with a timeout count of
+.I count
+completion entries. The
+.I flags
+argument holds modifier flags for the request.
+
+This request type can either be used as a timeout waking anyone sleeping
+for events on the CQ ring. The
+.I flags
+argument may contain:
+.TP
+.B IORING_TIMEOUT_ABS
+The value specified in
+.I ts
+is an absolute value rather than a relative one.
+.TP
+.B IORING_TIMEOUT_BOOTTIME
+The boottime clock source should be used.
+.TP
+.B IORING_TIMEOUT_REALTIME
+The realtime clock source should be used.
+.TP
+.B IORING_TIMEOUT_ETIME_SUCCESS
+Consider an expirted timeout a success in terms of the posted completion.
+Normally a timeout that triggers would return in a
+.B -ETIME
+CQE
+.I res
+value.
+.PP
+The timeout completion event will trigger if either the specified timeout
+has occurred, or the specified number of events to wait for have been posted
+to the CQ ring.
+
+.SH RETURN VALUE
+None
+.SH ERRORS
+These are the errors that are reported in the CQE
+.I res
+field. On success,
+.B 0
+is returned.
+.TP
+.B -ETIME
+The specified timeout occurred and triggered the completion event.
+.TP
+.B -EINVAL
+One of the fields set in the SQE was invalid. For example, two clocksources
+where given, or the specified timeout seconds or nanoseconds where < 0.
+.TP
+.B -EFAULT
+io_uring was unable to access the data specified by
+.I ts.
+.TP
+.B -ECANCELED
+The timeout was canceled by a removal request.
+.SH SEE ALSO
+.BR io_uring_get_sqe (3), io_uring_submit (3), io_uring_prep_timeout_remove (3), io_uring_prep_timeout_update (3)

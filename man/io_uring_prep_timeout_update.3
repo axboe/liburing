@@ -1,0 +1,87 @@
+.\" Copyright (C) 2022 Jens Axboe <axboe@kernel.dk>
+.\"
+.\" SPDX-License-Identifier: LGPL-2.0-or-later
+.\"
+.TH io_uring_prep_poll_timeout_update 3 "March 12, 2022" "liburing-2.2" "liburing Manual"
+.SH NAME
+io_uring_prep_timeoute_update - prepare a request to update an existing timeout
+.fi
+.SH SYNOPSIS
+.nf
+.BR "#include <liburing.h>"
+.PP
+.BI "void io_uring_prep_timeout_update(struct io_uring_sqe *sqe,"
+.BI "                                  struct __kernel_timespec *ts,"
+.BI "                                  __u64 user_data,"
+.BI "                                  unsigned flags);"
+.BI "
+.BI "void io_uring_prep_timeout_remove(struct io_uring_sqe *sqe,"
+.BI "                                  __u64 user_data,"
+.BI "                                  unsigned flags);"
+.PP
+.SH DESCRIPTION
+.PP
+These functions modify or cancel an existing timeout request. The submission
+queue entry
+.I sqe
+is setup to arm a timeout update or removal specified by
+.I user_data
+and with modifier flags given by
+.I flags.
+Additionally, the update request includes a
+.I ts
+structure, which contains new timeout information.
+
+For an update request, the
+.I flags
+member may contain a bitmask of the following values:
+.TP
+.B IORING_TIMEOUT_ABS
+The value specified in
+.I ts
+is an absolute value rather than a relative one.
+.TP
+.B IORING_TIMEOUT_BOOTTIME
+The boottime clock source should be used.
+.TP
+.B IORING_TIMEOUT_REALTIME
+The realtime clock source should be used.
+.TP
+.B IORING_TIMEOUT_ETIME_SUCCESS
+Consider an expirted timeout a success in terms of the posted completion.
+Normally a timeout that triggers would return in a
+.B -ETIME
+CQE
+.I res
+value.
+.PP
+
+.SH RETURN VALUE
+None
+.SH ERRORS
+These are the errors that are reported in the CQE
+.I res
+field. On success,
+.B 0
+is returned.
+.TP
+.B -ENOENT
+The timeout identified by
+.I user_data
+could not be found. It may be invalid, or triggered before the update or
+removal request was processed.
+.TP
+.B -EALREADY
+The timeout identified by
+.I user_data
+is already firing and cannot be canceled.
+.TP
+.B -EINVAL
+One of the fields set in the SQE was invalid. For example, two clocksources
+where given, or the specified timeout seconds or nanoseconds where < 0.
+.TP
+.B -EFAULT
+io_uring was unable to access the data specified by
+.I ts.
+.SH SEE ALSO
+.BR io_uring_get_sqe (3), io_uring_submit (3), io_uring_prep_timeout (3)
