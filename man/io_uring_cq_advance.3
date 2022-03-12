@@ -22,14 +22,16 @@ belonging to the
 .I ring
 param as processed.
 
-After the caller has submitted a request with io_uring_submit(), the application
-can retrieve the completion with
+After the caller has submitted a request with
+.BR io_uring_submit (3),
+the application can retrieve the completion with
 .BR io_uring_wait_cqe (3)
 and mark it as processed with
 .BR io_uring_cqe_seen (3).
 
 The function
-.BR io_uring_cqe_seen (3) calls the function
+.BR io_uring_cqe_seen (3)
+calls the function
 .BR io_uring_cq_advance (3).
 
 Completions must be marked as seen, so their slot can get reused. Failure to do

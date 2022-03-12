@@ -21,7 +21,8 @@ with the completion queue entry
 After the caller has received a completion queue entry (CQE) with
 .BR io_uring_wait_cqe (3),
 the application can call
-.BR io_uring_cqe_get_data (3) function to retrieve the
+.BR io_uring_cqe_get_data (3)
+function to retrieve the
 .I user_data
 value. This requires that
 .I user_data
