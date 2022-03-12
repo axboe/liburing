@@ -817,6 +817,11 @@ static inline int io_uring_wait_cqe_nr(struct io_uring *ring,
 	return __io_uring_get_cqe(ring, cqe_ptr, 0, wait_nr, NULL);
 }
 
+/*
+ * Internal helper, don't use directly in applications. Use one of the
+ * "official" versions of this, io_uring_peek_cqe(), io_uring_wait_cqe(),
+ * or io_uring_wait_cqes*().
+ */
 static inline int __io_uring_peek_cqe(struct io_uring *ring,
 				      struct io_uring_cqe **cqe_ptr,
 				      unsigned *nr_available)
