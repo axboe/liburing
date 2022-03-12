@@ -1,0 +1,40 @@
+.\" Copyright (C) 2022 Jens Axboe <axboe@kernel.dk>
+.\"
+.\" SPDX-License-Identifier: LGPL-2.0-or-later
+.\"
+.TH io_uring_prep_send 3 "March 12, 2022" "liburing-2.2" "liburing Manual"
+.SH NAME
+io_uring_prep_send  - prepare a send request
+.fi
+.SH SYNOPSIS
+.nf
+.BR "#include <liburing.h>"
+.PP
+.BI "void io_uring_prep_send(struct io_uring_sqe *sqe,"
+.BI "                        int sockfd,"
+.BI "                        const void *buf,"
+.BI "                        size_t len,"
+.BI "                        int flags)"
+.PP
+.SH DESCRIPTION
+.PP
+The io_uring_prep_send() function prepares a send request. The submission
+queue entry
+.I sqe
+is setup to use the file descriptor
+.I sockfd
+to start sending the data from
+.I buf
+of size
+.I size
+and with modifier flags
+.I flags.
+
+This function prepares an async
+.BR send (2)
+request. See that man page for details.
+
+.SH RETURN VALUE
+None
+.SH SEE ALSO
+.BR io_uring_get_sqe (3), io_uring_submit (3), send (2)

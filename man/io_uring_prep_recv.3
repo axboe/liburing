@@ -1,0 +1,40 @@
+.\" Copyright (C) 2022 Jens Axboe <axboe@kernel.dk>
+.\"
+.\" SPDX-License-Identifier: LGPL-2.0-or-later
+.\"
+.TH io_uring_prep_recv 3 "March 12, 2022" "liburing-2.2" "liburing Manual"
+.SH NAME
+io_uring_prep_recv  - prepare a recv request
+.fi
+.SH SYNOPSIS
+.nf
+.BR "#include <liburing.h>"
+.PP
+.BI "void io_uring_prep_recv(struct io_uring_sqe *sqe,"
+.BI "                        int sockfd,"
+.BI "                        void *buf,"
+.BI "                        size_t len,"
+.BI "                        int flags)"
+.PP
+.SH DESCRIPTION
+.PP
+The io_uring_prep_recv() function prepares a recv request. The submission
+queue entry
+.I sqe
+is setup to use the file descriptor
+.I sockfd
+to start receiving the data into the buffer destination
+.I buf
+of size
+.I size
+and with modifier flags
+.I flags.
+
+This function prepares an async
+.BR recv (2)
+request. See that man page for details.
+
+.SH RETURN VALUE
+None
+.SH SEE ALSO
+.BR io_uring_get_sqe (3), io_uring_submit (3), recv (2)
