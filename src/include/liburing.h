@@ -862,7 +862,7 @@ static inline int __io_uring_peek_cqe(struct io_uring *ring,
 static inline int io_uring_peek_cqe(struct io_uring *ring,
 				    struct io_uring_cqe **cqe_ptr)
 {
-	if (__io_uring_peek_cqe(ring, cqe_ptr, NULL))
+	if (!__io_uring_peek_cqe(ring, cqe_ptr, NULL) && *cqe_ptr)
 		return 0;
 
 	return io_uring_wait_cqe_nr(ring, cqe_ptr, 0);
@@ -875,7 +875,7 @@ static inline int io_uring_peek_cqe(struct io_uring *ring,
 static inline int io_uring_wait_cqe(struct io_uring *ring,
 				    struct io_uring_cqe **cqe_ptr)
 {
-	if (__io_uring_peek_cqe(ring, cqe_ptr, NULL))
+	if (!__io_uring_peek_cqe(ring, cqe_ptr, NULL) && *cqe_ptr)
 		return 0;
 
 	return io_uring_wait_cqe_nr(ring, cqe_ptr, 1);
