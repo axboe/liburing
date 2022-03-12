@@ -1,0 +1,35 @@
+.\" Copyright (C) 2022 Jens Axboe <axboe@kernel.dk>
+.\"
+.\" SPDX-License-Identifier: LGPL-2.0-or-later
+.\"
+.TH io_uring_prep_shutdown 3 "March 12, 2022" "liburing-2.2" "liburing Manual"
+.SH NAME
+io_uring_prep_shutdown  - prepare a shutdown request
+.fi
+.SH SYNOPSIS
+.nf
+.BR "#include <liburing.h>"
+.PP
+.BI "void io_uring_prep_shutdown(struct io_uring_sqe *sqe,"
+.BI "                            int sockfd,"
+.BI "                            int how)"
+.PP
+.SH DESCRIPTION
+.PP
+The io_uring_prep_shutdown() function prepares a shutdown request. The
+submission queue entry
+.I sqe
+is setup to use the file descriptor
+.I sockfd
+that should be shutdown with the
+.I how
+argument.
+
+This function prepares an async
+.BR shutdown (2)
+request. See that man page for details.
+
+.SH RETURN VALUE
+None
+.SH SEE ALSO
+.BR io_uring_get_sqe (3), io_uring_submit (3), shutdown (2)
