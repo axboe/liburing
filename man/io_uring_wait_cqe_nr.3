@@ -25,8 +25,10 @@ param, waiting for it if necessary. The
 .I cqe_ptr
 param is filled in on success.
 
-After the caller has submitted a request with io_uring_submit(), he can retrieve
-the completion with io_uring_wait_cqe_nr().
+After the caller has submitted a request with
+.BR io_uring_submit (3),
+the application can retrieve the completion with
+.BR io_uring_wait_cqe (3).
 
 .SH RETURN VALUE
 On success
