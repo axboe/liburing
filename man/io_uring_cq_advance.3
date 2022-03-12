@@ -22,13 +22,19 @@ belonging to the
 .I ring
 param as processed.
 
-After the caller has submitted a request with io_uring_submit(), he can retrieve
-the completion with io_uring_wait_cqe() and mark it then as processed with
-io_uring_cqe_seen(). 
+After the caller has submitted a request with io_uring_submit(), the application
+can retrieve the completion with
+.BR io_uring_wait_cqe (3)
+and mark it as processed with
+.BR io_uring_cqe_seen (3).
 
-The function io_uring_cqe_seen() calls the function io_uring_cq_advance().
+The function
+.BR io_uring_cqe_seen (3) calls the function
+.BR io_uring_cq_advance (3).
 
-Completions must be marked as completed, so their slot can get reused.
+Completions must be marked as seen, so their slot can get reused. Failure to do
+so will result in the same completion being returned on the next invocation.
+
 .SH RETURN VALUE
 None
 .SH SEE ALSO
