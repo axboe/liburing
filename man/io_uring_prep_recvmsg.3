@@ -1,0 +1,40 @@
+.\" Copyright (C) 2022 Jens Axboe <axboe@kernel.dk>
+.\"
+.\" SPDX-License-Identifier: LGPL-2.0-or-later
+.\"
+.TH io_uring_prep_recvmsg 3 "March 12, 2022" "liburing-2.2" "liburing Manual"
+.SH NAME
+io_uring_prep_recvmsg  - prepare a recvmsg request
+.fi
+.SH SYNOPSIS
+.nf
+.BR "#include <liburing.h>"
+.PP
+.BI "void io_uring_prep_recvmsg(struct io_uring_sqe *sqe,"
+.BI "                           int fd,"
+.BI "                           struct msghdr *msg,"
+.BI "                           unsigned flags)"
+.PP
+.SH DESCRIPTION
+.PP
+The io_uring_prep_recvmsg() function prepares a recvmsg request. The submission
+queue entry
+.I sqe
+is setup to use the file descriptor
+.I fd
+to start receiving the data indicated by
+.I msg
+with the
+.BR recvmsg (2)
+defined flags in the
+.I flags
+argument.
+
+This function prepares an async
+.BR recvmsg (2)
+request. See that man page for details.
+
+.SH RETURN VALUE
+None
+.SH SEE ALSO
+.BR io_uring_get_sqe (3), io_uring_submit (3), recvmsg (2)
