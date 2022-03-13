@@ -1,0 +1,70 @@
+.\" Copyright (C) 2022 Jens Axboe <axboe@kernel.dk>
+.\"
+.\" SPDX-License-Identifier: LGPL-2.0-or-later
+.\"
+.TH io_uring_prep_files_update 3 "March 13, 2022" "liburing-2.2" "liburing Manual"
+.SH NAME
+io_uring_prep_files_update  - prepare a registered file update request
+.fi
+.SH SYNOPSIS
+.nf
+.BR "#include <liburing.h>"
+.PP
+.BI "void io_uring_prep_files_update(struct io_uring_sqe *sqe,"
+.BI "                                int *fds,"
+.BI "                                unsigned nr_fds,"
+.BI "                                int offset);"
+.PP
+.SH DESCRIPTION
+.PP
+The io_uring_prep_files_update() function prepares a request for updating
+a number of previously registered file descriptors. The
+submission queue entry
+.I sqe
+is setup to use the file descriptor array pointed to by
+.I fds
+and of
+.I nr_fds
+in length to update that amount of previously registered files starting at
+offset
+.I offset.
+
+One a previously registered file is updated with a new one, the existing
+entry is updated the removed from the table. This operation is equivalent to
+first unregistering that entry and then inserting a new one, just bundled into
+one combined operation.
+
+.SH RETURN VALUE
+None
+.SH ERRORS
+These are the errors that are reported in the CQE
+.I res
+field. On success,
+.I res
+will contain the number of successfully updated file descriptors. On error,
+the following errors can occur.
+.TP
+.B -ENOMEM
+The kernel was unable to allocate memory for the request.
+.TP
+.B -EINVAL
+One of the fields set in the SQE was invalid.
+.TP
+.B -EFAULT
+The kernel was unable to copy in the memory pointed to by
+.I fds.
+.TP
+.B -EBADF
+On of the descriptors located in
+.I fds
+didn't refer to a valid file descriptor, or one of the file descriptors in
+the array referred to an io_uring instance.
+.TP
+.B -EOVERFLOW
+The product of
+.I offset
+and
+.I nr_fds
+exceed the valid amount or overflowed.
+.SH SEE ALSO
+.BR io_uring_get_sqe (3), io_uring_submit (3), io_uring_register (2)
