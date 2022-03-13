@@ -93,6 +93,13 @@ is set to a valid pointer, then this time value indicates the timeout for
 waiting on events. If an application is waiting on events and wishes to
 stop waiting after a specified amount of time, then this can be accomplished
 directly in version 5.11 and newer by using this feature.
+.TP
+.B IORING_ENTER_REGISTERED_RING
+If the ring file descriptor has been registered through use of
+.B IORING_REGISTER_RING_FDS,
+then setting this flag will tell the kernel that the
+.I ring_fd
+passed in is the registered ring offset rather than a normal file descriptor.
 
 .PP
 .PP
