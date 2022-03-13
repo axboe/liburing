@@ -1247,7 +1247,9 @@ is used for certain commands, like
 .B IORING_OP_POLL_ADD
 or in conjunction with
 .B IOSQE_BUFFER_SELECT
-, see those entries.
+or
+.B IORING_OP_MSG_RING,
+, see those entries for details.
 .I res
 is the operation-specific result, but io_uring-specific errors
 (e.g. flags or opcode invalid) are returned through this field.
