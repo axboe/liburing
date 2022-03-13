@@ -10,8 +10,8 @@ io_uring_register_iowq_max_workers  - modify the maximum allowed async workers
 .nf
 .BR "#include <liburing.h>"
 .PP
-.BI "void io_uring_register_iowq_max_workers(struct io_uring *ring,"
-.BI "                                        unsigned int *values);"
+.BI "int io_uring_register_iowq_max_workers(struct io_uring *ring,"
+.BI "                                       unsigned int *values);"
 .PP
 .SH DESCRIPTION
 .PP
