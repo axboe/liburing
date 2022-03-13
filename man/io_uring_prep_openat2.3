@@ -1,0 +1,79 @@
+.\" Copyright (C) 2022 Jens Axboe <axboe@kernel.dk>
+.\"
+.\" SPDX-License-Identifier: LGPL-2.0-or-later
+.\"
+.TH io_uring_prep_openat2 3 "March 13, 2022" "liburing-2.2" "liburing Manual"
+.SH NAME
+io_uring_prep_openat2  - prepare an openat2 request
+.fi
+.SH SYNOPSIS
+.nf
+.BR "#include <sys/types.h>"
+.BR "#include <sys/stat.h>"
+.BR "#include <fcntl.h>"
+.BR "#include <linux/openat2.h>"
+.BR "#include <liburing.h>"
+.PP
+.BI "void io_uring_prep_openat2(struct io_uring_sqe *sqe,"
+.BI "                           int dfd,"
+.BI "                           const char *path,"
+.BI "                           int flags,"
+.BI "                           struct open_how *how);"
+.BI "
+.BI "void io_uring_prep_openat2_direct(struct io_uring_sqe *sqe,"
+.BI "                                  int dfd,"
+.BI "                                  const char *path,"
+.BI "                                  int flags,"
+.BI "                                  struct open_how *how,"
+.BI "                                  unsigned file_index);"
+.PP
+.SH DESCRIPTION
+.PP
+The io_uring_prep_openat2() function prepares an openat2 request. The submission
+queue entry
+.I sqe
+is setup to use the directory file descriptor
+.I dfd
+to start opening a file described by
+.I path
+and using the open flags in
+.I flags
+and using the instructions on how to open the file given in
+.I how.
+
+For a direct descriptor open request, the offset is specified by the
+.I file_index
+argument. Direct descriptors are io_uring private file descriptors. They
+avoid some of the overhead associated with thread shared file tables, and
+can be used in any io_uring request that takes a file descriptor. To do so,
+.B IOSQE_FIXED_FILE
+must be set in the SQE
+.I flags
+member, and the SQE
+.I fd
+field should use the direct descriptor value rather than the regular file
+descriptor. Direct descriptors are managed like registered files.
+
+This function prepares an async
+.BR openat2 (2)
+request. See that man page for details.
+
+.SH RETURN VALUE
+None
+.SH ERRORS
+The CQE
+.I res
+field will contain the result of the operation. See the related man page for
+details on possible values. Note that where synchronous system calls will return
+.B -1
+on failure and set
+.I errno
+to the actual error value, io_uring never uses
+.I errno.
+Instead it returns the negated
+.I errno
+directly in the CQE
+.I res
+field.
+.SH SEE ALSO
+.BR io_uring_get_sqe (3), io_uring_submit (3), io_uring_register (2), openat2 (2)
