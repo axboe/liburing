@@ -8,6 +8,8 @@ io_uring_prep_recvmsg  - prepare a recvmsg request
 .fi
 .SH SYNOPSIS
 .nf
+.BR "#include <sys/types.h>"
+.BR "#include <sys/socket.h>"
 .BR "#include <liburing.h>"
 .PP
 .BI "void io_uring_prep_recvmsg(struct io_uring_sqe *sqe,"
