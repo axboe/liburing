@@ -6,6 +6,10 @@
 #define _XOPEN_SOURCE 500 /* Required for glibc to expose sigset_t */
 #endif
 
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE /* Required for musl to expose cpu_set_t */
+#endif
+
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/uio.h>
