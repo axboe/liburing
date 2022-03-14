@@ -51,6 +51,15 @@ member, and the SQE
 field should use the direct descriptor value rather than the regular file
 descriptor. Direct descriptors are managed like registered files.
 
+If the direct variant is used, the application must first have registered
+a sparse file table using
+.BR io_uring_register_files (3)
+of the appropriate size. A sparse table is one where each element is first
+registered with a value of
+.B -1.
+Once registered, a direct accept request may use any sparse entry in that
+table, as long as it is within the size of the registered table.
+
 This function prepares an async
 .BR accept4 (2)
 request. See that man page for details.
