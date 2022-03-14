@@ -12,10 +12,10 @@ io_uring_prep_connect  - prepare a connect request
 .BR "#include <sys/socket.h>"
 .BR "#include <liburing.h>"
 .PP
-.BI "void io_uring_prep_connect(struct io_uring_sqe *sqe,"
-.BI "                           int sockfd,"
-.BI "                           const struct sockaddr *addr,"
-.BI "                           socklen_t addrlen);"
+.BI "void io_uring_prep_connect(struct io_uring_sqe *" sqe ","
+.BI "                           int " sockfd ","
+.BI "                           const struct sockaddr *" addr ","
+.BI "                           socklen_t " addrlen ");"
 .PP
 .SH DESCRIPTION
 .PP

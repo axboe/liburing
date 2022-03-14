@@ -11,13 +11,13 @@ io_uring_prep_splice  - prepare an splice request
 .BR "#include <fcntl.h>"
 .BR "#include <liburing.h>"
 .PP
-.BI "void io_uring_prep_splice(struct io_uring_sqe *sqe,"
-.BI "                          int fd_in,"
-.BI "                          int64_t off_in,"
-.BI "                          int fd_out,"
-.BI "                          int64_t off_out,"
-.BI "                          unsigned int nbytes,"
-.BI "                          int splice_flags);"
+.BI "void io_uring_prep_splice(struct io_uring_sqe *" sqe ","
+.BI "                          int " fd_in ","
+.BI "                          int64_t " off_in ","
+.BI "                          int " fd_out ","
+.BI "                          int64_t " off_out ","
+.BI "                          unsigned int " nbytes ","
+.BI "                          int " splice_flags ");"
 .PP
 .SH DESCRIPTION
 .PP

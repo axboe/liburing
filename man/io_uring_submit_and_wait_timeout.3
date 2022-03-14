@@ -11,15 +11,11 @@ wait for the completion with timeout
 .nf
 .BR "#include <liburing.h>"
 .PP
-.BI "int io_uring_submit_and_wait_timeout(struct io_uring *ring,"
-.fi
-.BI "                                     struct io_uring_cqe **cqe_ptr,"
-.fi
-.BI "                                     unsigned wait_nr,"
-.fi
-.BI "                                     struct __kernel_timespec *ts,"
-.fi
-.BI "                                     sigset_t *sigmask)"
+.BI "int io_uring_submit_and_wait_timeout(struct io_uring *" ring ","
+.BI "                                     struct io_uring_cqe **" cqe_ptr ","
+.BI "                                     unsigned " wait_nr ","
+.BI "                                     struct __kernel_timespec *" ts ","
+.BI "                                     sigset_t *" sigmask ");"
 .PP
 .SH DESCRIPTION
 .PP

@@ -9,13 +9,13 @@ io_uring_cqe_get_data - get user data for completion event
 .nf
 .BR "#include <liburing.h>"
 .PP
-.BI "void *io_uring_cqe_get_data(struct io_uring_cqe *cqe)"
+.BI "void *io_uring_cqe_get_data(struct io_uring_cqe *" cqe ");"
 .fi
 .PP
 .SH DESCRIPTION
 .PP
-The io_uring_cqe_get_data() function returns the user_data
-with the completion queue entry
+The io_uring_cqe_get_data() function returns the user_data with the completion
+queue entry
 .I cqe.
 
 After the caller has received a completion queue entry (CQE) with
@@ -26,7 +26,8 @@ function to retrieve the
 .I user_data
 value. This requires that
 .I user_data
-has been set earlier with the function io_uring_sqe_set_data().
+has been set earlier with the function
+.BR io_uring_sqe_set_data (3).
 
 .SH RETURN VALUE
 If the

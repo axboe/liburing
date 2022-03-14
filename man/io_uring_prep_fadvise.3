@@ -11,11 +11,11 @@ io_uring_prep_fadvise  - prepare a fadvise request
 .BR "#include <fcntl.h>"
 .BR "#include <liburing.h>"
 .PP
-.BI "void io_uring_prep_fadvise(struct io_uring_sqe *sqe,"
-.BI "                           int fd,"
-.BI "                           __u64 offset,"
-.BI "                           off_t len,"
-.BI "                           int advice);"
+.BI "void io_uring_prep_fadvise(struct io_uring_sqe *" sqe ","
+.BI "                           int " fd ","
+.BI "                           __u64 " offset ","
+.BI "                           off_t " len ","
+.BI "                           int " advice ");"
 .PP
 .SH DESCRIPTION
 .PP

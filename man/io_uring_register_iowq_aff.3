@@ -11,11 +11,11 @@ io_uring_register_iowq_aff  - register async worker CPU affinities
 .BR "#include <sched.h>"
 .BR "#include <liburing.h>"
 .PP
-.BI "int io_uring_register_iowq_aff(struct io_uring *ring,"
-.BI "                               size_t cpusz,"
-.BI "                               const cpu_set_t *mask);
+.BI "int io_uring_register_iowq_aff(struct io_uring *" ring ","
+.BI "                               size_t " cpusz ","
+.BI "                               const cpu_set_t *" mask ");
 .BI "
-.BI "void io_uring_unregister_iowq_aff(struct io_uring *ring);"
+.BI "void io_uring_unregister_iowq_aff(struct io_uring *" ring ");"
 .PP
 .SH DESCRIPTION
 .PP

@@ -11,11 +11,11 @@ io_uring_prep_tee  - prepare a tee request
 .BR "#include <fcntl.h>"
 .BR "#include <liburing.h>"
 .PP
-.BI "void io_uring_prep_tee(struct io_uring_sqe *sqe,"
-.BI "                       int fd_in,"
-.BI "                       int fd_out,"
-.BI "                       unsigned int nbytes,"
-.BI "                       int splice_flags);"
+.BI "void io_uring_prep_tee(struct io_uring_sqe *" sqe ","
+.BI "                       int " fd_in ","
+.BI "                       int " fd_out ","
+.BI "                       unsigned int " nbytes ","
+.BI "                       int " splice_flags ");"
 .PP
 .SH DESCRIPTION
 .PP

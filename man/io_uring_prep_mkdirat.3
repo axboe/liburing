@@ -12,10 +12,10 @@ io_uring_prep_mkdirat  - prepare an mkdirat request
 .BR "#include <sys/stat.h>"
 .BR "#include <liburing.h>"
 .PP
-.BI "void io_uring_prep_mkdirat(struct io_uring_sqe *sqe,"
-.BI "                           int dirfd,"
-.BI "                           const char *path,"
-.BI "                           mode_t mode);"
+.BI "void io_uring_prep_mkdirat(struct io_uring_sqe *" sqe ","
+.BI "                           int " dirfd ","
+.BI "                           const char *" path ","
+.BI "                           mode_t " mode ");"
 .PP
 .SH DESCRIPTION
 .PP

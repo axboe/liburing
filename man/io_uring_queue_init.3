@@ -10,13 +10,13 @@ io_uring_queue_init - setup io_uring submission and completion queues
 .nf
 .BR "#include <liburing.h>"
 .PP
-.BI "int io_uring_queue_init(unsigned entries,"
-.BI "                        struct io_uring *ring,"
-.BI "                        unsigned flags);"
+.BI "int io_uring_queue_init(unsigned " entries ","
+.BI "                        struct io_uring *" ring ","
+.BI "                        unsigned " flags ");"
 .BI "
-.BI "int io_uring_queue_init_params(unsigned entries,"
-.BI "                               struct io_uring *ring,"
-.BI "                               struct io_uring_params *params);"
+.BI "int io_uring_queue_init_params(unsigned " entries ","
+.BI "                               struct io_uring *" ring ","
+.BI "                               struct io_uring_params *" params ");"
 .fi
 .PP
 .SH DESCRIPTION
@@ -32,7 +32,8 @@ application and the kernel.
 On success io_uring_queue_init() returns 0 and
 .I ring
 will point to the shared memory containing the io_uring queues. On failure
--errno is returned.
+.BR -errno
+is returned.
 
 .I flags
 will be passed through to the io_uring_setup syscall (see 

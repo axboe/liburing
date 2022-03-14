@@ -9,19 +9,20 @@ io_uring_opcode_supported - is op code supported?
 .nf
 .BR "#include <liburing.h>"
 .PP
-.BI "int io_uring_opcode_supported(struct io_uring_probe *probe,"
-.BI "                              int opode)
+.BI "int io_uring_opcode_supported(struct io_uring_probe *" probe ","
+.BI "                              int " opode ");"
 .fi
 .PP
 .SH DESCRIPTION
 .PP
-The function io_uring_opcode_supported allows the caller to determine if
+The function io_uring_opcode_supported() allows the caller to determine if
 the passed in
 .I opcode
 belonging to the
 .I probe
 param is supported. An instance of the io_uring_probe instance can be
-obtained by calling the function io_uring_get_probe().
+obtained by calling the function
+.BR io_uring_get_probe (3).
 
 .SH RETURN VALUE
 On success it returns 1, otherwise it returns 0.

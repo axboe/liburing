@@ -9,24 +9,24 @@ io_uring_cq_advance - Mark one or more io_uring completion events as processed
 .nf
 .BR "#include <liburing.h>"
 .PP
-.BI "void io_uring_cqe_advance(struct io_uring *ring,"
-.BI "                          unsigned nr)"
+.BI "void io_uring_cqe_advance(struct io_uring *" ring ","
+.BI "                          unsigned " nr ");"
 .fi
 .PP
 .SH DESCRIPTION
 .PP
 The io_uring_cq_advance() function marks
 .I nr
-IO completions
-belonging to the
+IO completions belonging to the
 .I ring
 param as processed.
 
 After the caller has submitted a request with
 .BR io_uring_submit (3),
 the application can retrieve the completion with
-.BR io_uring_wait_cqe (3)
-and mark it as processed with
+.BR io_uring_wait_cqe (3),
+.BR io_uring_peek_cqe (3),
+or any of the other CQE retrieval helpers, and mark it as processed with
 .BR io_uring_cqe_seen (3).
 
 The function
@@ -40,4 +40,4 @@ so will result in the same completion being returned on the next invocation.
 .SH RETURN VALUE
 None
 .SH SEE ALSO
-.BR io_uring_submit (3), io_uring_wait_cqe (3), io_uring_cqe_seen (3)
+.BR io_uring_submit (3), io_uring_wait_cqe (3), io_uring_peek_cqe (3), io_uring_wait_cqes (3), io_uring_wait_cqe_timeout (3), io_uring_cqe_seen (3)

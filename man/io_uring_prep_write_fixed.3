@@ -10,12 +10,12 @@ io_uring_prep_write_fixed   - prepare I/O write request with registered buffer
 .nf
 .BR "#include <liburing.h>"
 .PP
-.BI "void io_uring_prep_write_fixed(struct io_uring_sqe *sqe,"
-.BI "                        int fd,"
-.BI "                        const void *buf,"
-.BI "                        unsigned nbytes,"
-.BI "                        __u64 offset,"
-.BI "                        int buf_index);"
+.BI "void io_uring_prep_write_fixed(struct io_uring_sqe *" sqe ","
+.BI "                        int " fd ",
+.BI "                        const void *" buf ","
+.BI "                        unsigned " nbytes ","
+.BI "                        __u64 " offset ","
+.BI "                        int " buf_index ");"
 
 .SH DESCRIPTION
 .PP

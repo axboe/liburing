@@ -9,8 +9,8 @@ io_uring_cqe_seen - Mark io_uring completion event as processed
 .nf
 .BR "#include <liburing.h>"
 .PP
-.BI "void io_uring_cqe_seen(struct io_uring *ring,"
-.BI "                       struct io_uring_cqe *cqe)"
+.BI "void io_uring_cqe_seen(struct io_uring *" ring ","
+.BI "                       struct io_uring_cqe *" cqe ");"
 .fi
 .PP
 .SH DESCRIPTION
@@ -24,12 +24,13 @@ param as processed.
 After the caller has submitted a request with
 .BR io_uring_submit (3),
 the application can retrieve the completion with
-.BR io_uring_wait_cqe (3)
-and mark it then as processed with
+.BR io_uring_wait_cqe (3),
+.BR io_uring_peek_cqe (3),
+or any of the other CQE retrieval helpers, and mark it as processed with
 .BR io_uring_cqe_seen (3).
 
 Completions must be marked as completed, so their slot can get reused.
 .SH RETURN VALUE
 None
 .SH SEE ALSO
-.BR io_uring_submit (3),  io_uring_wait_cqe(3)
+.BR io_uring_submit (3), io_uring_wait_cqe (3), io_uring_peek_cqe (3), io_uring_wait_cqes (3), io_uring_wait_cqe_timeout (3), io_uring_cqe_seen (3)

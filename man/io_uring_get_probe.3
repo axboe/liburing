@@ -9,14 +9,15 @@ io_uring_get_probe - get probe instance
 .nf
 .BR "#include <liburing.h>"
 .PP
-.BI "io_uring_probe *io_uring_get_probe(void)"
+.BI "io_uring_probe *io_uring_get_probe(void);"
 .fi
 .PP
 .SH DESCRIPTION
 .PP
 The function io_uring_get_probe() returns an allocated io_uring_probe
 structure to the caller. The caller is responsible for freeing the
-structure with the function io_uring_free_probe().
+structure with the function
+.BR io_uring_free_probe (3).
 
 .SH NOTES
 Earlier versions of the Linux kernel do not support probe. If the kernel

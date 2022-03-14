@@ -11,11 +11,11 @@ io_uring_prep_poll_update  - update an existing poll request
 .BR "#include <poll.h>"
 .BR "#include <liburing.h>"
 .PP
-.BI "void io_uring_prep_poll_update(struct io_uring_sqe *sqe,"
-.BI "                               __u64 old_user_data,"
-.BI "                               __u64 new_user_data,"
-.BI "                               unsigned poll_mask,"
-.BI "                               unsigned flags)"
+.BI "void io_uring_prep_poll_update(struct io_uring_sqe *" sqe ","
+.BI "                               __u64 " old_user_data ","
+.BI "                               __u64 " new_user_data ","
+.BI "                               unsigned " poll_mask ","
+.BI "                               unsigned " flags ");"
 
 .SH DESCRIPTION
 .PP

@@ -11,11 +11,11 @@ io_uring_prep_readv  - prepare vector I/O read request
 .BR "#include <sys/uio.h>"
 .BR "#include <liburing.h>"
 .PP
-.BI "void io_uring_prep_readv(struct io_uring_sqe *sqe,"
-.BI "                         int fd,"
-.BI "                         const struct iovec *iovecs,"
-.BI "                         unsigned nr_vecs,"
-.BI "                         __u64 offset);"
+.BI "void io_uring_prep_readv(struct io_uring_sqe *" sqe ","
+.BI "                         int " fd ","
+.BI "                         const struct iovec *" iovecs ","
+.BI "                         unsigned " nr_vecs ","
+.BI "                         __u64 " offset ");"
 .PP
 .SH DESCRIPTION
 .PP

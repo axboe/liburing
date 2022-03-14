@@ -14,12 +14,12 @@ io_uring_prep_statx  - prepare a statx request
 .BR "#include <fcntl.h>"
 .BR "#include <liburing.h>"
 .PP
-.BI "void io_uring_prep_statx(struct io_uring_sqe *sqe,"
-.BI "                         int dirfd,"
-.BI "                         const char *path,"
-.BI "                         int flags,"
-.BI "                         unsigned mask,"
-.BI "                         struct statx *statxbuf);"
+.BI "void io_uring_prep_statx(struct io_uring_sqe *" sqe ","
+.BI "                         int " dirfd ","
+.BI "                         const char *" path ","
+.BI "                         int " flags ","
+.BI "                         unsigned " mask ","
+.BI "                         struct statx *" statxbuf ");"
 .PP
 .SH DESCRIPTION
 .PP

@@ -9,11 +9,11 @@ io_uring_wait_cqes - wait for one or more io_uring completion events
 .nf
 .BR "#include <liburing.h>"
 .PP
-.BI "int io_uring_wait_cqes(struct io_uring *ring,"
-.BI "                       struct io_uring_cqe **cqe_ptr,"
-.BI "                       unsigned wait_nr,"
-.BI "                       struct __kernel_timespec *ts,"
-.BI "                       sigset_t *sigmask)
+.BI "int io_uring_wait_cqes(struct io_uring *" ring ","
+.BI "                       struct io_uring_cqe **" cqe_ptr ","
+.BI "                       unsigned " wait_nr ","
+.BI "                       struct __kernel_timespec *" ts ","
+.BI "                       sigset_t *" sigmask ");
 .fi
 .PP
 .SH DESCRIPTION

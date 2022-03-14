@@ -9,14 +9,16 @@ io_uring_free_probe - free probe instance
 .nf
 .BR "#include <liburing.h>"
 .PP
-.BI "void io_uring_free_probe(struct io_uring_probe *probe)"
+.BI "void io_uring_free_probe(struct io_uring_probe *" probe ");"
 .fi
 .PP
 .SH DESCRIPTION
 .PP
 The function io_uring_free_probe() frees the
 .I probe
-instance allocated with the io_uring_get_probe() function.
+instance allocated with the
+.BR io_uring_get_probe (3)
+function.
 
 .SH RETURN VALUE
 None
