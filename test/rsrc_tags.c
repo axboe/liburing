@@ -27,7 +27,7 @@ static bool check_cq_empty(struct io_uring *ring)
 	struct io_uring_cqe *cqe = NULL;
 	int ret;
 
-	sleep(1); /* doesn't happen immediately, so wait */
+	usleep(1000); /* doesn't happen immediately, so wait */
 	ret = io_uring_peek_cqe(ring, &cqe); /* nothing should be there */
 	return ret == -EAGAIN;
 }
