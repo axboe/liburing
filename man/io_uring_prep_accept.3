@@ -52,13 +52,18 @@ field should use the direct descriptor value rather than the regular file
 descriptor. Direct descriptors are managed like registered files.
 
 If the direct variant is used, the application must first have registered
-a sparse file table using
+a file table using
 .BR io_uring_register_files (3)
-of the appropriate size. A sparse table is one where each element is first
-registered with a value of
-.B -1.
-Once registered, a direct accept request may use any sparse entry in that
-table, as long as it is within the size of the registered table.
+of the appropriate size. Once registered, a direct accept request may use any
+entry in that table, as long as it is within the size of the registered table.
+If a specified entry already contains a file, the file will first be removed
+from the table and closed. It's consistent with the behavior of updating an
+existing file with
+.BR io_uring_register_files_update (3).
+Note that old kernels don't check the SQE
+.I file_index
+field, which is not a problem for liburing helpers, but users of the raw
+io_uring interface need to zero SQEs to avoid unexpected behavior.
 
 This function prepares an async
 .BR accept4 (2)
