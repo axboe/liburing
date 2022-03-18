@@ -63,7 +63,14 @@ existing file with
 Note that old kernels don't check the SQE
 .I file_index
 field, which is not a problem for liburing helpers, but users of the raw
-io_uring interface need to zero SQEs to avoid unexpected behavior.
+io_uring interface need to zero SQEs to avoid unexpected behavior. This also
+means that applications should check for availability of
+.B IORING_OP_ACCEPT_DIRECT
+before using it, they cannot rely on a
+.B -EINVAL
+CQE
+.I res
+return.
 
 This function prepares an async
 .BR accept4 (2)
@@ -74,8 +81,13 @@ None
 .SH ERRORS
 The CQE
 .I res
-field will contain the result of the operation. See the related man page for
-details on possible values. Note that where synchronous system calls will return
+field will contain the result of the operation. While the non-direct accept
+returns the installed file descriptor as its value, the direct accept
+returns
+.B 0
+on success. The caller must know which direct descriptor was picked for this
+request. See the related man page for details on possible values for the
+non-direct accept. Note that where synchronous system calls will return
 .B -1
 on failure and set
 .I errno
