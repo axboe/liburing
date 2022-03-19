@@ -8,7 +8,7 @@
  * liburing's tests still need these functions.
  */
 #if defined(CONFIG_NOLIBC) && !defined(LIBURING_BUILD_TEST)
-# error "This file should only be compiled for libc build, or for liburing tests"
+#error "This file should only be compiled for libc build, or for liburing tests"
 #endif
 
 /*

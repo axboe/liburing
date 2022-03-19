@@ -8,7 +8,6 @@
 #include "liburing/compat.h"
 #include "liburing/io_uring.h"
 
-
 static void io_uring_unmap_rings(struct io_uring_sq *sq, struct io_uring_cq *cq)
 {
 	__sys_munmap(sq->ring_ptr, sq->ring_sz);
@@ -240,7 +239,8 @@ static size_t npages(size_t size, unsigned page_size)
 
 #define KRING_SIZE	320
 
-static size_t rings_size(unsigned entries, unsigned cq_entries, unsigned page_size)
+static size_t rings_size(unsigned entries, unsigned cq_entries,
+			 unsigned page_size)
 {
 	size_t pages, sq_size, cq_size;
 

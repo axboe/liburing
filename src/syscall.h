@@ -18,35 +18,35 @@
  * alpha and mips are exception, other architectures have
  * common numbers for new system calls.
  */
-# ifndef __NR_io_uring_setup
-#  define __NR_io_uring_setup		535
-# endif
-# ifndef __NR_io_uring_enter
-#  define __NR_io_uring_enter		536
-# endif
-# ifndef __NR_io_uring_register
-#  define __NR_io_uring_register	537
-# endif
+#ifndef __NR_io_uring_setup
+#define __NR_io_uring_setup		535
+#endif
+#ifndef __NR_io_uring_enter
+#define __NR_io_uring_enter		536
+#endif
+#ifndef __NR_io_uring_register
+#define __NR_io_uring_register	537
+#endif
 #elif defined __mips__
-# ifndef __NR_io_uring_setup
-#  define __NR_io_uring_setup		(__NR_Linux + 425)
-# endif
-# ifndef __NR_io_uring_enter
-#  define __NR_io_uring_enter		(__NR_Linux + 426)
-# endif
-# ifndef __NR_io_uring_register
-#  define __NR_io_uring_register	(__NR_Linux + 427)
-# endif
+#ifndef __NR_io_uring_setup
+#define __NR_io_uring_setup		(__NR_Linux + 425)
+#endif
+#ifndef __NR_io_uring_enter
+#define __NR_io_uring_enter		(__NR_Linux + 426)
+#endif
+#ifndef __NR_io_uring_register
+#define __NR_io_uring_register	(__NR_Linux + 427)
+#endif
 #else /* !__alpha__ and !__mips__ */
-# ifndef __NR_io_uring_setup
-#  define __NR_io_uring_setup		425
-# endif
-# ifndef __NR_io_uring_enter
-#  define __NR_io_uring_enter		426
-# endif
-# ifndef __NR_io_uring_register
-#  define __NR_io_uring_register	427
-# endif
+#ifndef __NR_io_uring_setup
+#define __NR_io_uring_setup		425
+#endif
+#ifndef __NR_io_uring_enter
+#define __NR_io_uring_enter		426
+#endif
+#ifndef __NR_io_uring_register
+#define __NR_io_uring_register		427
+#endif
 #endif
 
 /*
@@ -72,19 +72,19 @@ static inline bool IS_ERR(const void *ptr)
 
 #define __INTERNAL__LIBURING_SYSCALL_H
 #if defined(__x86_64__) || defined(__i386__)
-	#include "arch/x86/syscall.h"
+#include "arch/x86/syscall.h"
 #elif defined(__aarch64__)
-	#include "arch/aarch64/syscall.h"
+#include "arch/aarch64/syscall.h"
 #else
-	/*
-	 * We don't have native syscall wrappers
-	 * for this arch. Must use libc!
-	 */
-	#ifdef CONFIG_NOLIBC
-		#error "This arch doesn't support building liburing without libc"
-	#endif
-	/* libc syscall wrappers. */
-	#include "arch/generic/syscall.h"
+/*
+ * We don't have native syscall wrappers
+ * for this arch. Must use libc!
+ */
+#ifdef CONFIG_NOLIBC
+	#error "This arch doesn't support building liburing without libc"
+#endif
+/* libc syscall wrappers. */
+#include "arch/generic/syscall.h"
 #endif
 #undef __INTERNAL__LIBURING_SYSCALL_H
 

@@ -25,11 +25,11 @@
 #include "liburing/barrier.h"
 
 #ifndef uring_unlikely
-#  define uring_unlikely(cond)      __builtin_expect(!!(cond), 0)
+#define uring_unlikely(cond)	__builtin_expect(!!(cond), 0)
 #endif
 
 #ifndef uring_likely
-#  define uring_likely(cond)        __builtin_expect(!!(cond), 1)
+#define uring_likely(cond)	__builtin_expect(!!(cond), 1)
 #endif
 
 #ifdef __cplusplus
@@ -104,7 +104,8 @@ struct io_uring_probe *io_uring_get_probe(void);
  */
 void io_uring_free_probe(struct io_uring_probe *probe);
 
-static inline int io_uring_opcode_supported(const struct io_uring_probe *p, int op)
+static inline int io_uring_opcode_supported(const struct io_uring_probe *p,
+					    int op)
 {
 	if (op > p->last_op)
 		return 0;
@@ -350,7 +351,8 @@ static inline void io_uring_prep_readv(struct io_uring_sqe *sqe, int fd,
 
 static inline void io_uring_prep_readv2(struct io_uring_sqe *sqe, int fd,
 				       const struct iovec *iovecs,
-				       unsigned nr_vecs, __u64 offset, int flags)
+				       unsigned nr_vecs, __u64 offset,
+				       int flags)
 {
 	io_uring_prep_readv(sqe, fd, iovecs, nr_vecs, offset);
 	sqe->rw_flags = flags;
@@ -373,7 +375,8 @@ static inline void io_uring_prep_writev(struct io_uring_sqe *sqe, int fd,
 
 static inline void io_uring_prep_writev2(struct io_uring_sqe *sqe, int fd,
 				       const struct iovec *iovecs,
-				       unsigned nr_vecs, __u64 offset, int flags)
+				       unsigned nr_vecs, __u64 offset,
+				       int flags)
 {
 	io_uring_prep_writev(sqe, fd, iovecs, nr_vecs, offset);
 	sqe->rw_flags = flags;
@@ -395,7 +398,8 @@ static inline void io_uring_prep_recvmsg(struct io_uring_sqe *sqe, int fd,
 }
 
 static inline void io_uring_prep_sendmsg(struct io_uring_sqe *sqe, int fd,
-					 const struct msghdr *msg, unsigned flags)
+					 const struct msghdr *msg,
+					 unsigned flags)
 {
 	io_uring_prep_rw(IORING_OP_SENDMSG, sqe, fd, msg, 1, 0);
 	sqe->msg_flags = flags;
@@ -539,7 +543,8 @@ static inline void io_uring_prep_fallocate(struct io_uring_sqe *sqe, int fd,
 }
 
 static inline void io_uring_prep_openat(struct io_uring_sqe *sqe, int dfd,
-					const char *path, int flags, mode_t mode)
+					const char *path, int flags,
+					mode_t mode)
 {
 	io_uring_prep_rw(IORING_OP_OPENAT, sqe, dfd, path, mode, 0);
 	sqe->open_flags = (__u32) flags;
@@ -575,7 +580,8 @@ static inline void io_uring_prep_read(struct io_uring_sqe *sqe, int fd,
 }
 
 static inline void io_uring_prep_write(struct io_uring_sqe *sqe, int fd,
-				       const void *buf, unsigned nbytes, __u64 offset)
+				       const void *buf, unsigned nbytes,
+				       __u64 offset)
 {
 	io_uring_prep_rw(IORING_OP_WRITE, sqe, fd, buf, nbytes, offset);
 }
@@ -677,7 +683,8 @@ static inline void io_uring_prep_renameat(struct io_uring_sqe *sqe, int olddfd,
 					  const char *oldpath, int newdfd,
 					  const char *newpath, int flags)
 {
-	io_uring_prep_rw(IORING_OP_RENAMEAT, sqe, olddfd, oldpath, (__u32) newdfd,
+	io_uring_prep_rw(IORING_OP_RENAMEAT, sqe, olddfd, oldpath,
+				(__u32) newdfd,
 				(uint64_t) (uintptr_t) newpath);
 	sqe->rename_flags = (__u32) flags;
 }
@@ -697,7 +704,8 @@ static inline void io_uring_prep_mkdirat(struct io_uring_sqe *sqe, int dfd,
 }
 
 static inline void io_uring_prep_symlinkat(struct io_uring_sqe *sqe,
-					const char *target, int newdirfd, const char *linkpath)
+					   const char *target, int newdirfd,
+					   const char *linkpath)
 {
 	io_uring_prep_rw(IORING_OP_SYMLINKAT, sqe, newdirfd, target, 0,
 				(uint64_t) (uintptr_t) linkpath);
@@ -726,16 +734,18 @@ static inline void io_uring_prep_msg_ring(struct io_uring_sqe *sqe, int fd,
  */
 static inline unsigned io_uring_sq_ready(const struct io_uring *ring)
 {
+	unsigned khead = *ring->sq.khead;
+
 	/*
 	 * Without a barrier, we could miss an update and think the SQ wasn't
 	 * ready. We don't need the load acquire for non-SQPOLL since then we
 	 * drive updates.
 	 */
 	if (ring->flags & IORING_SETUP_SQPOLL)
-		return ring->sq.sqe_tail - io_uring_smp_load_acquire(ring->sq.khead);
+		khead = io_uring_smp_load_acquire(ring->sq.khead);
 
 	/* always use real head, to avoid losing sync for short submit */
-	return ring->sq.sqe_tail - *ring->sq.khead;
+	return ring->sq.sqe_tail - khead;
 }
 
 /*

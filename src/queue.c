@@ -51,7 +51,8 @@ struct get_data {
 	void *arg;
 };
 
-static int _io_uring_get_cqe(struct io_uring *ring, struct io_uring_cqe **cqe_ptr,
+static int _io_uring_get_cqe(struct io_uring *ring,
+			     struct io_uring_cqe **cqe_ptr,
 			     struct get_data *data)
 {
 	struct io_uring_cqe *cqe = NULL;
@@ -214,7 +215,8 @@ out:
  */
 static int io_uring_wait_cqes_new(struct io_uring *ring,
 				  struct io_uring_cqe **cqe_ptr,
-				  unsigned wait_nr, struct __kernel_timespec *ts,
+				  unsigned wait_nr,
+				  struct __kernel_timespec *ts,
 				  sigset_t *sigmask)
 {
 	struct io_uring_getevents_arg arg = {
@@ -249,7 +251,6 @@ static int io_uring_wait_cqes_new(struct io_uring *ring,
  * hence this function is safe to use for applications that split SQ and CQ
  * handling between two threads.
  */
-
 static int __io_uring_submit_timeout(struct io_uring *ring, unsigned wait_nr,
 				     struct __kernel_timespec *ts)
 {

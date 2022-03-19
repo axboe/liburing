@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: MIT */
 
 #ifndef CONFIG_NOLIBC
-# error "This file should only be compiled for no libc build"
+#error "This file should only be compiled for no libc build"
 #endif
 
 #include "lib.h"

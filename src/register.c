@@ -8,7 +8,6 @@
 #include "liburing/compat.h"
 #include "liburing/io_uring.h"
 
-
 int io_uring_register_buffers_update_tag(struct io_uring *ring, unsigned off,
 					 const struct iovec *iovecs,
 					 const __u64 *tags,
@@ -37,8 +36,9 @@ int io_uring_register_buffers_tags(struct io_uring *ring,
 		.tags = (unsigned long)tags,
 	};
 
-	return ____sys_io_uring_register(ring->ring_fd, IORING_REGISTER_BUFFERS2,
-					 &reg, sizeof(reg));
+	return ____sys_io_uring_register(ring->ring_fd,
+					 IORING_REGISTER_BUFFERS2, &reg,
+					 sizeof(reg));
 }
 
 int io_uring_register_buffers(struct io_uring *ring, const struct iovec *iovecs,
@@ -55,8 +55,8 @@ int io_uring_unregister_buffers(struct io_uring *ring)
 {
 	int ret;
 
-	ret = ____sys_io_uring_register(ring->ring_fd, IORING_UNREGISTER_BUFFERS,
-					NULL, 0);
+	ret = ____sys_io_uring_register(ring->ring_fd,
+					IORING_UNREGISTER_BUFFERS, NULL, 0);
 	return (ret < 0) ? ret : 0;
 }
 
@@ -184,8 +184,8 @@ int io_uring_unregister_eventfd(struct io_uring *ring)
 {
 	int ret;
 
-	ret = ____sys_io_uring_register(ring->ring_fd, IORING_UNREGISTER_EVENTFD,
-					NULL, 0);
+	ret = ____sys_io_uring_register(ring->ring_fd,
+					IORING_UNREGISTER_EVENTFD, NULL, 0);
 	return (ret < 0) ? ret : 0;
 }
 
@@ -218,7 +218,8 @@ int io_uring_register_personality(struct io_uring *ring)
 int io_uring_unregister_personality(struct io_uring *ring, int id)
 {
 	return ____sys_io_uring_register(ring->ring_fd,
-					 IORING_UNREGISTER_PERSONALITY, NULL, id);
+					 IORING_UNREGISTER_PERSONALITY, NULL,
+					 id);
 }
 
 int io_uring_register_restrictions(struct io_uring *ring,
@@ -242,8 +243,8 @@ int io_uring_enable_rings(struct io_uring *ring)
 int io_uring_register_iowq_aff(struct io_uring *ring, size_t cpusz,
 			       const cpu_set_t *mask)
 {
-	return ____sys_io_uring_register(ring->ring_fd, IORING_REGISTER_IOWQ_AFF,
-					 mask, cpusz);
+	return ____sys_io_uring_register(ring->ring_fd,
+					 IORING_REGISTER_IOWQ_AFF, mask, cpusz);
 }
 
 int io_uring_unregister_iowq_aff(struct io_uring *ring)
@@ -275,6 +276,7 @@ int io_uring_register_ring_fd(struct io_uring *ring)
 	}
 	return ret;
 }
+
 
 int io_uring_unregister_ring_fd(struct io_uring *ring)
 {
