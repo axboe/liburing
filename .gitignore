@@ -45,6 +45,7 @@
 /test/d77a67ed5f27-test
 /test/defer
 /test/double-poll-crash
+/test/drop-submit
 /test/eeed8b54e0df-test
 /test/empty-eownerdead
 /test/eventfd
