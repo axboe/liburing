@@ -1,0 +1,11 @@
+cff-version: 1.2.0
+preferred-citation:
+  type: software
+  authors:
+  - family-names: "Axboe"
+    given-names: "Jens"
+    email: axboe@kernel.dk
+    title: "liburing"
+    year: 2022
+    url: "https://github.com/axboe/liburing"
+licence: MIT
