@@ -16,8 +16,8 @@ LINK_FLAGS=
 LINK_FLAGS+=$(LDFLAGS)
 ENABLE_SHARED ?= 1
 
-soname=liburing.so
-libname=$(soname).$(VERSION)
+soname=liburing.so.$(VERSION_MAJOR)
+libname=liburing.so.$(VERSION)
 all_targets += liburing.a
 
 ifeq ($(ENABLE_SHARED),1)
