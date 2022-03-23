@@ -159,6 +159,7 @@ test_srcs := \
 	tty-write-dpoll.c \
 	unlink.c \
 	wakeup-hang.c \
+	xattr.c \
 	skip-cqe.c \
 	# EOL
 
