@@ -97,6 +97,7 @@
 /test/probe
 /test/read-write
 /test/recv-msgall
+/test/recv-msgall-stream
 /test/register-restrictions
 /test/rename
 /test/ring-leak
