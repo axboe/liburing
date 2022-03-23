@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MIT */
 /*
- * Test MSG_WAITALL
+ * Test MSG_WAITALL with datagram sockets, with a send splice into two.
  */
 #include <errno.h>
 #include <stdio.h>
@@ -92,7 +92,7 @@ static int do_recv(struct io_uring *ring)
 		fprintf(stderr, "failed cqe: %d\n", cqe->res);
 		goto err;
 	}
-	if (cqe->res != MAX_MSG * sizeof(int)) {
+	if (cqe->res != MAX_MSG * sizeof(int) / 2) {
 		fprintf(stderr, "got wrong length: %d\n", cqe->res);
 		goto err;
 	}
@@ -137,18 +137,6 @@ static void *recv_fn(void *data)
 	}
 	pthread_mutex_unlock(&rd->mutex);
 	ret = do_recv(&ring);
-	if (!ret) {
-		int i;
-
-		for (i = 0; i < MAX_MSG; i++) {
-			if (buf[i] != i) {
-				fprintf(stderr, "found %d at %d\n", buf[i], i);
-				ret = 1;
-				break;
-			}
-		}
-	}
-
 	close(sock);
 	io_uring_queue_exit(&ring);
 err:
@@ -266,7 +254,7 @@ int main(int argc, char *argv[])
 	ret = test(0);
 	if (ret) {
 		fprintf(stderr, "test recv failed\n");
-	//	return ret;
+		return ret;
 	}
 
 	ret = test(1);
