@@ -130,6 +130,7 @@
 /test/timeout
 /test/timeout-new
 /test/timeout-overflow
+/test/tty-write-dpoll
 /test/unlink
 /test/wakeup-hang
 /test/multicqes_drain

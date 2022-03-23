@@ -152,6 +152,7 @@ test_srcs := \
 	timeout.c \
 	timeout-new.c \
 	timeout-overflow.c \
+	tty-write-dpoll.c \
 	unlink.c \
 	wakeup-hang.c \
 	skip-cqe.c \
