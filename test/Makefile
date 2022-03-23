@@ -115,6 +115,7 @@ test_srcs := \
 	pollfree.c \
 	probe.c \
 	read-write.c \
+	recv-msgall.c \
 	register-restrictions.c \
 	rename.c \
 	ring-leak2.c \
@@ -226,6 +227,7 @@ poll-mshot-update: override LDFLAGS += -lpthread
 exit-no-cleanup: override LDFLAGS += -lpthread
 pollfree: override LDFLAGS += -lpthread
 msg-ring: override LDFLAGS += -lpthread
+recv-msgall: override LDFLAGS += -lpthread
 
 install: $(test_targets) runtests.sh runtests-loop.sh
 	$(INSTALL) -D -d -m 755 $(datadir)/liburing-test/
