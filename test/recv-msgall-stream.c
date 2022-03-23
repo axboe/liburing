@@ -13,7 +13,6 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <pthread.h>
-#include <poll.h>
 
 #include "liburing.h"
 #include "helpers.h"
@@ -295,34 +294,8 @@ static int do_send(struct recv_data *rd)
 
 	ret = connect(sockfd, (struct sockaddr *)&saddr, sizeof(saddr));
 	if (ret < 0) {
-		struct pollfd pfd = {
-			.fd = sockfd,
-			.events = POLLOUT,
-		};
-
-		if (errno != EINPROGRESS) {
-			perror("connect");
-			return 1;
-		}
-
-		if (poll(&pfd, 1, -1) < 0) {
-			perror("poll");
-			return 1;
-		}
-		if (!(pfd.revents & POLLOUT)) {
-			fprintf(stderr, "huh\n");
-			return 1;
-		}
-
-		while (1) {
-			int out;
-			socklen_t len = sizeof(out);
-
-			getsockopt(sockfd, SOL_SOCKET, SO_ERROR, &out, &len);
-			if (!out)
-				break;
-			usleep(1000);
-		}
+		perror("connect");
+		return 1;
 	}
 
 	iov.iov_base = buf;
