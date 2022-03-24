@@ -59,27 +59,32 @@ static void queue_recv(struct io_uring *ring, int fd, bool fixed)
 		sqe->flags |= IOSQE_FIXED_FILE;
 }
 
-static int accept_conn(struct io_uring *ring, int fd, bool fixed)
+static void queue_accept_conn(struct io_uring *ring, int fd, int fixed_idx)
 {
 	struct io_uring_sqe *sqe;
-	struct io_uring_cqe *cqe;
-	int ret, fixed_idx = 0;
+	int ret;
 
 	sqe = io_uring_get_sqe(ring);
-	if (!fixed)
+	if (fixed_idx < 0)
 		io_uring_prep_accept(sqe, fd, NULL, NULL, 0);
 	else
 		io_uring_prep_accept_direct(sqe, fd, NULL, NULL, 0, fixed_idx);
 
 	ret = io_uring_submit(ring);
 	assert(ret != -1);
+}
+
+static int accept_conn(struct io_uring *ring, int fixed_idx)
+{
+	struct io_uring_cqe *cqe;
+	int ret;
 
 	ret = io_uring_wait_cqe(ring, &cqe);
 	assert(!ret);
 	ret = cqe->res;
 	io_uring_cqe_seen(ring, cqe);
 
-	if (fixed) {
+	if (fixed_idx >= 0) {
 		if (ret > 0) {
 			close(ret);
 			return -EINVAL;
@@ -90,11 +95,13 @@ static int accept_conn(struct io_uring *ring, int fd, bool fixed)
 	return ret;
 }
 
-static int start_accept_listen(struct sockaddr_in *addr, int port_off)
+static int start_accept_listen(struct sockaddr_in *addr, int port_off,
+			       int extra_flags)
 {
 	int fd, ret;
 
-	fd = socket(AF_INET, SOCK_STREAM | SOCK_CLOEXEC, IPPROTO_TCP);
+	fd = socket(AF_INET, SOCK_STREAM | SOCK_CLOEXEC | extra_flags,
+		    IPPROTO_TCP);
 
 	int32_t val = 1;
 	ret = setsockopt(fd, SOL_SOCKET, SO_REUSEPORT, &val, sizeof(val));
@@ -119,14 +126,23 @@ static int start_accept_listen(struct sockaddr_in *addr, int port_off)
 	return fd;
 }
 
-static int test(struct io_uring *ring, int accept_should_error, bool fixed)
+struct accept_test_args {
+	int accept_should_error;
+	bool fixed;
+	bool nonblock;
+	bool queue_accept_before_connect;
+};
+
+static int test(struct io_uring *ring, struct accept_test_args args)
 {
 	struct io_uring_cqe *cqe;
 	struct sockaddr_in addr;
 	uint32_t head, count = 0;
 	int ret, p_fd[2], done = 0;
 
-	int32_t val, recv_s0 = start_accept_listen(&addr, 0);
+	int32_t val;
+	int32_t recv_s0 = start_accept_listen(&addr, 0,
+					      args.nonblock ? O_NONBLOCK : 0);
 
 	p_fd[1] = socket(AF_INET, SOCK_STREAM | SOCK_CLOEXEC, IPPROTO_TCP);
 
@@ -141,6 +157,9 @@ static int test(struct io_uring *ring, int accept_should_error, bool fixed)
 	ret = fcntl(p_fd[1], F_SETFL, flags);
 	assert(ret != -1);
 
+	if (args.queue_accept_before_connect)
+		queue_accept_conn(ring, recv_s0, args.fixed ? 0 : -1);
+
 	ret = connect(p_fd[1], (struct sockaddr*)&addr, sizeof(addr));
 	assert(ret == -1);
 
@@ -151,18 +170,21 @@ static int test(struct io_uring *ring, int accept_should_error, bool fixed)
 	ret = fcntl(p_fd[1], F_SETFL, flags);
 	assert(ret != -1);
 
-	p_fd[0] = accept_conn(ring, recv_s0, fixed);
+	if (!args.queue_accept_before_connect)
+		queue_accept_conn(ring, recv_s0, args.fixed ? 0 : -1);
+
+	p_fd[0] = accept_conn(ring, args.fixed ? 0 : -1);
 	if (p_fd[0] == -EINVAL) {
-		if (accept_should_error)
+		if (args.accept_should_error)
 			goto out;
-		if (fixed)
+		if (args.fixed)
 			fprintf(stdout, "Fixed accept not supported, skipping\n");
 		else
 			fprintf(stdout, "Accept not supported, skipping\n");
 		no_accept = 1;
 		goto out;
 	} else if (p_fd[0] < 0) {
-		if (accept_should_error &&
+		if (args.accept_should_error &&
 		    (p_fd[0] == -EBADF || p_fd[0] == -EINVAL))
 			goto out;
 		fprintf(stderr, "Accept got %d\n", p_fd[0]);
@@ -170,7 +192,7 @@ static int test(struct io_uring *ring, int accept_should_error, bool fixed)
 	}
 
 	queue_send(ring, p_fd[1]);
-	queue_recv(ring, p_fd[0], fixed);
+	queue_recv(ring, p_fd[0], args.fixed);
 
 	ret = io_uring_submit_and_wait(ring, 2);
 	assert(ret != -1);
@@ -194,13 +216,13 @@ static int test(struct io_uring *ring, int accept_should_error, bool fixed)
 	}
 
 out:
-	if (!fixed)
+	if (!args.fixed)
 		close(p_fd[0]);
 	close(p_fd[1]);
 	close(recv_s0);
 	return 0;
 err:
-	if (!fixed)
+	if (!args.fixed)
 		close(p_fd[0]);
 	close(p_fd[1]);
 	close(recv_s0);
@@ -222,7 +244,7 @@ static int test_accept_pending_on_exit(void)
 	ret = io_uring_queue_init(32, &m_io_uring, 0);
 	assert(ret >= 0);
 
-	fd = start_accept_listen(NULL, 0);
+	fd = start_accept_listen(NULL, 0, 0);
 
 	sqe = io_uring_get_sqe(&m_io_uring);
 	io_uring_prep_accept(sqe, fd, NULL, NULL, 0);
@@ -242,7 +264,7 @@ static int test_accept_pending_on_exit(void)
 /*
  * Test issue many accepts and see if we handle cancellation on exit
  */
-static int test_accept_many(unsigned nr, unsigned usecs)
+static int test_accept_many(unsigned nr, unsigned usecs, bool nonblock)
 {
 	struct io_uring m_io_uring;
 	struct io_uring_cqe *cqe;
@@ -270,7 +292,8 @@ static int test_accept_many(unsigned nr, unsigned usecs)
 	fds = t_calloc(nr, sizeof(int));
 
 	for (i = 0; i < nr; i++)
-		fds[i] = start_accept_listen(NULL, i);
+		fds[i] = start_accept_listen(NULL, i,
+					     nonblock ? O_NONBLOCK : 0);
 
 	for (i = 0; i < nr; i++) {
 		sqe = io_uring_get_sqe(&m_io_uring);
@@ -286,12 +309,15 @@ static int test_accept_many(unsigned nr, unsigned usecs)
 	for (i = 0; i < nr; i++) {
 		if (io_uring_peek_cqe(&m_io_uring, &cqe))
 			break;
-		if (cqe->res != -ECANCELED) {
-			fprintf(stderr, "Expected cqe to be cancelled\n");
-			goto err;
+		if (cqe->res != -ECANCELED &&
+		    !(cqe->res == -EAGAIN && nonblock)) {
+			fprintf(stderr, "Expected cqe to be cancelled %d\n", cqe->res);
+			ret = 1;
+			goto out;
 		}
 		io_uring_cqe_seen(&m_io_uring, cqe);
 	}
+	ret = 0;
 out:
 	rlim.rlim_cur = cur_lim;
 	if (setrlimit(RLIMIT_NPROC, &rlim) < 0) {
@@ -301,10 +327,7 @@ out:
 
 	free(fds);
 	io_uring_queue_exit(&m_io_uring);
-	return 0;
-err:
-	ret = 1;
-	goto out;
+	return ret;
 }
 
 static int test_accept_cancel(unsigned usecs)
@@ -317,7 +340,7 @@ static int test_accept_cancel(unsigned usecs)
 	ret = io_uring_queue_init(32, &m_io_uring, 0);
 	assert(ret >= 0);
 
-	fd = start_accept_listen(NULL, 0);
+	fd = start_accept_listen(NULL, 0, 0);
 
 	sqe = io_uring_get_sqe(&m_io_uring);
 	io_uring_prep_accept(sqe, fd, NULL, NULL, 0);
@@ -372,10 +395,27 @@ static int test_accept(void)
 {
 	struct io_uring m_io_uring;
 	int ret;
+	struct accept_test_args args = { };
 
 	ret = io_uring_queue_init(32, &m_io_uring, 0);
 	assert(ret >= 0);
-	ret = test(&m_io_uring, 0, false);
+	ret = test(&m_io_uring, args);
+	io_uring_queue_exit(&m_io_uring);
+	return ret;
+}
+
+static int test_accept_nonblock(bool queue_before_connect)
+{
+	struct io_uring m_io_uring;
+	int ret;
+	struct accept_test_args args = {
+		.nonblock = true,
+		.queue_accept_before_connect = queue_before_connect
+	};
+
+	ret = io_uring_queue_init(32, &m_io_uring, 0);
+	assert(ret >= 0);
+	ret = test(&m_io_uring, args);
 	io_uring_queue_exit(&m_io_uring);
 	return ret;
 }
@@ -384,12 +424,15 @@ static int test_accept_fixed(void)
 {
 	struct io_uring m_io_uring;
 	int ret, fd = -1;
+	struct accept_test_args args = {
+		.fixed = true
+	};
 
 	ret = io_uring_queue_init(32, &m_io_uring, 0);
 	assert(ret >= 0);
 	ret = io_uring_register_files(&m_io_uring, &fd, 1);
 	assert(ret == 0);
-	ret = test(&m_io_uring, 0, true);
+	ret = test(&m_io_uring, args);
 	io_uring_queue_exit(&m_io_uring);
 	return ret;
 }
@@ -398,7 +441,8 @@ static int test_accept_sqpoll(void)
 {
 	struct io_uring m_io_uring;
 	struct io_uring_params p = { };
-	int ret, should_fail;
+	int ret;
+	struct accept_test_args args = { };
 
 	p.flags = IORING_SETUP_SQPOLL;
 	ret = t_create_ring_params(32, &m_io_uring, &p);
@@ -407,11 +451,11 @@ static int test_accept_sqpoll(void)
 	else if (ret < 0)
 		return ret;
 
-	should_fail = 1;
+	args.accept_should_error = 1;
 	if (p.features & IORING_FEAT_SQPOLL_NONFIXED)
-		should_fail = 0;
+		args.accept_should_error = 0;
 
-	ret = test(&m_io_uring, should_fail, false);
+	ret = test(&m_io_uring, args);
 	io_uring_queue_exit(&m_io_uring);
 	return ret;
 }
@@ -430,6 +474,18 @@ int main(int argc, char *argv[])
 	}
 	if (no_accept)
 		return 0;
+
+	ret = test_accept_nonblock(false);
+	if (ret) {
+		fprintf(stderr, "test_accept_nonblock failed\n");
+		return ret;
+	}
+
+	ret = test_accept_nonblock(true);
+	if (ret) {
+		fprintf(stderr, "test_accept_nonblock(queue_before) failed\n");
+		return ret;
+	}
 
 	ret = test_accept_fixed();
 	if (ret) {
@@ -455,15 +511,21 @@ int main(int argc, char *argv[])
 		return ret;
 	}
 
-	ret = test_accept_many(128, 0);
+	ret = test_accept_many(128, 0, false);
 	if (ret) {
 		fprintf(stderr, "test_accept_many failed\n");
 		return ret;
 	}
 
-	ret = test_accept_many(128, 100000);
+	ret = test_accept_many(128, 100000, false);
 	if (ret) {
 		fprintf(stderr, "test_accept_many failed\n");
+		return ret;
+	}
+
+	ret = test_accept_many(128, 0, true);
+	if (ret) {
+		fprintf(stderr, "test_accept_many nonblocking failed\n");
 		return ret;
 	}
 
