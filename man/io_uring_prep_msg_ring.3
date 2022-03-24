@@ -47,13 +47,6 @@ fields. The use case may be anything from simply waking up someone waiting
 on the targeted ring, or it can be used to pass messages between the two
 rings.
 
-The resulting CQE posted on the target ring will have
-.B IORING_CQE_F_MSG
-set in its
-.I flags
-member, indicating to the target ring that this CQE is posted without having
-a relationship to an SQE issued on this ring.
-
 .SH RETURN VALUE
 None
 
