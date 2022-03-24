@@ -54,10 +54,6 @@ static int test_own(struct io_uring *ring)
 			}
 			break;
 		case 0x1234:
-			if (!(cqe->flags & IORING_CQE_F_MSG)) {
-				fprintf(stderr, "invalid flags %x\n", cqe->flags);
-				return -1;
-			}
 			if (cqe->res != 0x10) {
 				fprintf(stderr, "invalid len %x\n", cqe->res);
 				return -1;
@@ -87,10 +83,6 @@ static void *wait_cqe_fn(void *data)
 		goto err;
 	}
 
-	if (!(cqe->flags & IORING_CQE_F_MSG)) {
-		fprintf(stderr, "invalid flags %x\n", cqe->flags);
-		goto err;
-	}
 	if (cqe->user_data != 0x5aa5) {
 		fprintf(stderr, "user_data %llx\n", (long long) cqe->user_data);
 		goto err;
