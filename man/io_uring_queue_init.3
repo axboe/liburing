@@ -26,8 +26,31 @@ The io_uring_queue_init() function executes the
 system call to initialize the submission and completion queues in the kernel
 with at least
 .I entries
-entries and then maps the resulting file descriptor to memory shared between the
-application and the kernel.
+entries in the submission queue and then maps the resulting file descriptor to
+memory shared between the application and the kernel.
+
+By default, the CQ ring will have twice the number of entries as specified by
+.I entries
+for the SQ ring. This is adequate for regular file or storage workloads, but
+may be too small networked workloads. The SQ ring entries do not impose a limit
+on the number of in-flight requests that the ring can support, it merely limits
+the number that can be submitted to the kernel in one go (batch). if the CQ
+ring overflows, eg more entries are generated than fits in the ring before the
+application can reap them, then the ring enters a CQ ring overflow state. This
+is indicated by
+.B IORING_SQ_CQ_OVERFLOW
+being set in the SQ ring flags. Unless the kernel runs out of available memory,
+entries are not dropped, but it is a much slower completion path and will slow
+down request processing. For that reason it should be avoided, and the CQ
+ring sized appropriately for the workload. Setting
+.I cq_entries
+in
+.I struct io_uring_params
+will tell the kernel to allocate this many entries for the CQ ring, independent
+of the SQ ring size in given in
+.I entries.
+If the value isn't a power of 2, it will be rounded up to the nearest power of
+2.
 
 On success io_uring_queue_init() returns 0 and
 .I ring
