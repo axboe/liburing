@@ -59,19 +59,24 @@ static void queue_recv(struct io_uring *ring, int fd, bool fixed)
 		sqe->flags |= IOSQE_FIXED_FILE;
 }
 
-static void queue_accept_conn(struct io_uring *ring, int fd, int fixed_idx)
+static void queue_accept_conn(struct io_uring *ring,
+			      int fd, int fixed_idx,
+			      int count)
 {
 	struct io_uring_sqe *sqe;
 	int ret;
 
-	sqe = io_uring_get_sqe(ring);
-	if (fixed_idx < 0)
-		io_uring_prep_accept(sqe, fd, NULL, NULL, 0);
-	else
-		io_uring_prep_accept_direct(sqe, fd, NULL, NULL, 0, fixed_idx);
+	while (count--) {
+		sqe = io_uring_get_sqe(ring);
+		if (fixed_idx < 0)
+			io_uring_prep_accept(sqe, fd, NULL, NULL, 0);
+		else
+			io_uring_prep_accept_direct(sqe, fd, NULL, NULL, 0,
+						    fixed_idx);
 
-	ret = io_uring_submit(ring);
-	assert(ret != -1);
+		ret = io_uring_submit(ring);
+		assert(ret != -1);
+	}
 }
 
 static int accept_conn(struct io_uring *ring, int fixed_idx)
@@ -131,18 +136,19 @@ struct accept_test_args {
 	bool fixed;
 	bool nonblock;
 	bool queue_accept_before_connect;
+	int extra_loops;
 };
 
-static int test(struct io_uring *ring, struct accept_test_args args)
+
+static int test_loop(struct io_uring *ring,
+		     struct accept_test_args args,
+		     int recv_s0,
+		     struct sockaddr_in *addr)
 {
 	struct io_uring_cqe *cqe;
-	struct sockaddr_in addr;
 	uint32_t head, count = 0;
 	int ret, p_fd[2], done = 0;
-
 	int32_t val;
-	int32_t recv_s0 = start_accept_listen(&addr, 0,
-					      args.nonblock ? O_NONBLOCK : 0);
 
 	p_fd[1] = socket(AF_INET, SOCK_STREAM | SOCK_CLOEXEC, IPPROTO_TCP);
 
@@ -157,10 +163,7 @@ static int test(struct io_uring *ring, struct accept_test_args args)
 	ret = fcntl(p_fd[1], F_SETFL, flags);
 	assert(ret != -1);
 
-	if (args.queue_accept_before_connect)
-		queue_accept_conn(ring, recv_s0, args.fixed ? 0 : -1);
-
-	ret = connect(p_fd[1], (struct sockaddr*)&addr, sizeof(addr));
+	ret = connect(p_fd[1], (struct sockaddr *)addr, sizeof(*addr));
 	assert(ret == -1);
 
 	flags = fcntl(p_fd[1], F_GETFL, 0);
@@ -171,7 +174,7 @@ static int test(struct io_uring *ring, struct accept_test_args args)
 	assert(ret != -1);
 
 	if (!args.queue_accept_before_connect)
-		queue_accept_conn(ring, recv_s0, args.fixed ? 0 : -1);
+		queue_accept_conn(ring, recv_s0, args.fixed ? 0 : -1, 1);
 
 	p_fd[0] = accept_conn(ring, args.fixed ? 0 : -1);
 	if (p_fd[0] == -EINVAL) {
@@ -219,14 +222,32 @@ out:
 	if (!args.fixed)
 		close(p_fd[0]);
 	close(p_fd[1]);
-	close(recv_s0);
 	return 0;
 err:
 	if (!args.fixed)
 		close(p_fd[0]);
 	close(p_fd[1]);
-	close(recv_s0);
 	return 1;
+}
+
+static int test(struct io_uring *ring, struct accept_test_args args)
+{
+	struct sockaddr_in addr;
+	int ret = 0;
+	int loop;
+	int32_t recv_s0 = start_accept_listen(&addr, 0,
+					      args.nonblock ? O_NONBLOCK : 0);
+	if (args.queue_accept_before_connect)
+		queue_accept_conn(ring, recv_s0, args.fixed ? 0 : -1,
+				  1 + args.extra_loops);
+	for (loop = 0; loop < 1 + args.extra_loops; loop++) {
+		ret = test_loop(ring, args, recv_s0, &addr);
+		if (ret)
+			break;
+	}
+
+	close(recv_s0);
+	return ret;
 }
 
 static void sig_alrm(int sig)
@@ -261,10 +282,17 @@ static int test_accept_pending_on_exit(void)
 	return 0;
 }
 
+struct test_accept_many_args {
+	unsigned int usecs;
+	bool nonblock;
+	bool single_sock;
+	bool close_fds;
+};
+
 /*
  * Test issue many accepts and see if we handle cancellation on exit
  */
-static int test_accept_many(unsigned nr, unsigned usecs, bool nonblock)
+static int test_accept_many(struct test_accept_many_args args)
 {
 	struct io_uring m_io_uring;
 	struct io_uring_cqe *cqe;
@@ -272,6 +300,8 @@ static int test_accept_many(unsigned nr, unsigned usecs, bool nonblock)
 	unsigned long cur_lim;
 	struct rlimit rlim;
 	int *fds, i, ret;
+	unsigned int nr = 128;
+	int nr_socks = args.single_sock ? 1 : nr;
 
 	if (getrlimit(RLIMIT_NPROC, &rlim) < 0) {
 		perror("getrlimit");
@@ -289,28 +319,32 @@ static int test_accept_many(unsigned nr, unsigned usecs, bool nonblock)
 	ret = io_uring_queue_init(2 * nr, &m_io_uring, 0);
 	assert(ret >= 0);
 
-	fds = t_calloc(nr, sizeof(int));
+	fds = t_calloc(nr_socks, sizeof(int));
 
-	for (i = 0; i < nr; i++)
+	for (i = 0; i < nr_socks; i++)
 		fds[i] = start_accept_listen(NULL, i,
-					     nonblock ? O_NONBLOCK : 0);
+					     args.nonblock ? O_NONBLOCK : 0);
 
 	for (i = 0; i < nr; i++) {
+		int sock_idx = args.single_sock ? 0 : i;
 		sqe = io_uring_get_sqe(&m_io_uring);
-		io_uring_prep_accept(sqe, fds[i], NULL, NULL, 0);
+		io_uring_prep_accept(sqe, fds[sock_idx], NULL, NULL, 0);
 		sqe->user_data = 1 + i;
 		ret = io_uring_submit(&m_io_uring);
 		assert(ret == 1);
 	}
 
-	if (usecs)
-		usleep(usecs);
+	if (args.usecs)
+		usleep(args.usecs);
+
+	if (args.close_fds)
+		for (i = 0; i < nr_socks; i++)
+			close(fds[i]);
 
 	for (i = 0; i < nr; i++) {
 		if (io_uring_peek_cqe(&m_io_uring, &cqe))
 			break;
-		if (cqe->res != -ECANCELED &&
-		    !(cqe->res == -EAGAIN && nonblock)) {
+		if (cqe->res != -ECANCELED) {
 			fprintf(stderr, "Expected cqe to be cancelled %d\n", cqe->res);
 			ret = 1;
 			goto out;
@@ -330,7 +364,7 @@ out:
 	return ret;
 }
 
-static int test_accept_cancel(unsigned usecs)
+static int test_accept_cancel(unsigned usecs, unsigned int nr)
 {
 	struct io_uring m_io_uring;
 	struct io_uring_cqe *cqe;
@@ -342,22 +376,25 @@ static int test_accept_cancel(unsigned usecs)
 
 	fd = start_accept_listen(NULL, 0, 0);
 
-	sqe = io_uring_get_sqe(&m_io_uring);
-	io_uring_prep_accept(sqe, fd, NULL, NULL, 0);
-	sqe->user_data = 1;
-	ret = io_uring_submit(&m_io_uring);
-	assert(ret == 1);
+	for (i = 1; i <= nr; i++) {
+		sqe = io_uring_get_sqe(&m_io_uring);
+		io_uring_prep_accept(sqe, fd, NULL, NULL, 0);
+		sqe->user_data = i;
+		ret = io_uring_submit(&m_io_uring);
+		assert(ret == 1);
+	}
 
 	if (usecs)
 		usleep(usecs);
 
-	sqe = io_uring_get_sqe(&m_io_uring);
-	io_uring_prep_cancel(sqe, 1, 0);
-	sqe->user_data = 2;
-	ret = io_uring_submit(&m_io_uring);
-	assert(ret == 1);
-
-	for (i = 0; i < 2; i++) {
+	for (i = 1; i <= nr; i++) {
+		sqe = io_uring_get_sqe(&m_io_uring);
+		io_uring_prep_cancel(sqe, i, 0);
+		sqe->user_data = nr + i;
+		ret = io_uring_submit(&m_io_uring);
+		assert(ret == 1);
+	}
+	for (i = 0; i < nr * 2; i++) {
 		ret = io_uring_wait_cqe(&m_io_uring, &cqe);
 		assert(!ret);
 		/*
@@ -370,12 +407,15 @@ static int test_accept_cancel(unsigned usecs)
 		 *    should get '-EALREADY' for the cancel request and
 		 *    '-EINTR' for the accept request.
 		 */
-		if (cqe->user_data == 1) {
+		if (cqe->user_data == 0) {
+			fprintf(stderr, "unexpected 0 user data\n");
+			goto err;
+		} else if (cqe->user_data <= nr) {
 			if (cqe->res != -EINTR && cqe->res != -ECANCELED) {
 				fprintf(stderr, "Cancelled accept got %d\n", cqe->res);
 				goto err;
 			}
-		} else if (cqe->user_data == 2) {
+		} else if (cqe->user_data <= nr * 2) {
 			if (cqe->res != -EALREADY && cqe->res != 0) {
 				fprintf(stderr, "Cancel got %d\n", cqe->res);
 				goto err;
@@ -391,11 +431,14 @@ err:
 	return 1;
 }
 
-static int test_accept(void)
+static int test_accept(int count, bool before)
 {
 	struct io_uring m_io_uring;
 	int ret;
-	struct accept_test_args args = { };
+	struct accept_test_args args = {
+		.queue_accept_before_connect = before,
+		.extra_loops = count - 1
+	};
 
 	ret = io_uring_queue_init(32, &m_io_uring, 0);
 	assert(ret >= 0);
@@ -404,13 +447,14 @@ static int test_accept(void)
 	return ret;
 }
 
-static int test_accept_nonblock(bool queue_before_connect)
+static int test_accept_nonblock(bool queue_before_connect, int count)
 {
 	struct io_uring m_io_uring;
 	int ret;
 	struct accept_test_args args = {
 		.nonblock = true,
-		.queue_accept_before_connect = queue_before_connect
+		.queue_accept_before_connect = queue_before_connect,
+		.extra_loops = count - 1
 	};
 
 	ret = io_uring_queue_init(32, &m_io_uring, 0);
@@ -467,7 +511,7 @@ int main(int argc, char *argv[])
 	if (argc > 1)
 		return 0;
 
-	ret = test_accept();
+	ret = test_accept(1, false);
 	if (ret) {
 		fprintf(stderr, "test_accept failed\n");
 		return ret;
@@ -475,15 +519,33 @@ int main(int argc, char *argv[])
 	if (no_accept)
 		return 0;
 
-	ret = test_accept_nonblock(false);
+	ret = test_accept(2, false);
+	if (ret) {
+		fprintf(stderr, "test_accept(2) failed\n");
+		return ret;
+	}
+
+	ret = test_accept(2, true);
+	if (ret) {
+		fprintf(stderr, "test_accept(2, true) failed\n");
+		return ret;
+	}
+
+	ret = test_accept_nonblock(false, 1);
 	if (ret) {
 		fprintf(stderr, "test_accept_nonblock failed\n");
 		return ret;
 	}
 
-	ret = test_accept_nonblock(true);
+	ret = test_accept_nonblock(true, 1);
 	if (ret) {
-		fprintf(stderr, "test_accept_nonblock(queue_before) failed\n");
+		fprintf(stderr, "test_accept_nonblock(before, 1) failed\n");
+		return ret;
+	}
+
+	ret = test_accept_nonblock(true, 3);
+	if (ret) {
+		fprintf(stderr, "test_accept_nonblock(before,3) failed\n");
 		return ret;
 	}
 
@@ -499,33 +561,56 @@ int main(int argc, char *argv[])
 		return ret;
 	}
 
-	ret = test_accept_cancel(0);
+	ret = test_accept_cancel(0, 1);
 	if (ret) {
 		fprintf(stderr, "test_accept_cancel nodelay failed\n");
 		return ret;
 	}
 
-	ret = test_accept_cancel(10000);
+	ret = test_accept_cancel(10000, 1);
 	if (ret) {
 		fprintf(stderr, "test_accept_cancel delay failed\n");
 		return ret;
 	}
 
-	ret = test_accept_many(128, 0, false);
+	ret = test_accept_cancel(0, 4);
+	if (ret) {
+		fprintf(stderr, "test_accept_cancel nodelay failed\n");
+		return ret;
+	}
+
+	ret = test_accept_cancel(10000, 4);
+	if (ret) {
+		fprintf(stderr, "test_accept_cancel delay failed\n");
+		return ret;
+	}
+
+	ret = test_accept_many((struct test_accept_many_args) {});
 	if (ret) {
 		fprintf(stderr, "test_accept_many failed\n");
 		return ret;
 	}
 
-	ret = test_accept_many(128, 100000, false);
+	ret = test_accept_many((struct test_accept_many_args) {
+				.usecs = 100000 });
 	if (ret) {
-		fprintf(stderr, "test_accept_many failed\n");
+		fprintf(stderr, "test_accept_many(sleep) failed\n");
 		return ret;
 	}
 
-	ret = test_accept_many(128, 0, true);
+	ret = test_accept_many((struct test_accept_many_args) {
+				.nonblock = true });
 	if (ret) {
-		fprintf(stderr, "test_accept_many nonblocking failed\n");
+		fprintf(stderr, "test_accept_many(nonblock) failed\n");
+		return ret;
+	}
+
+	ret = test_accept_many((struct test_accept_many_args) {
+				.nonblock = true,
+				.single_sock = true,
+				.close_fds = true });
+	if (ret) {
+		fprintf(stderr, "test_accept_many(nonblock,close) failed\n");
 		return ret;
 	}
 
