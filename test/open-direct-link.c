@@ -115,16 +115,19 @@ err:
 int main(int argc, char *argv[])
 {
 	struct io_uring ring;
+	struct io_uring_params p = { };
 	int ret, files[MAX_FILES];
 
 	if (argc > 1)
 		return 0;
 
-	ret = io_uring_queue_init(8, &ring, 0);
+	ret = io_uring_queue_init_params(8, &ring, &p);
 	if (ret) {
 		fprintf(stderr, "ring setup failed: %d\n", ret);
 		return 1;
 	}
+	if (!(p.features & IORING_FEAT_CQE_SKIP))
+		return 0;
 
 	memset(files, -1, sizeof(files));
 	ret = io_uring_register_files(&ring, files, ARRAY_SIZE(files));
