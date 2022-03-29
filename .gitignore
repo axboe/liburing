@@ -82,6 +82,7 @@
 /test/nop
 /test/nop-all-sizes
 /test/open-close
+/test/open-direct-link
 /test/openat2
 /test/personality
 /test/pipe-eof
