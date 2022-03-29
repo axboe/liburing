@@ -551,8 +551,8 @@ int io_uring_setup(unsigned entries, struct io_uring_params *p)
 int io_uring_enter(int ring_fd, unsigned int to_submit,
                    unsigned int min_complete, unsigned int flags)
 {
-    return (int) syscall(__NR_io_uring_enter, ring_fd, to_submit, min_complete,
-                         flags, NULL, 0);
+    return (int) syscall(__NR_io_uring_enter, ring_fd, to_submit,
+    			 min_complete, flags, NULL, 0);
 }
 
 int app_setup_uring(void) {
@@ -696,10 +696,10 @@ int submit_to_sq(int fd, int op) {
     io_uring_smp_store_release(sring_tail, tail);
 
     /*
-    * Tell the kernel we have submitted events with the io_uring_enter() system
-    * call. We also pass in the IOURING_ENTER_GETEVENTS flag which causes the
-    * io_uring_enter() call to wait until min_complete (the 3rd param) events
-    * complete.
+    * Tell the kernel we have submitted events with the io_uring_enter()
+    * system call. We also pass in the IOURING_ENTER_GETEVENTS flag which
+    * causes the io_uring_enter() call to wait until min_complete
+    * (the 3rd param) events complete.
     * */
     int ret =  io_uring_enter(ring_fd, 1,1,
                               IORING_ENTER_GETEVENTS);
