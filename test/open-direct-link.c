@@ -16,7 +16,7 @@
 #define MAX_FILES	8
 #define FNAME		".link.direct"
 
-static int test(struct io_uring *ring, int skip_success, int drain)
+static int test(struct io_uring *ring, int skip_success, int drain, int async)
 {
 	struct io_uring_cqe *cqe;
 	struct io_uring_sqe *sqe;
@@ -33,6 +33,8 @@ static int test(struct io_uring *ring, int skip_success, int drain)
 		sqe->flags |= IOSQE_IO_LINK;
 	if (skip_success)
 		sqe->flags |= IOSQE_CQE_SKIP_SUCCESS;
+	if (async)
+		sqe->flags |= IOSQE_ASYNC;
 	sqe->user_data = 1;
 
 	sqe = io_uring_get_sqe(ring);
@@ -42,6 +44,8 @@ static int test(struct io_uring *ring, int skip_success, int drain)
 		sqe->flags |= IOSQE_IO_DRAIN;
 	else
 		sqe->flags |= IOSQE_IO_LINK;
+	if (async)
+		sqe->flags |= IOSQE_ASYNC;
 	sqe->user_data = 2;
 
 	sqe = io_uring_get_sqe(ring);
@@ -51,6 +55,8 @@ static int test(struct io_uring *ring, int skip_success, int drain)
 		sqe->flags |= IOSQE_CQE_SKIP_SUCCESS;
 	if (drain)
 		sqe->flags |= IOSQE_IO_DRAIN;
+	if (async)
+		sqe->flags |= IOSQE_ASYNC;
 
 	ret = io_uring_submit(ring);
 	if (ret != 3) {
@@ -138,21 +144,39 @@ int main(int argc, char *argv[])
 
 	t_create_file(FNAME, 4096);
 
-	ret = test(&ring, 0, 0);
+	ret = test(&ring, 0, 0, 0);
 	if (ret) {
-		fprintf(stderr, "test 0 0 failed\n");
+		fprintf(stderr, "test 0 0 0 failed\n");
 		goto err;
 	}
 
-	ret = test(&ring, 0, 1);
+	ret = test(&ring, 0, 1, 0);
 	if (ret) {
-		fprintf(stderr, "test 0 1 failed\n");
+		fprintf(stderr, "test 0 1 0 failed\n");
 		goto err;
 	}
 
-	ret = test(&ring, 1, 0);
+	ret = test(&ring, 0, 0, 1);
 	if (ret) {
-		fprintf(stderr, "test 1 0 failed\n");
+		fprintf(stderr, "test 0 0 1 failed\n");
+		goto err;
+	}
+
+	ret = test(&ring, 0, 1, 1);
+	if (ret) {
+		fprintf(stderr, "test 0 1 1 failed\n");
+		goto err;
+	}
+
+	ret = test(&ring, 1, 0, 0);
+	if (ret) {
+		fprintf(stderr, "test 1 0 0 failed\n");
+		goto err;
+	}
+
+	ret = test(&ring, 1, 0, 1);
+	if (ret) {
+		fprintf(stderr, "test 1 0 1 failed\n");
 		goto err;
 	}
 
