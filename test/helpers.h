@@ -41,6 +41,12 @@ void *t_calloc(size_t nmemb, size_t size);
 void t_create_file(const char *file, size_t size);
 
 /*
+ * Helper for creating file and write @size byte buf with @pattern value in
+ * the file.
+ */
+void t_create_file_pattern(const char *file, size_t size, char pattern);
+
+/*
  * Helper for creating @buf_num number of iovec
  * with @buf_size bytes buffer of each iovec.
  */
