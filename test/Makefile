@@ -80,6 +80,7 @@ test_srcs := \
 	file-verify.c \
 	fixed-buf-iter.c \
 	fixed-link.c \
+	fixed-reuse.c \
 	fpos.c \
 	fsync.c \
 	hardlink.c \

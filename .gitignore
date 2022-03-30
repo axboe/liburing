@@ -63,6 +63,7 @@
 /test/files-exit-hang-timeout
 /test/fixed-buf-iter
 /test/fixed-link
+/test/fixed-reuse
 /test/fpos
 /test/fsync
 /test/hardlink
