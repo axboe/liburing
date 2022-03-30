@@ -35,6 +35,7 @@ static int test(struct io_uring *ring, int expect_drops)
 		}
 
 		io_uring_prep_read(sqe, 128, buf, sizeof(buf), 0);
+		sqe->ioprio = (short) -1;
 	}
 
 
