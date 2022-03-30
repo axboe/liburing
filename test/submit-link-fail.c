@@ -56,10 +56,12 @@ static int test_underprep_fail(bool hardlink, bool drain, bool link_last,
 
 	for (i = 0; i < link_size; i++) {
 		sqe = io_uring_get_sqe(&ring);
-		if (i == fail_idx)
+		if (i == fail_idx) {
 			io_uring_prep_read(sqe, invalid_fd, buffer, 1, 0);
-		else
+			sqe->ioprio = (short) -1;
+		} else {
 			io_uring_prep_nop(sqe);
+		}
 
 		if (i != link_size - 1 || !link_last)
 			sqe->flags |= link_flags;
