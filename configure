@@ -1,10 +1,12 @@
 #!/bin/sh
 
+set -e
+
 cc=${CC:-gcc}
 cxx=${CXX:-g++}
 
 for opt do
-  optarg=$(expr "x$opt" : 'x[^=]*=\(.*\)')
+  optarg=$(expr "x$opt" : 'x[^=]*=\(.*\)' || true)
   case "$opt" in
   --help|-h) show_help=yes
   ;;
