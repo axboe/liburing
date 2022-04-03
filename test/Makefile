@@ -180,7 +180,7 @@ all_targets += statx.t
 ifdef CONFIG_HAVE_CXX
 	test_srcs += sq-full-cpp.cc
 endif
-all_targets += sq-full-cpp
+all_targets += sq-full-cpp.t
 
 
 test_targets := $(patsubst %.c,%,$(test_srcs))
