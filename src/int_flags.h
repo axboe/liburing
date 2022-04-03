@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 #ifndef LIBURING_INT_FLAGS
 #define LIBURING_INT_FLAGS
 
