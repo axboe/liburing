@@ -183,7 +183,9 @@ endif
 all_targets += sq-full-cpp
 
 
-test_targets := $(patsubst %.c,%,$(patsubst %.cc,%,$(test_srcs)))
+test_targets := $(patsubst %.c,%,$(test_srcs))
+test_targets := $(patsubst %.cc,%,$(test_targets))
+test_targets := $(patsubst %,%.t,$(test_targets))
 all_targets += $(test_targets)
 
 #
@@ -204,10 +206,10 @@ all: $(test_targets)
 helpers.o: helpers.c
 	$(QUIET_CC)$(CC) $(CPPFLAGS) $(CFLAGS) -o $@ -c $<
 
-%: %.c $(helpers) helpers.h ../src/liburing.a
+%.t: %.c $(helpers) helpers.h ../src/liburing.a
 	$(QUIET_CC)$(CC) $(CPPFLAGS) $(CFLAGS) -o $@ $< $(helpers) $(LDFLAGS)
 
-%: %.cc $(helpers) helpers.h ../src/liburing.a
+%.t: %.cc $(helpers) helpers.h ../src/liburing.a
 	$(QUIET_CXX)$(CXX) $(CPPFLAGS) $(CXXFLAGS) -o $@ $< $(helpers) $(LDFLAGS)
 
 
