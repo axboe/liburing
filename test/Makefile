@@ -34,22 +34,22 @@ LDFLAGS ?=
 override LDFLAGS += -L../src/ -luring
 
 test_srcs := \
-	232c93d07b74-test.c \
-	35fa71a030ca-test.c \
-	500f9fbadef8-test.c \
-	7ad0e4b2f83c-test.c \
-	8a9973408177-test.c \
-	917257daa0fe-test.c \
-	a0908ae19763-test.c \
-	a4c0b3decb33-test.c \
+	232c93d07b74.c \
+	35fa71a030ca.c \
+	500f9fbadef8.c \
+	7ad0e4b2f83c.c \
+	8a9973408177.c \
+	917257daa0fe.c \
+	a0908ae19763.c \
+	a4c0b3decb33.c \
 	accept.c \
 	accept-link.c \
 	accept-reuse.c \
 	accept-test.c \
 	across-fork.c \
-	b19062a56726-test.c \
-	b5837bd5311d-test.c \
-	ce593a6c480a-test.c \
+	b19062a56726.c \
+	b5837bd5311d.c \
+	ce593a6c480a.c \
 	close-opath.c \
 	connect.c \
 	cq-full.c \
@@ -57,12 +57,12 @@ test_srcs := \
 	cq-peek-batch.c \
 	cq-ready.c \
 	cq-size.c \
-	d4ae271dfaae-test.c \
-	d77a67ed5f27-test.c \
+	d4ae271dfaae.c \
+	d77a67ed5f27.c \
 	defer.c \
 	double-poll-crash.c \
 	drop-submit.c \
-	eeed8b54e0df-test.c \
+	eeed8b54e0df.c \
 	empty-eownerdead.c \
 	eventfd.c \
 	eventfd-disable.c \
@@ -72,7 +72,7 @@ test_srcs := \
 	exit-no-cleanup.c \
 	fadvise.c \
 	fallocate.c \
-	fc2a85cb02ef-test.c \
+	fc2a85cb02ef.c \
 	file-register.c \
 	files-exit-hang-poll.c \
 	files-exit-hang-timeout.c \
@@ -211,8 +211,8 @@ helpers.o: helpers.c
 	$(QUIET_CXX)$(CXX) $(CPPFLAGS) $(CXXFLAGS) -o $@ $< $(helpers) $(LDFLAGS)
 
 
-35fa71a030ca-test: override LDFLAGS += -lpthread
-232c93d07b74-test: override LDFLAGS += -lpthread
+35fa71a030ca: override LDFLAGS += -lpthread
+232c93d07b74: override LDFLAGS += -lpthread
 send_recv: override LDFLAGS += -lpthread
 send_recvmsg: override LDFLAGS += -lpthread
 poll-link: override LDFLAGS += -lpthread
@@ -220,7 +220,7 @@ accept-link: override LDFLAGS += -lpthread
 submit-reuse: override LDFLAGS += -lpthread
 poll-v-poll: override LDFLAGS += -lpthread
 across-fork: override LDFLAGS += -lpthread
-ce593a6c480a-test: override LDFLAGS += -lpthread
+ce593a6c480a: override LDFLAGS += -lpthread
 wakeup-hang: override LDFLAGS += -lpthread
 pipe-eof: override LDFLAGS += -lpthread
 timeout-new: override LDFLAGS += -lpthread
