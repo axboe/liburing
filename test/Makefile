@@ -174,7 +174,7 @@ endif
 ifdef CONFIG_HAVE_GLIBC_STATX
 	test_srcs += statx.c
 endif
-all_targets += statx
+all_targets += statx.t
 
 
 ifdef CONFIG_HAVE_CXX
