@@ -31,7 +31,7 @@ override CFLAGS += $(XCFLAGS) -DLIBURING_BUILD_TEST
 override CXXFLAGS += $(XCFLAGS) -std=c++11 -DLIBURING_BUILD_TEST
 
 LDFLAGS ?=
-override LDFLAGS += -L../src/ -luring
+override LDFLAGS += -L../src/ -luring -lpthread
 
 test_srcs := \
 	232c93d07b74.c \
@@ -210,28 +210,6 @@ helpers.o: helpers.c
 %: %.cc $(helpers) helpers.h ../src/liburing.a
 	$(QUIET_CXX)$(CXX) $(CPPFLAGS) $(CXXFLAGS) -o $@ $< $(helpers) $(LDFLAGS)
 
-
-35fa71a030ca: override LDFLAGS += -lpthread
-232c93d07b74: override LDFLAGS += -lpthread
-send_recv: override LDFLAGS += -lpthread
-send_recvmsg: override LDFLAGS += -lpthread
-poll-link: override LDFLAGS += -lpthread
-accept-link: override LDFLAGS += -lpthread
-submit-reuse: override LDFLAGS += -lpthread
-poll-v-poll: override LDFLAGS += -lpthread
-across-fork: override LDFLAGS += -lpthread
-ce593a6c480a: override LDFLAGS += -lpthread
-wakeup-hang: override LDFLAGS += -lpthread
-pipe-eof: override LDFLAGS += -lpthread
-timeout-new: override LDFLAGS += -lpthread
-thread-exit: override LDFLAGS += -lpthread
-ring-leak2: override LDFLAGS += -lpthread
-poll-mshot-update: override LDFLAGS += -lpthread
-exit-no-cleanup: override LDFLAGS += -lpthread
-pollfree: override LDFLAGS += -lpthread
-msg-ring: override LDFLAGS += -lpthread
-recv-msgall: override LDFLAGS += -lpthread
-recv-msgall-stream: override LDFLAGS += -lpthread
 
 install: $(test_targets) runtests.sh runtests-loop.sh
 	$(INSTALL) -D -d -m 755 $(datadir)/liburing-test/
