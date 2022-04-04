@@ -241,7 +241,7 @@ static int test(int use_recvmsg)
 	pthread_mutex_lock(&rd.mutex);
 	do_send();
 	pthread_join(recv_thread, &retval);
-	return (int)(intptr_t)retval;
+	return (intptr_t)retval;
 }
 
 int main(int argc, char *argv[])

@@ -305,7 +305,7 @@ static int test(int buf_select, int no_buf_add, int iov_count)
 	pthread_mutex_lock(&mutex);
 	do_sendmsg();
 	pthread_join(recv_thread, &retval);
-	ret = (int)(intptr_t)retval;
+	ret = (intptr_t)retval;
 
 	return ret;
 }
