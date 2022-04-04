@@ -36,7 +36,7 @@ incremented by the number of bytes written. See
 .BR write (2)
 for more details. Note that for an async API, reading and updating the
 current file offset may result in unpredictable behavior, unless access
-to the file is serialized. It is not encouraged to use this feature, if it's
+to the file is serialized. It is not encouraged to use this feature if it's
 possible to provide the desired IO offset from the application or library.
 
 On files that are not capable of seeking, the offset is ignored.

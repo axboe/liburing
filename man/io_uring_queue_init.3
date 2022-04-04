@@ -35,13 +35,13 @@ for the SQ ring. This is adequate for regular file or storage workloads, but
 may be too small networked workloads. The SQ ring entries do not impose a limit
 on the number of in-flight requests that the ring can support, it merely limits
 the number that can be submitted to the kernel in one go (batch). if the CQ
-ring overflows, eg more entries are generated than fits in the ring before the
+ring overflows, e.g. more entries are generated than fits in the ring before the
 application can reap them, then the ring enters a CQ ring overflow state. This
 is indicated by
 .B IORING_SQ_CQ_OVERFLOW
 being set in the SQ ring flags. Unless the kernel runs out of available memory,
 entries are not dropped, but it is a much slower completion path and will slow
-down request processing. For that reason it should be avoided, and the CQ
+down request processing. For that reason it should be avoided and the CQ
 ring sized appropriately for the workload. Setting
 .I cq_entries
 in
@@ -59,7 +59,7 @@ will point to the shared memory containing the io_uring queues. On failure
 is returned.
 
 .I flags
-will be passed through to the io_uring_setup syscall (see 
+will be passed through to the io_uring_setup syscall (see
 .BR io_uring_setup (2)).
 
 If the

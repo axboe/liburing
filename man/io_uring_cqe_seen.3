@@ -4,7 +4,7 @@
 .\"
 .TH io_uring_cqe_seen 3 "November 15, 2021" "liburing-2.1" "liburing Manual"
 .SH NAME
-io_uring_cqe_seen - Mark io_uring completion event as processed
+io_uring_cqe_seen - Mark io_uring completion event as consumed
 .SH SYNOPSIS
 .nf
 .BR "#include <liburing.h>"
@@ -19,17 +19,17 @@ The io_uring_cqe_seen() function marks the IO completion
 .I cqe
 belonging to the
 .I ring
-param as processed.
+param as consumed.
 
 After the caller has submitted a request with
 .BR io_uring_submit (3),
 the application can retrieve the completion with
 .BR io_uring_wait_cqe (3),
 .BR io_uring_peek_cqe (3),
-or any of the other CQE retrieval helpers, and mark it as processed with
+or any of the other CQE retrieval helpers, and mark it as consumed with
 .BR io_uring_cqe_seen (3).
 
-Completions must be marked as completed, so their slot can get reused.
+Completions must be marked as completed so their slot can get reused.
 .SH RETURN VALUE
 None
 .SH SEE ALSO

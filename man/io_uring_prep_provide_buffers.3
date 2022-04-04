@@ -54,13 +54,13 @@ field.
 Different buffer group IDs can be used by the application to have different
 sizes or types of buffers available. Once a buffer has been consumed for an
 operation, it is no longer known to io_uring. It must be re-provided if so
-desired, or freed by the application if no longer needed.
+desired or freed by the application if no longer needed.
 
 The buffer IDs are internally tracked from
 .I bid
 and sequentially ascending from that value. If
 .B 16
-buffers are provided start with an initial
+buffers are provided and start with an initial
 .I bid
 of 0, then the buffer IDs will range from
 .B 0..15.

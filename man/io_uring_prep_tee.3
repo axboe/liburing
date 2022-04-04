@@ -15,7 +15,7 @@ io_uring_prep_tee  - prepare a tee request
 .BI "                       int " fd_in ","
 .BI "                       int " fd_out ","
 .BI "                       unsigned int " nbytes ","
-.BI "                       int " splice_flags ");"
+.BI "                       unsigned int " splice_flags ");"
 .PP
 .SH DESCRIPTION
 .PP
@@ -29,7 +29,7 @@ and as output the file descriptor
 duplicating
 .I nbytes
 bytes worth of data.
-.I flags
+.I splice_flags
 are modifier flags for the operation. See
 .BR tee (2)
 for the generic splice flags.
