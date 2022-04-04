@@ -29,19 +29,19 @@ to start writing
 from the buffer
 .I buf
 at the specified
-.I offset,
+.I offset
 and with the buffer matching the registered index of
 .I buf_index.
 
-This work just like
+This works just like
 .B io_uring_prep_write(3)
-except it requires the user of buffers that have been registered with
+except it requires the use of buffers that have been registered with
 .B io_uring_register_buffers(3). The
 .I buf
 and
 .I nbytes
 arguments must fall within a region specificed by
-.I buf_index.
+.I buf_index
 in the previously registered buffer. The buffer need not be aligned with
 the start of the registered buffer.
 

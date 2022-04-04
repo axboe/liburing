@@ -277,7 +277,8 @@ you need to acquire a submission queue entry (SQE) from the submission
 queue (SQ),
 fill it up with details of the operation you want to submit and call 
 .BR io_uring_enter (2). 
-If you want to avoid calling 
+There are helper functions of the form io_uring_prep_X to enable proper
+setup of the SQE. If you want to avoid calling
 .BR io_uring_enter (2),
 you have the option of setting up Submission Queue Polling.
 .PP
@@ -484,7 +485,7 @@ them to the submission queue. This avoids the
 .BR io_uring_enter (2)
 call you need to make to tell the kernel to pick SQEs up.
 For high-performance applications,
-this means even lesser system call overheads.
+this means even fewer system call overheads.
 .SH CONFORMING TO
 .B io_uring
 is Linux-specific.

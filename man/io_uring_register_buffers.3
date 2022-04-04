@@ -28,8 +28,8 @@ fixed buffers functions.
 
 Registered buffers is an optimization that is useful in conjunction with
 .B O_DIRECT
-reads and writes, where maps the specified range into the kernel once when
-the buffer is registered, rather than doing a map and unmap for each IO
+reads and writes, where it maps the specified range into the kernel once when
+the buffer is registered rather than doing a map and unmap for each IO
 every time IO is performed to that region. Additionally, it also avoids
 manipulating the page reference counts for each IO.
 

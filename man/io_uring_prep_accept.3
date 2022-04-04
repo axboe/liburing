@@ -4,7 +4,7 @@
 .\"
 .TH io_uring_prep_accept 3 "March 13, 2022" "liburing-2.2" "liburing Manual"
 .SH NAME
-io_uring_prep_accept  - prepare a accept request
+io_uring_prep_accept  - prepare an accept request
 .fi
 .SH SYNOPSIS
 .nf
@@ -41,7 +41,7 @@ and using modifier flags in
 For a direct descriptor accept request, the offset is specified by the
 .I file_index
 argument. Direct descriptors are io_uring private file descriptors. They
-avoid some of the overhead associated with thread shared file tables, and
+avoid some of the overhead associated with thread shared file tables and
 can be used in any io_uring request that takes a file descriptor. To do so,
 .B IOSQE_FIXED_FILE
 must be set in the SQE
