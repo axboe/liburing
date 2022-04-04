@@ -362,7 +362,7 @@ static int test(int use_recvmsg, int use_sync)
 
 	do_send(&rd);
 	pthread_join(recv_thread, &retval);
-	return (int)(intptr_t)retval;
+	return (intptr_t)retval;
 }
 
 int main(int argc, char *argv[])
