@@ -35,9 +35,10 @@ for restrictions when a ring is shared.
 .SH NOTES
 When the ring descriptor is registered, it is stored internally in the
 .I struct io_uring
-structure. If an application shares this structure between threads, then this
-optimization cannot be used as the threads may get different values for the
-registered descriptor.
+structure. For applications that share a ring between threads, for example
+having one thread do submits and another reap events, then this optimization
+cannot be used as each thread may have a different index for the registered
+ring fd.
 .SH RETURN VALUE
 Returns 1 on success, indicating that one file descriptor was registered,
 or
