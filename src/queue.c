@@ -388,10 +388,12 @@ int io_uring_submit_and_wait(struct io_uring *ring, unsigned wait_nr)
 	return __io_uring_submit_and_wait(ring, wait_nr);
 }
 
+#ifdef LIBURING_INTERNAL
 struct io_uring_sqe *io_uring_get_sqe(struct io_uring *ring)
 {
 	return _io_uring_get_sqe(ring);
 }
+#endif
 
 int __io_uring_sqring_wait(struct io_uring *ring)
 {
