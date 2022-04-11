@@ -1179,7 +1179,7 @@ static int fill_exec_target(char *dst, char *path)
 	struct stat sb;
 
 	/*
-	 * Should either be ./exec-target or test/exec-target
+	 * Should either be ./exec-target.t or test/exec-target.t
 	 */
 	sprintf(dst, "%s", path);
 	return stat(dst, &sb);
@@ -1193,8 +1193,8 @@ static int test_timeout_link_cancel(void)
 	pid_t p;
 	int ret, i, wstatus;
 
-	if (fill_exec_target(prog_path, "./exec-target") &&
-	    fill_exec_target(prog_path, "test/exec-target")) {
+	if (fill_exec_target(prog_path, "./exec-target.t") &&
+	    fill_exec_target(prog_path, "test/exec-target.t")) {
 		fprintf(stdout, "Can't find exec-target, skipping\n");
 		return 0;
 	}
