@@ -35,7 +35,8 @@ int main(int argc, char *argv[])
 	assert(!ret);
 
 	fd = open("testfile", O_RDWR | O_CREAT, 0644);
-	assert(ret >= 0);
+	assert(fd >= 0);
+	unlink("testfile");
 	ret = ftruncate(fd, 4096);
 	assert(!ret);
 
