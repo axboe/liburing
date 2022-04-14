@@ -45,6 +45,9 @@ endif
 
 install: $(NAME).pc
 	@$(MAKE) -C src install prefix=$(DESTDIR)$(prefix) \
+		includedir=$(DESTDIR)$(includedir) \
+		libdir=$(DESTDIR)$(libdir) \
+		libdevdir=$(DESTDIR)$(libdevdir) \
 		relativelibdir=$(relativelibdir)
 	$(INSTALL) -D -m 644 $(NAME).pc $(DESTDIR)$(libdevdir)/pkgconfig/$(NAME).pc
 	$(INSTALL) -m 755 -d $(DESTDIR)$(mandir)/man2
