@@ -6,8 +6,15 @@
 static inline void *__sys_mmap(void *addr, size_t length, int prot, int flags,
 			       int fd, off_t offset)
 {
-	return (void *) __do_syscall6(__NR_mmap, addr, length, prot, flags, fd,
-				      offset);
+	int nr;
+
+#if defined(__i386__)
+	nr = __NR_mmap2;
+	offset >>= 12;
+#else
+	nr = __NR_mmap;
+#endif
+	return (void *) __do_syscall6(nr, addr, length, prot, flags, fd, offset);
 }
 
 static inline int __sys_munmap(void *addr, size_t length)
