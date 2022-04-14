@@ -26,13 +26,11 @@ struct thread_data {
 static void *flusher(void *__data)
 {
 	struct thread_data *data = __data;
-	int i = 0;
 
 	while (!data->do_exit) {
 		posix_fadvise(data->fd1, 0, FILE_SIZE, POSIX_FADV_DONTNEED);
 		posix_fadvise(data->fd2, 0, FILE_SIZE, POSIX_FADV_DONTNEED);
 		usleep(10);
-		i++;
 	}
 
 	return NULL;
