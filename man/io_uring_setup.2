@@ -337,6 +337,25 @@ If this flag is set, then io_uring supports a variety of features related
 to fixed files and buffers. In particular, it indicates that registered
 buffers can be updated in-place, whereas before the full set would have to
 be unregistered first. Available since kernel 5.13.
+.TP
+.B IORING_FEAT_CQE_SKIP
+If this flag is set, then io_uring supports setting
+.B IOSQE_CQE_SKIP_SUCCESS
+in the submitted SQE, indicating that no CQE should be generated for this
+SQE if it executes normally. If an error happens processing the SQE, a
+CQE with the appropriate error value will still be generated. Available since
+kernel 5.17.
+.TP
+.B IORING_FEAT_LINKED_FILE
+If this flag is set, then io_uring supports sane assignment of files for SQEs
+that have dependencies. For example, if a chain of SQEs are submitted with
+.B IOSQE_IO_LINK,
+then kernels without this flag will prepare the file for each link upfront.
+If a previous link opens a file with a known index, eg if direct descriptors
+are used with open or accept, then file assignment needs to happen post
+execution of that SQE. If this flag is set, then the kernel will defer
+file assignment until execution of a given request is started. Available since
+kernel 5.17.
 
 .PP
 The rest of the fields in the
