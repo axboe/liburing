@@ -12,6 +12,8 @@
 
 #include "liburing.h"
 
+static int no_cancel_flags;
+
 static int test1(struct io_uring *ring, int *fd)
 {
 	struct io_uring_sqe *sqe;
@@ -59,6 +61,8 @@ static int test1(struct io_uring *ring, int *fd)
 	}
 
 	for (i = 0; i < 9; i++) {
+		if (no_cancel_flags)
+			break;
 		ret = io_uring_wait_cqe(ring, &cqe);
 		if (ret) {
 			fprintf(stderr, "wait=%d\n", ret);
@@ -66,6 +70,10 @@ static int test1(struct io_uring *ring, int *fd)
 		}
 		switch (cqe->user_data) {
 		case 100:
+			if (cqe->res == -EINVAL) {
+				no_cancel_flags = 1;
+				break;
+			}
 			if (cqe->res != 8) {
 				fprintf(stderr, "canceled %d\n", cqe->res);
 				return 1;
@@ -263,10 +271,12 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "test1 failed\n");
 		return ret;
 	}
+	if (no_cancel_flags)
+		return 0;
 
 	ret = test2(&ring, fd);
 	if (ret) {
-		fprintf(stderr, "test1 failed\n");
+		fprintf(stderr, "test2 failed\n");
 		return ret;
 	}
 
