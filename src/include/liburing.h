@@ -510,6 +510,13 @@ static inline void io_uring_prep_cancel(struct io_uring_sqe *sqe,
 	sqe->cancel_flags = (__u32) flags;
 }
 
+static inline void io_uring_prep_cancel_fd(struct io_uring_sqe *sqe, int fd,
+					   unsigned int flags)
+{
+	io_uring_prep_rw(IORING_OP_ASYNC_CANCEL, sqe, fd, NULL, 0, 0);
+	sqe->cancel_flags = (__u32) flags | IORING_ASYNC_CANCEL_FD;
+}
+
 static inline void io_uring_prep_link_timeout(struct io_uring_sqe *sqe,
 					      struct __kernel_timespec *ts,
 					      unsigned flags)
