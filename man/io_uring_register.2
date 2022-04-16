@@ -328,7 +328,13 @@ registered through this operation.
 .I arg
 must contain a pointer to the eventfd file descriptor, and
 .I nr_args
-must be 1. Available since 5.2.
+must be 1. Note that while io_uring generally takes care to avoid spurious
+events, they can occur. Similarly, batched completions of CQEs may only trigger
+a single eventfd notification even if multiple CQEs are posted. The application
+should make no assumptions on number of events being available having a direct
+correlation to eventfd notifications posted. An eventfd notification must thus
+only be treated as a hint to check the CQ ring for completions. Available since
+5.2.
 
 An application can temporarily disable notifications, coming through the
 registered eventfd, by setting the
