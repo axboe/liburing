@@ -745,7 +745,90 @@ static int test_fixed_removal_ordering(void)
 	return 0;
 }
 
+/* mix files requiring SCM-accounting and not in a single register */
+static int test_mixed_af_unix(void)
+{
+	struct io_uring ring;
+	int i, ret, fds[2];
+	int reg_fds[32];
+	int sp[2];
 
+	ret = io_uring_queue_init(8, &ring, 0);
+	if (ret < 0) {
+		fprintf(stderr, "failed to init io_uring: %s\n", strerror(-ret));
+		return ret;
+	}
+	if (pipe(fds)) {
+		perror("pipe");
+		return -1;
+	}
+	if (socketpair(AF_UNIX, SOCK_DGRAM, 0, sp) != 0) {
+		perror("Failed to create Unix-domain socket pair\n");
+		return 1;
+	}
+
+	for (i = 0; i < 16; i++) {
+		reg_fds[i * 2] = fds[0];
+		reg_fds[i * 2 + 1] = sp[0];
+	}
+
+	ret = io_uring_register_files(&ring, reg_fds, 32);
+	if (ret) {
+		fprintf(stderr, "file_register: %d\n", ret);
+		return ret;
+	}
+
+	close(fds[0]);
+	close(fds[1]);
+	close(sp[0]);
+	close(sp[1]);
+	io_uring_queue_exit(&ring);
+	return 0;
+}
+
+static int test_partial_register_fail(void)
+{
+	char buffer[128];
+	struct io_uring ring;
+	int ret, fds[2];
+	int reg_fds[5];
+
+	ret = io_uring_queue_init(8, &ring, 0);
+	if (ret < 0) {
+		fprintf(stderr, "failed to init io_uring: %s\n", strerror(-ret));
+		return ret;
+	}
+	if (pipe(fds)) {
+		perror("pipe");
+		return -1;
+	}
+
+	/*
+	 * Expect register to fail as it doesn't support io_uring fds, shouldn't
+	 * leave any fds referenced afterwards.
+	 */
+	reg_fds[0] = fds[0];
+	reg_fds[1] = fds[1];
+	reg_fds[2] = -1;
+	reg_fds[3] = ring.ring_fd;
+	reg_fds[4] = -1;
+	ret = io_uring_register_files(&ring, reg_fds, 5);
+	if (!ret) {
+		fprintf(stderr, "file_register unexpectedly succeeded\n");
+		return 1;
+	}
+
+	/* ring should have fds referenced, can close them */
+	close(fds[1]);
+
+	/* confirm that fds[1] is actually close and to ref'ed by io_uring */
+	ret = read(fds[0], buffer, 10);
+	if (ret < 0)
+		perror("read");
+	close(fds[0]);
+	io_uring_queue_exit(&ring);
+	return 0;
+}
 
 int main(int argc, char *argv[])
 {
@@ -852,6 +935,18 @@ int main(int argc, char *argv[])
 	if (ret) {
 		printf("test_fixed_removal_ordering failed\n");
 		return 1;
+	}
+
+	ret = test_mixed_af_unix();
+	if (ret) {
+		printf("test_mixed_af_unix failed\n");
+		return 1;
+	}
+
+	ret = test_partial_register_fail();
+	if (ret) {
+		printf("test_partial_register_fail failed\n");
+		return ret;
 	}
 
 	return 0;
