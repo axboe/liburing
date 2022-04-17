@@ -224,7 +224,7 @@ static int test_generic_drain(struct io_uring *ring)
 		goto err;
 	}
 
-	sleep(4);
+	sleep(1);
 	// TODO: randomize event triggerring order
 	for (i = 0; i < max_entry; i++) {
 		if (si[i].op != multi && si[i].op != single)
@@ -233,7 +233,7 @@ static int test_generic_drain(struct io_uring *ring)
 		if (trigger_event(pipes[i]))
 			goto err;
 	}
-	sleep(5);
+	sleep(1);
 	i = 0;
 	while (!io_uring_peek_cqe(ring, &cqe)) {
 		cqe_data[i] = cqe->user_data;
