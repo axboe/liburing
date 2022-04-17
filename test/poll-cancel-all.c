@@ -341,6 +341,88 @@ err:
 	return 1;
 }
 
+static int test4(struct io_uring *ring, int *fd)
+{
+	struct io_uring_sqe *sqe;
+	struct io_uring_cqe *cqe;
+	char buffer[32];
+	int ret, i;
+
+	for (i = 0; i < 8; i++) {
+		sqe = io_uring_get_sqe(ring);
+		if (!sqe) {
+			fprintf(stderr, "get sqe failed\n");
+			goto err;
+		}
+
+		io_uring_prep_read(sqe, fd[0], &buffer, sizeof(buffer), 0);
+		sqe->flags |= IOSQE_ASYNC;
+		sqe->user_data = i + 1;
+	}
+
+	ret = io_uring_submit(ring);
+	if (ret < 8) {
+		fprintf(stderr, "child: sqe submit failed: %d\n", ret);
+		goto err;
+	}
+
+	usleep(10000);
+
+	sqe = io_uring_get_sqe(ring);
+	if (!sqe) {
+		fprintf(stderr, "get sqe failed\n");
+		goto err;
+	}
+
+	/*
+	 * Mark CANCEL_ALL to cancel all matching the key, and use
+	 * CANCEL_FD to cancel requests matching the specified fd.
+	 * This should cancel all the pending poll requests on the pipe
+	 * input.
+	 */
+	io_uring_prep_cancel(sqe, 0, IORING_ASYNC_CANCEL_ALL);
+	sqe->cancel_flags |= IORING_ASYNC_CANCEL_ANY;
+	sqe->fd = 0;
+	sqe->user_data = 100;
+
+	ret = io_uring_submit(ring);
+	if (ret < 1) {
+		fprintf(stderr, "child: sqe submit failed: %d\n", ret);
+		goto err;
+	}
+
+	for (i = 0; i < 9; i++) {
+		ret = io_uring_wait_cqe(ring, &cqe);
+		if (ret) {
+			fprintf(stderr, "wait=%d\n", ret);
+			goto err;
+		}
+		switch (cqe->user_data) {
+		case 100:
+			if (cqe->res != 8) {
+				fprintf(stderr, "canceled %d\n", cqe->res);
+				goto err;
+			}
+			break;
+		case 1 ... 8:
+			if (cqe->res != -ECANCELED) {
+				fprintf(stderr, "poll res %d\n", cqe->res);
+				goto err;
+			}
+			break;
+		default:
+			fprintf(stderr, "invalid user_data %lu\n",
+					(unsigned long) cqe->user_data);
+			goto err;
+		}
+		io_uring_cqe_seen(ring, cqe);
+	}
+
+	return 0;
+err:
+	return 1;
+}
+
 int main(int argc, char *argv[])
 {
 	struct io_uring ring;
@@ -377,6 +459,12 @@ int main(int argc, char *argv[])
 	ret = test3(&ring, fd);
 	if (ret) {
 		fprintf(stderr, "test3 failed\n");
+		return ret;
+	}
+
+	ret = test4(&ring, fd);
+	if (ret) {
+		fprintf(stderr, "test4 failed\n");
 		return ret;
 	}
 
