@@ -144,12 +144,6 @@
 
 #else /* #if defined(__x86_64__) */
 
-/*
- * For x86 (32-bit), fallback to libc wrapper.
- * We can't use CONFIG_NOLIBC for x86 (32-bit) at the moment.
- *
- * TODO: Add x86 (32-bit) nolibc support.
- */
 #ifdef CONFIG_NOLIBC
 /**
  * Note for syscall registers usage (x86, 32-bit):
