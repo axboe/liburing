@@ -21,6 +21,8 @@ runtests: all
 	@$(MAKE) -C test runtests
 runtests-loop:
 	@$(MAKE) -C test runtests-loop
+runtests-parallel:
+	@$(MAKE) -C test runtests-parallel
 
 config-host.mak: configure
 	@if [ ! -e "$@" ]; then					\

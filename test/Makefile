@@ -185,6 +185,7 @@ all_targets += sq-full-cpp.t
 
 test_targets := $(patsubst %.c,%,$(test_srcs))
 test_targets := $(patsubst %.cc,%,$(test_targets))
+run_test_targets := $(patsubst %,%.run_test,$(test_targets))
 test_targets := $(patsubst %,%.t,$(test_targets))
 all_targets += $(test_targets)
 
@@ -229,4 +230,11 @@ runtests: all
 runtests-loop: all
 	@./runtests-loop.sh $(test_targets)
 
-.PHONY: all install clean runtests runtests-loop
+%.run_test: %.t
+	@./runtests-quiet.sh $<
+
+runtests-parallel: $(run_test_targets)
+	@echo "All tests passed"
+
+.PHONY: all install clean runtests runtests-loop runtests-parallel
+.PHONY += $(run_test_targets)
