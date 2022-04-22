@@ -246,12 +246,12 @@ int main(int argc, char *argv[])
 	}
 
 	if (argc > 1) {
-		path = "/tmp/.open.close";
+		path = "/tmp/.open.at2";
 		path_rel = argv[1];
 		do_unlink = 0;
 	} else {
-		path = "/tmp/.open.close";
-		path_rel = ".open.close";
+		path = "/tmp/.open.at2";
+		path_rel = ".open.at2";
 		do_unlink = 1;
 	}
 

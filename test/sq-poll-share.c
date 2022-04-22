@@ -82,7 +82,7 @@ int main(int argc, char *argv[])
 	if (argc > 1) {
 		fname = argv[1];
 	} else {
-		fname = ".basic-rw";
+		fname = ".basic-rw-poll-share";
 		t_create_file(fname, FILE_SIZE);
 	}
 
