@@ -12,6 +12,10 @@
 #include "liburing.h"
 
 #define RING_SIZE 128
+enum {
+	OP_NOP,
+	OP_REMOVE_BUFFERS
+};
 
 struct test_context {
 	struct io_uring *ring;
@@ -27,7 +31,8 @@ static void free_context(struct test_context *ctx)
 	memset(ctx, 0, sizeof(*ctx));
 }
 
-static int init_context(struct test_context *ctx, struct io_uring *ring, int nr)
+static int init_context(struct test_context *ctx, struct io_uring *ring, int nr,
+			int op)
 {
 	struct io_uring_sqe *sqe;
 	int i;
@@ -45,7 +50,14 @@ static int init_context(struct test_context *ctx, struct io_uring *ring, int nr)
 		sqe = io_uring_get_sqe(ring);
 		if (!sqe)
 			goto err;
-		io_uring_prep_nop(sqe);
+		switch (op) {
+		case OP_NOP:
+			io_uring_prep_nop(sqe);
+			break;
+		case OP_REMOVE_BUFFERS:
+			io_uring_prep_remove_buffers(sqe, 10, 1);
+			break;
+		};
 		sqe->user_data = i;
 		ctx->sqes[i] = sqe;
 	}
@@ -81,7 +93,7 @@ static int test_cancelled_userdata(struct io_uring *ring)
 	struct test_context ctx;
 	int ret, i, nr = 100;
 
-	if (init_context(&ctx, ring, nr))
+	if (init_context(&ctx, ring, nr, OP_NOP))
 		return 1;
 
 	for (i = 0; i < nr; i++)
@@ -115,7 +127,7 @@ static int test_thread_link_cancel(struct io_uring *ring)
 	struct test_context ctx;
 	int ret, i, nr = 100;
 
-	if (init_context(&ctx, ring, nr))
+	if (init_context(&ctx, ring, nr, OP_REMOVE_BUFFERS))
 		return 1;
 
 	for (i = 0; i < nr; i++)
@@ -134,12 +146,12 @@ static int test_thread_link_cancel(struct io_uring *ring)
 		bool fail = false;
 
 		if (i == 0)
-			fail = (ctx.cqes[i].res != -EINVAL);
+			fail = (ctx.cqes[i].res != -ENOENT);
 		else
 			fail = (ctx.cqes[i].res != -ECANCELED);
 
 		if (fail) {
-			printf("invalid status\n");
+			printf("invalid status %d\n", ctx.cqes[i].res);
 			goto err;
 		}
 	}
@@ -158,7 +170,7 @@ static int test_drain_with_linked_timeout(struct io_uring *ring)
 	struct test_context ctx;
 	int ret, i;
 
-	if (init_context(&ctx, ring, nr * 2))
+	if (init_context(&ctx, ring, nr * 2, OP_NOP))
 		return 1;
 
 	for (i = 0; i < nr; i++) {
@@ -188,7 +200,7 @@ static int run_drained(struct io_uring *ring, int nr)
 	struct test_context ctx;
 	int ret, i;
 
-	if (init_context(&ctx, ring, nr))
+	if (init_context(&ctx, ring, nr, OP_NOP))
 		return 1;
 
 	for (i = 0; i < nr; i++)
