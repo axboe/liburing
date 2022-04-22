@@ -19,9 +19,9 @@ partcheck: all
 
 runtests: all
 	@$(MAKE) -C test runtests
-runtests-loop:
+runtests-loop: all
 	@$(MAKE) -C test runtests-loop
-runtests-parallel:
+runtests-parallel: all
 	@$(MAKE) -C test runtests-parallel
 
 config-host.mak: configure
