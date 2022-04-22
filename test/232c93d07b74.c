@@ -26,7 +26,7 @@
 #define RECV_BUFF_SIZE 2
 #define SEND_BUFF_SIZE 3
 
-#define PORT	0x1235
+#define PORT	0x1234
 
 struct params {
 	int tcp;

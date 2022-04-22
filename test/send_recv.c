@@ -19,7 +19,7 @@ static char str[] = "This is a test of send and recv over io_uring!";
 
 #define MAX_MSG	128
 
-#define PORT	10200
+#define PORT	10202
 #define HOST	"127.0.0.1"
 
 static int recv_prep(struct io_uring *ring, struct iovec *iov, int *sock,

@@ -19,7 +19,7 @@ static char str[] = "This is a test of sendmsg and recvmsg over io_uring!";
 
 #define MAX_MSG	128
 
-#define PORT	10200
+#define PORT	10203
 #define HOST	"127.0.0.1"
 
 #define BUF_BGID	10
