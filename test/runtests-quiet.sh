@@ -2,10 +2,10 @@
 
 TESTS=("$@")
 RESULT_FILE=$(mktemp)
-./runtests.sh "${TESTS[@]}" 2>&1 > $RESULT_FILE
+./runtests.sh "${TESTS[@]}" 2>&1 > "$RESULT_FILE"
 RET="$?"
 if [ "${RET}" -ne 0 ]; then
-    cat $RESULT_FILE
+    cat "$RESULT_FILE"
 fi
-rm $RESULT_FILE
+rm "$RESULT_FILE"
 exit $RET
