@@ -237,4 +237,3 @@ runtests-parallel: $(run_test_targets)
 	@echo "All tests passed"
 
 .PHONY: all install clean runtests runtests-loop runtests-parallel
-.PHONY += $(run_test_targets)
