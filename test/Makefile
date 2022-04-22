@@ -33,6 +33,7 @@ override CXXFLAGS += $(XCFLAGS) -std=c++11 -DLIBURING_BUILD_TEST
 LDFLAGS ?=
 override LDFLAGS += -L../src/ -luring -lpthread
 
+# Please keep this list sorted alphabetically.
 test_srcs := \
 	232c93d07b74.c \
 	35fa71a030ca.c \
@@ -133,6 +134,7 @@ test_srcs := \
 	short-read.c \
 	shutdown.c \
 	sigfd-deadlock.c \
+	skip-cqe.c \
 	socket-rw.c \
 	socket-rw-eagain.c \
 	socket-rw-offset.c \
@@ -159,7 +161,6 @@ test_srcs := \
 	tty-write-dpoll.c \
 	unlink.c \
 	wakeup-hang.c \
-	skip-cqe.c \
 	# EOL
 
 
