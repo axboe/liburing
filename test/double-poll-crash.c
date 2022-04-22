@@ -52,10 +52,14 @@ static long syz_io_uring_setup(volatile long a0, volatile long a1,
   *ring_ptr_out = mmap(vma1, ring_sz, PROT_READ | PROT_WRITE,
                        MAP_SHARED | MAP_POPULATE | MAP_FIXED, fd_io_uring,
                        IORING_OFF_SQ_RING);
+  if (*ring_ptr_out == MAP_FAILED)
+    exit(0);
   uint32_t sqes_sz = setup_params->sq_entries * SIZEOF_IO_URING_SQE;
   *sqes_ptr_out =
       mmap(vma2, sqes_sz, PROT_READ | PROT_WRITE,
            MAP_SHARED | MAP_POPULATE | MAP_FIXED, fd_io_uring, IORING_OFF_SQES);
+  if (*sqes_ptr_out == MAP_FAILED)
+    exit(0);
   return fd_io_uring;
 }
 
@@ -108,6 +112,7 @@ uint64_t r[4] = {0xffffffffffffffff, 0x0, 0x0, 0xffffffffffffffff};
 
 int main(int argc, char *argv[])
 {
+  void *mmap_ret;
 #if !defined(__i386) && !defined(__x86_64__)
   return 0;
 #endif
@@ -115,8 +120,12 @@ int main(int argc, char *argv[])
   if (argc > 1)
     return 0;
 
-  mmap((void *)0x20000000ul, 0x1000000ul, 7ul, 0x32ul, -1, 0ul);
-  mmap((void *)0x21000000ul, 0x1000ul, 0ul, 0x32ul, -1, 0ul);
+  mmap_ret = mmap((void *)0x20000000ul, 0x1000000ul, 7ul, 0x32ul, -1, 0ul);
+  if (mmap_ret == MAP_FAILED)
+    return 0;
+  mmap_ret = mmap((void *)0x21000000ul, 0x1000ul, 0ul, 0x32ul, -1, 0ul);
+  if (mmap_ret == MAP_FAILED)
+    return 0;
   intptr_t res = 0;
   *(uint32_t*)0x20000484 = 0;
   *(uint32_t*)0x20000488 = 0;
