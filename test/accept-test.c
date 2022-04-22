@@ -35,7 +35,7 @@ int main(int argc, char *argv[])
 
 	memset(&addr, 0, sizeof(addr));
 	addr.sun_family = AF_UNIX;
-	memcpy(addr.sun_path, "\0sock", 6);
+	memcpy(addr.sun_path, "\0sock2", 7);
 
 	ret = bind(fd, (struct sockaddr *)&addr, addrlen);
 	assert(ret != -1);
