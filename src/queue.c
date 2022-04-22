@@ -35,7 +35,8 @@ static inline bool sq_ring_needs_enter(struct io_uring *ring, unsigned *flags)
 
 static inline bool cq_ring_needs_flush(struct io_uring *ring)
 {
-	return IO_URING_READ_ONCE(*ring->sq.kflags) & IORING_SQ_CQ_OVERFLOW;
+	return IO_URING_READ_ONCE(*ring->sq.kflags) &
+					(IORING_SQ_CQ_OVERFLOW | IORING_SQ_TW);
 }
 
 static inline bool cq_ring_needs_enter(struct io_uring *ring)
