@@ -139,7 +139,7 @@ run_test()
 # Run all specified tests
 for tst in "${TESTS[@]}"; do
 	if [ ! -d output ]; then
-		mkdir output
+		mkdir -p output
 	fi
 	if [ -z "${TEST_MAP[$tst]}" ]; then
 		run_test "$tst"
