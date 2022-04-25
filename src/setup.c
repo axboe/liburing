@@ -257,8 +257,11 @@ static size_t rings_size(struct io_uring_params *p, unsigned entries,
 {
 	size_t pages, sq_size, cq_size;
 
-	cq_size = KRING_SIZE;
-	cq_size += cq_entries * sizeof(struct io_uring_cqe);
+	cq_size = sizeof(struct io_uring_cqe);
+	if (p->flags & IORING_SETUP_CQE32)
+		cq_size += sizeof(struct io_uring_cqe);
+	cq_size *= cq_entries;
+	cq_size += KRING_SIZE;
 	cq_size = (cq_size + 63) & ~63UL;
 	pages = (size_t) 1 << npages(cq_size, page_size);
 
