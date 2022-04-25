@@ -132,6 +132,10 @@ unsigned io_uring_peek_batch_cqe(struct io_uring *ring,
 {
 	unsigned ready;
 	bool overflow_checked = false;
+	int shift = 0;
+
+	if (ring->flags & IORING_SETUP_CQE32)
+		shift = 1;
 
 again:
 	ready = io_uring_cq_ready(ring);
@@ -144,7 +148,7 @@ again:
 		count = count > ready ? ready : count;
 		last = head + count;
 		for (;head != last; head++, i++)
-			cqes[i] = &ring->cq.cqes[head & mask];
+			cqes[i] = &ring->cq.cqes[(head & mask) << shift];
 
 		return count;
 	}
