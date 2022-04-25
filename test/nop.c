@@ -11,6 +11,7 @@
 #include <fcntl.h>
 
 #include "liburing.h"
+#include "test.h"
 
 static int seq;
 
@@ -127,12 +128,14 @@ err:
 	return 1;
 }
 
-static int test_p(struct io_uring_params *p)
+static int test_ring(unsigned flags)
 {
 	struct io_uring ring;
+	struct io_uring_params p = { };
 	int ret;
 
-	ret = io_uring_queue_init_params(8, &ring, p);
+	p.flags = flags;
+	ret = io_uring_queue_init_params(8, &ring, &p);
 	if (ret) {
 		fprintf(stderr, "ring setup failed: %d\n", ret);
 		return 1;
@@ -150,28 +153,10 @@ static int test_p(struct io_uring_params *p)
 		goto err;
 	}
 
-	io_uring_queue_exit(&ring);
-	return 0;
 err:
 	io_uring_queue_exit(&ring);
 	return ret;
 }
-
-static int test_normal_ring(void)
-{
-	struct io_uring_params p = { };
-
-	return test_p(&p);
-}
-
-static int test_big_ring(void)
-{
-	struct io_uring_params p = { };
-
-	p.flags = IORING_SETUP_SQE128;
-	return test_p(&p);
-}
-
 
 int main(int argc, char *argv[])
 {
@@ -180,17 +165,15 @@ int main(int argc, char *argv[])
 	if (argc > 1)
 		return 0;
 
-	ret = test_normal_ring();
-	if (ret) {
-		fprintf(stderr, "Normal ring test failed\n");
-		return ret;
+	FOR_ALL_TEST_CONFIGS {
+		fprintf(stderr, "Testing %s config\n", IORING_GET_TEST_CONFIG_DESCRIPTION());
+		ret = test_ring(IORING_GET_TEST_CONFIG_FLAGS());
+		if (ret) {
+			fprintf(stderr, "Normal ring test failed\n");
+			return ret;
+		}
 	}
 
-	ret = test_big_ring();
-	if (ret) {
-		fprintf(stderr, "Big ring test failed\n");
-		return ret;
-	}
-
+	fprintf(stderr, "PASS\n");
 	return 0;
 }
