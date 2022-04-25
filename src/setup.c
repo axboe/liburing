@@ -21,8 +21,12 @@ static int io_uring_mmap(int fd, struct io_uring_params *p,
 	size_t size;
 	int ret;
 
+	size = sizeof(struct io_uring_cqe);
+	if (p->flags & IORING_SETUP_CQE32)
+		size += sizeof(struct io_uring_cqe);
+
 	sq->ring_sz = p->sq_off.array + p->sq_entries * sizeof(unsigned);
-	cq->ring_sz = p->cq_off.cqes + p->cq_entries * sizeof(struct io_uring_cqe);
+	cq->ring_sz = p->cq_off.cqes + p->cq_entries * size;
 
 	if (p->features & IORING_FEAT_SINGLE_MMAP) {
 		if (cq->ring_sz > sq->ring_sz)
