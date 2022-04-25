@@ -109,6 +109,7 @@ enum {
 #define IORING_SETUP_R_DISABLED	(1U << 6)	/* start with ring disabled */
 #define IORING_SETUP_SUBMIT_ALL	(1U << 7)	/* continue submit on error */
 #define IORING_SETUP_SQE128	(1U << 8)	/* SQEs are 128b */
+#define IORING_SETUP_CQE32	(1U << 9)	/* CQEs are 32b */
 
 enum {
 	IORING_OP_NOP,
@@ -227,6 +228,12 @@ struct io_uring_cqe {
 	__u64	user_data;	/* sqe->data submission passed back */
 	__s32	res;		/* result code for this event */
 	__u32	flags;
+
+	/*
+	 * If the ring is initialized wit IORING_SETUP_CQE32, then this field
+	 * contains 16-bytes of padding, doubling the size fo the CQE.
+	 */
+	__u64 big_cqe[];
 };
 
 /*
