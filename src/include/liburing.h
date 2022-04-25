@@ -189,6 +189,16 @@ int __io_uring_get_cqe(struct io_uring *ring,
 
 #define LIBURING_UDATA_TIMEOUT	((__u64) -1)
 
+/*
+ * Calculates the step size for CQE iteration.
+ * 	For standard CQE's its 1, for big CQE's its two.
+ */
+#define io_uring_cqe_shift(ring)					\
+	(!!((ring)->flags & IORING_SETUP_CQE32))
+
+#define io_uring_cqe_index(ring,ptr,mask)				\
+	(((ptr) & (mask)) << io_uring_cqe_shift(ring))
+
 #define io_uring_for_each_cqe(ring, head, cqe)				\
 	/*								\
 	 * io_uring_smp_load_acquire() enforces the order of tail	\
@@ -196,7 +206,7 @@ int __io_uring_get_cqe(struct io_uring *ring,
 	 */								\
 	for (head = *(ring)->cq.khead;					\
 	     (cqe = (head != io_uring_smp_load_acquire((ring)->cq.ktail) ? \
-		&(ring)->cq.cqes[head & (*(ring)->cq.kring_mask)] : NULL)); \
+		&(ring)->cq.cqes[io_uring_cqe_index(ring, head, *(ring)->cq.kring_mask)] : NULL)); \
 	     head++)							\
 
 /*
@@ -901,6 +911,10 @@ static inline int __io_uring_peek_cqe(struct io_uring *ring,
 	int err = 0;
 	unsigned available;
 	unsigned mask = *ring->cq.kring_mask;
+	int shift = 0;
+
+	if (ring->flags & IORING_SETUP_CQE32)
+		shift = 1;
 
 	do {
 		unsigned tail = io_uring_smp_load_acquire(ring->cq.ktail);
@@ -911,7 +925,7 @@ static inline int __io_uring_peek_cqe(struct io_uring *ring,
 		if (!available)
 			break;
 
-		cqe = &ring->cq.cqes[head & mask];
+		cqe = &ring->cq.cqes[(head & mask) << shift];
 		if (!(ring->features & IORING_FEAT_EXT_ARG) &&
 				cqe->user_data == LIBURING_UDATA_TIMEOUT) {
 			if (cqe->res < 0)
