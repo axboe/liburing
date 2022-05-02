@@ -11,7 +11,7 @@
 #include <fcntl.h>
 #include <sys/types.h>
 #include <sys/syscall.h>
-#include <linux/stat.h>
+#include <sys/stat.h>
 
 #include "helpers.h"
 #include "liburing.h"
