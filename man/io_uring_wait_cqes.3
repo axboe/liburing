@@ -35,8 +35,14 @@ param is filled in on success.
 
 If
 .I ts
-is specified, the application does not need to call io_uring_submit (3) before
-calling io_uring_wait_cqes (3).
+is specified and an older kernel without
+.B IORING_FEAT_EXT_ARG
+is used, the application does not need to call
+.BR io_uring_submit (3)
+before calling
+.BR io_uring_wait_cqes (3).
+For newer kernels with that feature flag set, there is no implied submit
+when waiting for a request.
 
 .SH RETURN VALUE
 On success
