@@ -108,10 +108,25 @@ enum {
 #define IORING_SETUP_ATTACH_WQ	(1U << 5)	/* attach to existing wq */
 #define IORING_SETUP_R_DISABLED	(1U << 6)	/* start with ring disabled */
 #define IORING_SETUP_SUBMIT_ALL	(1U << 7)	/* continue submit on error */
-#define IORING_SETUP_SQE128	(1U << 8)	/* SQEs are 128b */
-#define IORING_SETUP_CQE32	(1U << 9)	/* CQEs are 32b */
+/*
+ * Cooperative task running. When requests complete, they often require
+ * forcing the submitter to transition to the kernel to complete. If this
+ * flag is set, work will be done when the task transitions anyway, rather
+ * than force an inter-processor interrupt reschedule. This avoids interrupting
+ * a task running in userspace, and saves an IPI.
+ */
+#define IORING_SETUP_COOP_TASKRUN	(1U << 8)
+/*
+ * If COOP_TASKRUN is set, get notified if task work is available for
+ * running and a kernel transition would be needed to run it. This sets
+ * IORING_SQ_TASKRUN in the sq ring flags. Not valid with COOP_TASKRUN.
+ */
+#define IORING_SETUP_TASKRUN_FLAG	(1U << 9)
 
-enum {
+#define IORING_SETUP_SQE128		(1U << 10) /* SQEs are 128 byte */
+#define IORING_SETUP_CQE32		(1U << 11) /* CQEs are 32 byte */
+
+enum io_uring_op {
 	IORING_OP_NOP,
 	IORING_OP_READV,
 	IORING_OP_WRITEV,
@@ -230,8 +245,8 @@ struct io_uring_cqe {
 	__u32	flags;
 
 	/*
-	 * If the ring is initialized wit IORING_SETUP_CQE32, then this field
-	 * contains 16-bytes of padding, doubling the size fo the CQE.
+	 * If the ring is initialized with IORING_SETUP_CQE32, then this field
+	 * contains 16-bytes of padding, doubling the size of the CQE.
 	 */
 	__u64 big_cqe[];
 };
