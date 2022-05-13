@@ -137,6 +137,8 @@ static int test_ring(unsigned flags)
 	p.flags = flags;
 	ret = io_uring_queue_init_params(8, &ring, &p);
 	if (ret) {
+		if (ret == -EINVAL)
+			return 0;
 		fprintf(stderr, "ring setup failed: %d\n", ret);
 		return 1;
 	}
@@ -166,14 +168,13 @@ int main(int argc, char *argv[])
 		return 0;
 
 	FOR_ALL_TEST_CONFIGS {
-		fprintf(stderr, "Testing %s config\n", IORING_GET_TEST_CONFIG_DESCRIPTION());
 		ret = test_ring(IORING_GET_TEST_CONFIG_FLAGS());
 		if (ret) {
-			fprintf(stderr, "Normal ring test failed\n");
+			fprintf(stderr, "Normal ring test failed: %s\n",
+					IORING_GET_TEST_CONFIG_DESCRIPTION());
 			return ret;
 		}
 	}
 
-	fprintf(stderr, "PASS\n");
 	return 0;
 }
