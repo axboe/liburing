@@ -226,6 +226,7 @@ static int io_uring_alloc_huge(unsigned entries, struct io_uring_params *p,
 		buf_size = huge_page_size;
 	}
 
+	sq->sqes = ptr;
 	memset(ptr, 0, buf_size);
 	if (sqes_mem + ring_mem <= buf_size) {
 		sq->ring_ptr = (void *) sq->sqes + sqes_mem;
