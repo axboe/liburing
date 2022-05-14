@@ -112,7 +112,7 @@ static int do_recvmsg(struct io_uring *ring, char buf[MAX_MSG + 1],
 		fprintf(stderr, "%s: failed cqe: %d\n", __FUNCTION__, cqe->res);
 		goto err;
 	}
-	if (cqe->flags) {
+	if (cqe->flags & IORING_CQE_F_BUFFER) {
 		int bid = cqe->flags >> 16;
 		if (bid != BUF_BID)
 			fprintf(stderr, "Buffer ID mismatch %d\n", bid);
