@@ -425,9 +425,11 @@ static int test_accept_cancel(unsigned usecs, unsigned int nr)
 	}
 
 	io_uring_queue_exit(&m_io_uring);
+	close(fd);
 	return 0;
 err:
 	io_uring_queue_exit(&m_io_uring);
+	close(fd);
 	return 1;
 }
 
