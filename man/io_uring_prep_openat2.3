@@ -67,6 +67,17 @@ Note that old kernels don't check the SQE
 .I file_index
 field, which is not a problem for liburing helpers, but users of the raw
 io_uring interface need to zero SQEs to avoid unexpected behavior.
+If
+.B IORING_FILE_INDEX_ALLOC
+is used as the
+.I file_index
+for a direct open, then io_uring will allocate a free direct descriptor in
+the existing table. The allocated descriptor is returned in the CQE
+.I res
+field just like it would be for a non-direct open request. If no more entries
+are available in the direct descriptor table,
+.B -ENFILE
+is returned instead.
 
 This function prepares an async
 .BR openat2 (2)
