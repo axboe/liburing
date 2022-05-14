@@ -87,21 +87,32 @@ return.
 For a direct descriptor accept request, the
 .I file_index
 argument can be set to
-.B IORING_FILE_INDEX_ALLOC
+.B IORING_FILE_INDEX_ALLOC,
 In this case a free entry in io_uring file table will
 be used automatically and the file index will be returned as CQE
 .I res.
 .B -ENFILE
 is otherwise returned if there is no free entries in the io_uring file table.
 
-The multishot version accept and accept_direct perform a bit different with the
-normal ones. Users only need to issue one this kind of request to listen all
-the comming fds, each fd accepted is returned in a CQE. One thing to notice is
-io_uring_prep_multishot_accept_direct() only works in
+The multishot version accept and accept_direct allow an application to issue
+a single accept request, which will repeatedly trigger a CQE when a connection
+request comes in. Like other multishot type requests, the application should
+look at the CQE
+.I flags
+and see if
+.B IORING_CQE_F_MORE
+is set on completion as an indication of whether or not the accept request
+will generate further CQEs.
+
+For multishot with direct descriptors,
 .B IORING_FILE_INDEX_ALLOC
-mode, which means the CQE
+must be used as the file descriptor. This tells io_uring to allocate a free
+direct descriptor from our table, rather than the application passing one in.
+Failure to do so will result in the accept request being terminated with
+.B -EINVAL.
+The allocated descriptor will be returned in the CQE
 .I res
-returned is a file index counted from 1 not a real fd.
+field, like a non-direct accept request.
 
 This function prepares an async
 .BR accept4 (2)
@@ -112,7 +123,7 @@ None
 .SH ERRORS
 The CQE
 .I res
-field will contain the result of the operation. For singleshot accept,the
+field will contain the result of the operation. For singleshot accept, the
 non-direct accept returns the installed file descriptor as its value, the
 direct accept returns
 .B 0
