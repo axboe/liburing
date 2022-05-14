@@ -541,6 +541,43 @@ static int test_multishot_accept(int count, bool before)
 	return ret;
 }
 
+static int test_accept_multishot_wrong_arg()
+{
+	struct io_uring m_io_uring;
+	struct io_uring_cqe *cqe;
+	struct io_uring_sqe *sqe;
+	int fd, ret;
+
+	ret = io_uring_queue_init(4, &m_io_uring, 0);
+	assert(ret >= 0);
+
+	fd = start_accept_listen(NULL, 0, 0);
+
+	sqe = io_uring_get_sqe(&m_io_uring);
+	io_uring_prep_multishot_accept_direct(sqe, fd, NULL, NULL, 0);
+	sqe->file_index = 1;
+	ret = io_uring_submit(&m_io_uring);
+	assert(ret == 1);
+
+	ret = io_uring_wait_cqe(&m_io_uring, &cqe);
+	assert(!ret);
+	if (cqe->res != -EINVAL) {
+		fprintf(stderr, "file index should be IORING_FILE_INDEX_ALLOC \
+				if its accept in multishot direct mode\n");
+		goto err;
+	}
+	io_uring_cqe_seen(&m_io_uring, cqe);
+
+	io_uring_queue_exit(&m_io_uring);
+	close(fd);
+	return 0;
+err:
+	io_uring_queue_exit(&m_io_uring);
+	close(fd);
+	return 1;
+}
+
+
 static int test_accept_nonblock(bool queue_before_connect, int count)
 {
 	struct io_uring m_io_uring;
@@ -670,6 +707,12 @@ int main(int argc, char *argv[])
 	ret = test_multishot_fixed_accept();
 	if (ret) {
 		fprintf(stderr, "test_multishot_fixed_accept failed\n");
+		return ret;
+	}
+
+	ret = test_accept_multishot_wrong_arg();
+	if (ret) {
+		fprintf(stderr, "test_accept_multishot_wrong_arg failed\n");
 		return ret;
 	}
 
