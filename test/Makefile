@@ -104,6 +104,7 @@ test_srcs := \
 	openat2.c \
 	open-close.c \
 	open-direct-link.c \
+	open-direct-pick.c \
 	personality.c \
 	pipe-eof.c \
 	pipe-reuse.c \
