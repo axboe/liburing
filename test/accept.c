@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <assert.h>
+#include <limits.h>
 
 #include <errno.h>
 #include <fcntl.h>
@@ -22,11 +23,21 @@
 #include "helpers.h"
 #include "liburing.h"
 
+#define MAX_FDS 32
 static int no_accept;
 
 struct data {
 	char buf[128];
 	struct iovec iov;
+};
+
+struct accept_test_args {
+	int accept_should_error;
+	bool fixed;
+	bool nonblock;
+	bool queue_accept_before_connect;
+	bool multishot;
+	int extra_loops;
 };
 
 static void queue_send(struct io_uring *ring, int fd)
@@ -59,20 +70,32 @@ static void queue_recv(struct io_uring *ring, int fd, bool fixed)
 		sqe->flags |= IOSQE_FIXED_FILE;
 }
 
-static void queue_accept_conn(struct io_uring *ring,
-			      int fd, int fixed_idx,
-			      int count)
+static void queue_accept_conn(struct io_uring *ring, int fd,
+			      struct accept_test_args args)
 {
 	struct io_uring_sqe *sqe;
 	int ret;
+	int fixed_idx = args.fixed ? 0 : -1;
+	int count = 1 + args.extra_loops;
+	bool multishot = args.multishot;
 
 	while (count--) {
 		sqe = io_uring_get_sqe(ring);
-		if (fixed_idx < 0)
-			io_uring_prep_accept(sqe, fd, NULL, NULL, 0);
-		else
-			io_uring_prep_accept_direct(sqe, fd, NULL, NULL, 0,
-						    fixed_idx);
+		if (fixed_idx < 0) {
+			if (!multishot)
+				io_uring_prep_accept(sqe, fd, NULL, NULL, 0);
+			else
+				io_uring_prep_multishot_accept(sqe, fd, NULL,
+							       NULL, 0);
+		} else {
+			if (!multishot)
+				io_uring_prep_accept_direct(sqe, fd, NULL, NULL,
+							    0, fixed_idx);
+			else
+				io_uring_prep_multishot_accept_direct(sqe, fd,
+								      NULL, NULL,
+								      0);
+		}
 
 		ret = io_uring_submit(ring);
 		assert(ret != -1);
@@ -131,14 +154,36 @@ static int start_accept_listen(struct sockaddr_in *addr, int port_off,
 	return fd;
 }
 
-struct accept_test_args {
-	int accept_should_error;
-	bool fixed;
-	bool nonblock;
-	bool queue_accept_before_connect;
-	int extra_loops;
-};
+static int set_client_fd(struct sockaddr_in *addr)
+{
+	int32_t val;
+	int fd, ret;
 
+	fd = socket(AF_INET, SOCK_STREAM | SOCK_CLOEXEC, IPPROTO_TCP);
+
+	val = 1;
+	ret = setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &val, sizeof(val));
+	assert(ret != -1);
+
+	int32_t flags = fcntl(fd, F_GETFL, 0);
+	assert(flags != -1);
+
+	flags |= O_NONBLOCK;
+	ret = fcntl(fd, F_SETFL, flags);
+	assert(ret != -1);
+
+	ret = connect(fd, (struct sockaddr *)addr, sizeof(*addr));
+	assert(ret == -1);
+
+	flags = fcntl(fd, F_GETFL, 0);
+	assert(flags != -1);
+
+	flags &= ~O_NONBLOCK;
+	ret = fcntl(fd, F_SETFL, flags);
+	assert(ret != -1);
+
+	return fd;
+}
 
 static int test_loop(struct io_uring *ring,
 		     struct accept_test_args args,
@@ -147,55 +192,65 @@ static int test_loop(struct io_uring *ring,
 {
 	struct io_uring_cqe *cqe;
 	uint32_t head, count = 0;
-	int ret, p_fd[2], done = 0;
-	int32_t val;
+	int i, ret, s_fd[MAX_FDS], c_fd[MAX_FDS], done = 0;
+	bool fixed = args.fixed;
+	bool multishot = args.multishot;
+	unsigned int multishot_mask = 0;
 
-	p_fd[1] = socket(AF_INET, SOCK_STREAM | SOCK_CLOEXEC, IPPROTO_TCP);
-
-	val = 1;
-	ret = setsockopt(p_fd[1], IPPROTO_TCP, TCP_NODELAY, &val, sizeof(val));
-	assert(ret != -1);
-
-	int32_t flags = fcntl(p_fd[1], F_GETFL, 0);
-	assert(flags != -1);
-
-	flags |= O_NONBLOCK;
-	ret = fcntl(p_fd[1], F_SETFL, flags);
-	assert(ret != -1);
-
-	ret = connect(p_fd[1], (struct sockaddr *)addr, sizeof(*addr));
-	assert(ret == -1);
-
-	flags = fcntl(p_fd[1], F_GETFL, 0);
-	assert(flags != -1);
-
-	flags &= ~O_NONBLOCK;
-	ret = fcntl(p_fd[1], F_SETFL, flags);
-	assert(ret != -1);
-
-	if (!args.queue_accept_before_connect)
-		queue_accept_conn(ring, recv_s0, args.fixed ? 0 : -1, 1);
-
-	p_fd[0] = accept_conn(ring, args.fixed ? 0 : -1);
-	if (p_fd[0] == -EINVAL) {
-		if (args.accept_should_error)
-			goto out;
-		if (args.fixed)
-			fprintf(stdout, "Fixed accept not supported, skipping\n");
-		else
-			fprintf(stdout, "Accept not supported, skipping\n");
-		no_accept = 1;
-		goto out;
-	} else if (p_fd[0] < 0) {
-		if (args.accept_should_error &&
-		    (p_fd[0] == -EBADF || p_fd[0] == -EINVAL))
-			goto out;
-		fprintf(stderr, "Accept got %d\n", p_fd[0]);
-		goto err;
+	for (i = 0; i < MAX_FDS; i++) {
+		c_fd[i] = set_client_fd(addr);
+		if (!multishot)
+			break;
 	}
 
-	queue_send(ring, p_fd[1]);
-	queue_recv(ring, p_fd[0], args.fixed);
+	if (!args.queue_accept_before_connect)
+		queue_accept_conn(ring, recv_s0, args);
+
+	for (i = 0; i < MAX_FDS; i++) {
+		s_fd[i] = accept_conn(ring, args.fixed ? 0 : -1);
+		if (s_fd[i] == -EINVAL) {
+			if (args.accept_should_error)
+				goto out;
+			fprintf(stdout,
+				"%s %s Accept not supported, skipping\n",
+				fixed ? "Fixed" : "",
+				multishot ? "Multishot" : "");
+			no_accept = 1;
+			goto out;
+		} else if (s_fd[i] < 0) {
+			if (args.accept_should_error &&
+			    (s_fd[i] == -EBADF || s_fd[i] == -EINVAL))
+				goto out;
+			fprintf(stderr, "%s %s Accept[%d] got %d\n",
+				fixed ? "Fixed" : "",
+				multishot ? "Multishot" : "",
+				i, s_fd[i]);
+			goto err;
+		}
+
+		if (multishot && fixed) {
+			if (s_fd[i] >= MAX_FDS) {
+				fprintf(stderr,
+					"Fixed Multishot Accept[%d] got outbound index: %d\n",
+					i, s_fd[i]);
+				goto err;
+			}
+			multishot_mask |= (1 << (s_fd[i] - 1));
+		}
+		if (!multishot)
+			break;
+	}
+
+	if (multishot) {
+		if (fixed && multishot_mask != UINT_MAX) {
+			fprintf(stderr, "Fixed Multishot Accept misses events\n");
+			goto err;
+		}
+		goto out;
+	}
+
+	queue_send(ring, c_fd[0]);
+	queue_recv(ring, s_fd[0], args.fixed);
 
 	ret = io_uring_submit_and_wait(ring, 2);
 	assert(ret != -1);
@@ -219,14 +274,32 @@ static int test_loop(struct io_uring *ring,
 	}
 
 out:
-	if (!args.fixed)
-		close(p_fd[0]);
-	close(p_fd[1]);
+	if (!args.fixed) {
+		for (i = 0; i < MAX_FDS; i++) {
+			close(s_fd[i]);
+			if (!multishot)
+				break;
+		}
+	}
+	for (i = 0; i < MAX_FDS; i++) {
+		close(c_fd[i]);
+		if (!multishot)
+			break;
+	}
 	return 0;
 err:
-	if (!args.fixed)
-		close(p_fd[0]);
-	close(p_fd[1]);
+	if (!args.fixed) {
+		for (i = 0; i < MAX_FDS; i++) {
+			close(s_fd[i]);
+			if (!multishot)
+				break;
+		}
+	}
+	for (i = 0; i < MAX_FDS; i++) {
+		close(c_fd[i]);
+		if (!multishot)
+			break;
+	}
 	return 1;
 }
 
@@ -238,8 +311,7 @@ static int test(struct io_uring *ring, struct accept_test_args args)
 	int32_t recv_s0 = start_accept_listen(&addr, 0,
 					      args.nonblock ? O_NONBLOCK : 0);
 	if (args.queue_accept_before_connect)
-		queue_accept_conn(ring, recv_s0, args.fixed ? 0 : -1,
-				  1 + args.extra_loops);
+		queue_accept_conn(ring, recv_s0, args);
 	for (loop = 0; loop < 1 + args.extra_loops; loop++) {
 		ret = test_loop(ring, args, recv_s0, &addr);
 		if (ret)
@@ -364,7 +436,7 @@ out:
 	return ret;
 }
 
-static int test_accept_cancel(unsigned usecs, unsigned int nr)
+static int test_accept_cancel(unsigned usecs, unsigned int nr, bool multishot)
 {
 	struct io_uring m_io_uring;
 	struct io_uring_cqe *cqe;
@@ -378,7 +450,10 @@ static int test_accept_cancel(unsigned usecs, unsigned int nr)
 
 	for (i = 1; i <= nr; i++) {
 		sqe = io_uring_get_sqe(&m_io_uring);
-		io_uring_prep_accept(sqe, fd, NULL, NULL, 0);
+		if (!multishot)
+			io_uring_prep_accept(sqe, fd, NULL, NULL, 0);
+		else
+			io_uring_prep_multishot_accept(sqe, fd, NULL, NULL, 0);
 		sqe->user_data = i;
 		ret = io_uring_submit(&m_io_uring);
 		assert(ret == 1);
@@ -449,6 +524,23 @@ static int test_accept(int count, bool before)
 	return ret;
 }
 
+static int test_multishot_accept(int count, bool before)
+{
+	struct io_uring m_io_uring;
+	int ret;
+	struct accept_test_args args = {
+		.queue_accept_before_connect = before,
+		.multishot = true,
+		.extra_loops = count - 1
+	};
+
+	ret = io_uring_queue_init(MAX_FDS + 10, &m_io_uring, 0);
+	assert(ret >= 0);
+	ret = test(&m_io_uring, args);
+	io_uring_queue_exit(&m_io_uring);
+	return ret;
+}
+
 static int test_accept_nonblock(bool queue_before_connect, int count)
 {
 	struct io_uring m_io_uring;
@@ -477,6 +569,25 @@ static int test_accept_fixed(void)
 	ret = io_uring_queue_init(32, &m_io_uring, 0);
 	assert(ret >= 0);
 	ret = io_uring_register_files(&m_io_uring, &fd, 1);
+	assert(ret == 0);
+	ret = test(&m_io_uring, args);
+	io_uring_queue_exit(&m_io_uring);
+	return ret;
+}
+
+static int test_multishot_fixed_accept(void)
+{
+	struct io_uring m_io_uring;
+	int ret, fd[100];
+	struct accept_test_args args = {
+		.fixed = true,
+		.multishot = true
+	};
+
+	memset(fd, -1, sizeof(fd));
+	ret = io_uring_queue_init(MAX_FDS + 10, &m_io_uring, 0);
+	assert(ret >= 0);
+	ret = io_uring_register_files(&m_io_uring, fd, MAX_FDS);
 	assert(ret == 0);
 	ret = test(&m_io_uring, args);
 	io_uring_queue_exit(&m_io_uring);
@@ -512,7 +623,6 @@ int main(int argc, char *argv[])
 
 	if (argc > 1)
 		return 0;
-
 	ret = test_accept(1, false);
 	if (ret) {
 		fprintf(stderr, "test_accept failed\n");
@@ -557,33 +667,75 @@ int main(int argc, char *argv[])
 		return ret;
 	}
 
+	ret = test_multishot_fixed_accept();
+	if (ret) {
+		fprintf(stderr, "test_multishot_fixed_accept failed\n");
+		return ret;
+	}
+
 	ret = test_accept_sqpoll();
 	if (ret) {
 		fprintf(stderr, "test_accept_sqpoll failed\n");
 		return ret;
 	}
 
-	ret = test_accept_cancel(0, 1);
+	ret = test_accept_cancel(0, 1, false);
 	if (ret) {
 		fprintf(stderr, "test_accept_cancel nodelay failed\n");
 		return ret;
 	}
 
-	ret = test_accept_cancel(10000, 1);
+	ret = test_accept_cancel(10000, 1, false);
 	if (ret) {
 		fprintf(stderr, "test_accept_cancel delay failed\n");
 		return ret;
 	}
 
-	ret = test_accept_cancel(0, 4);
+	ret = test_accept_cancel(0, 4, false);
 	if (ret) {
 		fprintf(stderr, "test_accept_cancel nodelay failed\n");
 		return ret;
 	}
 
-	ret = test_accept_cancel(10000, 4);
+	ret = test_accept_cancel(10000, 4, false);
 	if (ret) {
 		fprintf(stderr, "test_accept_cancel delay failed\n");
+		return ret;
+	}
+
+	ret = test_accept_cancel(0, 1, true);
+	if (ret) {
+		fprintf(stderr, "test_accept_cancel multishot nodelay failed\n");
+		return ret;
+	}
+
+	ret = test_accept_cancel(10000, 1, true);
+	if (ret) {
+		fprintf(stderr, "test_accept_cancel multishot delay failed\n");
+		return ret;
+	}
+
+	ret = test_accept_cancel(0, 4, true);
+	if (ret) {
+		fprintf(stderr, "test_accept_cancel multishot nodelay failed\n");
+		return ret;
+	}
+
+	ret = test_accept_cancel(10000, 4, true);
+	if (ret) {
+		fprintf(stderr, "test_accept_cancel multishot delay failed\n");
+		return ret;
+	}
+
+	ret = test_multishot_accept(1, false);
+	if (ret) {
+		fprintf(stderr, "test_multishot_accept(1, false) failed\n");
+		return ret;
+	}
+
+	ret = test_multishot_accept(1, true);
+	if (ret) {
+		fprintf(stderr, "test_multishot_accept(1, true) failed\n");
 		return ret;
 	}
 
@@ -621,6 +773,5 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "test_accept_pending_on_exit failed\n");
 		return ret;
 	}
-
 	return 0;
 }
