@@ -355,10 +355,12 @@ struct io_uring_files_update {
 	__aligned_u64 /* __s32 * */ fds;
 };
 
+#define IORING_RSRC_REGISTER_SPARSE	(1U << 0)
+
 struct io_uring_rsrc_register {
 	__u32 nr;
-	__u32 resv;
-	__u64 resv2;
+	__u32 flags;
+	__u32 resv2;
 	__aligned_u64 data;
 	__aligned_u64 tags;
 };

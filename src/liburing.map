@@ -50,4 +50,5 @@ LIBURING_2.2 {
 		io_uring_submit_and_wait_timeout;
 		io_uring_register_ring_fd;
 		io_uring_unregister_ring_fd;
+		io_uring_register_files_sparse;
 } LIBURING_2.1;

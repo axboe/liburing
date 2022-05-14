@@ -113,6 +113,31 @@ static int increase_rlimit_nofile(unsigned nr)
 	return 0;
 }
 
+int io_uring_register_files_sparse(struct io_uring *ring, unsigned nr)
+{
+	struct io_uring_rsrc_register reg = {
+		.flags = IORING_RSRC_REGISTER_SPARSE,
+		.nr = nr,
+	};
+	int ret, did_increase = 0;
+
+	do {
+		ret = ____sys_io_uring_register(ring->ring_fd,
+						IORING_REGISTER_FILES2, &reg,
+						sizeof(reg));
+		if (ret >= 0)
+			break;
+		if (ret == -EMFILE && !did_increase) {
+			did_increase = 1;
+			increase_rlimit_nofile(nr);
+			continue;
+		}
+		break;
+	} while (1);
+
+	return ret;
+}
+
 int io_uring_register_files_tags(struct io_uring *ring, const int *files,
 				 const __u64 *tags, unsigned nr)
 {
