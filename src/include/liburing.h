@@ -512,6 +512,17 @@ static inline void io_uring_prep_multishot_accept(struct io_uring_sqe *sqe,
 	sqe->ioprio |= IORING_ACCEPT_MULTISHOT;
 }
 
+/* multishot accept directly into the fixed file table */
+static inline void io_uring_prep_multishot_accept_direct(struct io_uring_sqe *sqe,
+							 int fd,
+							 struct sockaddr *addr,
+							 socklen_t *addrlen,
+							 int flags)
+{
+	io_uring_prep_multishot_accept(sqe, fd, addr, addrlen, flags);
+	__io_uring_set_target_fixed_file(sqe, IORING_FILE_INDEX_ALLOC - 1);
+}
+
 static inline void io_uring_prep_cancel(struct io_uring_sqe *sqe,
 					__u64 user_data, int flags)
 {
