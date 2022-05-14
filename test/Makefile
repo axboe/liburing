@@ -109,6 +109,7 @@ test_srcs := \
 	pipe-reuse.c \
 	poll.c \
 	poll-cancel.c \
+	poll-cancel-all.c \
 	poll-cancel-ton.c \
 	poll-link.c \
 	poll-many.c \
