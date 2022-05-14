@@ -502,6 +502,16 @@ static inline void io_uring_prep_accept_direct(struct io_uring_sqe *sqe, int fd,
 	__io_uring_set_target_fixed_file(sqe, file_index);
 }
 
+static inline void io_uring_prep_multishot_accept(struct io_uring_sqe *sqe,
+						  int fd, struct sockaddr *addr,
+						  socklen_t *addrlen, int flags)
+{
+	io_uring_prep_rw(IORING_OP_ACCEPT, sqe, fd, addr, 0,
+				(__u64) (unsigned long) addrlen);
+	sqe->accept_flags = (__u32) flags;
+	sqe->ioprio |= IORING_ACCEPT_MULTISHOT;
+}
+
 static inline void io_uring_prep_cancel(struct io_uring_sqe *sqe,
 					__u64 user_data, int flags)
 {

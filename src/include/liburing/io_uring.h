@@ -434,6 +434,11 @@ struct io_uring_getevents_arg {
 	__u64	ts;
 };
 
+/*
+ * accept flags stored in sqe->ioprio
+ */
+#define IORING_ACCEPT_MULTISHOT	(1U << 0)
+
 #ifdef __cplusplus
 }
 #endif
