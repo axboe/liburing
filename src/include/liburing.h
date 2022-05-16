@@ -294,7 +294,8 @@ static inline void io_uring_prep_rw(int op, struct io_uring_sqe *sqe, int fd,
 	sqe->buf_index = 0;
 	sqe->personality = 0;
 	sqe->file_index = 0;
-	sqe->__pad2[0] = sqe->__pad2[1] = 0;
+	sqe->addr3 = 0;
+	sqe->__pad2[0] = 0;
 }
 
 /**
@@ -734,6 +735,54 @@ static inline void io_uring_prep_msg_ring(struct io_uring_sqe *sqe, int fd,
 {
 	io_uring_prep_rw(IORING_OP_MSG_RING, sqe, fd, NULL, len, data);
 	sqe->rw_flags = flags;
+}
+
+static inline void io_uring_prep_getxattr(struct io_uring_sqe *sqe,
+					  const char *name,
+					  const char *value,
+					  const char *path,
+					  size_t len)
+{
+	io_uring_prep_rw(IORING_OP_GETXATTR, sqe, 0, name, len,
+				(__u64) (uintptr_t) value);
+	sqe->addr3 = (__u64) (uintptr_t) path;
+	sqe->xattr_flags = 0;
+}
+
+static inline void io_uring_prep_setxattr(struct io_uring_sqe *sqe,
+					  const char *name,
+					  const char *value,
+					  const char *path,
+					  int flags,
+					  size_t len)
+{
+	io_uring_prep_rw(IORING_OP_SETXATTR, sqe, 0, name, len,
+				(__u64) (uintptr_t) value);
+	sqe->addr3 = (__u64) (uintptr_t) path;
+	sqe->xattr_flags = flags;
+}
+
+static inline void io_uring_prep_fgetxattr(struct io_uring_sqe *sqe,
+		                           int         fd,
+					   const char *name,
+					   const char *value,
+					   size_t      len)
+{
+	io_uring_prep_rw(IORING_OP_FGETXATTR, sqe, fd, name, len,
+				(__u64) (uintptr_t) value);
+	sqe->xattr_flags = 0;
+}
+
+static inline void io_uring_prep_fsetxattr(struct io_uring_sqe *sqe,
+					   int         fd,
+					   const char *name,
+					   const char *value,
+					   int         flags,
+					   size_t      len)
+{
+	io_uring_prep_rw(IORING_OP_FSETXATTR, sqe, fd, name, len,
+				(__u64) (uintptr_t) value);
+	sqe->xattr_flags = flags;
 }
 
 /*
