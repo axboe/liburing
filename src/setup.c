@@ -23,7 +23,7 @@ static unsigned roundup_pow2(unsigned depth)
 	return 1UL << __fls(depth - 1);
 }
 
-static int get_sq_cq_entries(unsigned entries, struct io_uring_params *p,
+static int get_sq_cq_entries(unsigned entries, const struct io_uring_params *p,
 			     unsigned *sq, unsigned *cq)
 {
 	unsigned cq_entries;
@@ -188,6 +188,52 @@ int io_uring_ring_dontfork(struct io_uring *ring)
 	return 0;
 }
 
+int io_uring_calc_required_mem(unsigned entries,
+			const struct io_uring_params *p, size_t *sqes_mem,
+			size_t *ring_mem,
+			int *p_mem_used)
+{
+	unsigned sq_entries, cq_entries;
+	int ret;
+	unsigned long page_size = get_page_size();
+
+	ret = get_sq_cq_entries(entries, p, &sq_entries, &cq_entries);
+	if (ret)
+		return ret;
+
+
+	*sqes_mem = sq_entries * sizeof(struct io_uring_sqe);
+	*sqes_mem = (*sqes_mem + page_size - 1) & ~(page_size - 1);
+	*ring_mem = cq_entries * sizeof(struct io_uring_cqe);
+	*ring_mem += sq_entries * sizeof(unsigned);
+
+	if (p_mem_used) {
+		int mem_used = *sqes_mem;
+		mem_used += sq_entries * sizeof(unsigned int);
+		mem_used += cq_entries * sizeof(unsigned int);
+		/* round to full page */
+		mem_used = (mem_used + page_size - 1) & ~(page_size - 1);
+		*p_mem_used = mem_used;
+	}
+
+	return 0;
+}
+
+int io_uring_queue_required_mem(unsigned entries,
+				const struct io_uring_params *p, size_t *res)
+{
+	size_t sqe, ring;
+	int ret;
+
+	ret = io_uring_calc_required_mem(entries, p, &sqe, &ring, NULL);
+	if (ret)
+		return ret;
+
+	*res = sqe + ring;
+
+	return 0;
+}
+
 /* FIXME */
 static int huge_page_size = 2 * 1024 * 1024;
 
@@ -198,20 +244,14 @@ static int io_uring_alloc_huge(unsigned entries, struct io_uring_params *p,
 			       struct io_uring_sq *sq, struct io_uring_cq *cq,
 			       void *buf, size_t buf_size)
 {
-	unsigned long page_size = get_page_size();
-	unsigned sq_entries, cq_entries;
-	size_t ring_mem, sqes_mem;
-	int ret, mem_used = 0;
+	size_t sqes_mem, ring_mem;
+	int ret, mem_used;
 	void *ptr;
 
-	ret = get_sq_cq_entries(entries, p, &sq_entries, &cq_entries);
+	ret = io_uring_calc_required_mem(entries, p,
+					 &sqes_mem, &ring_mem, &mem_used);
 	if (ret)
 		return ret;
-
-	sqes_mem = sq_entries * sizeof(struct io_uring_sqe);
-	sqes_mem = (sqes_mem + page_size - 1) & ~(page_size - 1);
-	ring_mem = cq_entries * sizeof(struct io_uring_cqe);
-	ring_mem += sq_entries * sizeof(unsigned);
 
 	if (buf) {
 		if (sqes_mem + ring_mem > buf_size)
@@ -246,13 +286,6 @@ static int io_uring_alloc_huge(unsigned entries, struct io_uring_params *p,
 		sq->ring_sz = buf_size;
 		cq->ring_sz = 0;
 	}
-
-	/* add up memory used */
-	mem_used += sqes_mem;
-	mem_used += sq_entries * sizeof(unsigned int);
-	mem_used += cq_entries * sizeof(unsigned int);
-	/* round to full page */
-	mem_used = (mem_used + page_size - 1) & ~(page_size - 1);
 
 	cq->ring_ptr = (void *) sq->ring_ptr;
 	p->sq_off.user_addr = (unsigned long) sq->sqes;
