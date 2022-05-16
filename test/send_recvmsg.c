@@ -165,6 +165,7 @@ static void *recv_fn(void *data)
 {
 	struct recv_data *rd = data;
 	pthread_mutex_t *mutex = rd->mutex;
+	struct io_uring_buf_ring *br = NULL;
 	char buf[MAX_MSG + 1];
 	struct iovec iov[MAX_IOV_COUNT];
 	struct io_uring ring;
@@ -184,7 +185,6 @@ static void *recv_fn(void *data)
 	if ((rd->buf_ring || rd->buf_select) && !rd->no_buf_add) {
 		if (rd->buf_ring) {
 			struct io_uring_buf_reg reg = { };
-			struct io_uring_buf_ring *br;
 			void *ptr;
 
 			if (posix_memalign(&ptr, 4096, 4096))
@@ -199,10 +199,9 @@ static void *recv_fn(void *data)
 			}
 
 			br = ptr;
-			br->bufs[0].addr = (unsigned long) buf;
-			br->bufs[0].len = sizeof(buf);
-			br->bufs[0].bid = BUF_BID;
-			io_uring_smp_store_release(&br->head, 1);
+			io_uring_buf_ring_add(&br->bufs[0], buf, sizeof(buf),
+						BUF_BID);
+			io_uring_buf_ring_increment(br, 1);
 		} else {
 			struct io_uring_sqe *sqe;
 			struct io_uring_cqe *cqe;
@@ -247,12 +246,16 @@ static void *recv_fn(void *data)
 	close(sockfd);
 
 	io_uring_queue_exit(&ring);
+	if (br)
+		free(br);
 err:
 	return (void *)(intptr_t)ret;
 out:
 	io_uring_queue_exit(&ring);
 out_no_ring:
 	pthread_mutex_unlock(mutex);
+	if (br)
+		free(br);
 	return NULL;
 }
 
