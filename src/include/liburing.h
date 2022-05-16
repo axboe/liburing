@@ -1018,6 +1018,31 @@ static inline struct io_uring_sqe *_io_uring_get_sqe(struct io_uring *ring)
 	return NULL;
 }
 
+/*
+ * Assign 'buf' with the addr/len/buffer ID supplied
+ */
+static inline void io_uring_buf_ring_add(struct io_uring_buf *buf,
+					 void *addr, unsigned int len,
+					 unsigned short bid)
+{
+	buf->addr = (unsigned long) (uintptr_t) addr;
+	buf->len = len;
+	buf->bid = bid;
+}
+
+/*
+ * Make 'count' new buffers visible to the kernel. Called after
+ * io_uring_buf_ring_add() has been called 'count' times to fill in new
+ * buffers.
+ */
+static inline void io_uring_buf_ring_increment(struct io_uring_buf_ring *br,
+					       int count)
+{
+	unsigned short new_tail = br->tail + count;
+
+	io_uring_smp_store_release(&br->tail, new_tail);
+}
+
 #ifndef LIBURING_INTERNAL
 static inline struct io_uring_sqe *io_uring_get_sqe(struct io_uring *ring)
 {
