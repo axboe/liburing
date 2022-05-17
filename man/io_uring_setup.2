@@ -196,6 +196,49 @@ a request. CQEs are still posted for errored request regardless of whether or
 not this flag is set at ring creation time, the only difference is if the
 submit sequence is halted or continued when an error is observed. Available
 since 5.18.
+.TP
+.B IORING_SETUP_COOP_TASKRUN
+By default, io_uring will interrupt a task running in userspace when a
+completion event comes in. This is to ensure that completions run in a timely
+manner. For a lot of use cases, this is overkill and can cause reduced
+performance from both the inter-processor interrupt used to do this, the
+kernel/user transition, the needless interruption of the tasks userspace
+activities, and reduced batching if completions come in at a rapid rate. Most
+applications don't need the forceful interruption, as the events are processed
+at any kernel/user transition. The exception are setups where the application
+uses multiple threads operating on the same ring, where the application
+waiting on completions isn't the one that submitted them. For most other
+use cases, setting this flag will improve performance. Available since 5.19.
+.TP
+.B IORING_SETUP_TASKRUN_FLAG
+Used in conjunction with
+.B IORING_SETUP_COOP_TASKRUN,
+this provides a flag,
+.B IORING_SQ_TASKRUN,
+which is set in the SQ ring
+.I flags
+whenever completions are pending that should be processed. liburing will check
+for this flag even when doing
+.BR io_uring_peek_cqe (3)
+and enter the kernel to process them, and applications can do the same. This
+makes
+.B IORING_SETUP_TASKRUN_FLAG
+safe to use even when applications rely on a peek style operation on the CQ
+ring to see if anything might be pending to reap. Available since 5.10.
+.TP
+.B IORING_SETUP_SQE128
+If set, io_uring will use 128-byte SQEs rather than the normal 64-byte sized
+variant. This is a requirement for using certain request types, as of 5.19
+only the
+.B IORING_OP_URING_CMD
+passthrough command for NVMe passthrough needs this. Available since 5.19.
+.TP
+.B IORING_SETUP_CQE32
+If set, io_uring will use 32-byte CQEs rather than the normal 32-byte sized
+variant. This is a requirement for using certain request types, as of 5.19
+only the
+.B IORING_OP_URING_CMD
+passthrough command for NVMe passthrough needs this. Available since 5.19.
 .PP
 If no flags are specified, the io_uring instance is setup for
 interrupt driven I/O.  I/O may be submitted using
