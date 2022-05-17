@@ -76,7 +76,7 @@ struct io_uring_sqe {
  * in. The picked direct descriptor will be returned in cqe->res, or -ENFILE
  * if the space is full.
  */
-#define IORING_FILE_INDEX_ALLOC         (~0U)
+#define IORING_FILE_INDEX_ALLOC		(~0U)
 
 enum {
 	IOSQE_FIXED_FILE_BIT,
@@ -181,6 +181,8 @@ enum io_uring_op {
 	IORING_OP_SETXATTR,
 	IORING_OP_FGETXATTR,
 	IORING_OP_GETXATTR,
+	IORING_OP_SOCKET,
+	IORING_OP_URING_CMD,
 
 	/* this goes last, obviously */
 	IORING_OP_LAST,
@@ -244,6 +246,11 @@ enum io_uring_op {
  *				the initial transfer attempt.
  */
 #define IORING_RECVSEND_POLL_FIRST	(1U << 0)
+
+/*
+ * accept flags stored in sqe->ioprio
+ */
+#define IORING_ACCEPT_MULTISHOT	(1U << 0)
 
 /*
  * IO completion data structure (Completion Queue Entry)
