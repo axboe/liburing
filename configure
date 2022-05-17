@@ -300,7 +300,6 @@ cat > $TMPC << EOF
 #include <unistd.h>
 #include <fcntl.h>
 #include <string.h>
-#include <linux/stat.h>
 int main(int argc, char **argv)
 {
   struct statx x;
@@ -321,7 +320,7 @@ cat > $TMPC << EOF
 #include <unistd.h>
 #include <fcntl.h>
 #include <string.h>
-#include <linux/stat.h>
+#include <sys/stat.h>
 int main(int argc, char **argv)
 {
   struct statx x;
