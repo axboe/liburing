@@ -177,7 +177,7 @@ err:
 
 int main(int argc, char *argv[])
 {
-	struct io_uring ring, ring2;
+	struct io_uring ring, ring2, pring;
 	pthread_t thread;
 	void *tret;
 	int ret;
@@ -195,6 +195,11 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "ring setup failed: %d\n", ret);
 		return 1;
 	}
+	ret = io_uring_queue_init(8, &pring, IORING_SETUP_IOPOLL);
+	if (ret) {
+		fprintf(stderr, "ring setup failed: %d\n", ret);
+		return 1;
+	}
 
 	ret = test_own(&ring);
 	if (ret) {
@@ -204,6 +209,11 @@ int main(int argc, char *argv[])
 	if (no_msg) {
 		fprintf(stdout, "Skipped\n");
 		return 0;
+	}
+	ret = test_own(&pring);
+	if (ret) {
+		fprintf(stderr, "test_own iopoll failed\n");
+		return ret;
 	}
 
 	ret = test_invalid(&ring);
