@@ -201,7 +201,7 @@ static void *recv_fn(void *data)
 			br = ptr;
 			io_uring_buf_ring_add(&br->bufs[0], buf, sizeof(buf),
 						BUF_BID);
-			io_uring_buf_ring_increment(br, 1);
+			io_uring_buf_ring_advance(br, 1);
 		} else {
 			struct io_uring_sqe *sqe;
 			struct io_uring_cqe *cqe;
@@ -366,7 +366,6 @@ int main(int argc, char *argv[])
 	if (argc > 1)
 		return 0;
 
-goto foo;
 	ret = test(0, 0, 0, 1, 0);
 	if (ret) {
 		fprintf(stderr, "send_recvmsg 0 0 0 1 0 failed\n");
@@ -433,7 +432,6 @@ goto foo;
 		return 1;
 	}
 
-foo:
 	ret = test(0, 1, 0, 1, 1);
 	if (ret) {
 		fprintf(stderr, "send_recvmsg async 0 1 0 1 1 failed\n");

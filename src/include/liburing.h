@@ -1035,12 +1035,27 @@ static inline void io_uring_buf_ring_add(struct io_uring_buf *buf,
  * io_uring_buf_ring_add() has been called 'count' times to fill in new
  * buffers.
  */
-static inline void io_uring_buf_ring_increment(struct io_uring_buf_ring *br,
-					       int count)
+static inline void io_uring_buf_ring_advance(struct io_uring_buf_ring *br,
+					     int count)
 {
 	unsigned short new_tail = br->tail + count;
 
 	io_uring_smp_store_release(&br->tail, new_tail);
+}
+
+/*
+ * Make 'count' new buffers visible to the kernel while at the same time
+ * advancing the CQ ring seen entries. This can be used when the application
+ * is using ring provided buffers and returns buffers while processing CQEs,
+ * avoiding an extra atomic when needing to increment both the CQ ring and
+ * the ring buffer index at the same time.
+ */
+static inline void io_uring_buf_ring_cq_advance(struct io_uring *ring,
+						struct io_uring_buf_ring *br,
+						int count)
+{
+	br->tail += count;
+	io_uring_cq_advance(ring, count);
 }
 
 #ifndef LIBURING_INTERNAL
