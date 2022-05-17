@@ -18,11 +18,23 @@ io_uring_prep_accept  - prepare an accept request
 .BI "                          int " flags ");"
 .BI "
 .BI "void io_uring_prep_accept_direct(struct io_uring_sqe *" sqe ","
-.BI "                                int " sockfd ","
-.BI "                                struct sockaddr *" addr ","
-.BI "                                socklen_t " addrlen ","
-.BI "                                int " flags ","
-.BI "                                unsigned int " file_index ");"
+.BI "                                 int " sockfd ","
+.BI "                                 struct sockaddr *" addr ","
+.BI "                                 socklen_t " addrlen ","
+.BI "                                 int " flags ","
+.BI "                                 unsigned int " file_index ");"
+.BI "
+.BI "void io_uring_prep_multishot_accept(struct io_uring_sqe *" sqe ","
+.BI "                                    int " sockfd ","
+.BI "                                    struct sockaddr *" addr ","
+.BI "                                    socklen_t " addrlen ","
+.BI "                                    int " flags ");"
+.BI "
+.BI "void io_uring_prep_multishot_accept_direct(struct io_uring_sqe *" sqe ","
+.BI "                                           int " sockfd ","
+.BI "                                           struct sockaddr *" addr ","
+.BI "                                           socklen_t " addrlen ","
+.BI "                                           int " flags ");"
 .PP
 .SH DESCRIPTION
 .PP
@@ -72,6 +84,36 @@ CQE
 .I res
 return.
 
+For a direct descriptor accept request, the
+.I file_index
+argument can be set to
+.B IORING_FILE_INDEX_ALLOC,
+In this case a free entry in io_uring file table will
+be used automatically and the file index will be returned as CQE
+.I res.
+.B -ENFILE
+is otherwise returned if there is no free entries in the io_uring file table.
+
+The multishot version accept and accept_direct allow an application to issue
+a single accept request, which will repeatedly trigger a CQE when a connection
+request comes in. Like other multishot type requests, the application should
+look at the CQE
+.I flags
+and see if
+.B IORING_CQE_F_MORE
+is set on completion as an indication of whether or not the accept request
+will generate further CQEs.
+
+For multishot with direct descriptors,
+.B IORING_FILE_INDEX_ALLOC
+must be used as the file descriptor. This tells io_uring to allocate a free
+direct descriptor from our table, rather than the application passing one in.
+Failure to do so will result in the accept request being terminated with
+.B -EINVAL.
+The allocated descriptor will be returned in the CQE
+.I res
+field, like a non-direct accept request.
+
 This function prepares an async
 .BR accept4 (2)
 request. See that man page for details.
@@ -81,12 +123,14 @@ None
 .SH ERRORS
 The CQE
 .I res
-field will contain the result of the operation. While the non-direct accept
-returns the installed file descriptor as its value, the direct accept
-returns
+field will contain the result of the operation. For singleshot accept, the
+non-direct accept returns the installed file descriptor as its value, the
+direct accept returns
 .B 0
 on success. The caller must know which direct descriptor was picked for this
-request. See the related man page for details on possible values for the
+request. For multishot accept, the non-direct accept returns the installed
+file descriptor as its value, the direct accept returns the file index used on
+success. See the related man page for details on possible values for the
 non-direct accept. Note that where synchronous system calls will return
 .B -1
 on failure and set
