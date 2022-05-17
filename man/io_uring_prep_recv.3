@@ -18,7 +18,9 @@ io_uring_prep_recv  - prepare a recv request
 .PP
 .SH DESCRIPTION
 .PP
-The io_uring_prep_recv() function prepares a recv request. The submission
+The
+.BR io_uring_prep_recv (3)
+function prepares a recv request. The submission
 queue entry
 .I sqe
 is setup to use the file descriptor
@@ -32,7 +34,32 @@ and with modifier flags
 
 This function prepares an async
 .BR recv (2)
-request. See that man page for details.
+request. See that man page for details on the arguments specified to this
+prep helper.
+
+After calling this function, additional io_uring internal modifier flags
+may be set in the SQE
+.I off
+field. The following flags are supported:
+.TP
+.B IORING_RECVSEND_POLL_FIRST
+If set, io_uring will assume the socket is currently empty and attempting to
+receive data will be unsuccessful. For this case, io_uring will arm internal
+poll and trigger a receive of the data when the socket has data to be read.
+This initial receive attempt can be wasteful for the case where the socket
+is expected to be empty, setting this flag will bypass the initial receive
+attempt and go straight to arming poll. If poll does indicate that data is
+ready to be received, the operation will proceed.
+
+Can be used with the CQE
+.B IORING_CQE_F_SOCK_NONEMPTY
+flag, which io_uring will set on CQEs after a
+.BR recv (2)
+or
+.BR recvmsg (2)
+operation. If set, the socket still had data to be read after the operation
+completed. Both these flags are available since 5.19.
+.P
 
 .SH RETURN VALUE
 None
