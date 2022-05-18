@@ -52,4 +52,5 @@ LIBURING_2.2 {
 		io_uring_unregister_ring_fd;
 		io_uring_register_files_sparse;
 		io_uring_register_buf_ring;
+		io_uring_unregister_buf_ring;
 } LIBURING_2.1;

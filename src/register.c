@@ -325,3 +325,11 @@ int io_uring_register_buf_ring(struct io_uring *ring,
 	return ____sys_io_uring_register(ring->ring_fd,
 					 IORING_REGISTER_PBUF_RING, reg, 1);
 }
+
+int io_uring_unregister_buf_ring(struct io_uring *ring, int bgid)
+{
+	struct io_uring_buf_reg reg = { .bgid = bgid };
+
+	return ____sys_io_uring_register(ring->ring_fd,
+					 IORING_UNREGISTER_PBUF_RING, &reg, 1);
+}
