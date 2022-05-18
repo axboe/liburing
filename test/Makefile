@@ -50,6 +50,7 @@ test_srcs := \
 	across-fork.c \
 	b19062a56726.c \
 	b5837bd5311d.c \
+	buf-ring.c \
 	ce593a6c480a.c \
 	close-opath.c \
 	connect.c \
