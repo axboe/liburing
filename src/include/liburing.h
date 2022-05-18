@@ -1022,10 +1022,12 @@ static inline struct io_uring_sqe *_io_uring_get_sqe(struct io_uring *ring)
 /*
  * Assign 'buf' with the addr/len/buffer ID supplied
  */
-static inline void io_uring_buf_ring_add(struct io_uring_buf *buf,
+static inline void io_uring_buf_ring_add(struct io_uring_buf_ring *br,
 					 void *addr, unsigned int len,
-					 unsigned short bid)
+					 unsigned short bid, int buf_offset)
 {
+	struct io_uring_buf *buf = &br->bufs[br->tail + buf_offset];
+
 	buf->addr = (unsigned long) (uintptr_t) addr;
 	buf->len = len;
 	buf->bid = bid;

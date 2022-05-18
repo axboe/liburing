@@ -199,8 +199,7 @@ static void *recv_fn(void *data)
 			}
 
 			br = ptr;
-			io_uring_buf_ring_add(&br->bufs[0], buf, sizeof(buf),
-						BUF_BID);
+			io_uring_buf_ring_add(br, buf, sizeof(buf), BUF_BID, 0);
 			io_uring_buf_ring_advance(br, 1);
 		} else {
 			struct io_uring_sqe *sqe;
