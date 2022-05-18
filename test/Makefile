@@ -119,6 +119,7 @@ test_srcs := \
 	poll-v-poll.c \
 	pollfree.c \
 	probe.c \
+	read-before-exit.c \
 	read-write.c \
 	recv-msgall.c \
 	recv-msgall-stream.c \
