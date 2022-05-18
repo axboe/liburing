@@ -13,15 +13,29 @@ io_uring_register_buffers - register buffers for fixed buffer operations
 .BI "int io_uring_register_buffers(struct io_uring *" ring ",
 .BI "                              const struct iovec *" iovecs ",
 .BI "                              unsigned " nr_iovecs ");"
+.BI "
+.BI "int io_uring_register_buffers_sparse(struct io_uring *" ring ",
+.BI "                              unsigned " nr_iovecs ");"
 .PP
 .SH DESCRIPTION
 .PP
-The io_uring_register_buffers() function registers
+The
+.BR io_uring_register_buffers (3)
+function registers
 .I nr_iovecs
 number of buffers defined by the array
 .I iovecs
 belonging to the
 .I ring.
+
+The
+.BR io_uring_register_buffers_sparse (3)
+function registers
+.I nr_iovecs
+empty buffers belonging to the
+.I ring.
+These buffers must be updated before use, using eg
+.BR io_uring_register_buffers_update_tag (3).
 
 After the caller has registered the buffers, they can be used with one of the
 fixed buffers functions.
@@ -36,6 +50,9 @@ manipulating the page reference counts for each IO.
 .SH RETURN VALUE
 On success
 .BR io_uring_register_buffers (3)
-returns 0. On failure it returns -errno.
+and
+.BR io_uring_register_buffers_sparse (3)
+return 0. On failure they return
+.B -errno.
 .SH SEE ALSO
 .BR io_uring_get_sqe (3), io_uring_unregister_buffers (3), io_uring_prep_read_fixed (3), io_uring_prep_write_fixed (3)
