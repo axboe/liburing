@@ -141,6 +141,7 @@ int io_uring_register_buffers(struct io_uring *ring, const struct iovec *iovecs,
 int io_uring_register_buffers_tags(struct io_uring *ring,
 				   const struct iovec *iovecs,
 				   const __u64 *tags, unsigned nr);
+int io_uring_register_buffers_sparse(struct io_uring *ring, unsigned nr);
 int io_uring_register_buffers_update_tag(struct io_uring *ring,
 					 unsigned off,
 					 const struct iovec *iovecs,

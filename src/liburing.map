@@ -51,4 +51,5 @@ LIBURING_2.2 {
 		io_uring_register_ring_fd;
 		io_uring_unregister_ring_fd;
 		io_uring_register_files_sparse;
+		io_uring_register_buffers_sparse;
 } LIBURING_2.1;

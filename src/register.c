@@ -41,6 +41,18 @@ int io_uring_register_buffers_tags(struct io_uring *ring,
 					 sizeof(reg));
 }
 
+int io_uring_register_buffers_sparse(struct io_uring *ring, unsigned nr)
+{
+	struct io_uring_rsrc_register reg = {
+		.flags = IORING_RSRC_REGISTER_SPARSE,
+		.nr = nr,
+	};
+
+	return ____sys_io_uring_register(ring->ring_fd,
+					 IORING_REGISTER_BUFFERS2, &reg,
+					 sizeof(reg));
+}
+
 int io_uring_register_buffers(struct io_uring *ring, const struct iovec *iovecs,
 			      unsigned nr_iovecs)
 {
