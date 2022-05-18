@@ -1,0 +1,40 @@
+.\" Copyright (C) 2022 Jens Axboe <axboe@kernel.dk>
+.\"
+.\" SPDX-License-Identifier: LGPL-2.0-or-later
+.\"
+.TH io_uring_buf_ring_cq_advance 3 "May 18, 2022" "liburing-2.2" "liburing Manual"
+.SH NAME
+io_uring_buf_ring_cq_advance - advance index of provided buffer and CQ ring
+.fi
+.SH SYNOPSIS
+.nf
+.BR "#include <liburing.h>"
+.PP
+.BI "int io_uring_buf_ring_cq_advance(struct io_uring *" ring ",
+.BI "                                 struct io_uring_buf_ring *" br ",
+.BI "                                 int " count ");"
+.PP
+.SH DESCRIPTION
+.PP
+The
+.BR io_uring_buf_ring_cq_advance (3)
+commits
+.I count
+previously added buffers to the shared buffer ring
+.I br,
+making them visible to the kernel and hence consumable. This passes ownership
+of the buffer to the ring. At the same time, it advances the CQ ring of
+.I ring
+by
+.I count
+amount. This effectively bundles both a
+.BR io_uring_buf_ring_advance (3)
+call and a
+.BR io_uring_cq_avance (3)
+into one operation. Since updating either ring index entails a store memory
+barrier, doing both at once is more efficient.
+
+.SH RETURN VALUE
+None
+.SH SEE ALSO
+.BR io_uring_register_buf_ring (3), io_uring_buf_ring_add (3), io_uring_buf_ring_advance (3)

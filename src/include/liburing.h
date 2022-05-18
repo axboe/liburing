@@ -179,6 +179,8 @@ int io_uring_register_iowq_max_workers(struct io_uring *ring,
 				       unsigned int *values);
 int io_uring_register_ring_fd(struct io_uring *ring);
 int io_uring_unregister_ring_fd(struct io_uring *ring);
+int io_uring_register_buf_ring(struct io_uring *ring,
+			       struct io_uring_buf_reg *reg, unsigned int flags);
 
 /*
  * Helper for the peek/wait single cqe functions. Exported because of that,
@@ -1016,6 +1018,48 @@ static inline struct io_uring_sqe *_io_uring_get_sqe(struct io_uring *ring)
 	}
 
 	return NULL;
+}
+
+/*
+ * Assign 'buf' with the addr/len/buffer ID supplied
+ */
+static inline void io_uring_buf_ring_add(struct io_uring_buf_ring *br,
+					 void *addr, unsigned int len,
+					 unsigned short bid, int buf_offset)
+{
+	struct io_uring_buf *buf = &br->bufs[br->tail + buf_offset];
+
+	buf->addr = (unsigned long) (uintptr_t) addr;
+	buf->len = len;
+	buf->bid = bid;
+}
+
+/*
+ * Make 'count' new buffers visible to the kernel. Called after
+ * io_uring_buf_ring_add() has been called 'count' times to fill in new
+ * buffers.
+ */
+static inline void io_uring_buf_ring_advance(struct io_uring_buf_ring *br,
+					     int count)
+{
+	unsigned short new_tail = br->tail + count;
+
+	io_uring_smp_store_release(&br->tail, new_tail);
+}
+
+/*
+ * Make 'count' new buffers visible to the kernel while at the same time
+ * advancing the CQ ring seen entries. This can be used when the application
+ * is using ring provided buffers and returns buffers while processing CQEs,
+ * avoiding an extra atomic when needing to increment both the CQ ring and
+ * the ring buffer index at the same time.
+ */
+static inline void io_uring_buf_ring_cq_advance(struct io_uring *ring,
+						struct io_uring_buf_ring *br,
+						int count)
+{
+	br->tail += count;
+	io_uring_cq_advance(ring, count);
 }
 
 #ifndef LIBURING_INTERNAL
