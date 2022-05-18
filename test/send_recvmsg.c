@@ -193,7 +193,7 @@ static void *recv_fn(void *data)
 			reg.ring_addr = (unsigned long) ptr;
 			reg.ring_entries = 1;
 			reg.bgid = BUF_BGID;
-			if (io_uring_register_buf_ring(&ring, &reg)) {
+			if (io_uring_register_buf_ring(&ring, &reg, 0)) {
 				no_pbuf_ring = 1;
 				goto out;
 			}

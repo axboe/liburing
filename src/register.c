@@ -320,7 +320,7 @@ int io_uring_unregister_ring_fd(struct io_uring *ring)
 }
 
 int io_uring_register_buf_ring(struct io_uring *ring,
-			       struct io_uring_buf_reg *reg)
+			       struct io_uring_buf_reg *reg, unsigned int flags)
 {
 	return ____sys_io_uring_register(ring->ring_fd,
 					 IORING_REGISTER_PBUF_RING, reg, 1);
