@@ -2,7 +2,6 @@ liburing-2.2 release
 
 - Support non-libc builds.
 - Optimized syscall handling for x86-64/x86/aarch64.
-- IOPOLL fixes.
 - Enable non-lib function calls for fast path functions.
 - Add support for multishot accept.
 - io_uring_register_files() will set RLIMIT_NOFILE if necessary.
