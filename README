@@ -16,6 +16,15 @@ and development for both kernel and userspace. The list is archived here:
 https://lore.kernel.org/io-uring/
 
 
+kernel version dependency
+--------------------------
+
+liburing itself is not tied to any specific kernel release, and hence it's
+possible to use the newest liburing release even on older kernels (and vice
+versa). Newer features may only be available on more recent kernels,
+obviously.
+
+
 ulimit settings
 ---------------
 
@@ -26,7 +35,9 @@ it quickly. root isn't under this restriction, but regular users are. Going
 into detail on how to bump the limit on various systems is beyond the scope
 of this little blurb, but check /etc/security/limits.conf for user specific
 settings, or /etc/systemd/user.conf and /etc/systemd/system.conf for systemd
-setups.
+setups. This affects 5.11 and earlier, new kernels are less dependent
+on RLIMIT_MEMLOCK.
+
 
 Regressions tests
 -----------------
@@ -34,6 +45,7 @@ Regressions tests
 The bulk of liburing is actually regression/unit tests for both liburing and
 the kernel io_uring support. Please note that this suite isn't expected to
 pass on older kernels, and may even crash or hang older kernels!
+
 
 License
 -------
@@ -43,4 +55,4 @@ COPYING and LICENSE, except for a header coming from the kernel which is
 dual licensed GPL with a Linux-syscall-note exception and MIT, see
 COPYING.GPL and <https://spdx.org/licenses/Linux-syscall-note.html>.
 
-Jens Axboe 2020-01-20
+Jens Axboe 2022-05-19
