@@ -25,6 +25,7 @@
 
 #define MAX_FDS 32
 static int no_accept;
+static int no_accept_multi;
 
 struct data {
 	char buf[128];
@@ -215,7 +216,10 @@ static int test_loop(struct io_uring *ring,
 				"%s %s Accept not supported, skipping\n",
 				fixed ? "Fixed" : "",
 				multishot ? "Multishot" : "");
-			no_accept = 1;
+			if (multishot)
+				no_accept_multi = 1;
+			else
+				no_accept = 1;
 			goto out;
 		} else if (s_fd[i] < 0) {
 			if (args.accept_should_error &&
@@ -443,6 +447,9 @@ static int test_accept_cancel(unsigned usecs, unsigned int nr, bool multishot)
 	struct io_uring_sqe *sqe;
 	int fd, i, ret;
 
+	if (multishot && no_accept_multi)
+		return 0;
+
 	ret = io_uring_queue_init(32, &m_io_uring, 0);
 	assert(ret >= 0);
 
@@ -534,6 +541,9 @@ static int test_multishot_accept(int count, bool before)
 		.extra_loops = count - 1
 	};
 
+	if (no_accept_multi)
+		return 0;
+
 	ret = io_uring_queue_init(MAX_FDS + 10, &m_io_uring, 0);
 	assert(ret >= 0);
 	ret = test(&m_io_uring, args);
@@ -620,6 +630,9 @@ static int test_multishot_fixed_accept(void)
 		.fixed = true,
 		.multishot = true
 	};
+
+	if (no_accept_multi)
+		return 0;
 
 	memset(fd, -1, sizeof(fd));
 	ret = io_uring_queue_init(MAX_FDS + 10, &m_io_uring, 0);
