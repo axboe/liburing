@@ -817,6 +817,34 @@ static inline void io_uring_prep_fsetxattr(struct io_uring_sqe *sqe,
 	sqe->xattr_flags = flags;
 }
 
+static inline void io_uring_prep_socket(struct io_uring_sqe *sqe, int domain,
+					int type, int protocol,
+					unsigned int flags)
+{
+	io_uring_prep_rw(IORING_OP_SOCKET, sqe, domain, NULL, protocol, type);
+	sqe->rw_flags = flags;
+}
+
+static inline void io_uring_prep_socket_direct(struct io_uring_sqe *sqe,
+					       int domain, int type,
+					       int protocol,
+					       unsigned int flags,
+					       unsigned file_index)
+{
+	io_uring_prep_rw(IORING_OP_SOCKET, sqe, domain, NULL, protocol, type);
+	sqe->rw_flags = flags;
+	__io_uring_set_target_fixed_file(sqe, file_index);
+}
+
+static inline void io_uring_prep_socket_direct_alloc(struct io_uring_sqe *sqe,
+				int domain, int type, int protocol,
+				unsigned int flags)
+{
+	io_uring_prep_rw(IORING_OP_SOCKET, sqe, domain, NULL, protocol, type);
+	sqe->rw_flags = flags;
+	__io_uring_set_target_fixed_file(sqe, IORING_FILE_INDEX_ALLOC - 1);
+}
+
 /*
  * Returns number of unconsumed (if SQPOLL) or unsubmitted entries exist in
  * the SQ ring
