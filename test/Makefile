@@ -139,6 +139,7 @@ test_srcs := \
 	shutdown.c \
 	sigfd-deadlock.c \
 	skip-cqe.c \
+	socket.c \
 	socket-rw.c \
 	socket-rw-eagain.c \
 	socket-rw-offset.c \
