@@ -19,8 +19,9 @@ io_uring_prep_poll_update  - update an existing poll request
 
 .SH DESCRIPTION
 .PP
-The io_uring_prep_poll_update() function prepares a poll update request. The
-submission queue entry
+The
+.BR io_uring_prep_poll_update (3)
+function prepares a poll update request. The submission queue entry
 .I sqe
 is setup to update a poll request identified by
 .I old_user_data,

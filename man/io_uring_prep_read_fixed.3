@@ -19,8 +19,10 @@ io_uring_prep_read_fixed   - prepare I/O read request with registered buffer
 
 .SH DESCRIPTION
 .PP
-The io_uring_prep_read_fixed() prepares an IO read request with a previously
-registered IO buffer. The submission queue entry
+The
+.BR io_uring_prep_read_fixed (3)
+prepares an IO read request with a previously registered IO buffer. The
+submission queue entry
 .I sqe
 is setup to use the file descriptor
 .I fd

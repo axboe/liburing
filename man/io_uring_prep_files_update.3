@@ -17,9 +17,10 @@ io_uring_prep_files_update  - prepare a registered file update request
 .PP
 .SH DESCRIPTION
 .PP
-The io_uring_prep_files_update() function prepares a request for updating
-a number of previously registered file descriptors. The
-submission queue entry
+The
+.BR io_uring_prep_files_update (3)
+function prepares a request for updating a number of previously registered file
+descriptors. The submission queue entry
 .I sqe
 is setup to use the file descriptor array pointed to by
 .I fds

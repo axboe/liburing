@@ -19,9 +19,11 @@ io_uring_register_iowq_aff  - register async worker CPU affinities
 .PP
 .SH DESCRIPTION
 .PP
-The io_uring_prep_register_iowq_aff() function registers a set of CPU affinities
-to be used by the io_uring async workers. By default, io_uring async workers
-are allowed to run on any CPU in the system. If this function is called with
+The
+.BR io_uring_prep_register_iowq_aff (3)
+function registers a set of CPU affinities to be used by the io_uring async
+workers. By default, io_uring async workers are allowed to run on any CPU in
+the system. If this function is called with
 .I ring
 set to the ring in question and
 .I mask

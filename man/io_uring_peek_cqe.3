@@ -15,8 +15,9 @@ io_uring_peek_cqe - check if an io_uring completion event is available
 .PP
 .SH DESCRIPTION
 .PP
-The io_uring_peek_cqe() function returns an IO completion from the
-queue belonging to the
+The
+.BR io_uring_peek_cqe (3)
+function returns an IO completion from the queue belonging to the
 .I ring
 param, if one is readily available. On successful return,
 .I cqe_ptr
