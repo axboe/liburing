@@ -828,8 +828,8 @@ static inline void io_uring_prep_socket(struct io_uring_sqe *sqe, int domain,
 static inline void io_uring_prep_socket_direct(struct io_uring_sqe *sqe,
 					       int domain, int type,
 					       int protocol,
-					       unsigned int flags,
-					       unsigned file_index)
+					       unsigned file_index,
+					       unsigned int flags)
 {
 	io_uring_prep_rw(IORING_OP_SOCKET, sqe, domain, NULL, protocol, type);
 	sqe->rw_flags = flags;
