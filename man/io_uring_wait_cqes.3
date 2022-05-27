@@ -18,11 +18,13 @@ io_uring_wait_cqes - wait for one or more io_uring completion events
 .PP
 .SH DESCRIPTION
 .PP
-The io_uring_wait_cqes() function returns
+The
+.BR io_uring_wait_cqes (3)
+function returns
 .I wait_nr
 IO completions from the queue belonging to the
 .I ring
-param, waiting for it if necessary or until the timeout
+param, waiting for them if necessary or until the timeout
 .I ts
 expires. The
 .I sigmask
@@ -47,6 +49,7 @@ when waiting for a request.
 .SH RETURN VALUE
 On success
 .BR io_uring_wait_cqes (3)
-returns 0 and the cqe_ptr parm is filled in. On failure it returns -errno.
+returns 0 and the cqe_ptr parm is filled in. On failure it returns
+.B -errno.
 .SH SEE ALSO
 .BR io_uring_submit (3),  io_uring_wait_cqe_timeout (3), io_uring_wait_cqe(3).

@@ -16,12 +16,14 @@ io_uring_wait_cqe_nr - wait for one or more io_uring completion events
 .PP
 .SH DESCRIPTION
 .PP
-The io_uring_wait_cqe_nr() function returns
+The
+.BR io_uring_wait_cqe_nr (3)
+function returns
 .I wait_nr
-IO completion events from the
-queue belonging to the
+IO completion events from the queue belonging to the
 .I ring
-param, waiting for it if necessary. The
+param, waiting for it if necessary. If the requested number of events are
+already available in the ring when invoked, no waiting will occur. The
 .I cqe_ptr
 param is filled in on success.
 
@@ -33,6 +35,9 @@ the application can retrieve the completion with
 .SH RETURN VALUE
 On success
 .BR io_uring_wait_cqe_nr (3)
-returns 0 and the cqe_ptr parm is filled in. On failure it returns -errno.
+returns 0 and the cqe_ptr parm is filled in. On failure it returns
+.B -errno.
+The return value indicates the result of waiting for a CQE, and it has no
+relation to the CQE result itself.
 .SH SEE ALSO
 .BR io_uring_submit (3),  io_uring_wait_cqes (3)
