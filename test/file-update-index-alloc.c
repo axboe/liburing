@@ -61,12 +61,12 @@ int main(int argc, char *argv[])
 	}
 
 	if (cqe->res < 0) {
-		if (cqe->res == -EINVAL) {
+		if (cqe->res == -EINVAL || cqe->res == -EOVERFLOW) {
 			fprintf(stdout, "files update(IORING_FILE_INDEX_ALLOC) not "
 				"supported, skipping\n");
 			return 0;
 		}
-		fprintf(stderr, "files update(IORING_FILE_INDEX_ALLOC) failed: %d\n", ret);
+		fprintf(stderr, "files update(IORING_FILE_INDEX_ALLOC) failed: %d\n", cqe->res);
 		return ret;
 	}
 	ret = cqe->res;
@@ -116,9 +116,9 @@ int main(int argc, char *argv[])
 	io_uring_cqe_seen(&ring, cqe);
 
 	sqe = io_uring_get_sqe(&ring);
-	io_uring_prep_close_all(sqe, pipe_fds[0], fds[0]);
+	io_uring_prep_close_direct_unregister(sqe, pipe_fds[0], fds[0]);
 	sqe = io_uring_get_sqe(&ring);
-	io_uring_prep_close_all(sqe, pipe_fds[1], fds[1]);
+	io_uring_prep_close_direct_unregister(sqe, pipe_fds[1], fds[1]);
 	ret = io_uring_submit(&ring);
 	if (ret != 2) {
 		fprintf(stderr, "sqe submit failed: %d\n", ret);
