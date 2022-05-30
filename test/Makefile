@@ -79,6 +79,7 @@ test_srcs := \
 	files-exit-hang-poll.c \
 	files-exit-hang-timeout.c \
 	file-update.c \
+	file-update-index-alloc.c \
 	file-verify.c \
 	fixed-buf-iter.c \
 	fixed-link.c \

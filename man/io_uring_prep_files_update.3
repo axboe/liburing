@@ -35,6 +35,16 @@ entry is updated and then removed from the table. This operation is equivalent t
 first unregistering that entry and then inserting a new one, just bundled into
 one combined operation.
 
+If
+.I offset
+is specified as IORING_FILE_INDEX_ALLOC, io_uring will allocate free direct
+descriptors instead of having the application to pass, and store allocated
+direct descriptors into
+.I fds
+array,
+.I cqe->res
+will return the number of direct descriptors allocated.
+
 .SH RETURN VALUE
 None
 .SH ERRORS

@@ -614,6 +614,14 @@ static inline void io_uring_prep_close_direct(struct io_uring_sqe *sqe,
 	__io_uring_set_target_fixed_file(sqe, file_index);
 }
 
+static inline void io_uring_prep_close_all(struct io_uring_sqe *sqe,
+					   int fd, unsigned file_index)
+{
+	io_uring_prep_close(sqe, fd);
+	__io_uring_set_target_fixed_file(sqe, file_index);
+	sqe->close_flags = IORING_CLOSE_FD_AND_FILE_SLOT;
+}
+
 static inline void io_uring_prep_read(struct io_uring_sqe *sqe, int fd,
 				      void *buf, unsigned nbytes, __u64 offset)
 {

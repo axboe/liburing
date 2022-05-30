@@ -50,6 +50,7 @@ struct io_uring_sqe {
 		__u32		unlink_flags;
 		__u32		hardlink_flags;
 		__u32		xattr_flags;
+		__u32		close_flags;
 	};
 	__u64	user_data;	/* data to be passed back at completion time */
 	/* pack this to avoid bogus arm OABI complaints */
@@ -77,6 +78,11 @@ struct io_uring_sqe {
  * if the space is full.
  */
 #define IORING_FILE_INDEX_ALLOC		(~0U)
+
+/*
+ * close flags, store in sqe->close_flags.
+ */
+#define IORING_CLOSE_FD_AND_FILE_SLOT	(1U << 0)
 
 enum {
 	IOSQE_FIXED_FILE_BIT,
