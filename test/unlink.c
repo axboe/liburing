@@ -24,7 +24,7 @@ static int test_unlink(struct io_uring *ring, const char *old)
 		fprintf(stderr, "get sqe failed\n");
 		goto err;
 	}
-	io_uring_prep_unlinkat(sqe, AT_FDCWD, old, 0);
+	io_uring_prep_unlink(sqe, old, 0);
 	
 	ret = io_uring_submit(ring);
 	if (ret <= 0) {

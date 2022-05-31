@@ -26,11 +26,8 @@ static int test_rename(struct io_uring *ring, const char *old, const char *new)
 	}
 
 	memset(sqe, 0, sizeof(*sqe));
-	sqe->opcode = IORING_OP_RENAMEAT;
-	sqe->fd = AT_FDCWD;
-	sqe->addr2 = (unsigned long) new;
-	sqe->addr = (unsigned long) old;
-	sqe->len = AT_FDCWD;
+
+	io_uring_prep_rename(sqe, old, new);
 	
 	ret = io_uring_submit(ring);
 	if (ret <= 0) {
