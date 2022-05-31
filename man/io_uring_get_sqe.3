@@ -9,7 +9,7 @@ io_uring_get_sqe \- get the next available submission queue entry from the
 submission queue
 .SH SYNOPSIS
 .nf
-.BR "#include <liburing.h>"
+.B #include <liburing.h>
 .PP
 .BI "struct io_uring_sqe *io_uring_get_sqe(struct io_uring *" ring ");"
 .fi
@@ -22,8 +22,9 @@ queue belonging to the
 .I ring
 param.
 
-On success io_uring_get_sqe() returns a pointer to the submission queue entry.
-On failure NULL is returned.
+On success
+.BR io_uring_get_sqe (3)
+returns a pointer to the submission queue entry. On failure NULL is returned.
 
 If a submission queue entry is returned, it should be filled out via one of the
 prep functions such as

@@ -7,11 +7,11 @@
 io_uring_prep_statx \- prepare a statx request
 .SH SYNOPSIS
 .nf
-.BR "#include <sys/types.h>"
-.BR "#include <sys/stat.h>"
-.BR "#include <unistd.h>"
-.BR "#include <fcntl.h>"
-.BR "#include <liburing.h>"
+.B #include <sys/types.h>
+.B #include <sys/stat.h>
+.B #include <unistd.h>
+.B #include <fcntl.h>
+.B #include <liburing.h>
 .PP
 .BI "void io_uring_prep_statx(struct io_uring_sqe *" sqe ","
 .BI "                         int " dirfd ","

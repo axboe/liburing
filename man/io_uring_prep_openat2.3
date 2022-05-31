@@ -7,11 +7,11 @@
 io_uring_prep_openat2 \- prepare an openat2 request
 .SH SYNOPSIS
 .nf
-.BR "#include <sys/types.h>"
-.BR "#include <sys/stat.h>"
-.BR "#include <fcntl.h>"
-.BR "#include <linux/openat2.h>"
-.BR "#include <liburing.h>"
+.B #include <sys/types.h>
+.B #include <sys/stat.h>
+.B #include <fcntl.h>
+.B #include <linux/openat2.h>
+.B #include <liburing.h>
 .PP
 .BI "void io_uring_prep_openat2(struct io_uring_sqe *" sqe ","
 .BI "                           int " dfd ","

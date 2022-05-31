@@ -7,7 +7,7 @@
 io_uring_prep_provide_buffers \- prepare a provide buffers request
 .SH SYNOPSIS
 .nf
-.BR "#include <liburing.h>"
+.B #include <liburing.h>
 .PP
 .BI "void io_uring_prep_provide_buffers(struct io_uring_sqe *" sqe ","
 .BI "                                   void *" addr ","
@@ -78,7 +78,7 @@ with a command that doesn't support it will result in a CQE
 error of
 .BR -EINVAL .
 Buffer selection will work with operations that take a
-.BR struct iovec
+.B struct iovec
 as its data destination, but only if 1 iovec is provided.
 .
 .SH RETURN VALUE

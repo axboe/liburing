@@ -7,7 +7,7 @@
 io_uring_wait_cqe_timeout \- wait for one io_uring completion event with timeout
 .SH SYNOPSIS
 .nf
-.BR "#include <liburing.h>"
+.B #include <liburing.h>
 .PP
 .BI "int io_uring_wait_cqe_timeout(struct io_uring *" ring ","
 .BI "                              struct io_uring_cqe **" cqe_ptr ","
@@ -49,4 +49,4 @@ to the CQE result itself.
 .SH SEE ALSO
 .BR io_uring_submit (3),
 .BR io_uring_wait_cqe_timeout (3),
-.BR io_uring_wait_cqe(3)
+.BR io_uring_wait_cqe (3)

@@ -7,7 +7,7 @@
 io_uring_prep_cancel \- prepare a cancelation request
 .SH SYNOPSIS
 .nf
-.BR "#include <liburing.h>"
+.B #include <liburing.h>
 .PP
 .BI "void io_uring_prep_cancel(struct io_uring_sqe *" sqe ","
 .BI "                          __u64 " user_data ","
@@ -38,7 +38,7 @@ their
 field in the SQE.
 
 The
-.BR io_uring_prep_cancel_fd()
+.BR io_uring_prep_cancel_fd (3)
 function prepares a cancelation request. The submission queue entry
 .I sqe
 is prepared to cancel an existing request that used the file descriptor

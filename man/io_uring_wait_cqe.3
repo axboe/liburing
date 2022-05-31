@@ -7,7 +7,7 @@
 io_uring_wait_cqe \- wait for one io_uring completion event
 .SH SYNOPSIS
 .nf
-.BR "#include <liburing.h>"
+.B #include <liburing.h>
 .PP
 .BI "int io_uring_wait_cqe(struct io_uring *" ring ","
 .BI "                      struct io_uring_cqe **" cqe_ptr ");"
@@ -37,4 +37,4 @@ The return value indicates the result of waiting for a CQE, and it has no
 relation to the CQE result itself.
 .SH SEE ALSO
 .BR io_uring_submit (3),
-.BR io_uring_wait_cqes(3)
+.BR io_uring_wait_cqes (3)
