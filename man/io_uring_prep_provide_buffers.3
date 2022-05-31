@@ -30,7 +30,7 @@ number of buffers starting at
 and identified by the buffer group ID of
 .I bgid
 and numbered sequentially starting at
-.I bid.
+.IR bid .
 
 This function sets up a request to provide buffers to the io_uring context
 that can be used by read or receive operations. This is done by filling in
@@ -64,7 +64,7 @@ and sequentially ascending from that value. If
 buffers are provided and start with an initial
 .I bid
 of 0, then the buffer IDs will range from
-.B 0..15.
+.BR 0..15 .
 The application must be aware of this to make sense of the buffer ID passed
 back in the CQE.
 
@@ -76,7 +76,7 @@ receive request. Attempting to use
 with a command that doesn't support it will result in a CQE
 .I res
 error of
-.B -EINVAL.
+.BR -EINVAL .
 Buffer selection will work with operations that take a
 .BR struct iovec
 as its data destination, but only if 1 iovec is provided.

@@ -27,7 +27,7 @@ is setup to symlink the target path pointed to by
 to the new destination indicated by
 .I newdirfd
 and
-.I linkpath.
+.IR linkpath .
 
 This function prepares an async
 .BR symlinkat (2)
@@ -44,7 +44,7 @@ details on possible values. Note that where synchronous system calls will return
 on failure and set
 .I errno
 to the actual error value, io_uring never uses
-.I errno.
+.IR errno .
 Instead it returns the negated
 .I errno
 directly in the CQE

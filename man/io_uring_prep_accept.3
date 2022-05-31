@@ -48,7 +48,7 @@ to start accepting a connection request described by the socket address at
 and of structure length
 .I addrlen
 and using modifier flags in
-.I flags.
+.IR flags .
 
 For a direct descriptor accept request, the offset is specified by the
 .I file_index
@@ -87,10 +87,10 @@ return.
 For a direct descriptor accept request, the
 .I file_index
 argument can be set to
-.B IORING_FILE_INDEX_ALLOC,
+.BR IORING_FILE_INDEX_ALLOC ,
 In this case a free entry in io_uring file table will
 be used automatically and the file index will be returned as CQE
-.I res.
+.IR res .
 .B -ENFILE
 is otherwise returned if there is no free entries in the io_uring file table.
 
@@ -109,7 +109,7 @@ For multishot with direct descriptors,
 must be used as the file descriptor. This tells io_uring to allocate a free
 direct descriptor from our table, rather than the application passing one in.
 Failure to do so will result in the accept request being terminated with
-.B -EINVAL.
+.BR -EINVAL .
 The allocated descriptor will be returned in the CQE
 .I res
 field, like a non-direct accept request.
@@ -136,7 +136,7 @@ non-direct accept. Note that where synchronous system calls will return
 on failure and set
 .I errno
 to the actual error value, io_uring never uses
-.I errno.
+.IR errno .
 Instead it returns the negated
 .I errno
 directly in the CQE

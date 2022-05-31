@@ -23,7 +23,7 @@ io_uring_register_eventfd \- register an eventfd with a ring
 registers the eventfd file descriptor
 .I fd
 with the ring identified by
-.I ring.
+.IR ring .
 
 Whenever completions are posted to the CQ ring, an eventfd notification
 is generated with the registered eventfd descriptor. If

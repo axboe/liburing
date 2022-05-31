@@ -16,7 +16,7 @@ io_uring_submit \- submit requests to the submission queue
 The
 .BR io_uring_submit (3)
 function submits the next events to the submission queue belonging to the
-.I ring.
+.IR ring .
 
 After the caller retrieves a submission queue entry (SQE) with
 .BR io_uring_get_sqe (3)
@@ -26,7 +26,7 @@ and prepares the SQE, it can be submitted with io_uring_submit().
 On success
 .BR io_uring_submit (3)
 returns the number of submitted submission queue entries. On failure it returns
-.B -errno.
+.BR -errno .
 .SH NOTES
 For any request that passes in data in a struct, that data must remain
 valid until the request has been successfully submitted. It need not remain

@@ -26,12 +26,12 @@ The
 function prepares a close request. The submission queue entry
 .I sqe
 is setup to close the file descriptor indicated by
-.I fd.
+.IR fd .
 
 For a direct descriptor close request, the offset is specified by the
 .I file_index
 argument instead of the
-.I fd.
+.IR fd .
 This is identical to unregistering the direct descriptor, and is provided as
 a convenience.
 
@@ -41,7 +41,7 @@ to unregister it,
 function is identical to closing a file descriptor indicated by
 .I fd
 and unregistering the direct descriptor specified by the
-.I file_index.
+.IR file_index .
 
 This function prepares an async
 .BR close (2)
@@ -58,7 +58,7 @@ details on possible values. Note that where synchronous system calls will return
 on failure and set
 .I errno
 to the actual error value, io_uring never uses
-.I errno.
+.IR errno .
 Instead it returns the negated
 .I errno
 directly in the CQE

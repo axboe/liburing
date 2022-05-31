@@ -32,12 +32,13 @@ from the buffer
 at the specified
 .I offset
 and with the buffer matching the registered index of
-.I buf_index.
+.IR buf_index .
 
 This works just like
-.B io_uring_prep_write(3)
+.BR io_uring_prep_write (3)
 except it requires the use of buffers that have been registered with
-.B io_uring_register_buffers(3). The
+.BR io_uring_register_buffers (3).
+The
 .I buf
 and
 .I nbytes
@@ -60,7 +61,7 @@ details on possible values. Note that where synchronous system calls will return
 on failure and set
 .I errno
 to the actual error value, io_uring never uses
-.I errno.
+.IR errno .
 Instead it returns the negated
 .I errno
 directly in the CQE

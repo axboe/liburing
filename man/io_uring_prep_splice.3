@@ -27,11 +27,11 @@ function prepares a splice request. The submission queue entry
 is setup to use as input the file descriptor
 .I fd_in
 at offset
-.I off_in,
+.IR off_in ,
 splicing data to the file descriptor at
 .I fd_out
 and at offset
-.I off_out.
+.IR off_out .
 .I nbytes
 bytes of data should be spliced between the two descriptors.
 .I splice_flags
@@ -67,7 +67,7 @@ details on possible values. Note that where synchronous system calls will return
 on failure and set
 .I errno
 to the actual error value, io_uring never uses
-.I errno.
+.IR errno .
 Instead it returns the negated
 .I errno
 directly in the CQE

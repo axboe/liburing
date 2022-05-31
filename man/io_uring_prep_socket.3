@@ -34,7 +34,7 @@ is setup to use the communication domain defined by
 and use the communication type defined by
 .I type
 and the protocol set by
-.I protocol.
+.IR protocol .
 The
 .I flags
 argument are currently unused.
@@ -67,10 +67,10 @@ existing file with
 For a direct descriptor socket request, the
 .I file_index
 argument can be set to
-.B IORING_FILE_INDEX_ALLOC,
+.BR IORING_FILE_INDEX_ALLOC ,
 In this case a free entry in io_uring file table will
 be used automatically and the file index will be returned as CQE
-.I res.
+.IR res .
 .B -ENFILE
 is otherwise returned if there is no free entries in the io_uring file table.
 
@@ -85,7 +85,7 @@ details on possible values. Note that where synchronous system calls will return
 on failure and set
 .I errno
 to the actual error value, io_uring never uses
-.I errno.
+.IR errno .
 Instead it returns the negated
 .I errno
 directly in the CQE

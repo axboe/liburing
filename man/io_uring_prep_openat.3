@@ -38,7 +38,7 @@ to start opening a file described by
 and using the open flags in
 .I flags
 and using the file mode bits specified in
-.I mode.
+.IR mode .
 
 For a direct descriptor open request, the offset is specified by the
 .I file_index
@@ -94,7 +94,7 @@ details on possible values. Note that where synchronous system calls will return
 on failure and set
 .I errno
 to the actual error value, io_uring never uses
-.I errno.
+.IR errno .
 Instead it returns the negated
 .I errno
 directly in the CQE

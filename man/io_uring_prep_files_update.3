@@ -27,7 +27,7 @@ and of
 .I nr_fds
 in length to update that amount of previously registered files starting at
 offset
-.I offset.
+.IR offset .
 
 Once a previously registered file is updated with a new one, the existing
 entry is updated and then removed from the table. This operation is equivalent to
@@ -62,7 +62,7 @@ One of the fields set in the SQE was invalid.
 .TP
 .B -EFAULT
 The kernel was unable to copy in the memory pointed to by
-.I fds.
+.IR fds .
 .TP
 .B -EBADF
 On of the descriptors located in

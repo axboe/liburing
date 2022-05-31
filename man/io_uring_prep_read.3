@@ -28,10 +28,10 @@ to start reading
 into the buffer
 .I buf
 at the specified
-.I offset.
+.IR offset .
 
 On files that support seeking, if the offset is set to
-.B -1,
+.BR -1 ,
 the read operation commences at the file offset, and the file offset is
 incremented by the number of bytes read. See
 .BR read (2)
@@ -56,7 +56,7 @@ details on possible values. Note that where synchronous system calls will return
 on failure and set
 .I errno
 to the actual error value, io_uring never uses
-.I errno.
+.IR errno .
 Instead it returns the negated
 .I errno
 directly in the CQE

@@ -25,14 +25,14 @@ function registers
 number of buffers defined by the array
 .I iovecs
 belonging to the
-.I ring.
+.IR ring .
 
 The
 .BR io_uring_register_buffers_sparse (3)
 function registers
 .I nr_iovecs
 empty buffers belonging to the
-.I ring.
+.IR ring .
 These buffers must be updated before use, using eg
 .BR io_uring_register_buffers_update_tag (3).
 
@@ -52,6 +52,6 @@ On success
 and
 .BR io_uring_register_buffers_sparse (3)
 return 0. On failure they return
-.B -errno.
+.BR -errno .
 .SH SEE ALSO
 .BR io_uring_get_sqe (3), io_uring_unregister_buffers (3), io_uring_register_buf_ring (3), io_uring_prep_read_fixed (3), io_uring_prep_write_fixed (3)

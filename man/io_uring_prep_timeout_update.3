@@ -26,7 +26,7 @@ queue entry
 is setup to arm a timeout update or removal specified by
 .I user_data
 and with modifier flags given by
-.I flags.
+.IR flags .
 Additionally, the update request includes a
 .I ts
 structure, which contains new timeout information.
@@ -81,7 +81,7 @@ where given, or the specified timeout seconds or nanoseconds where < 0.
 .TP
 .B -EFAULT
 io_uring was unable to access the data specified by
-.I ts.
+.IR ts .
 .SH NOTES
 As with any request that passes in data in a struct, that data must remain
 valid until the request has been successfully submitted. It need not remain

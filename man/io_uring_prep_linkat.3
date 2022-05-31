@@ -33,7 +33,7 @@ with the new directory file descriptor pointed to by
 and the new path pointed to by
 .I newpath
 and using the specified flags in
-.I flags.
+.IR flags .
 
 This function prepares an async
 .BR linkat (2)
@@ -50,7 +50,7 @@ details on possible values. Note that where synchronous system calls will return
 on failure and set
 .I errno
 to the actual error value, io_uring never uses
-.I errno.
+.IR errno .
 Instead it returns the negated
 .I errno
 directly in the CQE
