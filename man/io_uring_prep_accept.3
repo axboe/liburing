@@ -15,20 +15,20 @@ io_uring_prep_accept \- prepare an accept request
 .BI "                          struct sockaddr *" addr ","
 .BI "                          socklen_t " addrlen ","
 .BI "                          int " flags ");"
-.BI "
+.PP
 .BI "void io_uring_prep_accept_direct(struct io_uring_sqe *" sqe ","
 .BI "                                 int " sockfd ","
 .BI "                                 struct sockaddr *" addr ","
 .BI "                                 socklen_t " addrlen ","
 .BI "                                 int " flags ","
 .BI "                                 unsigned int " file_index ");"
-.BI "
+.PP
 .BI "void io_uring_prep_multishot_accept(struct io_uring_sqe *" sqe ","
 .BI "                                    int " sockfd ","
 .BI "                                    struct sockaddr *" addr ","
 .BI "                                    socklen_t " addrlen ","
 .BI "                                    int " flags ");"
-.BI "
+.PP
 .BI "void io_uring_prep_multishot_accept_direct(struct io_uring_sqe *" sqe ","
 .BI "                                           int " sockfd ","
 .BI "                                           struct sockaddr *" addr ","

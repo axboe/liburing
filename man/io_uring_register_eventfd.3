@@ -11,8 +11,10 @@ io_uring_register_eventfd \- register an eventfd with a ring
 .PP
 .BI "int io_uring_register_eventfd(struct io_uring *" ring ","
 .BI "                              int " fd ");"
+.PP
 .BI "int io_uring_register_eventfd_async(struct io_uring *" ring ","
 .BI "                                    int " fd ");"
+.PP
 .BI "int io_uring_unregister_eventfd(struct io_uring *" ring ");"
 
 .SH DESCRIPTION
