@@ -15,6 +15,10 @@ io_uring_prep_unlinkat \- prepare an unlinkat request
 .BI "                            int " dirfd ","
 .BI "                            const char *" path ","
 .BI "                            int " flags ");"
+.PP
+.BI "void io_uring_prep_unlink(struct io_uring_sqe *" sqe ","
+.BI "                          const char *" path ","
+.BI "                          int " flags ");"
 .fi
 .SH DESCRIPTION
 .PP
@@ -28,10 +32,22 @@ to start an unlinkat operation on the path identified by
 .I path
 and using the flags given in
 .IR flags .
-
 This function prepares an async
 .BR unlinkat (2)
 request. See that man page for details.
+
+The
+.BR io_uring_prep_unlink (3)
+function prepares an unlink request. The submission queue entry
+.I sqe
+is setup to start an unlinkat operation on the path identified by
+.I path
+relative to the current working directory and using the flags given in
+.IR flags .
+This function prepares an async
+.BR unlink (2)
+request. See that man page for details.
+
 
 .SH RETURN VALUE
 None
@@ -63,4 +79,5 @@ flag passed back from
 .SH SEE ALSO
 .BR io_uring_get_sqe (3),
 .BR io_uring_submit (3),
-.BR unlinkat (2)
+.BR unlinkat (2),
+.BR unlink (2)

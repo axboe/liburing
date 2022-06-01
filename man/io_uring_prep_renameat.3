@@ -17,6 +17,11 @@ io_uring_prep_renameat \- prepare a renameat request
 .BI "                            int " newdirfd ","
 .BI "                            const char *" newpath ","
 .BI "                            int " flags ");"
+.PP
+.BI "void io_uring_prep_rename(struct io_uring_sqe *" sqe ","
+.BI "                          const char *" oldpath ","
+.BI "                          const char *" newpath ","
+.BI "                          int " flags ");"
 .fi
 .SH DESCRIPTION
 .PP
@@ -34,7 +39,6 @@ and the new path pointed to by
 .I newpath
 and using the specified flags in
 .IR flags .
-
 This function prepares an async
 .BR renameat2 (2)
 request. If
@@ -42,6 +46,20 @@ request. If
 is zero, then this call is similar to the
 .BR renameat (2)
 system call. See those man page for details.
+
+The
+.BR io_uring_prep_rename (3)
+function prepares a rename request. The submission queue entry
+.I sqe
+is setup to use the old path pointed to by
+.I oldpath
+with the new path pointed to by
+.IR newpath ,
+both relative to the current working directory and using the specified flags in
+.IR flags .
+This function prepares an async
+.BR rename (2)
+request See that man page for details.
 
 .SH RETURN VALUE
 None
@@ -74,4 +92,5 @@ flag passed back from
 .BR io_uring_get_sqe (3),
 .BR io_uring_submit (3),
 .BR renameat (2),
-.BR renameat2 (2)
+.BR renameat2 (2),
+.BR rename (2)

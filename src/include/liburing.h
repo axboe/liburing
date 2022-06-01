@@ -18,6 +18,7 @@
 #include <stdbool.h>
 #include <inttypes.h>
 #include <time.h>
+#include <fcntl.h>
 #include <sched.h>
 #include <linux/swab.h>
 #include "liburing/compat.h"
@@ -729,6 +730,12 @@ static inline void io_uring_prep_unlinkat(struct io_uring_sqe *sqe, int dfd,
 	sqe->unlink_flags = (__u32) flags;
 }
 
+static inline void io_uring_prep_unlink(struct io_uring_sqe *sqe,
+					  const char *path, int flags)
+{
+	io_uring_prep_unlinkat(sqe, AT_FDCWD, path, flags);
+}
+
 static inline void io_uring_prep_renameat(struct io_uring_sqe *sqe, int olddfd,
 					  const char *oldpath, int newdfd,
 					  const char *newpath, int flags)
@@ -737,6 +744,12 @@ static inline void io_uring_prep_renameat(struct io_uring_sqe *sqe, int olddfd,
 				(__u32) newdfd,
 				(uint64_t) (uintptr_t) newpath);
 	sqe->rename_flags = (__u32) flags;
+}
+
+static inline void io_uring_prep_rename(struct io_uring_sqe *sqe,
+					  const char *oldpath, const char *newpath)
+{
+	io_uring_prep_renameat(sqe, AT_FDCWD, oldpath, AT_FDCWD, newpath, 0);
 }
 
 static inline void io_uring_prep_sync_file_range(struct io_uring_sqe *sqe,
@@ -753,12 +766,24 @@ static inline void io_uring_prep_mkdirat(struct io_uring_sqe *sqe, int dfd,
 	io_uring_prep_rw(IORING_OP_MKDIRAT, sqe, dfd, path, mode, 0);
 }
 
+static inline void io_uring_prep_mkdir(struct io_uring_sqe *sqe,
+					const char *path, mode_t mode)
+{
+	io_uring_prep_mkdirat(sqe, AT_FDCWD, path, mode);
+}
+
 static inline void io_uring_prep_symlinkat(struct io_uring_sqe *sqe,
 					   const char *target, int newdirfd,
 					   const char *linkpath)
 {
 	io_uring_prep_rw(IORING_OP_SYMLINKAT, sqe, newdirfd, target, 0,
 				(uint64_t) (uintptr_t) linkpath);
+}
+
+static inline void io_uring_prep_symlink(struct io_uring_sqe *sqe,
+					   const char *target, const char *linkpath)
+{
+	io_uring_prep_symlinkat(sqe, target, AT_FDCWD, linkpath);
 }
 
 static inline void io_uring_prep_linkat(struct io_uring_sqe *sqe, int olddfd,
@@ -768,6 +793,12 @@ static inline void io_uring_prep_linkat(struct io_uring_sqe *sqe, int olddfd,
 	io_uring_prep_rw(IORING_OP_LINKAT, sqe, olddfd, oldpath, (__u32) newdfd,
 				(uint64_t) (uintptr_t) newpath);
 	sqe->hardlink_flags = (__u32) flags;
+}
+
+static inline void io_uring_prep_link(struct io_uring_sqe *sqe,
+					const char *oldpath, const char *newpath, int flags)
+{
+	io_uring_prep_linkat(sqe, AT_FDCWD, oldpath, AT_FDCWD, newpath, flags);
 }
 
 static inline void io_uring_prep_msg_ring(struct io_uring_sqe *sqe, int fd,

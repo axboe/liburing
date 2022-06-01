@@ -15,6 +15,10 @@ io_uring_prep_symlinkat \- prepare a symlinkat request
 .BI "                             const char *" target ","
 .BI "                             int " newdirfd ","
 .BI "                             const char *" linkpath ");"
+.PP
+.BI "void io_uring_prep_symlink(struct io_uring_sqe *" sqe ","
+.BI "                           const char *" target ","
+.BI "                           const char *" linkpath ");"
 .fi
 .SH DESCRIPTION
 .PP
@@ -28,9 +32,20 @@ to the new destination indicated by
 .I newdirfd
 and
 .IR linkpath .
-
 This function prepares an async
 .BR symlinkat (2)
+request. See that man page for details.
+
+The
+.BR io_uring_prep_symlink (3)
+function prepares a symlink request. The submission queue entry
+.I sqe
+is setup to symlink the target path pointed to by
+.I target
+to the new destination indicated by
+.I linkpath
+relative to the the current working directory. This function prepares an async
+.BR symlink (2)
 request. See that man page for details.
 
 .SH RETURN VALUE
@@ -63,4 +78,5 @@ flag passed back from
 .SH SEE ALSO
 .BR io_uring_get_sqe (3),
 .BR io_uring_submit (3),
-.BR symlinkat (2)
+.BR symlinkat (2),
+.BR symlink (2)

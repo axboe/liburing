@@ -15,23 +15,40 @@ io_uring_prep_mkdirat \- prepare an mkdirat request
 .BI "                           int " dirfd ","
 .BI "                           const char *" path ","
 .BI "                           mode_t " mode ");"
+.PP
+.BI "void io_uring_prep_mkdir(struct io_uring_sqe *" sqe ","
+.BI "                         const char *" path ","
+.BI "                         mode_t " mode ");"
 .fi
 .SH DESCRIPTION
 .PP
 The
 .BR io_uring_prep_mkdirat (3)
-function prepares an mkdirat request. The submission queue entry
+function prepares a mkdirat request. The submission queue entry
 .I sqe
 is setup to use the directory file descriptor pointed to by
 .I dirfd
-to start an mkdirat operation on the path identified by
+to start a mkdirat operation on the path identified by
 .I path
 with the mode given in
 .IR mode .
-
 This function prepares an async
 .BR mkdirat (2)
 request. See that man page for details.
+
+The
+.BR io_uring_prep_mkdir (3)
+function prepares a mkdir request. The submission queue entry
+.I sqe
+is setup to use the current working directory to start a mkdir
+operation on the path identified by
+.I path
+with the mode given in
+.IR mode .
+This function prepares an async
+.BR mkdir (2)
+request. See that man page for details.
+
 
 .SH RETURN VALUE
 None
@@ -63,4 +80,5 @@ flag passed back from
 .SH SEE ALSO
 .BR io_uring_get_sqe (3),
 .BR io_uring_submit (3),
-.BR mkdirat (2)
+.BR mkdirat (2),
+.BR mkdir (2)
