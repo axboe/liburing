@@ -4,16 +4,15 @@
 .\"
 .TH io_uring_buf_ring_cq_advance 3 "May 18, 2022" "liburing-2.2" "liburing Manual"
 .SH NAME
-io_uring_buf_ring_cq_advance - advance index of provided buffer and CQ ring
-.fi
+io_uring_buf_ring_cq_advance \- advance index of provided buffer and CQ ring
 .SH SYNOPSIS
 .nf
-.BR "#include <liburing.h>"
+.B #include <liburing.h>
 .PP
 .BI "int io_uring_buf_ring_cq_advance(struct io_uring *" ring ",
 .BI "                                 struct io_uring_buf_ring *" br ",
 .BI "                                 int " count ");"
-.PP
+.fi
 .SH DESCRIPTION
 .PP
 The
@@ -21,7 +20,7 @@ The
 commits
 .I count
 previously added buffers to the shared buffer ring
-.I br,
+.IR br ,
 making them visible to the kernel and hence consumable. This passes ownership
 of the buffer to the ring. At the same time, it advances the CQ ring of
 .I ring
@@ -37,4 +36,6 @@ barrier, doing both at once is more efficient.
 .SH RETURN VALUE
 None
 .SH SEE ALSO
-.BR io_uring_register_buf_ring (3), io_uring_buf_ring_add (3), io_uring_buf_ring_advance (3)
+.BR io_uring_register_buf_ring (3),
+.BR io_uring_buf_ring_add (3),
+.BR io_uring_buf_ring_advance (3)

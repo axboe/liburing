@@ -4,17 +4,16 @@
 .\"
 .TH io_uring_register_buf_ring 3 "May 18, 2022" "liburing-2.2" "liburing Manual"
 .SH NAME
-io_uring_register_buf_ring - register buffer ring for provided buffers
-.fi
+io_uring_register_buf_ring \- register buffer ring for provided buffers
 .SH SYNOPSIS
 .nf
-.BR "#include <liburing.h>"
+.B #include <liburing.h>
 .PP
 .BI "int io_uring_register_buf_ring(struct io_uring *" ring ",
 .BI "                               struct io_uring_buf_reg *" reg ",
 .BI "                               unsigned int " flags ");"
 .BI "
-.PP
+.fi
 .SH DESCRIPTION
 .PP
 The
@@ -24,7 +23,7 @@ the request types that support it, provided buffers are given to the ring and
 one is selected by a request if it has
 .B IOSQE_BUFFER_SELECT
 set in the SQE
-.I flags,
+.IR flags ,
 when the request is ready to receive data. This allows both clear ownership
 of the buffer lifetime, and a way to have more read/receive type of operations
 in flight than buffers available.
@@ -54,7 +53,7 @@ The memory must be page aligned and hence allocated appropriately using eg
 or similar. The size of the ring is the product of
 .I ring_entries
 and the size of
-.I struct io_uring_buf.
+.IR "struct io_uring_buf" .
 .I ring_entries
 is the desired size of the ring, and must be a power-of-2 in size.
 .I bgid
@@ -130,6 +129,9 @@ Available since 5.19.
 On success
 .BR io_uring_register_buf_ring (3)
 returns 0. On failure it returns
-.B -errno.
+.BR -errno .
 .SH SEE ALSO
-.BR io_uring_buf_ring_alloc (3), io_uring_buf_ring_add (3), io_uring_buf_ring_advance (3), io_uring_buf_ring_cq_advance (3)
+.BR io_uring_buf_ring_alloc (3),
+.BR io_uring_buf_ring_add (3),
+.BR io_uring_buf_ring_advance (3),
+.BR io_uring_buf_ring_cq_advance (3)

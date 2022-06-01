@@ -4,14 +4,13 @@
 .\"
 .TH io_uring_register_ring_fd 3 "March 11, 2022" "liburing-2.2" "liburing Manual"
 .SH NAME
-io_uring_register_ring_fd   - register a ring file descriptor
-
+io_uring_register_ring_fd \- register a ring file descriptor
 .SH SYNOPSIS
 .nf
-.BR "#include <liburing.h>"
+.B #include <liburing.h>
 .PP
 .BI "int io_uring_register_ring_fd(struct io_uring *" ring ");"
-
+.fi
 .SH DESCRIPTION
 .PP
 .BR io_uring_register_ring_fd (3)
@@ -46,4 +45,5 @@ or
 .B -errno
 on error.
 .SH SEE ALSO
-.BR io_uring_unregister_ring_fd (3), io_uring_register_files (3)
+.BR io_uring_unregister_ring_fd (3),
+.BR io_uring_register_files (3)

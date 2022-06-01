@@ -4,15 +4,14 @@
 .\"
 .TH io_uring_wait_cqe 3 "November 15, 2021" "liburing-2.1" "liburing Manual"
 .SH NAME
-io_uring_wait_cqe - wait for one io_uring completion event
+io_uring_wait_cqe \- wait for one io_uring completion event
 .SH SYNOPSIS
 .nf
-.BR "#include <liburing.h>"
+.B #include <liburing.h>
 .PP
 .BI "int io_uring_wait_cqe(struct io_uring *" ring ","
 .BI "                      struct io_uring_cqe **" cqe_ptr ");"
 .fi
-.PP
 .SH DESCRIPTION
 .PP
 The
@@ -33,8 +32,9 @@ the application can retrieve the completion with
 On success
 .BR io_uring_wait_cqe (3)
 returns 0 and the cqe_ptr parm is filled in. On failure it returns
-.B -errno.
+.BR -errno .
 The return value indicates the result of waiting for a CQE, and it has no
 relation to the CQE result itself.
 .SH SEE ALSO
-.BR io_uring_submit (3),  io_uring_wait_cqes(3)
+.BR io_uring_submit (3),
+.BR io_uring_wait_cqes (3)

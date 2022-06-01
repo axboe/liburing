@@ -4,12 +4,11 @@
 .\"
 .TH io_uring_prep_splice 3 "March 13, 2022" "liburing-2.2" "liburing Manual"
 .SH NAME
-io_uring_prep_splice  - prepare an splice request
-.fi
+io_uring_prep_splice \- prepare an splice request
 .SH SYNOPSIS
 .nf
-.BR "#include <fcntl.h>"
-.BR "#include <liburing.h>"
+.B #include <fcntl.h>
+.B #include <liburing.h>
 .PP
 .BI "void io_uring_prep_splice(struct io_uring_sqe *" sqe ","
 .BI "                          int " fd_in ","
@@ -18,7 +17,7 @@ io_uring_prep_splice  - prepare an splice request
 .BI "                          int64_t " off_out ","
 .BI "                          unsigned int " nbytes ","
 .BI "                          unsigned int " splice_flags ");"
-.PP
+.fi
 .SH DESCRIPTION
 .PP
 The
@@ -28,11 +27,11 @@ function prepares a splice request. The submission queue entry
 is setup to use as input the file descriptor
 .I fd_in
 at offset
-.I off_in,
+.IR off_in ,
 splicing data to the file descriptor at
 .I fd_out
 and at offset
-.I off_out.
+.IR off_out .
 .I nbytes
 bytes of data should be spliced between the two descriptors.
 .I splice_flags
@@ -68,11 +67,14 @@ details on possible values. Note that where synchronous system calls will return
 on failure and set
 .I errno
 to the actual error value, io_uring never uses
-.I errno.
+.IR errno .
 Instead it returns the negated
 .I errno
 directly in the CQE
 .I res
 field.
 .SH SEE ALSO
-.BR io_uring_get_sqe (3), io_uring_submit (3), io_uring_register (2), splice (2)
+.BR io_uring_get_sqe (3),
+.BR io_uring_submit (3),
+.BR io_uring_register (2),
+.BR splice (2)

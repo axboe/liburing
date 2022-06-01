@@ -4,18 +4,17 @@
 .\"
 .TH io_uring_prep_send 3 "March 12, 2022" "liburing-2.2" "liburing Manual"
 .SH NAME
-io_uring_prep_send  - prepare a send request
-.fi
+io_uring_prep_send \- prepare a send request
 .SH SYNOPSIS
 .nf
-.BR "#include <liburing.h>"
+.B #include <liburing.h>
 .PP
 .BI "void io_uring_prep_send(struct io_uring_sqe *" sqe ","
 .BI "                        int " sockfd ","
 .BI "                        const void *" buf ","
 .BI "                        size_t " len ","
 .BI "                        int " flags ");"
-.PP
+.fi
 .SH DESCRIPTION
 .PP
 The
@@ -29,7 +28,7 @@ to start sending the data from
 of size
 .I size
 and with modifier flags
-.I flags.
+.IR flags .
 
 This function prepares an async
 .BR send (2)
@@ -46,11 +45,13 @@ details on possible values. Note that where synchronous system calls will return
 on failure and set
 .I errno
 to the actual error value, io_uring never uses
-.I errno.
+.IR errno .
 Instead it returns the negated
 .I errno
 directly in the CQE
 .I res
 field.
 .SH SEE ALSO
-.BR io_uring_get_sqe (3), io_uring_submit (3), send (2)
+.BR io_uring_get_sqe (3),
+.BR io_uring_submit (3),
+.BR send (2)

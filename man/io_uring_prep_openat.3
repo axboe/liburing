@@ -4,28 +4,27 @@
 .\"
 .TH io_uring_prep_openat 3 "March 13, 2022" "liburing-2.2" "liburing Manual"
 .SH NAME
-io_uring_prep_openat  - prepare an openat request
-.fi
+io_uring_prep_openat \- prepare an openat request
 .SH SYNOPSIS
 .nf
-.BR "#include <sys/types.h>"
-.BR "#include <sys/stat.h>"
-.BR "#include <fcntl.h>"
-.BR "#include <liburing.h>"
+.B #include <sys/types.h>
+.B #include <sys/stat.h>
+.B #include <fcntl.h>
+.B #include <liburing.h>
 .PP
 .BI "void io_uring_prep_openat(struct io_uring_sqe *" sqe ","
 .BI "                          int " dfd ","
 .BI "                          const char *" path ","
 .BI "                          int " flags ","
 .BI "                          mode_t " mode ");"
-.BI "
+.PP
 .BI "void io_uring_prep_openat_direct(struct io_uring_sqe *" sqe ","
 .BI "                                 int " dfd ","
 .BI "                                 const char *" path ","
 .BI "                                 int " flags ","
 .BI "                                 mode_t " mode ","
 .BI "                                 unsigned " file_index ");"
-.PP
+.fi
 .SH DESCRIPTION
 .PP
 The
@@ -39,7 +38,7 @@ to start opening a file described by
 and using the open flags in
 .I flags
 and using the file mode bits specified in
-.I mode.
+.IR mode .
 
 For a direct descriptor open request, the offset is specified by the
 .I file_index
@@ -95,7 +94,7 @@ details on possible values. Note that where synchronous system calls will return
 on failure and set
 .I errno
 to the actual error value, io_uring never uses
-.I errno.
+.IR errno .
 Instead it returns the negated
 .I errno
 directly in the CQE
@@ -112,4 +111,7 @@ behavior by inspecting the
 flag passed back from
 .BR io_uring_queue_init_params (3).
 .SH SEE ALSO
-.BR io_uring_get_sqe (3), io_uring_submit (3), io_uring_register (2), openat (2)
+.BR io_uring_get_sqe (3),
+.BR io_uring_submit (3),
+.BR io_uring_register (2),
+.BR openat (2)

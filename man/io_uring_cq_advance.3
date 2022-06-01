@@ -4,15 +4,14 @@
 .\"
 .TH io_uring_cq_advance 3 "January 25, 2022" "liburing-2.1" "liburing Manual"
 .SH NAME
-io_uring_cq_advance - Mark one or more io_uring completion events as consumed
+io_uring_cq_advance \- mark one or more io_uring completion events as consumed
 .SH SYNOPSIS
 .nf
-.BR "#include <liburing.h>"
+.B #include <liburing.h>
 .PP
 .BI "void io_uring_cq_advance(struct io_uring *" ring ","
 .BI "                          unsigned " nr ");"
 .fi
-.PP
 .SH DESCRIPTION
 .PP
 The
@@ -42,4 +41,9 @@ so will result in the same completion being returned on the next invocation.
 .SH RETURN VALUE
 None
 .SH SEE ALSO
-.BR io_uring_submit (3), io_uring_wait_cqe (3), io_uring_peek_cqe (3), io_uring_wait_cqes (3), io_uring_wait_cqe_timeout (3), io_uring_cqe_seen (3)
+.BR io_uring_submit (3),
+.BR io_uring_wait_cqe (3),
+.BR io_uring_peek_cqe (3),
+.BR io_uring_wait_cqes (3),
+.BR io_uring_wait_cqe_timeout (3),
+.BR io_uring_cqe_seen (3)

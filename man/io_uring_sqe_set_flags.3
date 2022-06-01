@@ -4,15 +4,14 @@
 .\"
 .TH io_uring_sqe_set_flags "January 25, 2022" "liburing-2.1" "liburing Manual"
 .SH NAME
-io_uring_sqe_set_flags - set flags for submission queue entry
+io_uring_sqe_set_flags \- set flags for submission queue entry
 .SH SYNOPSIS
 .nf
-.BR "#include <liburing.h>"
+.B #include <liburing.h>
 .PP
 .BI "void io_uring_sqe_set_flags(struct io_uring_sqe *" sqe ","
 .BI "                            unsigned " flags ");"
 .fi
-.PP
 .SH DESCRIPTION
 .PP
 The
@@ -59,4 +58,5 @@ one completes.
 .SH RETURN VALUE
 None
 .SH SEE ALSO
-.BR io_uring_submit (3),  io_uring_register(3)
+.BR io_uring_submit (3),
+.BR io_uring_register (3)

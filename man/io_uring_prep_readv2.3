@@ -4,13 +4,11 @@
 .\"
 .TH io_uring_prep_readv2 3 "November 15, 2021" "liburing-2.1" "liburing Manual"
 .SH NAME
-.fi
-io_uring_prep_readv2 - prepare vector I/O read request with flags
-
+io_uring_prep_readv2 \- prepare vector I/O read request with flags
 .SH SYNOPSIS
 .nf
-.BR "#include <sys/uio.h>"
-.BR "#include <liburing.h>"
+.B #include <sys/uio.h>
+.B #include <liburing.h>
 .PP
 .BI "void io_uring_prep_readv2(struct io_uring_sqe *" sqe ","
 .BI "                          int " fd ","
@@ -19,7 +17,6 @@ io_uring_prep_readv2 - prepare vector I/O read request with flags
 .BI "                          __u64 " offset ","
 .BI "                          int " flags ");"
 .fi
-.PP
 .SH DESCRIPTION
 .PP
 The
@@ -33,7 +30,7 @@ to start reading
 into the
 .I iovecs
 array at the specified
-.I offset.
+.IR offset .
 The behavior of the function can be controlled with the
 .I flags
 parameter.
@@ -61,7 +58,7 @@ per-IO O_APPEND
 
 .P
 On files that support seeking, if the offset is set to
-.B -1,
+.BR -1 ,
 the read operation commences at the file offset, and the file offset is
 incremented by the number of bytes read. See
 .BR read (2)
@@ -86,7 +83,7 @@ details on possible values. Note that where synchronous system calls will return
 on failure and set
 .I errno
 to the actual error value, io_uring never uses
-.I errno.
+.IR errno .
 Instead it returns the negated
 .I errno
 directly in the CQE
@@ -108,4 +105,7 @@ behavior by inspecting the
 flag passed back from
 .BR io_uring_queue_init_params (3).
 .SH SEE ALSO
-.BR io_uring_get_sqe (3), io_uring_prep_read (3), io_uring_prep_readv (3), io_uring_submit (3)
+.BR io_uring_get_sqe (3),
+.BR io_uring_prep_read (3),
+.BR io_uring_prep_readv (3),
+.BR io_uring_submit (3)

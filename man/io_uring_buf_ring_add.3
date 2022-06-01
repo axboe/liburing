@@ -4,24 +4,23 @@
 .\"
 .TH io_uring_buf_ring_add 3 "May 18, 2022" "liburing-2.2" "liburing Manual"
 .SH NAME
-io_uring_buf_ring_add - add buffers to a shared buffer ring
-.fi
+io_uring_buf_ring_add \- add buffers to a shared buffer ring
 .SH SYNOPSIS
 .nf
-.BR "#include <liburing.h>"
+.B #include <liburing.h>
 .PP
 .BI "int io_uring_buf_ring_add(struct io_uring_buf_ring *" br ",
 .BI "                          void *" addr ",
 .BI "                          unsigned int " len ",
 .BI "                          unsigned short " bid ",
 .BI "                          int " buf_offset ");"
-.PP
+.fi
 .SH DESCRIPTION
 .PP
 The
 .BR io_uring_buf_ring_add (3)
 adds a new buffer to the shared buffer ring
-.I br.
+.IR br .
 The buffer address is indicated by
 .I addr
 and is of
@@ -44,4 +43,6 @@ must be incremented by one for each buffer added.
 .SH RETURN VALUE
 None
 .SH SEE ALSO
-.BR io_uring_register_buf_ring (3), io_uring_buf_ring_advance (3), io_uring_buf_ring_cq_advance (3)
+.BR io_uring_register_buf_ring (3),
+.BR io_uring_buf_ring_advance (3),
+.BR io_uring_buf_ring_cq_advance (3)

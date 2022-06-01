@@ -4,21 +4,20 @@
 .\"
 .TH io_uring_prep_poll_timeout_update 3 "March 12, 2022" "liburing-2.2" "liburing Manual"
 .SH NAME
-io_uring_prep_timeoute_update - prepare a request to update an existing timeout
-.fi
+io_uring_prep_timeoute_update \- prepare a request to update an existing timeout
 .SH SYNOPSIS
 .nf
-.BR "#include <liburing.h>"
+.B #include <liburing.h>
 .PP
 .BI "void io_uring_prep_timeout_update(struct io_uring_sqe *" sqe ","
 .BI "                                  struct __kernel_timespec *" ts ","
 .BI "                                  __u64 " user_data ","
 .BI "                                  unsigned " flags ");"
-.BI "
+.PP
 .BI "void io_uring_prep_timeout_remove(struct io_uring_sqe *" sqe ","
 .BI "                                  __u64 " user_data ","
 .BI "                                  unsigned " flags ");"
-.PP
+.fi
 .SH DESCRIPTION
 .PP
 These functions modify or cancel an existing timeout request. The submission
@@ -27,7 +26,7 @@ queue entry
 is setup to arm a timeout update or removal specified by
 .I user_data
 and with modifier flags given by
-.I flags.
+.IR flags .
 Additionally, the update request includes a
 .I ts
 structure, which contains new timeout information.
@@ -82,7 +81,7 @@ where given, or the specified timeout seconds or nanoseconds where < 0.
 .TP
 .B -EFAULT
 io_uring was unable to access the data specified by
-.I ts.
+.IR ts .
 .SH NOTES
 As with any request that passes in data in a struct, that data must remain
 valid until the request has been successfully submitted. It need not remain
@@ -94,4 +93,6 @@ behavior by inspecting the
 flag passed back from
 .BR io_uring_queue_init_params (3).
 .SH SEE ALSO
-.BR io_uring_get_sqe (3), io_uring_submit (3), io_uring_prep_timeout (3)
+.BR io_uring_get_sqe (3),
+.BR io_uring_submit (3),
+.BR io_uring_prep_timeout (3)

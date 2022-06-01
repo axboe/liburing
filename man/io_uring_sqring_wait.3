@@ -4,14 +4,13 @@
 .\"
 .TH io_uring_sqring_wait "January 25, 2022" "liburing-2.1" "liburing Manual"
 .SH NAME
-io_uring_sqring_wait - wait for free space in the SQ ring
+io_uring_sqring_wait \- wait for free space in the SQ ring
 .SH SYNOPSIS
 .nf
-.BR "#include <liburing.h>"
+.B #include <liburing.h>
 .PP
 .BI "int io_uring_sqring_wait(struct io_uring *" ring ");"
 .fi
-.PP
 .SH DESCRIPTION
 .PP
 The function
@@ -28,4 +27,6 @@ This feature can only be used when SQPOLL is enabled.
 On success it returns the free space. If the kernel does not support the
 feature, -EINVAL is returned.
 .SH SEE ALSO
-.BR io_uring_submit (3),  io_uring_wait_cqe (3),  io_uring_wait_cqes (3)
+.BR io_uring_submit (3),
+.BR io_uring_wait_cqe (3),
+.BR io_uring_wait_cqes (3)

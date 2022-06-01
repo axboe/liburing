@@ -4,15 +4,14 @@
 .\"
 .TH io_uring_prep_statx 3 "March 13, 2022" "liburing-2.2" "liburing Manual"
 .SH NAME
-io_uring_prep_statx  - prepare a statx request
-.fi
+io_uring_prep_statx \- prepare a statx request
 .SH SYNOPSIS
 .nf
-.BR "#include <sys/types.h>"
-.BR "#include <sys/stat.h>"
-.BR "#include <unistd.h>"
-.BR "#include <fcntl.h>"
-.BR "#include <liburing.h>"
+.B #include <sys/types.h>
+.B #include <sys/stat.h>
+.B #include <unistd.h>
+.B #include <fcntl.h>
+.B #include <liburing.h>
 .PP
 .BI "void io_uring_prep_statx(struct io_uring_sqe *" sqe ","
 .BI "                         int " dirfd ","
@@ -20,7 +19,7 @@ io_uring_prep_statx  - prepare a statx request
 .BI "                         int " flags ","
 .BI "                         unsigned " mask ","
 .BI "                         struct statx *" statxbuf ");"
-.PP
+.fi
 .SH DESCRIPTION
 .PP
 The
@@ -36,7 +35,7 @@ and using the flags given in
 for the fields specified by
 .I mask
 and into the buffer located at
-.I statxbuf.
+.IR statxbuf .
 
 This function prepares an async
 .BR statx (2)
@@ -53,7 +52,7 @@ details on possible values. Note that where synchronous system calls will return
 on failure and set
 .I errno
 to the actual error value, io_uring never uses
-.I errno.
+.IR errno .
 Instead it returns the negated
 .I errno
 directly in the CQE
@@ -70,4 +69,6 @@ behavior by inspecting the
 flag passed back from
 .BR io_uring_queue_init_params (3).
 .SH SEE ALSO
-.BR io_uring_get_sqe (3), io_uring_submit (3), statx (2)
+.BR io_uring_get_sqe (3),
+.BR io_uring_submit (3),
+.BR statx (2)

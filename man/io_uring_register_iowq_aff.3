@@ -4,19 +4,18 @@
 .\"
 .TH io_uring_register_iowq_aff 3 "March 13, 2022" "liburing-2.2" "liburing Manual"
 .SH NAME
-io_uring_register_iowq_aff  - register async worker CPU affinities
-.fi
+io_uring_register_iowq_aff \- register async worker CPU affinities
 .SH SYNOPSIS
 .nf
-.BR "#include <sched.h>"
-.BR "#include <liburing.h>"
+.B #include <sched.h>
+.B #include <liburing.h>
 .PP
 .BI "int io_uring_register_iowq_aff(struct io_uring *" ring ","
 .BI "                               size_t " cpusz ","
 .BI "                               const cpu_set_t *" mask ");
-.BI "
-.BI "void io_uring_unregister_iowq_aff(struct io_uring *" ring ");"
 .PP
+.BI "void io_uring_unregister_iowq_aff(struct io_uring *" ring ");"
+.fi
 .SH DESCRIPTION
 .PP
 The
@@ -28,7 +27,7 @@ the system. If this function is called with
 set to the ring in question and
 .I mask
 set to a pointer to a
-.BR cpu_set_t
+.B cpu_set_t
 value and
 .I cpusz
 set to the size of the CPU set, then async workers will only be allowed to run
@@ -58,4 +57,5 @@ or
 .I mask
 was NULL/0, or any other value specified was invalid.
 .SH SEE ALSO
-.BR io_uring_queue_init (3), io_uring_register (2)
+.BR io_uring_queue_init (3),
+.BR io_uring_register (2)

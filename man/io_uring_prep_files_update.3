@@ -4,17 +4,16 @@
 .\"
 .TH io_uring_prep_files_update 3 "March 13, 2022" "liburing-2.2" "liburing Manual"
 .SH NAME
-io_uring_prep_files_update  - prepare a registered file update request
-.fi
+io_uring_prep_files_update \- prepare a registered file update request
 .SH SYNOPSIS
 .nf
-.BR "#include <liburing.h>"
+.B #include <liburing.h>
 .PP
 .BI "void io_uring_prep_files_update(struct io_uring_sqe *" sqe ","
 .BI "                                int *" fds ","
 .BI "                                unsigned " nr_fds ","
 .BI "                                int " offset ");"
-.PP
+.fi
 .SH DESCRIPTION
 .PP
 The
@@ -28,7 +27,7 @@ and of
 .I nr_fds
 in length to update that amount of previously registered files starting at
 offset
-.I offset.
+.IR offset .
 
 Once a previously registered file is updated with a new one, the existing
 entry is updated and then removed from the table. This operation is equivalent to
@@ -63,7 +62,7 @@ One of the fields set in the SQE was invalid.
 .TP
 .B -EFAULT
 The kernel was unable to copy in the memory pointed to by
-.I fds.
+.IR fds .
 .TP
 .B -EBADF
 On of the descriptors located in
@@ -88,4 +87,6 @@ behavior by inspecting the
 flag passed back from
 .BR io_uring_queue_init_params (3).
 .SH SEE ALSO
-.BR io_uring_get_sqe (3), io_uring_submit (3), io_uring_register (2)
+.BR io_uring_get_sqe (3),
+.BR io_uring_submit (3),
+.BR io_uring_register (2)

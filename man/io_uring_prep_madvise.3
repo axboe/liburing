@@ -4,19 +4,18 @@
 .\"
 .TH io_uring_prep_madvise 3 "March 13, 2022" "liburing-2.2" "liburing Manual"
 .SH NAME
-io_uring_prep_madvise  - prepare a madvise request
-.fi
+io_uring_prep_madvise \- prepare a madvise request
 .SH SYNOPSIS
 .nf
-.BR "#include <sys/mman.h>"
-.BR "#include <liburing.h>"
+.B #include <sys/mman.h>
+.B #include <liburing.h>
 .PP
 .BI "void io_uring_prep_madvise(struct io_uring_sqe *" sqe ","
 .BI "                           int " fd ","
 .BI "                           void *" addr ","
 .BI "                           off_t " len ","
 .BI "                           int " advice ");"
-.PP
+.fi
 .SH DESCRIPTION
 .PP
 The
@@ -30,7 +29,7 @@ to start an madvise operation at the virtual address of
 and of
 .I len
 length in bytes, giving it the advise located in
-.I advice.
+.IR advice .
 
 This function prepares an async
 .BR posix_madvise (2)
@@ -47,11 +46,14 @@ details on possible values. Note that where synchronous system calls will return
 on failure and set
 .I errno
 to the actual error value, io_uring never uses
-.I errno.
+.IR errno .
 Instead it returns the negated
 .I errno
 directly in the CQE
 .I res
 field.
 .SH SEE ALSO
-.BR io_uring_get_sqe (3), io_uring_submit (3), io_uring_register (2), posix_madvise (2)
+.BR io_uring_get_sqe (3),
+.BR io_uring_submit (3),
+.BR io_uring_register (2),
+.BR posix_madvise (2)

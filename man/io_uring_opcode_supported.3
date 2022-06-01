@@ -4,15 +4,14 @@
 .\"
 .TH io_uring_opcode_supported "January 25, 2022" "liburing-2.1" "liburing Manual"
 .SH NAME
-io_uring_opcode_supported - is op code supported?
+io_uring_opcode_supported \- is op code supported?
 .SH SYNOPSIS
 .nf
-.BR "#include <liburing.h>"
+.B #include <liburing.h>
 .PP
 .BI "int io_uring_opcode_supported(struct io_uring_probe *" probe ","
 .BI "                              int " opcode ");"
 .fi
-.PP
 .SH DESCRIPTION
 .PP
 The function

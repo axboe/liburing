@@ -4,19 +4,18 @@
 .\"
 .TH io_uring_prep_tee 3 "March 13, 2022" "liburing-2.2" "liburing Manual"
 .SH NAME
-io_uring_prep_tee  - prepare a tee request
-.fi
+io_uring_prep_tee \- prepare a tee request
 .SH SYNOPSIS
 .nf
-.BR "#include <fcntl.h>"
-.BR "#include <liburing.h>"
+.B #include <fcntl.h>
+.B #include <liburing.h>
 .PP
 .BI "void io_uring_prep_tee(struct io_uring_sqe *" sqe ","
 .BI "                       int " fd_in ","
 .BI "                       int " fd_out ","
 .BI "                       unsigned int " nbytes ","
 .BI "                       unsigned int " splice_flags ");"
-.PP
+.fi
 .SH DESCRIPTION
 .PP
 The
@@ -61,11 +60,15 @@ details on possible values. Note that where synchronous system calls will return
 on failure and set
 .I errno
 to the actual error value, io_uring never uses
-.I errno.
+.IR errno .
 Instead it returns the negated
 .I errno
 directly in the CQE
 .I res
 field.
 .SH SEE ALSO
-.BR io_uring_get_sqe (3), io_uring_submit (3), io_uring_register (2), splice (2), tee (2)
+.BR io_uring_get_sqe (3),
+.BR io_uring_submit (3),
+.BR io_uring_register (2),
+.BR splice (2),
+.BR tee (2)

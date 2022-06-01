@@ -4,18 +4,17 @@
 .\"
 .TH io_uring_prep_msg_ring 3 "March 10, 2022" "liburing-2.2" "liburing Manual"
 .SH NAME
-io_uring_prep_msg_ring   - send a message to another ring
-
+io_uring_prep_msg_ring \- send a message to another ring
 .SH SYNOPSIS
 .nf
-.BR "#include <liburing.h>"
+.B #include <liburing.h>
 .PP
 .BI "void io_uring_prep_msg_ring(struct io_uring_sqe *" sqe ","
 .BI "                        int " fd ","
 .BI "                        unsigned int " len ","
 .BI "                        __u64 " data ","
 .BI "                        unsigned int " flags ");"
-
+.fi
 .SH DESCRIPTION
 .PP
 .BR io_uring_prep_msg_ring (3)
@@ -23,20 +22,20 @@ prepares a to send a CQE to an io_uring file descriptor. The submission queue
 entry
 .I sqe
 is setup to use the file descriptor
-.I fd
-, which must identify a io_uring context, to post a CQE on that ring where
-the target CQE
-.BR res
+.IR fd ,
+which must identify a io_uring context, to post a CQE on that ring where the
+target CQE
+.B res
 field will contain the content of
 .I len
 and the
-.BR user_data
+.B user_data
 of
 .I data
 with the request modifier flags set by
-.I flags.
+.IR flags .
 Currently there are no valid flag modifiers, this field must contain
-.B 0.
+.BR 0 .
 
 The targeted ring may be any ring that the user has access to, even the ring
 itself. This request can be used for simple message passing to another ring,

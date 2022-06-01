@@ -5,20 +5,19 @@
 .\"
 .TH io_uring_queue_init 3 "July 10, 2020" "liburing-0.7" "liburing Manual"
 .SH NAME
-io_uring_queue_init - setup io_uring submission and completion queues
+io_uring_queue_init \- setup io_uring submission and completion queues
 .SH SYNOPSIS
 .nf
-.BR "#include <liburing.h>"
+.B #include <liburing.h>
 .PP
 .BI "int io_uring_queue_init(unsigned " entries ","
 .BI "                        struct io_uring *" ring ","
 .BI "                        unsigned " flags ");"
-.BI "
+.PP
 .BI "int io_uring_queue_init_params(unsigned " entries ","
 .BI "                               struct io_uring *" ring ","
 .BI "                               struct io_uring_params *" params ");"
 .fi
-.PP
 .SH DESCRIPTION
 .PP
 The
@@ -50,14 +49,14 @@ in
 .I struct io_uring_params
 will tell the kernel to allocate this many entries for the CQ ring, independent
 of the SQ ring size in given in
-.I entries.
+.IR entries .
 If the value isn't a power of 2, it will be rounded up to the nearest power of
 2.
 
 On success io_uring_queue_init() returns 0 and
 .I ring
 will point to the shared memory containing the io_uring queues. On failure
-.BR -errno
+.B -errno
 is returned.
 
 .I flags

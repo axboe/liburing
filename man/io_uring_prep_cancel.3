@@ -4,20 +4,19 @@
 .\"
 .TH io_uring_prep_cancel 3 "March 12, 2022" "liburing-2.2" "liburing Manual"
 .SH NAME
-io_uring_prep_cancel  - prepare a cancelation request
-.fi
+io_uring_prep_cancel \- prepare a cancelation request
 .SH SYNOPSIS
 .nf
-.BR "#include <liburing.h>"
+.B #include <liburing.h>
 .PP
 .BI "void io_uring_prep_cancel(struct io_uring_sqe *" sqe ","
 .BI "                          __u64 " user_data ","
 .BI "                          int " flags ");"
-.BI "
+.PP
 .BI "void io_uring_prep_cancel_fd(struct io_uring_sqe *" sqe ","
 .BI "                          int " fd ","
 .BI "                          int " flags ");"
-.PP
+.fi
 .SH DESCRIPTION
 .PP
 The
@@ -25,7 +24,7 @@ The
 function prepares a cancelation request. The submission queue entry
 .I sqe
 is prepared to cancel an existing request identified by
-.I user_data.
+.IR user_data .
 For the
 .I flags
 argument, see below.
@@ -39,11 +38,11 @@ their
 field in the SQE.
 
 The
-.BR io_uring_prep_cancel_fd()
+.BR io_uring_prep_cancel_fd (3)
 function prepares a cancelation request. The submission queue entry
 .I sqe
 is prepared to cancel an existing request that used the file descriptor
-.I fd.
+.IR fd .
 For the
 .I flags
 argument, see below.
@@ -97,4 +96,6 @@ is no longer possible. This should normally mean that it will complete shortly,
 either successfully, or interrupted due to the cancelation.
 
 .SH SEE ALSO
-.BR io_uring_prep_poll_remove (3), io_uring_get_sqe (3), io_uring_submit (3)
+.BR io_uring_prep_poll_remove (3),
+.BR io_uring_get_sqe (3),
+.BR io_uring_submit (3)

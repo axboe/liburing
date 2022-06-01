@@ -4,14 +4,13 @@
 .\"
 .TH io_uring_cq_ready "January 25, 2022" "liburing-2.1" "liburing Manual"
 .SH NAME
-io_uring_cq_ready - returns number of unconsumed ready entries in the CQ ring
+io_uring_cq_ready \- returns number of unconsumed ready entries in the CQ ring
 .SH SYNOPSIS
 .nf
-.BR "#include <liburing.h>"
+.B #include <liburing.h>
 .PP
 .BI "unsigned io_uring_cq_ready(const struct io_uring *" ring ");"
 .fi
-.PP
 .SH DESCRIPTION
 .PP
 The
@@ -23,4 +22,5 @@ param.
 .SH RETURN VALUE
 Returns the number of unconsumed ready entries in the CQ ring.
 .SH SEE ALSO
-.BR io_uring_submit (3),  io_uring_wait_cqe (3)
+.BR io_uring_submit (3),
+.BR io_uring_wait_cqe (3)

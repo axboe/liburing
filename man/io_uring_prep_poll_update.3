@@ -4,19 +4,18 @@
 .\"
 .TH io_uring_prep_poll_update 3 "March 12, 2022" "liburing-2.2" "liburing Manual"
 .SH NAME
-io_uring_prep_poll_update  - update an existing poll request
-.fi
+io_uring_prep_poll_update \- update an existing poll request
 .SH SYNOPSIS
 .nf
-.BR "#include <poll.h>"
-.BR "#include <liburing.h>"
+.B #include <poll.h>
+.B #include <liburing.h>
 .PP
 .BI "void io_uring_prep_poll_update(struct io_uring_sqe *" sqe ","
 .BI "                               __u64 " old_user_data ","
 .BI "                               __u64 " new_user_data ","
 .BI "                               unsigned " poll_mask ","
 .BI "                               unsigned " flags ");"
-
+.fi
 .SH DESCRIPTION
 .PP
 The
@@ -24,7 +23,7 @@ The
 function prepares a poll update request. The submission queue entry
 .I sqe
 is setup to update a poll request identified by
-.I old_user_data,
+.IR old_user_data ,
 replacing it with the
 .I new_user_data
 information. The
@@ -84,4 +83,7 @@ was set and an error occurred re-arming the poll request with the new mask.
 The original poll request is terminated if this happens, and that termination
 CQE will contain the reason for the error re-arming.
 .SH SEE ALSO
-.BR io_uring_get_sqe (3), io_uring_submit (3), io_uring_prep_poll_add (3), io_uring_prep_poll_multishot (3)
+.BR io_uring_get_sqe (3),
+.BR io_uring_submit (3),
+.BR io_uring_prep_poll_add (3),
+.BR io_uring_prep_poll_multishot (3)

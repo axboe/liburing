@@ -4,43 +4,42 @@
 .\"
 .TH io_uring_prep_accept 3 "March 13, 2022" "liburing-2.2" "liburing Manual"
 .SH NAME
-io_uring_prep_accept  - prepare an accept request
-.fi
+io_uring_prep_accept \- prepare an accept request
 .SH SYNOPSIS
 .nf
-.BR "#include <sys/socket.h>"
-.BR "#include <liburing.h>"
+.B #include <sys/socket.h>
+.B #include <liburing.h>
 .PP
 .BI "void io_uring_prep_accept(struct io_uring_sqe *" sqe ","
 .BI "                          int " sockfd ","
 .BI "                          struct sockaddr *" addr ","
 .BI "                          socklen_t " addrlen ","
 .BI "                          int " flags ");"
-.BI "
+.PP
 .BI "void io_uring_prep_accept_direct(struct io_uring_sqe *" sqe ","
 .BI "                                 int " sockfd ","
 .BI "                                 struct sockaddr *" addr ","
 .BI "                                 socklen_t " addrlen ","
 .BI "                                 int " flags ","
 .BI "                                 unsigned int " file_index ");"
-.BI "
+.PP
 .BI "void io_uring_prep_multishot_accept(struct io_uring_sqe *" sqe ","
 .BI "                                    int " sockfd ","
 .BI "                                    struct sockaddr *" addr ","
 .BI "                                    socklen_t " addrlen ","
 .BI "                                    int " flags ");"
-.BI "
+.PP
 .BI "void io_uring_prep_multishot_accept_direct(struct io_uring_sqe *" sqe ","
 .BI "                                           int " sockfd ","
 .BI "                                           struct sockaddr *" addr ","
 .BI "                                           socklen_t " addrlen ","
 .BI "                                           int " flags ");"
-.PP
+.fi
 .SH DESCRIPTION
 .PP
 The
-.BR io_uring_prep_accept (3) function prepares an accept request. The submission
-queue entry
+.BR io_uring_prep_accept (3)
+function prepares an accept request. The submission queue entry
 .I sqe
 is setup to use the file descriptor
 .I sockfd
@@ -49,7 +48,7 @@ to start accepting a connection request described by the socket address at
 and of structure length
 .I addrlen
 and using modifier flags in
-.I flags.
+.IR flags .
 
 For a direct descriptor accept request, the offset is specified by the
 .I file_index
@@ -88,10 +87,10 @@ return.
 For a direct descriptor accept request, the
 .I file_index
 argument can be set to
-.B IORING_FILE_INDEX_ALLOC,
+.BR IORING_FILE_INDEX_ALLOC ,
 In this case a free entry in io_uring file table will
 be used automatically and the file index will be returned as CQE
-.I res.
+.IR res .
 .B -ENFILE
 is otherwise returned if there is no free entries in the io_uring file table.
 
@@ -110,7 +109,7 @@ For multishot with direct descriptors,
 must be used as the file descriptor. This tells io_uring to allocate a free
 direct descriptor from our table, rather than the application passing one in.
 Failure to do so will result in the accept request being terminated with
-.B -EINVAL.
+.BR -EINVAL .
 The allocated descriptor will be returned in the CQE
 .I res
 field, like a non-direct accept request.
@@ -137,7 +136,7 @@ non-direct accept. Note that where synchronous system calls will return
 on failure and set
 .I errno
 to the actual error value, io_uring never uses
-.I errno.
+.IR errno .
 Instead it returns the negated
 .I errno
 directly in the CQE
@@ -154,4 +153,7 @@ behavior by inspecting the
 flag passed back from
 .BR io_uring_queue_init_params (3).
 .SH SEE ALSO
-.BR io_uring_get_sqe (3), io_uring_submit (3), io_uring_register (2), accept4 (2)
+.BR io_uring_get_sqe (3),
+.BR io_uring_submit (3),
+.BR io_uring_register (2),
+.BR accept4 (2)

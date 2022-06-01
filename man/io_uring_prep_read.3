@@ -4,18 +4,17 @@
 .\"
 .TH io_uring_prep_read 3 "November 15, 2021" "liburing-2.1" "liburing Manual"
 .SH NAME
-io_uring_prep_read   - prepare I/O read request
-
+io_uring_prep_read \- prepare I/O read request
 .SH SYNOPSIS
 .nf
-.BR "#include <liburing.h>"
+.B #include <liburing.h>
 .PP
 .BI "void io_uring_prep_read(struct io_uring_sqe *" sqe ","
 .BI "                        int " fd ","
 .BI "                        void *" buf ","
 .BI "                        unsigned " nbytes ","
 .BI "                        __u64 " offset ");"
-
+.fi
 .SH DESCRIPTION
 .PP
 The
@@ -29,10 +28,10 @@ to start reading
 into the buffer
 .I buf
 at the specified
-.I offset.
+.IR offset .
 
 On files that support seeking, if the offset is set to
-.B -1,
+.BR -1 ,
 the read operation commences at the file offset, and the file offset is
 incremented by the number of bytes read. See
 .BR read (2)
@@ -57,11 +56,14 @@ details on possible values. Note that where synchronous system calls will return
 on failure and set
 .I errno
 to the actual error value, io_uring never uses
-.I errno.
+.IR errno .
 Instead it returns the negated
 .I errno
 directly in the CQE
 .I res
 field.
 .SH SEE ALSO
-.BR io_uring_get_sqe (3), io_uring_prep_readv (3), io_uring_prep_readv2 (3), io_uring_submit(3)
+.BR io_uring_get_sqe (3),
+.BR io_uring_prep_readv (3),
+.BR io_uring_prep_readv2 (3),
+.BR io_uring_submit (3)

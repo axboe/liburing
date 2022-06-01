@@ -4,26 +4,25 @@
 .\"
 .TH io_uring_prep_socket 3 "May 27, 2022" "liburing-2.2" "liburing Manual"
 .SH NAME
-io_uring_prep_socket  - prepare a socket creation request
-.fi
+io_uring_prep_socket \- prepare a socket creation request
 .SH SYNOPSIS
 .nf
-.BR "#include <sys/socket.h>"
-.BR "#include <liburing.h>"
+.B #include <sys/socket.h>
+.B #include <liburing.h>
 .PP
 .BI "void io_uring_prep_socket(struct io_uring_sqe *" sqe ","
 .BI "                          int " domain ","
 .BI "                          int " type ","
 .BI "                          int " protocol ","
 .BI "                          unsigned int " flags ");"
-.BI "
+.PP
 .BI "void io_uring_prep_socket_direct(struct io_uring_sqe *" sqe ","
 .BI "                                 int " domain ","
 .BI "                                 int " type ","
 .BI "                                 int " protocol ","
 .BI "                                 unsigned int " file_index ","
 .BI "                                 unsigned int " flags ");"
-.PP
+.fi
 .SH DESCRIPTION
 .PP
 The
@@ -35,7 +34,7 @@ is setup to use the communication domain defined by
 and use the communication type defined by
 .I type
 and the protocol set by
-.I protocol.
+.IR protocol .
 The
 .I flags
 argument are currently unused.
@@ -68,10 +67,10 @@ existing file with
 For a direct descriptor socket request, the
 .I file_index
 argument can be set to
-.B IORING_FILE_INDEX_ALLOC,
+.BR IORING_FILE_INDEX_ALLOC ,
 In this case a free entry in io_uring file table will
 be used automatically and the file index will be returned as CQE
-.I res.
+.IR res .
 .B -ENFILE
 is otherwise returned if there is no free entries in the io_uring file table.
 
@@ -86,11 +85,13 @@ details on possible values. Note that where synchronous system calls will return
 on failure and set
 .I errno
 to the actual error value, io_uring never uses
-.I errno.
+.IR errno .
 Instead it returns the negated
 .I errno
 directly in the CQE
 .I res
 field.
 .SH SEE ALSO
-.BR io_uring_get_sqe (3), io_uring_submit (3), socket (2)
+.BR io_uring_get_sqe (3),
+.BR io_uring_submit (3),
+.BR socket (2)

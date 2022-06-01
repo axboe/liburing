@@ -4,19 +4,18 @@
 .\"
 .TH io_uring_prep_connect 3 "March 13, 2022" "liburing-2.2" "liburing Manual"
 .SH NAME
-io_uring_prep_connect  - prepare a connect request
-.fi
+io_uring_prep_connect \- prepare a connect request
 .SH SYNOPSIS
 .nf
-.BR "#include <sys/types.h>"
-.BR "#include <sys/socket.h>"
-.BR "#include <liburing.h>"
+.B #include <sys/types.h>
+.B #include <sys/socket.h>
+.B #include <liburing.h>
 .PP
 .BI "void io_uring_prep_connect(struct io_uring_sqe *" sqe ","
 .BI "                           int " sockfd ","
 .BI "                           const struct sockaddr *" addr ","
 .BI "                           socklen_t " addrlen ");"
-.PP
+.fi
 .SH DESCRIPTION
 .PP
 The
@@ -28,7 +27,7 @@ is setup to use the file descriptor
 to start connecting to the destination described by the socket address at
 .I addr
 and of structure length
-.I addrlen.
+.IR addrlen .
 
 This function prepares an async
 .BR connect (2)
@@ -45,7 +44,7 @@ details on possible values. Note that where synchronous system calls will return
 on failure and set
 .I errno
 to the actual error value, io_uring never uses
-.I errno.
+.IR errno .
 Instead it returns the negated
 .I errno
 directly in the CQE
@@ -62,4 +61,6 @@ behavior by inspecting the
 flag passed back from
 .BR io_uring_queue_init_params (3).
 .SH SEE ALSO
-.BR io_uring_get_sqe (3), io_uring_submit (3), connect (2)
+.BR io_uring_get_sqe (3),
+.BR io_uring_submit (3),
+.BR connect (2)

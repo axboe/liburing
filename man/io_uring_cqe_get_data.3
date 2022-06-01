@@ -4,20 +4,19 @@
 .\"
 .TH io_uring_cqe_get_data 3 "November 15, 2021" "liburing-2.1" "liburing Manual"
 .SH NAME
-io_uring_cqe_get_data - get user data for completion event
+io_uring_cqe_get_data \- get user data for completion event
 .SH SYNOPSIS
 .nf
-.BR "#include <liburing.h>"
+.B #include <liburing.h>
 .PP
 .BI "void *io_uring_cqe_get_data(struct io_uring_cqe *" cqe ");"
 .fi
-.PP
 .SH DESCRIPTION
 .PP
 The
-.BR io_uring_cqe_get_data (3) function returns the user_data with the completion
-queue entry
-.I cqe.
+.BR io_uring_cqe_get_data (3)
+function returns the user_data with the completion queue entry
+.IR cqe .
 
 After the caller has received a completion queue entry (CQE) with
 .BR io_uring_wait_cqe (3),
@@ -36,4 +35,6 @@ If the
 value has been set before submitting the request, it will be returned. Otherwise
 the functions returns NULL.
 .SH SEE ALSO
-.BR io_uring_get_sqe (3), io_uring_sqe_set_data (3),  io_uring_sqe_submit(3)
+.BR io_uring_get_sqe (3),
+.BR io_uring_sqe_set_data (3),
+.BR io_uring_sqe_submit (3)

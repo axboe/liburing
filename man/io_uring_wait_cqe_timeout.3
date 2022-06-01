@@ -4,24 +4,25 @@
 .\"
 .TH io_uring_wait_cqe_timeout 3 "November 15, 2021" "liburing-2.1" "liburing Manual"
 .SH NAME
-io_uring_wait_cqe_timeout - wait for one io_uring completion event with timeout
+io_uring_wait_cqe_timeout \- wait for one io_uring completion event with timeout
 .SH SYNOPSIS
 .nf
-.BR "#include <liburing.h>"
+.B #include <liburing.h>
 .PP
 .BI "int io_uring_wait_cqe_timeout(struct io_uring *" ring ","
 .BI "                              struct io_uring_cqe **" cqe_ptr ","
 .BI "                              struct __kernel_timespec *" ts ");"
-.PP
+.fi
 .SH DESCRIPTION
 .PP
 The
-.BR io_uring_wait_cqe_timeout (3) function waits for one IO completion to be
-available from the queue belonging to the
+.BR io_uring_wait_cqe_timeout (3)
+function waits for one IO completion to be available from the queue belonging
+to the
 .I ring
 param, waiting for it if necessary or until the timeout
 .I ts
-expires.If an event is already available in the ring when invoked, no waiting
+expires. If an event is already available in the ring when invoked, no waiting
 will occur.
 
 The
@@ -42,8 +43,10 @@ when waiting for a request.
 .SH RETURN VALUE
 On success
 .BR io_uring_wait_cqes (3)
-returns 0 and the cqe_ptr parm is filled in. On failure it returns -errno.
-The return value indicates the result of waiting for a CQE, and it has no
-relation to the CQE result itself.
+returns 0 and the cqe_ptr parm is filled in. On failure it returns -errno. The
+return value indicates the result of waiting for a CQE, and it has no relation
+to the CQE result itself.
 .SH SEE ALSO
-.BR io_uring_submit (3),  io_uring_wait_cqe_timeout (3), io_uring_wait_cqe(3).
+.BR io_uring_submit (3),
+.BR io_uring_wait_cqe_timeout (3),
+.BR io_uring_wait_cqe (3)

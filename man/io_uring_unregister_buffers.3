@@ -4,20 +4,19 @@
 .\"
 .TH io_uring_unregister_buffers 3 "November 15, 2021" "liburing-2.1" "liburing Manual"
 .SH NAME
-io_uring_unregister_buffers - unregister buffers for fixed buffer operations
-.fi
+io_uring_unregister_buffers \- unregister buffers for fixed buffer operations
 .SH SYNOPSIS
 .nf
-.BR "#include <liburing.h>"
+.B #include <liburing.h>
 .PP
 .BI "int io_uring_unregister_buffers(struct io_uring *" ring ");"
-.PP
+.fi
 .SH DESCRIPTION
 .PP
 The
 .BR io_uring_unregister_buffers (3)
 function unregisters the fixed buffers previously registered to the
-.I ring.
+.IR ring .
 
 .SH RETURN VALUE
 On success
