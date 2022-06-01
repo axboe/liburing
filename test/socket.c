@@ -254,8 +254,8 @@ static int do_send(int socket_direct, int alloc)
 		unsigned file_index = 0;
 		if (alloc)
 			file_index = IORING_FILE_INDEX_ALLOC - 1;
-		io_uring_prep_socket_direct(sqe, AF_INET, SOCK_DGRAM, 0, 0,
-						file_index);
+		io_uring_prep_socket_direct(sqe, AF_INET, SOCK_DGRAM, 0,
+						file_index, 0);
 	} else {
 		io_uring_prep_socket(sqe, AF_INET, SOCK_DGRAM, 0, 0);
 	}
