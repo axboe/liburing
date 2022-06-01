@@ -32,9 +32,6 @@ to start a mkdirat operation on the path identified by
 .I path
 with the mode given in
 .IR mode .
-This function prepares an async
-.BR mkdirat (2)
-request. See that man page for details.
 
 The
 .BR io_uring_prep_mkdir (3)
@@ -45,8 +42,11 @@ operation on the path identified by
 .I path
 with the mode given in
 .IR mode .
+
 This function prepares an async
 .BR mkdir (2)
+or
+.BR mkdirat (2)
 request. See that man page for details.
 
 

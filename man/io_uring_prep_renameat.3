@@ -39,13 +39,6 @@ and the new path pointed to by
 .I newpath
 and using the specified flags in
 .IR flags .
-This function prepares an async
-.BR renameat2 (2)
-request. If
-.I flags
-is zero, then this call is similar to the
-.BR renameat (2)
-system call. See those man page for details.
 
 The
 .BR io_uring_prep_rename (3)
@@ -57,9 +50,17 @@ with the new path pointed to by
 .IR newpath ,
 both relative to the current working directory and using the specified flags in
 .IR flags .
+
 This function prepares an async
+.BR renameat2 (2)
+or
 .BR rename (2)
-request See that man page for details.
+request. If
+.I flags
+is zero, then this call is similar to the
+.BR renameat (2)
+system call. See those man page for details.
+
 
 .SH RETURN VALUE
 None

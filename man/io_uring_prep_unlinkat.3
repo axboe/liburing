@@ -32,9 +32,6 @@ to start an unlinkat operation on the path identified by
 .I path
 and using the flags given in
 .IR flags .
-This function prepares an async
-.BR unlinkat (2)
-request. See that man page for details.
 
 The
 .BR io_uring_prep_unlink (3)
@@ -44,10 +41,12 @@ is setup to start an unlinkat operation on the path identified by
 .I path
 relative to the current working directory and using the flags given in
 .IR flags .
+
 This function prepares an async
+.BR unlinkat (2)
+or
 .BR unlink (2)
 request. See that man page for details.
-
 
 .SH RETURN VALUE
 None

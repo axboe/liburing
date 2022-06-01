@@ -39,8 +39,11 @@ and the new path pointed to by
 .I newpath
 and using the specified flags in
 .IR flags .
+
 This function prepares an async
 .BR linkat (2)
+or
+.BR link (2)
 request. See that man page for details.
 
 The
@@ -53,9 +56,6 @@ and the new path pointed to by
 .IR newpath ,
 both relative to the current working directory and using the specified flags in
 .IR flags .
-This function prepares an async
-.BR link (2)
-request. See that man page for details.
 
 .SH RETURN VALUE
 None
