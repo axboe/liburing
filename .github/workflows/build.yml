@@ -48,6 +48,41 @@ jobs:
             cc: arm-linux-gnueabi-gcc
             cxx: arm-linux-gnueabi-g++
 
+          # powerpc64
+          - arch: powerpc64
+            cc_pkg: gcc-powerpc64-linux-gnu
+            cxx_pkg: g++-powerpc64-linux-gnu
+            cc: powerpc64-linux-gnu-gcc
+            cxx: powerpc64-linux-gnu-g++
+
+          # powerpc
+          - arch: powerpc
+            cc_pkg: gcc-powerpc-linux-gnu
+            cxx_pkg: g++-powerpc-linux-gnu
+            cc: powerpc-linux-gnu-gcc
+            cxx: powerpc-linux-gnu-g++
+
+          # alpha
+          - arch: alpha
+            cc_pkg: gcc-alpha-linux-gnu
+            cxx_pkg: g++-alpha-linux-gnu
+            cc: alpha-linux-gnu-gcc
+            cxx: alpha-linux-gnu-g++
+
+          # mips64
+          - arch: mips64
+            cc_pkg: gcc-mips64-linux-gnuabi64
+            cxx_pkg: g++-mips64-linux-gnuabi64
+            cc: mips64-linux-gnuabi64-gcc
+            cxx: mips64-linux-gnuabi64-g++
+
+          # mips
+          - arch: mips
+            cc_pkg: gcc-mips-linux-gnu
+            cxx_pkg: g++-mips-linux-gnu
+            cc: mips-linux-gnu-gcc
+            cxx: mips-linux-gnu-g++
+
     env:
       FLAGS: -g -O2 -Wall -Wextra -Werror
 
@@ -57,8 +92,15 @@ jobs:
 
     - name: Install Compilers
       run: |
-        sudo apt-get update -y;
-        sudo apt-get install -y ${{matrix.cc_pkg}} ${{matrix.cxx_pkg}};
+        if [[ "${{matrix.cc_pkg}}" == "clang" ]]; then \
+            wget https://apt.llvm.org/llvm.sh -O /tmp/llvm.sh; \
+            sudo bash /tmp/llvm.sh 15; \
+            sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-15 400; \
+            sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-15 400; \
+        else \
+            sudo apt-get update -y; \
+            sudo apt-get install -y ${{matrix.cc_pkg}} ${{matrix.cxx_pkg}}; \
+        fi;
 
     - name: Display compiler versions
       run: |
