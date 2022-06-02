@@ -76,6 +76,13 @@ jobs:
             cc: mips64-linux-gnuabi64-gcc
             cxx: mips64-linux-gnuabi64-g++
 
+          # mips
+          - arch: mips
+            cc_pkg: gcc-mips-linux-gnu
+            cxx_pkg: g++-mips-linux-gnu
+            cc: mips-linux-gnu-gcc
+            cxx: mips-linux-gnu-g++
+
     env:
       FLAGS: -g -O2 -Wall -Wextra -Werror
 
