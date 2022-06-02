@@ -48,6 +48,13 @@ jobs:
             cc: arm-linux-gnueabi-gcc
             cxx: arm-linux-gnueabi-g++
 
+          # powerpc64
+          - arch: powerpc64
+            cc_pkg: gcc-powerpc64-linux-gnu
+            cxx_pkg: g++-powerpc64-linux-gnu
+            cc: powerpc64-linux-gnu-gcc
+            cxx: powerpc64-linux-gnu-g++
+
     env:
       FLAGS: -g -O2 -Wall -Wextra -Werror
 
