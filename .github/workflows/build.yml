@@ -69,6 +69,13 @@ jobs:
             cc: alpha-linux-gnu-gcc
             cxx: alpha-linux-gnu-g++
 
+          # mips64
+          - arch: mips64
+            cc_pkg: gcc-mips64-linux-gnuabi64
+            cxx_pkg: g++-mips64-linux-gnuabi64
+            cc: mips64-linux-gnuabi64-gcc
+            cxx: mips64-linux-gnuabi64-g++
+
     env:
       FLAGS: -g -O2 -Wall -Wextra -Werror
 
