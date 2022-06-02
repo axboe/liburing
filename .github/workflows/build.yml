@@ -55,6 +55,13 @@ jobs:
             cc: powerpc64-linux-gnu-gcc
             cxx: powerpc64-linux-gnu-g++
 
+          # powerpc
+          - arch: powerpc
+            cc_pkg: gcc-powerpc-linux-gnu
+            cxx_pkg: g++-powerpc-linux-gnu
+            cc: powerpc-linux-gnu-gcc
+            cxx: powerpc-linux-gnu-g++
+
     env:
       FLAGS: -g -O2 -Wall -Wextra -Werror
 
