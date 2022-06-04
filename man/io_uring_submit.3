@@ -20,7 +20,8 @@ function submits the next events to the submission queue belonging to the
 
 After the caller retrieves a submission queue entry (SQE) with
 .BR io_uring_get_sqe (3)
-and prepares the SQE, it can be submitted with io_uring_submit().
+and prepares the SQE using one of the provided helpers, it can be submitted with
+.BR io_uring_submit (3) .
 
 .SH RETURN VALUE
 On success

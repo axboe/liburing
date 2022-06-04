@@ -53,10 +53,12 @@ of the SQ ring size in given in
 If the value isn't a power of 2, it will be rounded up to the nearest power of
 2.
 
-On success io_uring_queue_init() returns 0 and
+On success,
+.BR io_uring_queue_init (3)
+returns 0 and
 .I ring
 will point to the shared memory containing the io_uring queues. On failure
-.B -errno
+.BR -errno
 is returned.
 
 .I flags
@@ -77,7 +79,9 @@ should be released via a corresponding call to
 .BR io_uring_queue_exit (3).
 .SH RETURN VALUE
 .BR io_uring_queue_init (3)
-returns 0 on success and -errno on failure.
+returns 0 on success and
+.BR -errno
+on failure.
 .SH SEE ALSO
 .BR io_uring_setup (2),
 .BR io_uring_register_ring_fd (3),

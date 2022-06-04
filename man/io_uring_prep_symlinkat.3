@@ -32,9 +32,6 @@ to the new destination indicated by
 .I newdirfd
 and
 .IR linkpath .
-This function prepares an async
-.BR symlinkat (2)
-request. See that man page for details.
 
 The
 .BR io_uring_prep_symlink (3)
@@ -47,6 +44,12 @@ to the new destination indicated by
 relative to the the current working directory. This function prepares an async
 .BR symlink (2)
 request. See that man page for details.
+
+These functions prepare an async
+.BR symlinkat (2)
+or
+.BR symlink (2)
+request. See those man pages for details.
 
 .SH RETURN VALUE
 None

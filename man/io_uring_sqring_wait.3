@@ -21,7 +21,9 @@ param, which happens when the kernel side thread
 has consumed one or more entries. If the SQ ring is currently non-full,
 no action is taken.
 
-This feature can only be used when SQPOLL is enabled.
+This feature can only be used when the ring has been setup with
+.B IORING_SETUP_SQPOLL
+and hence is using an offloaded approach to request submissions.
 
 .SH RETURN VALUE
 On success it returns the free space. If the kernel does not support the

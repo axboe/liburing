@@ -40,12 +40,6 @@ and the new path pointed to by
 and using the specified flags in
 .IR flags .
 
-This function prepares an async
-.BR linkat (2)
-or
-.BR link (2)
-request. See that man page for details.
-
 The
 .BR io_uring_prep_link (3)
 function prepares a link request. The submission queue entry
@@ -56,6 +50,12 @@ and the new path pointed to by
 .IR newpath ,
 both relative to the current working directory and using the specified flags in
 .IR flags .
+
+These functions prepare an async
+.BR linkat (2)
+or
+.BR link (2)
+request. See those man pages for details.
 
 .SH RETURN VALUE
 None

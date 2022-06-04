@@ -11,6 +11,9 @@ io_uring_sqe_set_data \- set user data for submission queue event
 .PP
 .BI "void io_uring_sqe_set_data(struct io_uring_sqe *" sqe ","
 .BI "                           void *" user_data ");"
+.BI "
+.BI "void io_uring_sqe_set_data64(struct io_uring_sqe *" sqe ","
+.BI "                             __u64 " data ");"
 .fi
 .SH DESCRIPTION
 .PP
@@ -21,9 +24,22 @@ function stores a
 pointer with the submission queue entry
 .IR sqe .
 
-After the caller has requested an submission queue entry (SQE) with io_uring_get_sqe(),
-he can associate a data pointer with the SQE. Once the completion arrives, the
-function io_uring_cqe_get_data() can be called to identify the user request.
+The
+.BR io_uring_sqe_set_data64 (3)
+function stores a 64-bit
+.I data
+value with the submission queue entry
+.IR sqe .
+
+After the caller has requested a submission queue entry (SQE) with
+.BR io_uring_get_sqe (3) ,
+they can associate a data pointer or value with the SQE. Once the completion
+arrives, the function
+.BR io_uring_cqe_get_data (3)
+or
+.BR io_uring_cqe_get_data64 (3)
+can be called to retrieve the data pointer or value associated with the
+submitted request.
 
 .SH RETURN VALUE
 None

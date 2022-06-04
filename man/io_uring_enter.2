@@ -441,7 +441,7 @@ clock source. The request will complete with
 if the timeout got completed through expiration of the timer, or
 .I 0
 if the timeout got completed through requests completing on their own. If
-the timeout was cancelled before it expired, the request will complete with
+the timeout was canceled before it expired, the request will complete with
 .I -ECANCELED.
 Available since 5.4.
 
@@ -476,7 +476,7 @@ operation.
 must contain the
 .I user_data
 field of the previously issued timeout operation. If the specified timeout
-request is found and cancelled successfully, this request will terminate
+request is found and canceled successfully, this request will terminate
 with a result value of
 .I 0
 If the timeout request was found but expiration was already in progress,
@@ -542,16 +542,16 @@ Attempt to cancel an already issued request.
 .I addr
 must contain the
 .I user_data
-field of the request that should be cancelled. The cancellation request will
+field of the request that should be canceled. The cancelation request will
 complete with one of the following results codes. If found, the
 .I res
 field of the cqe will contain 0. If not found,
 .I res
-will contain -ENOENT. If found and attempted cancelled, the
+will contain -ENOENT. If found and attempted canceled, the
 .I res
 field will contain -EALREADY. In this case, the request may or may not
 terminate. In general, requests that are interruptible (like socket IO) will
-get cancelled, while disk IO requests cannot be cancelled if already started.
+get canceled, while disk IO requests cannot be canceled if already started.
 Available since 5.5.
 
 .TP
@@ -569,9 +569,9 @@ If used, the timeout specified in the command will cancel the linked command,
 unless the linked command completes before the timeout. The timeout will
 complete with
 .I -ETIME
-if the timer expired and the linked request was attempted cancelled, or
+if the timer expired and the linked request was attempted canceled, or
 .I -ECANCELED
-if the timer got cancelled because of completion of the linked request. Like
+if the timer got canceled because of completion of the linked request. Like
 .B IORING_OP_TIMEOUT
 the clock source used is
 .B CLOCK_MONOTONIC
@@ -1138,7 +1138,7 @@ opcode specific and is the same as with breaking chains of
 One special case is when the request has a linked timeout, then the CQE
 generation for the linked timeout is decided solely by whether it has
 .B IOSQE_CQE_SKIP_SUCCESS
-set, regardless whether it timed out or was cancelled. In other words, if a
+set, regardless whether it timed out or was canceled. In other words, if a
 linked timeout has the flag set, it's guaranteed to not post a CQE.
 
 The semantics are chosen to accommodate several use cases. First, when all but

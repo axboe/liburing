@@ -50,10 +50,6 @@ argument should be set to the slot that should be used for this socket, or
 .B IORING_FILE_INDEX_ALLOC
 if io_uring should allocate a free one.
 
-This function prepares an async
-.BR socket (2)
-request. See that man page for details.
-
 If the direct variant is used, the application must first have registered
 a file table using
 .BR io_uring_register_files (3)
@@ -73,6 +69,10 @@ be used automatically and the file index will be returned as CQE
 .IR res .
 .B -ENFILE
 is otherwise returned if there is no free entries in the io_uring file table.
+
+These functions prepare an async
+.BR socket (2)
+request. See that man page for details.
 
 .SH RETURN VALUE
 None
