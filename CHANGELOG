@@ -22,8 +22,8 @@ liburing-2.2 release
 - Add support for SQE128 and CQE32, which are doubly sized SQE and CQE
   rings. This is needed for some cases of the new IORING_OP_URING_CMD,
   notably for NVMe passthrough.
-- ~5000 lines of man page additions, including adding 87 new man pages.
+- ~5500 lines of man page additions, including adding ~90 new man pages.
 - Synced with the 5.19 kernel release, supporting all the features of
   5.19 and earlier.
-- 23 new regression test cases, and ~6000 lines of new tests in general.
+- 24 new regression test cases, and ~7000 lines of new tests in general.
 - General optimizations and fixes.
