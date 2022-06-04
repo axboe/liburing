@@ -36,7 +36,7 @@ into detail on how to bump the limit on various systems is beyond the scope
 of this little blurb, but check /etc/security/limits.conf for user specific
 settings, or /etc/systemd/user.conf and /etc/systemd/system.conf for systemd
 setups. This affects 5.11 and earlier, new kernels are less dependent
-on RLIMIT_MEMLOCK.
+on RLIMIT_MEMLOCK as it is only used for registering buffers.
 
 
 Regressions tests
