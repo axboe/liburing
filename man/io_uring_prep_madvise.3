@@ -11,7 +11,6 @@ io_uring_prep_madvise \- prepare a madvise request
 .B #include <liburing.h>
 .PP
 .BI "void io_uring_prep_madvise(struct io_uring_sqe *" sqe ","
-.BI "                           int " fd ","
 .BI "                           void *" addr ","
 .BI "                           off_t " len ","
 .BI "                           int " advice ");"
@@ -22,9 +21,7 @@ The
 .BR io_uring_prep_madvise (3)
 function prepares an madvise request. The submission queue entry
 .I sqe
-is setup to use the file descriptor pointed to by
-.I fd
-to start an madvise operation at the virtual address of
+is setup to start an madvise operation at the virtual address of
 .I addr
 and of
 .I len
@@ -32,7 +29,7 @@ length in bytes, giving it the advise located in
 .IR advice .
 
 This function prepares an async
-.BR posix_madvise (2)
+.BR madvise (2)
 request. See that man page for details.
 
 .SH RETURN VALUE
@@ -56,4 +53,4 @@ field.
 .BR io_uring_get_sqe (3),
 .BR io_uring_submit (3),
 .BR io_uring_register (2),
-.BR posix_madvise (2)
+.BR madvise (2)
