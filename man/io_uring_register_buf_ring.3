@@ -115,7 +115,9 @@ is the length of the buffer in bytes, and
 .I bid
 is the buffer ID that will be returned in the CQE once consumed.
 
-Reserved fields must not be touched. Applications may use
+Reserved fields must not be touched. Applications must use
+.BR io_uring_buf_ring_init (3)
+to initialise the buffer ring. Applications may use
 .BR io_uring_buf_ring_add (3)
 and
 .BR io_uring_buf_ring_advance (3)
@@ -131,6 +133,7 @@ On success
 returns 0. On failure it returns
 .BR -errno .
 .SH SEE ALSO
+.BR io_uring_buf_ring_init (3),
 .BR io_uring_buf_ring_add (3),
 .BR io_uring_buf_ring_advance (3),
 .BR io_uring_buf_ring_cq_advance (3)

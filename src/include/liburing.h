@@ -1097,6 +1097,11 @@ static inline int io_uring_buf_ring_mask(__u32 ring_entries)
 	return ring_entries - 1;
 }
 
+static inline void io_uring_buf_ring_init(struct io_uring_buf_ring *br)
+{
+	br->tail = 0;
+}
+
 /*
  * Assign 'buf' with the addr/len/buffer ID supplied
  */

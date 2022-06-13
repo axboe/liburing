@@ -199,6 +199,7 @@ static void *recv_fn(void *data)
 			}
 
 			br = ptr;
+			io_uring_buf_ring_init(br);
 			io_uring_buf_ring_add(br, buf, sizeof(buf), BUF_BID,
 					      io_uring_buf_ring_mask(1), 0);
 			io_uring_buf_ring_advance(br, 1);
