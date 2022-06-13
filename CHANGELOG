@@ -11,7 +11,7 @@ liburing-2.2 release
 - Add support for newer request cancelation features.
 - Add support for IORING_SETUP_COOP_TASKRUN, which can help reduce the
   overhead of io_uring in general. Most applications should set this flag,
-  see the io_uring_enter.3 man page for details.
+  see the io_uring_setup.2 man page for details.
 - Add support for registering a sparse buffer and file set.
 - Add support for a new buffer provide scheme, see
   io_uring_register_buf_ring.3 for details.
