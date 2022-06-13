@@ -234,22 +234,19 @@ static int test_one_nop(int bgid, struct io_uring *ring)
 		ret = -1;
 		goto out;
 	}
+	ret = cqe->res;
+	io_uring_cqe_seen(ring, cqe);
 
-	if (cqe->res == -ENOBUFS) {
-		ret = cqe->res;
-		goto out;
-	}
+	if (ret == -ENOBUFS)
+		return ret;
 
-	if (cqe->res != 0) {
+	if (ret != 0) {
 		fprintf(stderr, "nop result %d\n", ret);
-		ret = -1;
-		goto out;
+		return -1;
 	}
 
 	ret = cqe->flags >> 16;
-
 out:
-	io_uring_cqe_seen(ring, cqe);
 	return ret;
 }
 
