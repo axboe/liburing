@@ -206,9 +206,134 @@ static int test_reg_unreg(int bgid)
 	return 0;
 }
 
+static int test_one_nop(int bgid, struct io_uring *ring)
+{
+	int ret;
+	struct io_uring_cqe *cqe;
+	struct io_uring_sqe *sqe;
+
+	sqe = io_uring_get_sqe(ring);
+	if (!sqe) {
+		fprintf(stderr, "get sqe failed\n");
+		return -1;
+	}
+
+	io_uring_prep_nop(sqe);
+	sqe->flags |= IOSQE_BUFFER_SELECT;
+	sqe->buf_group = bgid;
+	ret = io_uring_submit(ring);
+	if (ret <= 0) {
+		fprintf(stderr, "sqe submit failed: %d\n", ret);
+		ret = -1;
+		goto out;
+	}
+
+	ret = io_uring_wait_cqe(ring, &cqe);
+	if (ret < 0) {
+		fprintf(stderr, "wait completion %d\n", ret);
+		ret = -1;
+		goto out;
+	}
+
+	if (cqe->res == -ENOBUFS) {
+		ret = cqe->res;
+		goto out;
+	}
+
+	if (cqe->res != 0) {
+		fprintf(stderr, "nop result %d\n", ret);
+		ret = -1;
+		goto out;
+	}
+
+	ret = cqe->flags >> 16;
+
+out:
+	io_uring_cqe_seen(ring, cqe);
+	return ret;
+}
+
+static int test_running(int bgid, int entries, int loops)
+{
+	struct io_uring_buf_reg reg = { };
+	struct io_uring ring;
+	void *ptr;
+	int ret;
+	int ring_size = (entries * sizeof(struct io_uring_buf) + 4095) & (~4095);
+	int ring_mask = io_uring_buf_ring_mask(entries);
+
+	int loop, idx;
+	bool *buffers;
+	struct io_uring_buf_ring *br;
+
+	ret = t_create_ring(1, &ring, 0);
+	if (ret == T_SETUP_SKIP)
+		return 0;
+	else if (ret != T_SETUP_OK)
+		return 1;
+
+	if (posix_memalign(&ptr, 4096, ring_size))
+		return 1;
+
+	br = (struct io_uring_buf_ring *)ptr;
+	io_uring_buf_ring_init(br);
+
+	buffers = malloc(sizeof(bool) * entries);
+	if (!buffers)
+		return 1;
+
+	reg.ring_addr = (unsigned long) ptr;
+	reg.ring_entries = entries;
+	reg.bgid = bgid;
+
+	ret = io_uring_register_buf_ring(&ring, &reg, 0);
+	if (ret) {
+		/* by now should have checked if this is supported or not */
+		fprintf(stderr, "Buffer ring register failed %d\n", ret);
+		return 1;
+	}
+
+	for (loop = 0; loop < loops; loop++) {
+		memset(buffers, 0, sizeof(bool) * entries);
+		for (idx = 0; idx < entries; idx++)
+			io_uring_buf_ring_add(br, ptr, 1, idx, ring_mask, idx);
+		io_uring_buf_ring_advance(br, entries);
+
+		for (idx = 0; idx < entries; idx++) {
+			ret = test_one_nop(bgid, &ring);
+			if (ret < 0) {
+				fprintf(stderr, "bad run %d/%d = %d\n", loop, idx, ret);
+				return ret;
+			}
+			if (buffers[ret]) {
+				fprintf(stderr, "reused buffer %d/%d = %d!\n", loop, idx, ret);
+				return 1;
+			}
+			buffers[ret] = true;
+		}
+		ret = test_one_nop(bgid, &ring);
+		if (ret != -ENOBUFS) {
+			fprintf(stderr, "expected enobufs run %d = %d\n", loop, ret);
+			return 1;
+		}
+
+	}
+
+	ret = io_uring_unregister_buf_ring(&ring, bgid);
+	if (ret) {
+		fprintf(stderr, "Buffer ring register failed %d\n", ret);
+		return 1;
+	}
+
+	io_uring_queue_exit(&ring);
+	free(buffers);
+	return 0;
+}
+
 int main(int argc, char *argv[])
 {
 	int bgids[] = { 1, 127, -1 };
+	int entries[] = {1, 32768, 4096, -1 };
 	int ret, i;
 
 	if (argc > 1)
@@ -238,6 +363,14 @@ int main(int argc, char *argv[])
 		ret = test_mixed_reg2(bgids[i]);
 		if (ret) {
 			fprintf(stderr, "test_mixed_reg2 failed\n");
+			return 1;
+		}
+	}
+
+	for (i = 0; !no_buf_ring && entries[i] != -1; i++) {
+		ret = test_running(2, entries[i], 3);
+		if (ret) {
+			fprintf(stderr, "test_running(%d) failed\n", entries[i]);
 			return 1;
 		}
 	}
