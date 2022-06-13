@@ -1090,13 +1090,22 @@ static inline struct io_uring_sqe *_io_uring_get_sqe(struct io_uring *ring)
 }
 
 /*
+ * Return the appropriate mask for a buffer ring of size 'ring_entries'
+ */
+static inline int io_uring_buf_ring_mask(__u32 ring_entries)
+{
+	return ring_entries - 1;
+}
+
+/*
  * Assign 'buf' with the addr/len/buffer ID supplied
  */
 static inline void io_uring_buf_ring_add(struct io_uring_buf_ring *br,
 					 void *addr, unsigned int len,
-					 unsigned short bid, int buf_offset)
+					 unsigned short bid, int mask,
+					 int buf_offset)
 {
-	struct io_uring_buf *buf = &br->bufs[br->tail + buf_offset];
+	struct io_uring_buf *buf = &br->bufs[(br->tail + buf_offset) & mask];
 
 	buf->addr = (unsigned long) (uintptr_t) addr;
 	buf->len = len;

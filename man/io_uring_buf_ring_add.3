@@ -13,6 +13,7 @@ io_uring_buf_ring_add \- add buffers to a shared buffer ring
 .BI "                          void *" addr ",
 .BI "                          unsigned int " len ",
 .BI "                          unsigned short " bid ",
+.BI "                          int " mask ",
 .BI "                          int " buf_offset ");"
 .fi
 .SH DESCRIPTION
@@ -28,6 +29,9 @@ and is of
 bytes of length.
 .I bid
 is the buffer ID, which will be returned in the CQE.
+.I mask
+is the size mask of the ring, available from
+.BR io_uring_buf_ring_mask (3) .
 .I buf_offset
 is the offset to insert at from the current tail. If just one buffer is provided
 before the ring tail is committed with
@@ -44,5 +48,6 @@ must be incremented by one for each buffer added.
 None
 .SH SEE ALSO
 .BR io_uring_register_buf_ring (3),
+.BR io_uring_buf_ring_mask (3),
 .BR io_uring_buf_ring_advance (3),
 .BR io_uring_buf_ring_cq_advance (3)
