@@ -15,9 +15,6 @@ io_uring_prep_close \- prepare a file descriptor close request
 .BI "void io_uring_prep_close_direct(struct io_uring_sqe *" sqe ","
 .BI "                                unsigned " file_index ");"
 .PP
-.BI "void io_uring_prep_close_direct_unregister(struct io_uring_sqe *" sqe ","
-.BI "                                           int " fd ",
-.BI "                                           unsigned " file_index ");"
 .fi
 .SH DESCRIPTION
 .PP
@@ -34,14 +31,6 @@ argument instead of the
 .IR fd .
 This is identical to unregistering the direct descriptor, and is provided as
 a convenience.
-
-For a close request of a direct descriptor where the application also wants
-to unregister it,
-.BR io_uring_prep_close_direct_unregister (3)
-function is identical to closing a file descriptor indicated by
-.I fd
-and unregistering the direct descriptor specified by the
-.IR file_index .
 
 These functions prepare an async
 .BR close (2)
