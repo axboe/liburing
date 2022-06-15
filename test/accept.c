@@ -471,7 +471,7 @@ static int test_accept_cancel(unsigned usecs, unsigned int nr, bool multishot)
 
 	for (i = 1; i <= nr; i++) {
 		sqe = io_uring_get_sqe(&m_io_uring);
-		io_uring_prep_cancel(sqe, i, 0);
+		io_uring_prep_cancel64(sqe, i, 0);
 		sqe->user_data = nr + i;
 		ret = io_uring_submit(&m_io_uring);
 		assert(ret == 1);

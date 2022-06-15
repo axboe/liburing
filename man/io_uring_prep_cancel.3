@@ -9,8 +9,12 @@ io_uring_prep_cancel \- prepare a cancelation request
 .nf
 .B #include <liburing.h>
 .PP
+.BI "void io_uring_prep_cancel64(struct io_uring_sqe *" sqe ","
+.BI "                            __u64 " user_data ","
+.BI "                            int " flags ");"
+.PP
 .BI "void io_uring_prep_cancel(struct io_uring_sqe *" sqe ","
-.BI "                          __u64 " user_data ","
+.BI "                          void *" user_data ","
 .BI "                          int " flags ");"
 .PP
 .BI "void io_uring_prep_cancel_fd(struct io_uring_sqe *" sqe ","
@@ -28,6 +32,11 @@ is prepared to cancel an existing request identified by
 For the
 .I flags
 argument, see below.
+
+.BR io_uring_prep_cancel64 (3)
+is identical to
+.BR io_uring_prep_cancel (3) ,
+except it takes a 64-bit integer rather than a pointer type.
 
 The cancelation request will attempt to find the previously issued request
 identified by

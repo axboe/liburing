@@ -538,12 +538,18 @@ static inline void io_uring_prep_multishot_accept_direct(struct io_uring_sqe *sq
 	__io_uring_set_target_fixed_file(sqe, IORING_FILE_INDEX_ALLOC - 1);
 }
 
-static inline void io_uring_prep_cancel(struct io_uring_sqe *sqe,
-					__u64 user_data, int flags)
+static inline void io_uring_prep_cancel64(struct io_uring_sqe *sqe,
+					  __u64 user_data, int flags)
 {
 	io_uring_prep_rw(IORING_OP_ASYNC_CANCEL, sqe, -1, NULL, 0, 0);
 	sqe->addr = user_data;
 	sqe->cancel_flags = (__u32) flags;
+}
+
+static inline void io_uring_prep_cancel(struct io_uring_sqe *sqe,
+					void *user_data, int flags)
+{
+	io_uring_prep_cancel64(sqe, (__u64) (uintptr_t) user_data, flags);
 }
 
 static inline void io_uring_prep_cancel_fd(struct io_uring_sqe *sqe, int fd,
