@@ -171,7 +171,7 @@ then it will be clamped at
 .B IORING_MAX_CQ_ENTRIES .
 .TP
 .B IORING_SETUP_ATTACH_WQ
-This flag should be set in conjunction with 
+This flag should be set in conjunction with
 .IR "struct io_uring_params.wq_fd"
 being set to an existing io_uring ring file descriptor. When set, the
 io_uring instance being created will share the asynchronous worker
@@ -188,7 +188,7 @@ for details on how to enable the ring. Available since 5.10.
 .B IORING_SETUP_SUBMIT_ALL
 Normally io_uring stops submitting a batch of request, if one of these requests
 results in an error. This can cause submission of less than what is expected,
-if a request ends in error while being submitted. If the ring is creted with
+if a request ends in error while being submitted. If the ring is created with
 this flag,
 .BR io_uring_enter (2)
 will continue submitting requests even if it encounters an error submitting
