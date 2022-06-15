@@ -206,7 +206,7 @@ static int test_reg_unreg(int bgid)
 	return 0;
 }
 
-static int test_one_nop(int bgid, struct io_uring *ring)
+static int test_one_read(int fd, int bgid, struct io_uring *ring)
 {
 	int ret;
 	struct io_uring_cqe *cqe;
@@ -218,21 +218,19 @@ static int test_one_nop(int bgid, struct io_uring *ring)
 		return -1;
 	}
 
-	io_uring_prep_nop(sqe);
+	io_uring_prep_read(sqe, fd, NULL, 1, 0);
 	sqe->flags |= IOSQE_BUFFER_SELECT;
 	sqe->buf_group = bgid;
 	ret = io_uring_submit(ring);
 	if (ret <= 0) {
 		fprintf(stderr, "sqe submit failed: %d\n", ret);
-		ret = -1;
-		goto out;
+		return -1;
 	}
 
 	ret = io_uring_wait_cqe(ring, &cqe);
 	if (ret < 0) {
 		fprintf(stderr, "wait completion %d\n", ret);
-		ret = -1;
-		goto out;
+		return -1;
 	}
 	ret = cqe->res;
 	io_uring_cqe_seen(ring, cqe);
@@ -240,14 +238,12 @@ static int test_one_nop(int bgid, struct io_uring *ring)
 	if (ret == -ENOBUFS)
 		return ret;
 
-	if (ret != 0) {
-		fprintf(stderr, "nop result %d\n", ret);
+	if (ret != 1) {
+		fprintf(stderr, "read result %d\n", ret);
 		return -1;
 	}
 
-	ret = cqe->flags >> 16;
-out:
-	return ret;
+	return cqe->flags >> 16;
 }
 
 static int test_running(int bgid, int entries, int loops)
@@ -255,6 +251,7 @@ static int test_running(int bgid, int entries, int loops)
 	struct io_uring_buf_reg reg = { };
 	struct io_uring ring;
 	void *ptr;
+	char buffer[8];
 	int ret;
 	int ring_size = (entries * sizeof(struct io_uring_buf) + 4095) & (~4095);
 	int ring_mask = io_uring_buf_ring_mask(entries);
@@ -262,6 +259,7 @@ static int test_running(int bgid, int entries, int loops)
 	int loop, idx;
 	bool *buffers;
 	struct io_uring_buf_ring *br;
+	int read_fd;
 
 	ret = t_create_ring(1, &ring, 0);
 	if (ret == T_SETUP_SKIP)
@@ -279,6 +277,10 @@ static int test_running(int bgid, int entries, int loops)
 	if (!buffers)
 		return 1;
 
+	read_fd = open("/dev/zero", O_RDONLY);
+	if (read_fd < 0)
+		return 1;
+
 	reg.ring_addr = (unsigned long) ptr;
 	reg.ring_entries = entries;
 	reg.bgid = bgid;
@@ -293,11 +295,12 @@ static int test_running(int bgid, int entries, int loops)
 	for (loop = 0; loop < loops; loop++) {
 		memset(buffers, 0, sizeof(bool) * entries);
 		for (idx = 0; idx < entries; idx++)
-			io_uring_buf_ring_add(br, ptr, 1, idx, ring_mask, idx);
+			io_uring_buf_ring_add(br, buffer, sizeof(buffer), idx, ring_mask, idx);
 		io_uring_buf_ring_advance(br, entries);
 
 		for (idx = 0; idx < entries; idx++) {
-			ret = test_one_nop(bgid, &ring);
+			memset(buffer, 1, sizeof(buffer));
+			ret = test_one_read(read_fd, bgid, &ring);
 			if (ret < 0) {
 				fprintf(stderr, "bad run %d/%d = %d\n", loop, idx, ret);
 				return ret;
@@ -306,9 +309,19 @@ static int test_running(int bgid, int entries, int loops)
 				fprintf(stderr, "reused buffer %d/%d = %d!\n", loop, idx, ret);
 				return 1;
 			}
+			if (buffer[0] != 0) {
+				fprintf(stderr, "unexpected read %d %d/%d = %d!\n",
+						(int)buffer[0], loop, idx, ret);
+				return 1;
+			}
+			if (buffer[1] != 1) {
+				fprintf(stderr, "unexpected spilled read %d %d/%d = %d!\n",
+						(int)buffer[1], loop, idx, ret);
+				return 1;
+			}
 			buffers[ret] = true;
 		}
-		ret = test_one_nop(bgid, &ring);
+		ret = test_one_read(read_fd, bgid, &ring);
 		if (ret != -ENOBUFS) {
 			fprintf(stderr, "expected enobufs run %d = %d\n", loop, ret);
 			return 1;
@@ -322,6 +335,7 @@ static int test_running(int bgid, int entries, int loops)
 		return 1;
 	}
 
+	close(read_fd);
 	io_uring_queue_exit(&ring);
 	free(buffers);
 	return 0;
