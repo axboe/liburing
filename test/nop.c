@@ -20,7 +20,6 @@ static int test_single_nop(struct io_uring *ring)
 	struct io_uring_cqe *cqe;
 	struct io_uring_sqe *sqe;
 	int ret;
-	bool cqe32 = (ring->flags & IORING_SETUP_CQE32);
 
 	sqe = io_uring_get_sqe(ring);
 	if (!sqe) {
@@ -29,10 +28,6 @@ static int test_single_nop(struct io_uring *ring)
 	}
 
 	io_uring_prep_nop(sqe);
-	if (cqe32) {
-		sqe->addr = 1234;
-		sqe->addr2 = 5678;
-	}
 	sqe->user_data = ++seq;
 
 	ret = io_uring_submit(ring);
@@ -50,17 +45,6 @@ static int test_single_nop(struct io_uring *ring)
 		fprintf(stderr, "Unexpected 0 user_data\n");
 		goto err;
 	}
-	if (cqe32) {
-		if (cqe->big_cqe[0] != 1234) {
-			fprintf(stderr, "Unexpected extra1\n");
-			goto err;
-
-		}
-		if (cqe->big_cqe[1] != 5678) {
-			fprintf(stderr, "Unexpected extra2\n");
-			goto err;
-		}
-	}
 	io_uring_cqe_seen(ring, cqe);
 	return 0;
 err:
@@ -72,7 +56,6 @@ static int test_barrier_nop(struct io_uring *ring)
 	struct io_uring_cqe *cqe;
 	struct io_uring_sqe *sqe;
 	int ret, i;
-	bool cqe32 = (ring->flags & IORING_SETUP_CQE32);
 
 	for (i = 0; i < 8; i++) {
 		sqe = io_uring_get_sqe(ring);
@@ -84,10 +67,6 @@ static int test_barrier_nop(struct io_uring *ring)
 		io_uring_prep_nop(sqe);
 		if (i == 4)
 			sqe->flags = IOSQE_IO_DRAIN;
-		if (cqe32) {
-			sqe->addr = 1234;
-			sqe->addr2 = 5678;
-		}
 		sqe->user_data = ++seq;
 	}
 
@@ -109,16 +88,6 @@ static int test_barrier_nop(struct io_uring *ring)
 		if (!cqe->user_data) {
 			fprintf(stderr, "Unexpected 0 user_data\n");
 			goto err;
-		}
-		if (cqe32) {
-			if (cqe->big_cqe[0] != 1234) {
-				fprintf(stderr, "Unexpected extra1\n");
-				goto err;
-			}
-			if (cqe->big_cqe[1] != 5678) {
-				fprintf(stderr, "Unexpected extra2\n");
-				goto err;
-			}
 		}
 		io_uring_cqe_seen(ring, cqe);
 	}
