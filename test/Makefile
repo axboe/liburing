@@ -126,6 +126,7 @@ test_srcs := \
 	recv-msgall-stream.c \
 	register-restrictions.c \
 	rename.c \
+	ringbuf-read.c \
 	ring-leak2.c \
 	ring-leak.c \
 	rsrc_tags.c \
