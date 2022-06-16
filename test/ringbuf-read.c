@@ -35,7 +35,7 @@ static int verify_buffer(char *buf, char val)
 	return 0;
 }
 
-static int test(const char *filename, int dio)
+static int test(const char *filename, int dio, int async)
 {
 	struct io_uring_buf_reg reg = { };
 	struct io_uring_sqe *sqe;
@@ -94,6 +94,9 @@ static int test(const char *filename, int dio)
 		io_uring_prep_read(sqe, fd, NULL, BUF_SIZE, i * BUF_SIZE);
 		sqe->buf_group = 1;
 		sqe->flags |= IOSQE_BUFFER_SELECT;
+		if (async && !(i & 1))
+			sqe->flags |= IOSQE_ASYNC;
+		sqe->user_data = i + 1;
 	}
 
 	ret = io_uring_submit(&ring);
@@ -103,7 +106,7 @@ static int test(const char *filename, int dio)
 	}
 
 	for (i = 0; i < NR_BUFS; i++) {
-		int bid;
+		int bid, ud;
 
 		ret = io_uring_wait_cqe(&ring, &cqe);
 		if (ret) {
@@ -119,8 +122,9 @@ static int test(const char *filename, int dio)
 			return 1;
 		}
 		bid = cqe->flags >> IORING_CQE_BUFFER_SHIFT;
+		ud = cqe->user_data;
 		io_uring_cqe_seen(&ring, cqe);
-		if (verify_buffer(buf + ((bid - 1) * BUF_SIZE), bid))
+		if (verify_buffer(buf + ((bid - 1) * BUF_SIZE), ud))
 			return 1;
 	}
 
@@ -157,7 +161,7 @@ int main(int argc, char *argv[])
 	}
 	close(fd);
 
-	ret = test(fname, 1);
+	ret = test(fname, 1, 0);
 	if (ret) {
 		fprintf(stderr, "dio test failed\n");
 		return ret;
@@ -165,9 +169,21 @@ int main(int argc, char *argv[])
 	if (no_buf_ring)
 		return 0;
 
-	ret = test(fname, 0);
+	ret = test(fname, 0, 0);
 	if (ret) {
 		fprintf(stderr, "buffered test failed\n");
+		return ret;
+	}
+
+	ret = test(fname, 1, 1);
+	if (ret) {
+		fprintf(stderr, "dio async test failed\n");
+		return ret;
+	}
+
+	ret = test(fname, 0, 1);
+	if (ret) {
+		fprintf(stderr, "buffered async test failed\n");
 		return ret;
 	}
 
