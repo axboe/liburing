@@ -41,6 +41,21 @@ struct accept_test_args {
 	int extra_loops;
 };
 
+static void close_fds(int fds[], int nr)
+{
+	int i;
+
+	for (i = 0; i < nr; i++)
+		close(fds[i]);
+}
+
+static void close_sock_fds(int s_fd[], int c_fd[], int nr, bool fixed)
+{
+	if (!fixed)
+		close_fds(s_fd, nr);
+	close_fds(c_fd, nr);
+}
+
 static void queue_send(struct io_uring *ring, int fd)
 {
 	struct io_uring_sqe *sqe;
@@ -198,19 +213,17 @@ static int test_loop(struct io_uring *ring,
 	int i, ret, s_fd[MAX_FDS], c_fd[MAX_FDS], done = 0;
 	bool fixed = args.fixed;
 	bool multishot = args.multishot;
-	unsigned int multishot_mask = 0;
+	uint32_t multishot_mask = 0;
+	int nr_fds = multishot ? MAX_FDS : 1;
 
-	for (i = 0; i < MAX_FDS; i++) {
+	for (i = 0; i < nr_fds; i++)
 		c_fd[i] = set_client_fd(addr);
-		if (!multishot)
-			break;
-	}
 
 	if (!args.queue_accept_before_connect)
 		queue_accept_conn(ring, recv_s0, args);
 
-	for (i = 0; i < MAX_FDS; i++) {
-		s_fd[i] = accept_conn(ring, args.fixed ? 0 : -1, multishot);
+	for (i = 0; i < nr_fds; i++) {
+		s_fd[i] = accept_conn(ring, fixed ? 0 : -1, multishot);
 		if (s_fd[i] == -EINVAL) {
 			if (args.accept_should_error)
 				goto out;
@@ -241,14 +254,17 @@ static int test_loop(struct io_uring *ring,
 					i, s_fd[i]);
 				goto err;
 			}
+			/*
+			 * for fixed multishot accept test, the file slots
+			 * allocated are [0, 32), this means we finally end up
+			 * with each bit of a u32 being 1.
+			 */
 			multishot_mask |= (1U << s_fd[i]);
 		}
-		if (!multishot)
-			break;
 	}
 
 	if (multishot) {
-		if (fixed && multishot_mask != UINT_MAX) {
+		if (fixed && (~multishot_mask != 0U)) {
 			fprintf(stderr, "Fixed Multishot Accept misses events\n");
 			goto err;
 		}
@@ -256,7 +272,7 @@ static int test_loop(struct io_uring *ring,
 	}
 
 	queue_send(ring, c_fd[0]);
-	queue_recv(ring, s_fd[0], args.fixed);
+	queue_recv(ring, s_fd[0], fixed);
 
 	ret = io_uring_submit_and_wait(ring, 2);
 	assert(ret != -1);
@@ -280,32 +296,10 @@ static int test_loop(struct io_uring *ring,
 	}
 
 out:
-	if (!args.fixed) {
-		for (i = 0; i < MAX_FDS; i++) {
-			close(s_fd[i]);
-			if (!multishot)
-				break;
-		}
-	}
-	for (i = 0; i < MAX_FDS; i++) {
-		close(c_fd[i]);
-		if (!multishot)
-			break;
-	}
+	close_sock_fds(s_fd, c_fd, nr_fds, fixed);
 	return 0;
 err:
-	if (!args.fixed) {
-		for (i = 0; i < MAX_FDS; i++) {
-			close(s_fd[i]);
-			if (!multishot)
-				break;
-		}
-	}
-	for (i = 0; i < MAX_FDS; i++) {
-		close(c_fd[i]);
-		if (!multishot)
-			break;
-	}
+	close_sock_fds(s_fd, c_fd, nr_fds, fixed);
 	return 1;
 }
 
@@ -627,7 +621,7 @@ static int test_accept_fixed(void)
 static int test_multishot_fixed_accept(void)
 {
 	struct io_uring m_io_uring;
-	int ret, fd[100];
+	int ret, fd[MAX_FDS];
 	struct accept_test_args args = {
 		.fixed = true,
 		.multishot = true
