@@ -241,7 +241,7 @@ static int test_loop(struct io_uring *ring,
 					i, s_fd[i]);
 				goto err;
 			}
-			multishot_mask |= (1 << (s_fd[i] - 1));
+			multishot_mask |= (1U << s_fd[i]);
 		}
 		if (!multishot)
 			break;
