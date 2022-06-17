@@ -103,7 +103,7 @@ static void queue_accept_conn(struct io_uring *ring, int fd,
 	}
 }
 
-static int accept_conn(struct io_uring *ring, int fixed_idx)
+static int accept_conn(struct io_uring *ring, int fixed_idx, bool multishot)
 {
 	struct io_uring_cqe *cqe;
 	int ret;
@@ -115,8 +115,10 @@ static int accept_conn(struct io_uring *ring, int fixed_idx)
 
 	if (fixed_idx >= 0) {
 		if (ret > 0) {
-			close(ret);
-			return -EINVAL;
+			if (!multishot) {
+				close(ret);
+				return -EINVAL;
+			}
 		} else if (!ret) {
 			ret = fixed_idx;
 		}
@@ -208,7 +210,7 @@ static int test_loop(struct io_uring *ring,
 		queue_accept_conn(ring, recv_s0, args);
 
 	for (i = 0; i < MAX_FDS; i++) {
-		s_fd[i] = accept_conn(ring, args.fixed ? 0 : -1);
+		s_fd[i] = accept_conn(ring, args.fixed ? 0 : -1, multishot);
 		if (s_fd[i] == -EINVAL) {
 			if (args.accept_should_error)
 				goto out;
