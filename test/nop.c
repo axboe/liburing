@@ -15,7 +15,7 @@
 
 static int seq;
 
-static int test_single_nop(struct io_uring *ring)
+static int test_single_nop(struct io_uring *ring, unsigned req_flags)
 {
 	struct io_uring_cqe *cqe;
 	struct io_uring_sqe *sqe;
@@ -29,11 +29,8 @@ static int test_single_nop(struct io_uring *ring)
 	}
 
 	io_uring_prep_nop(sqe);
-	if (cqe32) {
-		sqe->addr = 1234;
-		sqe->addr2 = 5678;
-	}
 	sqe->user_data = ++seq;
+	sqe->flags |= req_flags;
 
 	ret = io_uring_submit(ring);
 	if (ret <= 0) {
@@ -51,12 +48,12 @@ static int test_single_nop(struct io_uring *ring)
 		goto err;
 	}
 	if (cqe32) {
-		if (cqe->big_cqe[0] != 1234) {
+		if (cqe->big_cqe[0] != 0) {
 			fprintf(stderr, "Unexpected extra1\n");
 			goto err;
 
 		}
-		if (cqe->big_cqe[1] != 5678) {
+		if (cqe->big_cqe[1] != 0) {
 			fprintf(stderr, "Unexpected extra2\n");
 			goto err;
 		}
@@ -67,7 +64,7 @@ err:
 	return 1;
 }
 
-static int test_barrier_nop(struct io_uring *ring)
+static int test_barrier_nop(struct io_uring *ring, unsigned req_flags)
 {
 	struct io_uring_cqe *cqe;
 	struct io_uring_sqe *sqe;
@@ -84,11 +81,8 @@ static int test_barrier_nop(struct io_uring *ring)
 		io_uring_prep_nop(sqe);
 		if (i == 4)
 			sqe->flags = IOSQE_IO_DRAIN;
-		if (cqe32) {
-			sqe->addr = 1234;
-			sqe->addr2 = 5678;
-		}
 		sqe->user_data = ++seq;
+		sqe->flags |= req_flags;
 	}
 
 	ret = io_uring_submit(ring);
@@ -111,11 +105,11 @@ static int test_barrier_nop(struct io_uring *ring)
 			goto err;
 		}
 		if (cqe32) {
-			if (cqe->big_cqe[0] != 1234) {
+			if (cqe->big_cqe[0] != 0) {
 				fprintf(stderr, "Unexpected extra1\n");
 				goto err;
 			}
-			if (cqe->big_cqe[1] != 5678) {
+			if (cqe->big_cqe[1] != 0) {
 				fprintf(stderr, "Unexpected extra2\n");
 				goto err;
 			}
@@ -132,7 +126,7 @@ static int test_ring(unsigned flags)
 {
 	struct io_uring ring;
 	struct io_uring_params p = { };
-	int ret;
+	int ret, i;
 
 	p.flags = flags;
 	ret = io_uring_queue_init_params(8, &ring, &p);
@@ -143,18 +137,21 @@ static int test_ring(unsigned flags)
 		return 1;
 	}
 
-	ret = test_single_nop(&ring);
-	if (ret) {
-		fprintf(stderr, "test_single_nop failed\n");
-		goto err;
-	}
+	for (i = 0; i < 1000; i++) {
+		unsigned req_flags = (i & 1) ? IOSQE_ASYNC : 0;
 
-	ret = test_barrier_nop(&ring);
-	if (ret) {
-		fprintf(stderr, "test_barrier_nop failed\n");
-		goto err;
-	}
+		ret = test_single_nop(&ring, req_flags);
+		if (ret) {
+			fprintf(stderr, "test_single_nop failed\n");
+			goto err;
+		}
 
+		ret = test_barrier_nop(&ring, req_flags);
+		if (ret) {
+			fprintf(stderr, "test_barrier_nop failed\n");
+			goto err;
+		}
+	}
 err:
 	io_uring_queue_exit(&ring);
 	return ret;
