@@ -32,53 +32,31 @@
 #define IORING_MAX_ENTRIES 4096
 #define IORING_MAX_ENTRIES_FALLBACK 128
 
-int
-expect_failed_submit(struct io_uring *ring, int error)
-{
-	int ret;
-
-	ret = io_uring_submit(ring);
-	if (ret == 1) {
-		printf("expected failure, but io_uring_submit succeeded.\n");
-		return 1;
-	}
-
-	if (errno != error) {
-		printf("expected %d, got %d\n", error, errno);
-		return 1;
-	}
-
-	return 0;
-}
-
-int
-expect_fail(int fd, unsigned int to_submit, unsigned int min_complete,
-	    unsigned int flags, sigset_t *sig, int error)
+static int expect_fail(int fd, unsigned int to_submit,
+		       unsigned int min_complete, unsigned int flags,
+		       sigset_t *sig, int error)
 {
 	int ret;
 
 	ret = __sys_io_uring_enter(fd, to_submit, min_complete, flags, sig);
 	if (ret != -1) {
-		printf("expected %s, but call succeeded\n", strerror(error));
+		fprintf(stderr, "expected %s, but call succeeded\n", strerror(error));
 		return 1;
 	}
 
 	if (errno != error) {
-		printf("expected %d, got %d\n", error, errno);
+		fprintf(stderr, "expected %d, got %d\n", error, errno);
 		return 1;
 	}
 
 	return 0;
 }
 
-int
-try_io_uring_enter(int fd, unsigned int to_submit, unsigned int min_complete,
-		   unsigned int flags, sigset_t *sig, int expect, int error)
+static int try_io_uring_enter(int fd, unsigned int to_submit,
+			      unsigned int min_complete, unsigned int flags,
+			      sigset_t *sig, int expect, int error)
 {
 	int ret;
-
-	printf("io_uring_enter(%d, %u, %u, %u, %p)\n", fd, to_submit,
-	       min_complete, flags, sig);
 
 	if (expect == -1)
 		return expect_fail(fd, to_submit, min_complete,
@@ -86,7 +64,7 @@ try_io_uring_enter(int fd, unsigned int to_submit, unsigned int min_complete,
 
 	ret = __sys_io_uring_enter(fd, to_submit, min_complete, flags, sig);
 	if (ret != expect) {
-		printf("Expected %d, got %d\n", expect, errno);
+		fprintf(stderr, "Expected %d, got %d\n", expect, errno);
 		return 1;
 	}
 
@@ -96,8 +74,7 @@ try_io_uring_enter(int fd, unsigned int to_submit, unsigned int min_complete,
 /*
  * prep a read I/O.  index is treated like a block number.
  */
-int
-setup_file(char *template, off_t len)
+static int setup_file(char *template, off_t len)
 {
 	int fd, ret;
 	char buf[4096];
@@ -115,15 +92,15 @@ setup_file(char *template, off_t len)
 
 	ret = read(fd, buf, 4096);
 	if (ret != 4096) {
-		printf("read returned %d, expected 4096\n", ret);
+		fprintf(stderr, "read returned %d, expected 4096\n", ret);
 		exit(1);
 	}
 
 	return fd;
 }
 
-void
-io_prep_read(struct io_uring_sqe *sqe, int fd, off_t offset, size_t len)
+static void io_prep_read(struct io_uring_sqe *sqe, int fd, off_t offset,
+			 size_t len)
 {
 	struct iovec *iov;
 
@@ -138,8 +115,7 @@ io_prep_read(struct io_uring_sqe *sqe, int fd, off_t offset, size_t len)
 	io_uring_sqe_set_data(sqe, iov); // free on completion
 }
 
-void
-reap_events(struct io_uring *ring, unsigned nr)
+static void reap_events(struct io_uring *ring, unsigned nr)
 {
 	int ret;
 	unsigned left = nr;
@@ -147,17 +123,15 @@ reap_events(struct io_uring *ring, unsigned nr)
 	struct iovec *iov;
 	struct timeval start, now, elapsed;
 
-	printf("Reaping %u I/Os\n", nr);
 	gettimeofday(&start, NULL);
 	while (left) {
 		ret = io_uring_wait_cqe(ring, &cqe);
 		if (ret < 0) {
-			printf("io_uring_wait_cqe returned %d\n", ret);
-			printf("expected success\n");
+			fprintf(stderr, "io_uring_wait_cqe returned %d\n", ret);
 			exit(1);
 		}
 		if (cqe->res != 4096)
-			printf("cqe->res: %d, expected 4096\n", cqe->res);
+			fprintf(stderr, "cqe->res: %d, expected 4096\n", cqe->res);
 		iov = io_uring_cqe_get_data(cqe);
 		free(iov->iov_base);
 		free(iov);
@@ -167,15 +141,14 @@ reap_events(struct io_uring *ring, unsigned nr)
 		gettimeofday(&now, NULL);
 		timersub(&now, &start, &elapsed);
 		if (elapsed.tv_sec > 10) {
-			printf("Timed out waiting for I/Os to complete.\n");
-			printf("%u expected, %u completed\n", nr, left);
+			fprintf(stderr, "Timed out waiting for I/Os to complete.\n");
+			fprintf(stderr, "%u expected, %u completed\n", nr, left);
 			break;
 		}
 	}
 }
 
-void
-submit_io(struct io_uring *ring, unsigned nr)
+static void submit_io(struct io_uring *ring, unsigned nr)
 {
 	int fd, ret;
 	off_t file_len;
@@ -183,7 +156,6 @@ submit_io(struct io_uring *ring, unsigned nr)
 	static char template[32] = "/tmp/io_uring_enter-test.XXXXXX";
 	struct io_uring_sqe *sqe;
 
-	printf("Allocating %u sqes\n", nr);
 	file_len = nr * 4096;
 	fd = setup_file(template, file_len);
 	for (i = 0; i < nr; i++) {
@@ -194,18 +166,15 @@ submit_io(struct io_uring *ring, unsigned nr)
 	}
 
 	/* submit the I/Os */
-	printf("Submitting %u I/Os\n", nr);
 	ret = io_uring_submit(ring);
 	unlink(template);
 	if (ret < 0) {
 		perror("io_uring_enter");
 		exit(1);
 	}
-	printf("Done\n");
 }
 
-int
-main(int argc, char **argv)
+int main(int argc, char **argv)
 {
 	int ret;
 	unsigned int status = 0;
@@ -242,7 +211,6 @@ main(int argc, char **argv)
 	/* fill the sq ring */
 	sq_entries = *ring.sq.kring_entries;
 	submit_io(&ring, sq_entries);
-	printf("Waiting for %u events\n", sq_entries);
 	ret = __sys_io_uring_enter(ring.ring_fd, 0, sq_entries,
 					IORING_ENTER_GETEVENTS, NULL);
 	if (ret < 0) {
@@ -256,7 +224,7 @@ main(int argc, char **argv)
 		 */
 		completed = *ring.cq.ktail - *ring.cq.khead;
 		if (completed != sq_entries) {
-			printf("Submitted %u I/Os, but only got %u completions\n",
+			fprintf(stderr, "Submitted %u I/Os, but only got %u completions\n",
 			       sq_entries, completed);
 			status = 1;
 		}
@@ -267,7 +235,6 @@ main(int argc, char **argv)
 	 * Add an invalid index to the submission queue.  This should
 	 * result in the dropped counter increasing.
 	 */
-	printf("Submitting invalid sqe index.\n");
 	index = *sq->kring_entries + 1; // invalid index
 	dropped = *sq->kdropped;
 	ktail = *sq->ktail;
@@ -282,15 +249,13 @@ main(int argc, char **argv)
 	ret = __sys_io_uring_enter(ring.ring_fd, 1, 0, 0, NULL);
 	/* now check to see if our sqe was dropped */
 	if (*sq->kdropped == dropped) {
-		printf("dropped counter did not increase\n");
+		fprintf(stderr, "dropped counter did not increase\n");
 		status = 1;
 	}
 
-	if (!status) {
-		printf("PASS\n");
+	if (!status)
 		return 0;
-	}
 
-	printf("FAIL\n");
+	fprintf(stderr, "FAIL\n");
 	return -1;
 }

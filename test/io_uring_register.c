@@ -42,19 +42,16 @@ static int memfd_create(const char *name, unsigned int flags)
 #endif
 
 
-int
-expect_fail(int fd, unsigned int opcode, void *arg,
+static int expect_fail(int fd, unsigned int opcode, void *arg,
 	    unsigned int nr_args, int error)
 {
 	int ret;
 
-	printf("io_uring_register(%d, %u, %p, %u)\n",
-	       fd, opcode, arg, nr_args);
 	ret = __sys_io_uring_register(fd, opcode, arg, nr_args);
 	if (ret != -1) {
 		int ret2 = 0;
 
-		printf("expected %s, but call succeeded\n", strerror(error));
+		fprintf(stderr, "expected %s, but call succeeded\n", strerror(error));
 		if (opcode == IORING_REGISTER_BUFFERS) {
 			ret2 = __sys_io_uring_register(fd,
 					IORING_UNREGISTER_BUFFERS, 0, 0);
@@ -63,21 +60,20 @@ expect_fail(int fd, unsigned int opcode, void *arg,
 					IORING_UNREGISTER_FILES, 0, 0);
 		}
 		if (ret2) {
-			printf("internal error: failed to unregister\n");
+			fprintf(stderr, "internal error: failed to unregister\n");
 			exit(1);
 		}
 		return 1;
 	}
 
 	if (errno != error) {
-		printf("expected %d, got %d\n", error, errno);
+		fprintf(stderr, "expected %d, got %d\n", error, errno);
 		return 1;
 	}
 	return 0;
 }
 
-int
-new_io_uring(int entries, struct io_uring_params *p)
+static int new_io_uring(int entries, struct io_uring_params *p)
 {
 	int fd;
 
@@ -91,8 +87,7 @@ new_io_uring(int entries, struct io_uring_params *p)
 
 #define MAXFDS (UINT_MAX * sizeof(int))
 
-void *
-map_filebacked(size_t size)
+static void *map_filebacked(size_t size)
 {
 	int fd, ret;
 	void *addr;
@@ -127,8 +122,7 @@ map_filebacked(size_t size)
  * NOTE: this is now limited by SCM_MAX_FD (253).  Keep the code for now,
  * but probably should augment it to test 253 and 254, specifically.
  */
-int
-test_max_fds(int uring_fd)
+static int test_max_fds(int uring_fd)
 {
 	int status = 1;
 	int ret;
@@ -148,14 +142,11 @@ test_max_fds(int uring_fd)
 	fd_as = mmap(NULL, UINT_MAX * sizeof(int), PROT_READ|PROT_WRITE,
 		     MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
 	if (fd_as == MAP_FAILED) {
-		if (errno == ENOMEM) {
-			printf("Not enough memory for this test, skipping\n");
+		if (errno == ENOMEM)
 			return 0;
-		}
 		perror("mmap fd_as");
 		exit(1);
 	}
-	printf("allocated %zu bytes of address space\n", UINT_MAX * sizeof(int));
 
 	fdtable_fd = mkstemp(template);
 	if (fdtable_fd < 0) {
@@ -193,7 +184,7 @@ test_max_fds(int uring_fd)
 		fds = mmap(fds, 128*1024*1024, PROT_READ|PROT_WRITE,
 			   MAP_SHARED|MAP_FIXED, fdtable_fd, 0);
 		if (fds == MAP_FAILED) {
-			printf("mmap failed at offset %lu\n",
+			fprintf(stderr, "mmap failed at offset %lu\n",
 			       (unsigned long)((char *)fd_as - (char *)fds));
 			exit(1);
 		}
@@ -212,21 +203,15 @@ test_max_fds(int uring_fd)
 			nr_fds /= 2;
 			continue;
 		}
-		printf("io_uring_register(%d, IORING_REGISTER_FILES, %p, %llu)"
-		       "...succeeded\n", uring_fd, fd_as, nr_fds);
 		status = 0;
-		printf("io_uring_register(%d, IORING_UNREGISTER_FILES, 0, 0)...",
-		       uring_fd);
 		ret = __sys_io_uring_register(uring_fd, IORING_UNREGISTER_FILES,
 						0, 0);
 		if (ret < 0) {
 			ret = errno;
-			printf("failed\n");
 			errno = ret;
 			perror("io_uring_register UNREGISTER_FILES");
 			exit(1);
 		}
-		printf("succeeded\n");
 		break;
 	}
 
@@ -234,15 +219,14 @@ test_max_fds(int uring_fd)
 	close(fdtable_fd);
 	ret = munmap(fd_as, UINT_MAX * sizeof(int));
 	if (ret != 0) {
-		printf("munmap(%zu) failed\n", UINT_MAX * sizeof(int));
+		fprintf(stderr, "munmap(%zu) failed\n", UINT_MAX * sizeof(int));
 		exit(1);
 	}
 
 	return status;
 }
 
-int
-test_memlock_exceeded(int fd)
+static int test_memlock_exceeded(int fd)
 {
 	int ret;
 	void *buf;
@@ -260,7 +244,7 @@ test_memlock_exceeded(int fd)
 		ret = __sys_io_uring_register(fd, IORING_REGISTER_BUFFERS, &iov, 1);
 		if (ret < 0) {
 			if (errno == ENOMEM) {
-				printf("io_uring_register of %zu bytes failed "
+				fprintf(stderr, "io_uring_register of %zu bytes failed "
 				       "with ENOMEM (expected).\n", iov.iov_len);
 				iov.iov_len /= 2;
 				continue;
@@ -269,16 +253,14 @@ test_memlock_exceeded(int fd)
 				free(buf);
 				return 0;
 			}
-			printf("expected success or EFAULT, got %d\n", errno);
+			fprintf(stderr, "expected success or EFAULT, got %d\n", errno);
 			free(buf);
 			return 1;
 		}
-		printf("successfully registered %zu bytes (%d).\n",
-		       iov.iov_len, ret);
 		ret = __sys_io_uring_register(fd, IORING_UNREGISTER_BUFFERS,
 						NULL, 0);
 		if (ret != 0) {
-			printf("error: unregister failed with %d\n", errno);
+			fprintf(stderr, "error: unregister failed with %d\n", errno);
 			free(buf);
 			return 1;
 		}
@@ -291,8 +273,7 @@ test_memlock_exceeded(int fd)
 	return 0;
 }
 
-int
-test_iovec_nr(int fd)
+static int test_iovec_nr(int fd)
 {
 	int i, ret, status = 0;
 	unsigned int nr = 1000000;
@@ -315,13 +296,11 @@ test_iovec_nr(int fd)
 
 	/* reduce to UIO_MAXIOV */
 	nr = UIO_MAXIOV;
-	printf("io_uring_register(%d, %u, %p, %u)\n",
-	       fd, IORING_REGISTER_BUFFERS, iovs, nr);
 	ret = __sys_io_uring_register(fd, IORING_REGISTER_BUFFERS, iovs, nr);
 	if (ret && (errno == ENOMEM || errno == EPERM) && geteuid()) {
-		printf("can't register large iovec for regular users, skip\n");
+		fprintf(stderr, "can't register large iovec for regular users, skip\n");
 	} else if (ret != 0) {
-		printf("expected success, got %d\n", errno);
+		fprintf(stderr, "expected success, got %d\n", errno);
 		status = 1;
 	} else {
 		__sys_io_uring_register(fd, IORING_UNREGISTER_BUFFERS, 0, 0);
@@ -334,8 +313,7 @@ test_iovec_nr(int fd)
 /*
  * io_uring limit is 1G.  iov_len limit is ~OUL, I think
  */
-int
-test_iovec_size(int fd)
+static int test_iovec_size(int fd)
 {
 	unsigned int status = 0;
 	int ret;
@@ -387,11 +365,10 @@ test_iovec_size(int fd)
 				       "RLIMIT_MEMLOCK resource limit by at "
 				       "least 2MB.");
 			else {
-				printf("expected success, got %d\n", errno);
+				fprintf(stderr, "expected success, got %d\n", errno);
 				status = 1;
 			}
 		} else {
-			printf("Success!\n");
 			ret = __sys_io_uring_register(fd,
 					IORING_UNREGISTER_BUFFERS, 0, 0);
 			if (ret < 0) {
@@ -409,7 +386,6 @@ test_iovec_size(int fd)
 		status = 1;
 	iov.iov_base = buf;
 	iov.iov_len = 2*1024*1024;
-	printf("reserve file-backed buffers\n");
 	status |= expect_fail(fd, IORING_REGISTER_BUFFERS, &iov, 1, EOPNOTSUPP);
 	munmap(buf, 2*1024*1024);
 
@@ -422,18 +398,7 @@ test_iovec_size(int fd)
 	return status;
 }
 
-void
-dump_sqe(struct io_uring_sqe *sqe)
-{
-	printf("\topcode: %d\n", sqe->opcode);
-	printf("\tflags:  0x%.8x\n", sqe->flags);
-	printf("\tfd:     %d\n", sqe->fd);
-	if (sqe->opcode == IORING_OP_POLL_ADD)
-		printf("\tpoll_events: 0x%.8x\n", sqe->poll_events);
-}
-
-int
-ioring_poll(struct io_uring *ring, int fd, int fixed)
+static int ioring_poll(struct io_uring *ring, int fd, int fixed)
 {
 	int ret;
 	struct io_uring_sqe *sqe;
@@ -447,22 +412,20 @@ ioring_poll(struct io_uring *ring, int fd, int fixed)
 	sqe->fd = fd;
 	sqe->poll_events = POLLIN|POLLOUT;
 
-	printf("io_uring_submit:\n");
-	dump_sqe(sqe);
 	ret = io_uring_submit(ring);
 	if (ret != 1) {
-		printf("failed to submit poll sqe: %d.\n", errno);
+		fprintf(stderr, "failed to submit poll sqe: %d.\n", errno);
 		return 1;
 	}
 
 	ret = io_uring_wait_cqe(ring, &cqe);
 	if (ret < 0) {
-		printf("io_uring_wait_cqe failed with %d\n", ret);
+		fprintf(stderr, "io_uring_wait_cqe failed with %d\n", ret);
 		return 1;
 	}
 	ret = 0;
 	if (cqe->res != POLLOUT) {
-		printf("io_uring_wait_cqe: expected 0x%.8x, got 0x%.8x\n",
+		fprintf(stderr, "io_uring_wait_cqe: expected 0x%.8x, got 0x%.8x\n",
 		       POLLOUT, cqe->res);
 		ret = 1;
 	}
@@ -471,8 +434,7 @@ ioring_poll(struct io_uring *ring, int fd, int fixed)
 	return ret;
 }
 
-int
-test_poll_ringfd(void)
+static int test_poll_ringfd(void)
 {
 	int status = 0;
 	int ret;
@@ -609,8 +571,7 @@ out:
 	return 0;
 }
 
-int
-main(int argc, char **argv)
+int main(int argc, char **argv)
 {
 	int fd, ret;
 	unsigned int status = 0;
@@ -628,8 +589,6 @@ main(int argc, char **argv)
 		return 1;
 	}
 	mlock_limit = rlim.rlim_cur;
-	printf("RELIMIT_MEMLOCK: %llu (%llu)\n", (unsigned long long) rlim.rlim_cur,
-		(unsigned long long) rlim.rlim_max);
 	devnull = open("/dev/null", O_RDWR);
 	if (devnull < 0) {
 		perror("open /dev/null");
@@ -661,10 +620,8 @@ main(int argc, char **argv)
 	/* uring poll on the uring fd */
 	status |= test_poll_ringfd();
 
-	if (!status)
-		printf("PASS\n");
-	else
-		printf("FAIL\n");
+	if (status)
+		fprintf(stderr, "FAIL\n");
 
 	ret = test_shmem();
 	if (ret) {
