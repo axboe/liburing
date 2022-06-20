@@ -244,8 +244,6 @@ static int test_memlock_exceeded(int fd)
 		ret = __sys_io_uring_register(fd, IORING_REGISTER_BUFFERS, &iov, 1);
 		if (ret < 0) {
 			if (errno == ENOMEM) {
-				fprintf(stderr, "io_uring_register of %zu bytes failed "
-				       "with ENOMEM (expected).\n", iov.iov_len);
 				iov.iov_len /= 2;
 				continue;
 			}
