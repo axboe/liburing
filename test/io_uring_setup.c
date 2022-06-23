@@ -101,13 +101,9 @@ try_io_uring_setup(unsigned entries, struct io_uring_params *p, int expect, int 
 {
 	int ret, err;
 
-	printf("io_uring_setup(%u, %p), flags: %s, feat: %s, resv: %s, sq_thread_cpu: %u\n",
-	       entries, p, flags_string(p), features_string(p), dump_resv(p),
-	       p ? p->sq_thread_cpu : 0);
-
 	ret = __sys_io_uring_setup(entries, p);
 	if (ret != expect) {
-		printf("expected %d, got %d\n", expect, ret);
+		fprintf(stderr, "expected %d, got %d\n", expect, ret);
 		/* if we got a valid uring, close it */
 		if (ret > 0)
 			close(ret);
@@ -119,7 +115,7 @@ try_io_uring_setup(unsigned entries, struct io_uring_params *p, int expect, int 
 			printf("Needs root, not flagging as an error\n");
 			return 0;
 		}
-		printf("expected errno %d, got %d\n", error, err);
+		fprintf(stderr, "expected errno %d, got %d\n", error, err);
 		return 1;
 	}
 
@@ -169,7 +165,7 @@ main(int argc, char **argv)
 	memset(&p, 0, sizeof(p));
 	fd = __sys_io_uring_setup(1, &p);
 	if (fd < 0) {
-		printf("io_uring_setup failed with %d, expected success\n",
+		fprintf(stderr, "io_uring_setup failed with %d, expected success\n",
 		       errno);
 		status = 1;
 	} else {
@@ -177,16 +173,14 @@ main(int argc, char **argv)
 		int ret;
 		ret = read(fd, buf, 4096);
 		if (ret >= 0) {
-			printf("read from io_uring fd succeeded.  expected fail\n");
+			fprintf(stderr, "read from io_uring fd succeeded.  expected fail\n");
 			status = 1;
 		}
 	}
 
-	if (!status) {
-		printf("PASS\n");
+	if (!status)
 		return 0;
-	}
 
-	printf("FAIL\n");
+	fprintf(stderr, "FAIL\n");
 	return -1;
 }
