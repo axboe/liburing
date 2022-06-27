@@ -64,7 +64,7 @@ int main(int argc, char *argv[])
 	int ret, fd;
 
 	if (argc > 1)
-		return 0;
+		return T_EXIT_SKIP;
 
 	iov.iov_base = t_malloc(4096);
 	iov.iov_len = 4096;

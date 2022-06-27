@@ -285,7 +285,7 @@ int main(int argc, char *argv[])
 	int i, exit_val = T_EXIT_PASS;
 
 	if (argc > 1)
-		return 0;
+		return T_EXIT_SKIP;
 
 	for (i = 0; i < 4; i++) {
 		p.tcp = i & 1;

@@ -46,7 +46,7 @@ int main(int argc, char *argv[])
 	pthread_t tid;
 
 	if (argc > 1)
-		return 0;
+		return T_EXIT_SKIP;
 
 	/* Create an eventfd to be registered with the loop to be
 	 * notified of events being ready

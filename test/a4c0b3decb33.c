@@ -173,7 +173,7 @@ static void sig_int(int sig)
 int main(int argc, char *argv[])
 {
 	if (argc > 1)
-		return 0;
+		return T_EXIT_SKIP;
 	signal(SIGINT, sig_int);
 	mmap((void *) 0x20000000, 0x1000000, 3, 0x32, -1, 0);
 	loop();

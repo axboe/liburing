@@ -348,7 +348,7 @@ int main(int argc, char *argv[])
 	int ret, i;
 
 	if (argc > 1)
-		return 0;
+		return T_EXIT_SKIP;
 
 	for (i = 0; bgids[i] != -1; i++) {
 		ret = test_reg_unreg(bgids[i]);

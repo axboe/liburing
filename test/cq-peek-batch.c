@@ -59,7 +59,7 @@ int main(int argc, char *argv[])
 	unsigned got;
 
 	if (argc > 1)
-		return 0;
+		return T_EXIT_SKIP;
 
 	ret = io_uring_queue_init(4, &ring, 0);
 	if (ret) {

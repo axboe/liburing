@@ -27,7 +27,7 @@ int main(int argc, char *argv[])
 	int ret, fd;
 
 	if (argc > 1)
-		return 0;
+		return T_EXIT_SKIP;
 
 	t_posix_memalign(&iov.iov_base, 4096, 4096);
 	iov.iov_len = 4096;

@@ -96,7 +96,7 @@ int main(int argc, char *argv[])
 	int ret;
 
 	if (argc > 1)
-		return 0;
+		return T_EXIT_SKIP;
 
 	ret = t_create_ring(8, &ring, 0);
 	if (ret == T_SETUP_SKIP)

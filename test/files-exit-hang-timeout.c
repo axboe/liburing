@@ -73,7 +73,7 @@ int main(int argc, char *argv[])
 	int i;
 
 	if (argc > 1)
-		return 0;
+		return T_EXIT_SKIP;
 
 	sock_listen_fd = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, 0);
 	if (sock_listen_fd < 0) {

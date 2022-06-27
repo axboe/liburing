@@ -44,7 +44,7 @@ int main(int argc, char **argv)
 	int ret, listen_fd, connect_fd, val, i;
 
 	if (argc > 1)
-		return 0;
+		return T_EXIT_SKIP;
 
 	memset(&params, 0, sizeof(params));
 	ret = io_uring_queue_init_params(4, &io_uring, &params);

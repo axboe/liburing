@@ -260,7 +260,7 @@ int main(int argc, char *argv[])
 	int ret;
 
 	if (argc > 1)
-		return 0;
+		return T_EXIT_SKIP;
 
 	memset(&p, 0, sizeof(p));
 	ret = io_uring_queue_init_params(RING_SIZE, &ring, &p);

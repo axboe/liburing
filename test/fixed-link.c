@@ -19,7 +19,7 @@ int main(int argc, char *argv[])
 	int i, fd, ret;
 
 	if (argc > 1)
-		return 0;
+		return T_EXIT_SKIP;
 
 	fd = open("/dev/zero", O_RDONLY);
 	if (fd < 0) {

@@ -23,7 +23,7 @@ int main(int argc, char *argv[])
 	int ret, evfd1, evfd2;
 
 	if (argc > 1)
-		return 0;
+		return T_EXIT_SKIP;
 
 	ret = io_uring_queue_init_params(8, &ring1, &p);
 	if (ret) {

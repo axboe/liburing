@@ -22,7 +22,7 @@ int main(int argc, char *argv[])
 	int ret, data;
 
 	if (argc > 1)
-		return 0;
+		return T_EXIT_SKIP;
 
 	signal(SIGALRM, sig_alrm);
 

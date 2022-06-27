@@ -668,7 +668,7 @@ int main(int argc, char *argv[])
 	int ret;
 
 	if (argc > 1)
-		return 0;
+		return T_EXIT_SKIP;
 	ret = test_accept(1, false);
 	if (ret) {
 		fprintf(stderr, "test_accept failed\n");

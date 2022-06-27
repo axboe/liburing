@@ -119,7 +119,7 @@ int main(int argc, char *argv[])
 #endif
 
   if (argc > 1)
-    return 0;
+    return T_EXIT_SKIP;
 
   mmap_ret = mmap((void *)0x20000000ul, 0x1000000ul, 7ul, 0x32ul, -1, 0ul);
   if (mmap_ret == MAP_FAILED)
