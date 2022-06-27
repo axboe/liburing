@@ -88,7 +88,7 @@ int main(int argc, char *argv[])
   mmap((void *) 0x20000000ul, 0x1000000ul, 3ul, 0x32ul, -1, 0);
   if (setup_fault()) {
     printf("Test needs failslab/fail_futex/fail_page_alloc enabled, skipped\n");
-    return 0;
+    return T_EXIT_SKIP;
   }
   intptr_t res = 0;
   *(uint32_t*)0x20000000 = 0;

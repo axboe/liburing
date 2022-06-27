@@ -305,7 +305,7 @@ int main(int argc, char *argv[])
 	ret = t_create_ring(RING_SIZE, &sqthread_ring,
 				IORING_SETUP_SQPOLL | IORING_SETUP_IOPOLL);
 	if (ret == T_SETUP_SKIP)
-		return 0;
+		return T_EXIT_SKIP;
 	else if (ret < 0)
 		return T_EXIT_FAIL;
 

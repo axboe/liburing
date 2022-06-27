@@ -125,7 +125,7 @@ out:
 	unlinkat(AT_FDCWD, linkname, 0);
 	unlinkat(AT_FDCWD, target, 0);
 	io_uring_queue_exit(&ring);
-	return 0;
+	return T_EXIT_SKIP;
 err2:
 	unlinkat(AT_FDCWD, linkname, 0);
 err1:

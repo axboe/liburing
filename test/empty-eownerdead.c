@@ -24,7 +24,7 @@ int main(int argc, char *argv[])
 
 	ret = t_create_ring_params(1, &ring, &p);
 	if (ret == T_SETUP_SKIP)
-		return 0;
+		return T_EXIT_SKIP;
 	else if (ret < 0)
 		goto err;
 

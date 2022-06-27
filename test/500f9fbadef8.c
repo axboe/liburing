@@ -85,5 +85,5 @@ skipped:
 	fprintf(stderr, "Polling not supported in current dir, test skipped\n");
 	close(fd);
 	unlink(buf);
-	return 0;
+	return T_EXIT_SKIP;
 }

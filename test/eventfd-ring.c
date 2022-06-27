@@ -32,7 +32,7 @@ int main(int argc, char *argv[])
 	}
 	if (!(p.features & IORING_FEAT_CUR_PERSONALITY)) {
 		fprintf(stdout, "Skipping\n");
-		return 0;
+		return T_EXIT_SKIP;
 	}
 	ret = io_uring_queue_init(8, &ring2, 0);
 	if (ret) {

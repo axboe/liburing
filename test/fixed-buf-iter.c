@@ -100,7 +100,7 @@ int main(int argc, char *argv[])
 
 	ret = t_create_ring(8, &ring, 0);
 	if (ret == T_SETUP_SKIP)
-		return 0;
+		return T_EXIT_SKIP;
 	else if (ret < 0)
 		return T_EXIT_FAIL;
 

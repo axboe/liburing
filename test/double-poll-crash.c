@@ -115,7 +115,7 @@ int main(int argc, char *argv[])
 {
   void *mmap_ret;
 #if !defined(__i386) && !defined(__x86_64__)
-  return 0;
+  return T_EXIT_SKIP;
 #endif
 
   if (argc > 1)
