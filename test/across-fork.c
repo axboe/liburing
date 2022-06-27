@@ -15,6 +15,7 @@
 #include <unistd.h>
 
 #include "liburing.h"
+#include "helpers.h"
 
 
 struct forktestmem
@@ -147,7 +148,7 @@ int main(int argc, char *argv[])
 		   MAP_SHARED | MAP_ANONYMOUS, 0, 0);
 	if (!shmem) {
 		fprintf(stderr, "mmap failed\n");
-		exit(1);
+		exit(T_EXIT_FAIL);
 	}
 
 	pthread_barrierattr_init(&shmem->barrierattr);
@@ -157,12 +158,12 @@ int main(int argc, char *argv[])
 	ret = io_uring_queue_init(10, &shmem->ring, 0);
 	if (ret < 0) {
 		fprintf(stderr, "queue init failed\n");
-		exit(1);
+		exit(T_EXIT_FAIL);
 	}
 
 	if (mkdtemp(tmpdir) == NULL) {
 		fprintf(stderr, "temp directory creation failed\n");
-		exit(1);
+		exit(T_EXIT_FAIL);
 	}
 
 	shared_fd = open_tempfile(tmpdir, "shared");
@@ -275,9 +276,9 @@ int main(int argc, char *argv[])
 		goto errcleanup;
 
 	cleanup(tmpdir);
-	exit(0);
+	exit(T_EXIT_PASS);
 
 errcleanup:
 	cleanup(tmpdir);
-	exit(1);
+	exit(T_EXIT_FAIL);
 }

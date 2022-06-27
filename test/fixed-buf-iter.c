@@ -102,14 +102,14 @@ int main(int argc, char *argv[])
 	if (ret == T_SETUP_SKIP)
 		return 0;
 	else if (ret < 0)
-		return 1;
+		return T_EXIT_FAIL;
 
 	ret = test(&ring);
 	if (ret) {
 		fprintf(stderr, "Test failed\n");
-		return 1;
+		return T_EXIT_FAIL;
 	}
 
 	io_uring_queue_exit(&ring);
-	return 0;
+	return T_EXIT_PASS;
 }

@@ -39,7 +39,7 @@ int main(int argc, char *argv[])
 		goto err;
 	}
 
-	return 0;
+	return T_EXIT_PASS;
 err:
-	return 1;
+	return T_EXIT_FAIL;
 }

@@ -21,6 +21,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
+#include "helpers.h"
 #include "liburing.h"
 
 #define RECV_BUFF_SIZE 2
@@ -281,7 +282,7 @@ int main(int argc, char *argv[])
 	struct params p;
 	pthread_t t1, t2;
 	void *res1, *res2;
-	int i, exit_val = 0;
+	int i, exit_val = T_EXIT_PASS;
 
 	if (argc > 1)
 		return 0;
@@ -298,7 +299,7 @@ int main(int argc, char *argv[])
 		pthread_join(t2, &res2);
 		if (res1 || res2) {
 			fprintf(stderr, "Failed tcp=%d, non_blocking=%d\n", p.tcp, p.non_blocking);
-			exit_val = 1;
+			exit_val = T_EXIT_FAIL;
 		}
 	}
 

@@ -9,6 +9,7 @@
 #include <stdlib.h>
 
 #include "liburing.h"
+#include "helpers.h"
 
 static int test(struct io_uring *ring, int expect_drops)
 {
@@ -80,7 +81,7 @@ int main(int argc, char *argv[])
 	ret = io_uring_queue_init(8, &ring, 0);
 	if (ret) {
 		fprintf(stderr, "ring setup failed\n");
-		return 0;
+		return T_EXIT_FAIL;
 	}
 
 	ret = test(&ring, 1);
@@ -89,5 +90,5 @@ int main(int argc, char *argv[])
 		return ret;
 	}
 
-	return 0;
+	return T_EXIT_PASS;
 }

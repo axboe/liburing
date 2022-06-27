@@ -11,6 +11,7 @@
 #include <unistd.h>
 
 #include "liburing.h"
+#include "helpers.h"
 #include "../src/syscall.h"
 
 int main(int argc, char *argv[])
@@ -49,5 +50,5 @@ int main(int argc, char *argv[])
   *(uint32_t*)0x2000026c = 0;
   *(uint64_t*)0x20000270 = 0;
   __sys_io_uring_setup(0xc9f, (struct io_uring_params *) 0x20000200);
-  return 0;
+  return T_EXIT_PASS;
 }

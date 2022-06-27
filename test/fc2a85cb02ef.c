@@ -16,6 +16,7 @@
 #include <unistd.h>
 
 #include "liburing.h"
+#include "helpers.h"
 #include "../src/syscall.h"
 
 static bool write_file(const char* file, const char* what, ...)
@@ -127,5 +128,5 @@ int main(int argc, char *argv[])
   *(uint32_t*)0x20000080 = r[1];
   inject_fault(1);
   __sys_io_uring_register(r[0], 2ul, (const void *) 0x20000080ul, 1ul);
-  return 0;
+  return T_EXIT_PASS;
 }

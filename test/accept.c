@@ -825,5 +825,5 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "test_accept_pending_on_exit failed\n");
 		return ret;
 	}
-	return 0;
+	return T_EXIT_PASS;
 }

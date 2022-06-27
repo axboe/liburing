@@ -21,6 +21,7 @@
 #include <unistd.h>
 
 #include "liburing.h"
+#include "helpers.h"
 #include "../src/syscall.h"
 
 static void sleep_ms(uint64_t ms)
@@ -176,5 +177,5 @@ int main(int argc, char *argv[])
 	signal(SIGINT, sig_int);
 	mmap((void *) 0x20000000, 0x1000000, 3, 0x32, -1, 0);
 	loop();
-	return 0;
+	return T_EXIT_PASS;
 }

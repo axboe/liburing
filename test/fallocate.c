@@ -14,6 +14,7 @@
 #include <fcntl.h>
 
 #include "liburing.h"
+#include "helpers.h"
 
 static int no_fallocate;
 
@@ -224,7 +225,7 @@ int main(int argc, char *argv[])
 	ret = io_uring_queue_init(8, &ring, 0);
 	if (ret) {
 		fprintf(stderr, "ring setup failed\n");
-		return 1;
+		return T_EXIT_FAIL;
 	}
 
 	ret = test_fallocate(&ring);
@@ -245,5 +246,5 @@ int main(int argc, char *argv[])
 		return ret;
 	}
 
-	return 0;
+	return T_EXIT_PASS;
 }

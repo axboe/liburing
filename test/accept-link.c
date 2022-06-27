@@ -14,6 +14,7 @@
 #include <arpa/inet.h>
 
 #include "liburing.h"
+#include "helpers.h"
 
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
@@ -242,13 +243,13 @@ int main(int argc, char *argv[])
 		return 0;
 	if (test_accept_timeout(0, 200000000)) {
 		fprintf(stderr, "accept timeout 0 failed\n");
-		return 1;
+		return T_EXIT_FAIL;
 	}
 
 	if (test_accept_timeout(1, 1000000000)) {
 		fprintf(stderr, "accept and connect timeout 0 failed\n");
-		return 1;
+		return T_EXIT_FAIL;
 	}
 
-	return 0;
+	return T_EXIT_PASS;
 }

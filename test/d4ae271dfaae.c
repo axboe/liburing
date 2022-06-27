@@ -33,7 +33,7 @@ int main(int argc, char *argv[])
 	if (ret == T_SETUP_SKIP)
 		return 0;
 	else if (ret < 0)
-		return 1;
+		return T_EXIT_FAIL;
 
 	if (argc > 1) {
 		fname = argv[1];

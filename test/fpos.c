@@ -230,7 +230,7 @@ int main(int argc, char *argv[])
 	ret = io_uring_queue_init(QUEUE_SIZE, &ring, 0);
 	if (ret) {
 		fprintf(stderr, "ring setup failed\n");
-		return 1;
+		return T_EXIT_FAIL;
 	}
 
 	for (int test = 0; test < 8; test++) {
@@ -248,5 +248,5 @@ int main(int argc, char *argv[])
 			return -1;
 		}
 	}
-	return 0;
+	return T_EXIT_PASS;
 }

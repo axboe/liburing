@@ -10,6 +10,7 @@
 #include <unistd.h>
 
 #include "liburing.h"
+#include "helpers.h"
 
 
 static int do_linkat(struct io_uring *ring, const char *oldname, const char *newname)
@@ -131,6 +132,6 @@ err1:
 	unlinkat(AT_FDCWD, target, 0);
 err:
 	io_uring_queue_exit(&ring);
-	return 1;
+	return T_EXIT_FAIL;
 }
 

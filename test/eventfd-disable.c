@@ -13,6 +13,7 @@
 #include <sys/eventfd.h>
 
 #include "liburing.h"
+#include "helpers.h"
 
 int main(int argc, char *argv[])
 {
@@ -33,24 +34,24 @@ int main(int argc, char *argv[])
 	ret = io_uring_queue_init_params(64, &ring, &p);
 	if (ret) {
 		fprintf(stderr, "ring setup failed: %d\n", ret);
-		return 1;
+		return T_EXIT_FAIL;
 	}
 
 	evfd = eventfd(0, EFD_CLOEXEC);
 	if (evfd < 0) {
 		perror("eventfd");
-		return 1;
+		return T_EXIT_FAIL;
 	}
 
 	ret = io_uring_register_eventfd(&ring, evfd);
 	if (ret) {
 		fprintf(stderr, "failed to register evfd: %d\n", ret);
-		return 1;
+		return T_EXIT_FAIL;
 	}
 
 	if (!io_uring_cq_eventfd_enabled(&ring)) {
 		fprintf(stderr, "eventfd disabled\n");
-		return 1;
+		return T_EXIT_FAIL;
 	}
 
 	ret = io_uring_cq_eventfd_toggle(&ring, false);
@@ -66,7 +67,7 @@ int main(int argc, char *argv[])
 	ret = io_uring_submit(&ring);
 	if (ret != 1) {
 		fprintf(stderr, "submit: %d\n", ret);
-		return 1;
+		return T_EXIT_FAIL;
 	}
 
 	for (i = 0; i < 63; i++) {
@@ -78,24 +79,24 @@ int main(int argc, char *argv[])
 	ret = io_uring_submit(&ring);
 	if (ret != 63) {
 		fprintf(stderr, "submit: %d\n", ret);
-		return 1;
+		return T_EXIT_FAIL;
 	}
 
 	for (i = 0; i < 63; i++) {
 		ret = io_uring_wait_cqe(&ring, &cqe);
 		if (ret) {
 			fprintf(stderr, "wait: %d\n", ret);
-			return 1;
+			return T_EXIT_FAIL;
 		}
 
 		switch (cqe->user_data) {
 		case 1: /* eventfd */
 			fprintf(stderr, "eventfd unexpected: %d\n", (int)ptr);
-			return 1;
+			return T_EXIT_FAIL;
 		case 2:
 			if (cqe->res) {
 				fprintf(stderr, "nop: %d\n", cqe->res);
-				return 1;
+				return T_EXIT_FAIL;
 			}
 			break;
 		}
@@ -105,7 +106,7 @@ int main(int argc, char *argv[])
 	ret = io_uring_cq_eventfd_toggle(&ring, true);
 	if (ret) {
 		fprintf(stderr, "io_uring_cq_eventfd_toggle: %d\n", ret);
-		return 1;
+		return T_EXIT_FAIL;
 	}
 
 	sqe = io_uring_get_sqe(&ring);
@@ -115,37 +116,37 @@ int main(int argc, char *argv[])
 	ret = io_uring_submit(&ring);
 	if (ret != 1) {
 		fprintf(stderr, "submit: %d\n", ret);
-		return 1;
+		return T_EXIT_FAIL;
 	}
 
 	for (i = 0; i < 2; i++) {
 		ret = io_uring_wait_cqe(&ring, &cqe);
 		if (ret) {
 			fprintf(stderr, "wait: %d\n", ret);
-			return 1;
+			return T_EXIT_FAIL;
 		}
 
 		switch (cqe->user_data) {
 		case 1: /* eventfd */
 			if (cqe->res != sizeof(ptr)) {
 				fprintf(stderr, "read res: %d\n", cqe->res);
-				return 1;
+				return T_EXIT_FAIL;
 			}
 
 			if (ptr != 1) {
 				fprintf(stderr, "eventfd: %d\n", (int)ptr);
-				return 1;
+				return T_EXIT_FAIL;
 			}
 			break;
 		case 2:
 			if (cqe->res) {
 				fprintf(stderr, "nop: %d\n", cqe->res);
-				return 1;
+				return T_EXIT_FAIL;
 			}
 			break;
 		}
 		io_uring_cqe_seen(&ring, cqe);
 	}
 
-	return 0;
+	return T_EXIT_PASS;
 }

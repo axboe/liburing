@@ -266,13 +266,13 @@ int main(int argc, char *argv[])
 	ret = io_uring_queue_init_params(RING_SIZE, &ring, &p);
 	if (ret) {
 		printf("ring setup failed %i\n", ret);
-		return 1;
+		return T_EXIT_FAIL;
 	}
 
 	ret = io_uring_queue_init(RING_SIZE, &poll_ring, IORING_SETUP_IOPOLL);
 	if (ret) {
 		printf("poll_ring setup failed\n");
-		return 1;
+		return T_EXIT_FAIL;
 	}
 
 
@@ -307,7 +307,7 @@ int main(int argc, char *argv[])
 	if (ret == T_SETUP_SKIP)
 		return 0;
 	else if (ret < 0)
-		return 1;
+		return T_EXIT_FAIL;
 
 	ret = test_thread_link_cancel(&sqthread_ring);
 	if (ret) {
@@ -315,5 +315,5 @@ int main(int argc, char *argv[])
 		return ret;
 	}
 
-	return 0;
+	return T_EXIT_PASS;
 }

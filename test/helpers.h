@@ -16,6 +16,13 @@ enum t_setup_ret {
 	T_SETUP_SKIP,
 };
 
+enum t_test_result {
+	T_EXIT_PASS   = 0,
+	T_EXIT_FAIL   = 1,
+	T_EXIT_SKIP   = 77,
+	T_EXIT_ERROR  = 99,
+};
+
 /*
  * Helper for allocating memory in tests.
  */

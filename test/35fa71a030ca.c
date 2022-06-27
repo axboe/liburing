@@ -25,6 +25,7 @@
 #include <linux/futex.h>
 
 #include "liburing.h"
+#include "helpers.h"
 #include "../src/syscall.h"
 
 #if !defined(SYS_futex) && defined(SYS_futex_time64)
@@ -324,5 +325,5 @@ int main(int argc, char *argv[])
 	alarm(5);
 
 	loop();
-	return 0;
+	return T_EXIT_PASS;
 }

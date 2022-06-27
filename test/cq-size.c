@@ -10,6 +10,7 @@
 #include <fcntl.h>
 
 #include "liburing.h"
+#include "helpers.h"
 
 int main(int argc, char *argv[])
 {
@@ -31,7 +32,7 @@ int main(int argc, char *argv[])
 			goto done;
 		}
 		printf("ring setup failed\n");
-		return 1;
+		return T_EXIT_FAIL;
 	}
 
 	if (p.cq_entries < 64) {
@@ -58,7 +59,7 @@ int main(int argc, char *argv[])
 	}
 
 done:
-	return 0;
+	return T_EXIT_PASS;
 err:
-	return 1;
+	return T_EXIT_FAIL;
 }
