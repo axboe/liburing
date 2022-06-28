@@ -7,3 +7,8 @@ option('tests',
        type : 'boolean',
        value : false,
        description : 'Build test programs')
+
+option('nolibc',
+       type : 'boolean',
+       value : false,
+       description : 'Build liburing without libc')

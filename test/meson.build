@@ -170,7 +170,7 @@ foreach test_source: all_tests
                [test_source, 'helpers.c'],
                c_args: xcflags,
                cpp_args: xcflags,
-               include_directories: inc,
+               include_directories: liburing_internal_includes,
                link_with: liburing.get_static_lib(),
                dependencies: test_dependencies,
                install: true,
