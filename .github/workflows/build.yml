@@ -28,7 +28,7 @@ jobs:
             cxx: clang++
 
           # x86 (32-bit) gcc
-          - arch: i686
+          - arch: x86
             cc_pkg: gcc-i686-linux-gnu
             cxx_pkg: g++-i686-linux-gnu
             cc: i686-linux-gnu-gcc
@@ -49,14 +49,14 @@ jobs:
             cxx: arm-linux-gnueabi-g++
 
           # powerpc64
-          - arch: powerpc64
+          - arch: ppc64
             cc_pkg: gcc-powerpc64-linux-gnu
             cxx_pkg: g++-powerpc64-linux-gnu
             cc: powerpc64-linux-gnu-gcc
             cxx: powerpc64-linux-gnu-g++
 
           # powerpc
-          - arch: powerpc
+          - arch: ppc
             cc_pkg: gcc-powerpc-linux-gnu
             cxx_pkg: g++-powerpc-linux-gnu
             cc: powerpc-linux-gnu-gcc
@@ -85,6 +85,8 @@ jobs:
 
     env:
       FLAGS: -g -O3 -Wall -Wextra -Werror
+      MESON_BUILDDIR: build
+      MESON_CROSS_FILE: /tmp/cross-env.txt
 
     steps:
     - name: Checkout source
@@ -114,7 +116,7 @@ jobs:
 
     - name: Build nolibc
       run: |
-        if [[ "${{matrix.arch}}" == "x86_64" || "${{matrix.arch}}" == "i686" || "${{matrix.arch}}" == "aarch64" ]]; then \
+        if [[ "${{matrix.arch}}" == "x86_64" || "${{matrix.arch}}" == "x86" || "${{matrix.arch}}" == "aarch64" ]]; then \
             make clean; \
             ./configure --cc=${{matrix.cc}} --cxx=${{matrix.cxx}} --nolibc; \
             make -j$(nproc) V=1 CPPFLAGS="-Werror" CFLAGS="$FLAGS" CXXFLAGS="$FLAGS"; \
@@ -125,3 +127,38 @@ jobs:
     - name: Test install command
       run: |
         sudo make install;
+
+    - name: Install meson
+      run: |
+        sudo apt-get update -y;
+        sudo apt-get install -y meson;
+
+    - name: Generate meson cross file
+      run: |
+        { \
+          echo -e "[host_machine]\nsystem = 'linux'"; \
+          echo "cpu_family = '${{matrix.arch}}'"; \
+          echo "cpu = '${{matrix.arch}}'"; \
+          echo "endian = 'big'"; \
+          echo -e "[binaries]\nc = '/usr/bin/${{matrix.cc}}'"; \
+          echo "cpp = '/usr/bin/${{matrix.cxx}}'"; \
+        } > "$MESON_CROSS_FILE"
+
+    - name: Build with meson
+      run: |
+        meson setup "$MESON_BUILDDIR" -Dtests=true -Dexamples=true --cross-file "$MESON_CROSS_FILE";
+        ninja -C "$MESON_BUILDDIR";
+
+    - name: Build nolibc with meson
+      run: |
+        if [[ "${{matrix.arch}}" == "x86_64" || "${{matrix.arch}}" == "x86" || "${{matrix.arch}}" == "aarch64" ]]; then \
+            rm -r "$MESON_BUILDDIR"; \
+            meson setup "$MESON_BUILDDIR" -Dnolibc=true -Dtests=true -Dexamples=true --cross-file "$MESON_CROSS_FILE"; \
+            ninja -C "$MESON_BUILDDIR"; \
+        else \
+            echo "Skipping nolibc build, this arch doesn't support building liburing without libc"; \
+        fi;
+
+    - name: Test meson install
+      run: |
+       sudo meson install -C "$MESON_BUILDDIR"
