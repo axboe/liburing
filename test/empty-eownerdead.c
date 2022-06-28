@@ -17,14 +17,14 @@ int main(int argc, char *argv[])
 	int ret;
 
 	if (argc > 1)
-		return 0;
+		return T_EXIT_SKIP;
 
 	p.flags = IORING_SETUP_SQPOLL;
 	p.sq_thread_idle = 100;
 
 	ret = t_create_ring_params(1, &ring, &p);
 	if (ret == T_SETUP_SKIP)
-		return 0;
+		return T_EXIT_SKIP;
 	else if (ret < 0)
 		goto err;
 
@@ -39,7 +39,7 @@ int main(int argc, char *argv[])
 		goto err;
 	}
 
-	return 0;
+	return T_EXIT_PASS;
 err:
-	return 1;
+	return T_EXIT_FAIL;
 }

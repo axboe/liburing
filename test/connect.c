@@ -17,6 +17,7 @@
 #include <arpa/inet.h>
 
 #include "liburing.h"
+#include "helpers.h"
 
 static int no_connect;
 static unsigned short use_port;
@@ -360,12 +361,12 @@ int main(int argc, char *argv[])
 	int ret;
 
 	if (argc > 1)
-		return 0;
+		return T_EXIT_SKIP;
 
 	ret = io_uring_queue_init(8, &ring, 0);
 	if (ret) {
 		fprintf(stderr, "io_uring_queue_setup() = %d\n", ret);
-		return 1;
+		return T_EXIT_FAIL;
 	}
 
 	srand(getpid());
@@ -376,7 +377,7 @@ int main(int argc, char *argv[])
 	ret = test_connect_with_no_peer(&ring);
 	if (ret == -1) {
 		fprintf(stderr, "test_connect_with_no_peer(): failed\n");
-		return 1;
+		return T_EXIT_FAIL;
 	}
 	if (no_connect)
 		return 0;
@@ -384,15 +385,15 @@ int main(int argc, char *argv[])
 	ret = test_connect(&ring);
 	if (ret == -1) {
 		fprintf(stderr, "test_connect(): failed\n");
-		return 1;
+		return T_EXIT_FAIL;
 	}
 
 	ret = test_connect_timeout(&ring);
 	if (ret == -1) {
 		fprintf(stderr, "test_connect_timeout(): failed\n");
-		return 1;
+		return T_EXIT_FAIL;
 	}
 
 	io_uring_queue_exit(&ring);
-	return 0;
+	return T_EXIT_PASS;
 }

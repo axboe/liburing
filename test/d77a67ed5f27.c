@@ -22,7 +22,7 @@ int main(int argc, char *argv[])
 	int ret, data;
 
 	if (argc > 1)
-		return 0;
+		return T_EXIT_SKIP;
 
 	signal(SIGALRM, sig_alrm);
 
@@ -31,9 +31,9 @@ int main(int argc, char *argv[])
 	p.flags = IORING_SETUP_SQPOLL;
 	ret = t_create_ring_params(4, &ring, &p);
 	if (ret == T_SETUP_SKIP)
-		return 0;
+		return T_EXIT_SKIP;
 	else if (ret < 0)
-		return 1;
+		return T_EXIT_FAIL;
 
 	/* make sure sq thread is sleeping at this point */
 	usleep(150000);
@@ -42,7 +42,7 @@ int main(int argc, char *argv[])
 	sqe = io_uring_get_sqe(&ring);
 	if (!sqe) {
 		fprintf(stderr, "sqe get failed\n");
-		return 1;
+		return T_EXIT_FAIL;
 	}
 
 	io_uring_prep_nop(sqe);
@@ -58,8 +58,8 @@ int main(int argc, char *argv[])
 	data = (unsigned long) io_uring_cqe_get_data(cqe);
 	if (data != 42) {
 		fprintf(stderr, "invalid data: %d\n", data);
-		return 1;
+		return T_EXIT_FAIL;
 	}
 
-	return 0;
+	return T_EXIT_PASS;
 }

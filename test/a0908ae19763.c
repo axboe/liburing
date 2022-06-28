@@ -11,6 +11,7 @@
 #include <unistd.h>
 
 #include "liburing.h"
+#include "helpers.h"
 #include "../src/syscall.h"
 
 uint64_t r[1] = {0xffffffffffffffff};
@@ -18,7 +19,7 @@ uint64_t r[1] = {0xffffffffffffffff};
 int main(int argc, char *argv[])
 {
   if (argc > 1)
-    return 0;
+    return T_EXIT_SKIP;
   mmap((void *) 0x20000000, 0x1000000, 3, 0x32, -1, 0);
   intptr_t res = 0;
   *(uint32_t*)0x20000080 = 0;
@@ -54,5 +55,5 @@ int main(int argc, char *argv[])
     r[0] = res;
   *(uint32_t*)0x20000280 = -1;
   __sys_io_uring_register(r[0], 2, (const void *) 0x20000280, 1);
-  return 0;
+  return T_EXIT_PASS;
 }

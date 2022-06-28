@@ -46,7 +46,7 @@ int main(int argc, char *argv[])
 	pthread_t tid;
 
 	if (argc > 1)
-		return 0;
+		return T_EXIT_SKIP;
 
 	/* Create an eventfd to be registered with the loop to be
 	 * notified of events being ready
@@ -54,14 +54,14 @@ int main(int argc, char *argv[])
 	loop_fd = eventfd(0, EFD_CLOEXEC);
 	if (loop_fd == -1) {
 		fprintf(stderr, "eventfd errno=%d\n", errno);
-		return 1;
+		return T_EXIT_FAIL;
 	}
 
 	/* Create an eventfd that can create events */
 	use_fd = other_fd = eventfd(0, EFD_CLOEXEC);
 	if (other_fd == -1) {
 		fprintf(stderr, "eventfd errno=%d\n", errno);
-		return 1;
+		return T_EXIT_FAIL;
 	}
 
 	if (use_sqpoll)
@@ -70,21 +70,21 @@ int main(int argc, char *argv[])
 	/* Setup the ring with a registered event fd to be notified on events */
 	ret = t_create_ring_params(8, &ring, &p);
 	if (ret == T_SETUP_SKIP)
-		return 0;
+		return T_EXIT_PASS;
 	else if (ret < 0)
 		return ret;
 
 	ret = io_uring_register_eventfd(&ring, loop_fd);
 	if (ret < 0) {
 		fprintf(stderr, "register_eventfd=%d\n", ret);
-		return 1;
+		return T_EXIT_FAIL;
 	}
 
 	if (use_sqpoll) {
 		ret = io_uring_register_files(&ring, &other_fd, 1);
 		if (ret < 0) {
 			fprintf(stderr, "register_files=%d\n", ret);
-			return 1;
+			return T_EXIT_FAIL;
 		}
 		use_fd = 0;
 	}
@@ -98,7 +98,7 @@ int main(int argc, char *argv[])
 	ret = io_uring_submit(&ring);
 	if (ret != 1) {
 		fprintf(stderr, "submit=%d\n", ret);
-		return 1;
+		return T_EXIT_FAIL;
 	}
 
 	/*
@@ -114,10 +114,10 @@ int main(int argc, char *argv[])
 	ret = read(loop_fd, buf, 8);
 	if (ret < 0) {
 		perror("read");
-		return 1;
+		return T_EXIT_FAIL;
 	} else if (ret != 8) {
 		fprintf(stderr, "Odd-sized eventfd read: %d\n", ret);
-		return 1;
+		return T_EXIT_FAIL;
 	}
 
 
@@ -128,9 +128,9 @@ int main(int argc, char *argv[])
 	}
 	if (cqe->res < 0) {
 		fprintf(stderr, "cqe->res=%d\n", cqe->res);
-		return 1;
+		return T_EXIT_FAIL;
 	}
 
 	io_uring_cqe_seen(&ring, cqe);
-	return 0;
+	return T_EXIT_PASS;
 }

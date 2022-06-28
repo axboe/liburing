@@ -15,6 +15,7 @@
 #include <unistd.h>
 #include <poll.h>
 #include "liburing.h"
+#include "helpers.h"
 
 #define BACKLOG 512
 
@@ -66,12 +67,12 @@ int main(int argc, char *argv[])
 	int i;
 
 	if (argc > 1)
-		return 0;
+		return T_EXIT_SKIP;
 
 	sock_listen_fd = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, 0);
 	if (sock_listen_fd < 0) {
 		perror("socket");
-		return 1;
+		return T_EXIT_FAIL;
 	}
 
 	setsockopt(sock_listen_fd, SOL_SOCKET, SO_REUSEADDR, &val, sizeof(val));
@@ -88,7 +89,7 @@ int main(int argc, char *argv[])
 			break;
 		if (errno != EADDRINUSE) {
 			fprintf(stderr, "bind: %s\n", strerror(errno));
-			return 1;
+			return T_EXIT_FAIL;
 		}
 		if (i == 99) {
 			printf("Gave up on finding a port, skipping\n");
@@ -98,11 +99,11 @@ int main(int argc, char *argv[])
 
 	if (listen(sock_listen_fd, BACKLOG) < 0) {
 		perror("Error listening on socket\n");
-		return 1;
+		return T_EXIT_FAIL;
 	}
 
 	if (setup_io_uring())
-		return 1;
+		return T_EXIT_FAIL;
 
 	add_poll(&ring, sock_listen_fd);
 	add_accept(&ring, sock_listen_fd);
@@ -110,7 +111,7 @@ int main(int argc, char *argv[])
 	ret = io_uring_submit(&ring);
 	if (ret != 2) {
 		fprintf(stderr, "submit=%d\n", ret);
-		return 1;
+		return T_EXIT_FAIL;
 	}
 
 	signal(SIGALRM, alarm_sig);
@@ -119,10 +120,10 @@ int main(int argc, char *argv[])
 	ret = io_uring_wait_cqe(&ring, &cqe);
 	if (ret) {
 		fprintf(stderr, "wait_cqe=%d\n", ret);
-		return 1;
+		return T_EXIT_FAIL;
 	}
 
 out:
 	io_uring_queue_exit(&ring);
-	return 0;
+	return T_EXIT_PASS;
 }

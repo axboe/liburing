@@ -64,7 +64,7 @@ int main(int argc, char *argv[])
 	int ret, fd;
 
 	if (argc > 1)
-		return 0;
+		return T_EXIT_SKIP;
 
 	iov.iov_base = t_malloc(4096);
 	iov.iov_len = 4096;
@@ -72,19 +72,19 @@ int main(int argc, char *argv[])
 	ret = io_uring_queue_init(2, &ring, 0);
 	if (ret) {
 		printf("ring setup failed\n");
-		return 1;
+		return T_EXIT_FAIL;
 
 	}
 
 	sqe = io_uring_get_sqe(&ring);
 	if (!sqe) {
 		printf("get sqe failed\n");
-		return 1;
+		return T_EXIT_FAIL;
 	}
 
 	fd = get_file_fd();
 	if (fd < 0)
-		return 1;
+		return T_EXIT_FAIL;
 
 	io_uring_prep_readv(sqe, fd, &iov, 1, 0);
 	sqe->rw_flags = RWF_NOWAIT;
@@ -107,8 +107,8 @@ int main(int argc, char *argv[])
 	}
 
 	close(fd);
-	return 0;
+	return T_EXIT_PASS;
 err:
 	close(fd);
-	return 1;
+	return T_EXIT_FAIL;
 }

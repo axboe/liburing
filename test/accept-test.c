@@ -8,6 +8,7 @@
 #include <sys/un.h>
 #include <assert.h>
 #include "liburing.h"
+#include "helpers.h"
 
 int main(int argc, char *argv[])
 {
@@ -23,11 +24,11 @@ int main(int argc, char *argv[])
 	};
 
 	if (argc > 1)
-		return 0;
+		return T_EXIT_SKIP;
 
 	if (io_uring_queue_init(4, &ring, 0) != 0) {
 		fprintf(stderr, "ring setup failed\n");
-		return 1;
+		return T_EXIT_FAIL;
 	}
 
 	fd = socket(AF_UNIX, SOCK_STREAM, 0);
@@ -45,7 +46,7 @@ int main(int argc, char *argv[])
 	sqe = io_uring_get_sqe(&ring);
 	if (!sqe) {
 		fprintf(stderr, "get sqe failed\n");
-		return 1;
+		return T_EXIT_FAIL;
 	}
 	io_uring_prep_accept(sqe, fd, (struct sockaddr*)&addr, &addrlen, 0);
 	sqe->user_data = 1;
@@ -53,7 +54,7 @@ int main(int argc, char *argv[])
 	ret = io_uring_submit(&ring);
 	if (ret != 1) {
 		fprintf(stderr, "Got submit %d, expected 1\n", ret);
-		return 1;
+		return T_EXIT_FAIL;
 	}
 
 	ret = io_uring_wait_cqe_timeout(&ring, &cqe, &ts);
@@ -67,13 +68,13 @@ int main(int argc, char *argv[])
 		}
 	} else if (ret != -ETIME) {
 		fprintf(stderr, "accept() failed to use addr & addrlen parameters!\n");
-		return 1;
+		return T_EXIT_FAIL;
 	}
 
 out:
 	io_uring_queue_exit(&ring);
-	return 0;
+	return T_EXIT_PASS;
 err:
 	io_uring_queue_exit(&ring);
-	return 1;
+	return T_EXIT_FAIL;
 }

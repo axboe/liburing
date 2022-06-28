@@ -13,6 +13,7 @@
 #include <sys/eventfd.h>
 
 #include "liburing.h"
+#include "helpers.h"
 
 int main(int argc, char *argv[])
 {
@@ -22,45 +23,45 @@ int main(int argc, char *argv[])
 	int ret, evfd1, evfd2;
 
 	if (argc > 1)
-		return 0;
+		return T_EXIT_SKIP;
 
 	ret = io_uring_queue_init_params(8, &ring1, &p);
 	if (ret) {
 		fprintf(stderr, "ring setup failed: %d\n", ret);
-		return 1;
+		return T_EXIT_FAIL;
 	}
 	if (!(p.features & IORING_FEAT_CUR_PERSONALITY)) {
 		fprintf(stdout, "Skipping\n");
-		return 0;
+		return T_EXIT_SKIP;
 	}
 	ret = io_uring_queue_init(8, &ring2, 0);
 	if (ret) {
 		fprintf(stderr, "ring setup failed: %d\n", ret);
-		return 1;
+		return T_EXIT_FAIL;
 	}
 
 	evfd1 = eventfd(0, EFD_CLOEXEC);
 	if (evfd1 < 0) {
 		perror("eventfd");
-		return 1;
+		return T_EXIT_FAIL;
 	}
 
 	evfd2 = eventfd(0, EFD_CLOEXEC);
 	if (evfd2 < 0) {
 		perror("eventfd");
-		return 1;
+		return T_EXIT_FAIL;
 	}
 
 	ret = io_uring_register_eventfd(&ring1, evfd1);
 	if (ret) {
 		fprintf(stderr, "failed to register evfd: %d\n", ret);
-		return 1;
+		return T_EXIT_FAIL;
 	}
 
 	ret = io_uring_register_eventfd(&ring2, evfd2);
 	if (ret) {
 		fprintf(stderr, "failed to register evfd: %d\n", ret);
-		return 1;
+		return T_EXIT_FAIL;
 	}
 
 	sqe = io_uring_get_sqe(&ring1);
@@ -74,13 +75,13 @@ int main(int argc, char *argv[])
 	ret = io_uring_submit(&ring1);
 	if (ret != 1) {
 		fprintf(stderr, "submit: %d\n", ret);
-		return 1;
+		return T_EXIT_FAIL;
 	}
 
 	ret = io_uring_submit(&ring2);
 	if (ret != 1) {
 		fprintf(stderr, "submit: %d\n", ret);
-		return 1;
+		return T_EXIT_FAIL;
 	}
 
 	sqe = io_uring_get_sqe(&ring1);
@@ -90,8 +91,8 @@ int main(int argc, char *argv[])
 	ret = io_uring_submit(&ring1);
 	if (ret != 1) {
 		fprintf(stderr, "submit: %d\n", ret);
-		return 1;
+		return T_EXIT_FAIL;
 	}
 
-	return 0;
+	return T_EXIT_PASS;
 }

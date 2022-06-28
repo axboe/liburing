@@ -112,6 +112,9 @@ run_test()
 	if [ "$status" -eq 124 ]; then
 		echo "Test $test_name timed out (may not be a failure)"
 		TIMED_OUT="$TIMED_OUT <$test_string>"
+	elif [ "$status" -eq 77 ]; then
+		echo "Test $test_name skipped itself"
+		SKIPPED="$SKIPPED <$test_string>"
 	elif [ "$status" -ne 0 ]; then
 		echo "Test $test_name failed with ret $status"
 		FAILED="$FAILED <$test_string>"
@@ -164,6 +167,8 @@ fi
 if [ "${RET}" -ne 0 ]; then
 	echo "Tests failed: $FAILED"
 	exit $RET
+elif [ -n "$SKIPPED" ] && [ -n "$TEST_GNU_EXITCODE" ]; then
+	exit 77
 else
 	echo "All tests passed"
 	exit 0

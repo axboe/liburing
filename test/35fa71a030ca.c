@@ -25,6 +25,7 @@
 #include <linux/futex.h>
 
 #include "liburing.h"
+#include "helpers.h"
 #include "../src/syscall.h"
 
 #if !defined(SYS_futex) && defined(SYS_futex_time64)
@@ -317,12 +318,12 @@ static void sig_int(int sig)
 int main(int argc, char *argv[])
 {
 	if (argc > 1)
-		return 0;
+		return T_EXIT_SKIP;
 	signal(SIGINT, sig_int);
 	mmap((void *) 0x20000000, 0x1000000, 3, 0x32, -1, 0);
 	signal(SIGALRM, sig_int);
 	alarm(5);
 
 	loop();
-	return 0;
+	return T_EXIT_PASS;
 }

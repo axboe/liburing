@@ -836,12 +836,12 @@ int main(int argc, char *argv[])
 	int ret;
 
 	if (argc > 1)
-		return 0;
+		return T_EXIT_SKIP;
 
 	ret = io_uring_queue_init(8, &ring, 0);
 	if (ret) {
 		printf("ring setup failed\n");
-		return 1;
+		return T_EXIT_FAIL;
 	}
 
 	ret = test_basic(&ring, 0);
@@ -922,7 +922,7 @@ int main(int argc, char *argv[])
 	ret = test_skip(&ring);
 	if (ret) {
 		printf("test_skip failed\n");
-		return 1;
+		return T_EXIT_FAIL;
 	}
 
 	ret = test_sparse_updates();
@@ -934,13 +934,13 @@ int main(int argc, char *argv[])
 	ret = test_fixed_removal_ordering();
 	if (ret) {
 		printf("test_fixed_removal_ordering failed\n");
-		return 1;
+		return T_EXIT_FAIL;
 	}
 
 	ret = test_mixed_af_unix();
 	if (ret) {
 		printf("test_mixed_af_unix failed\n");
-		return 1;
+		return T_EXIT_FAIL;
 	}
 
 	ret = test_partial_register_fail();
@@ -949,5 +949,5 @@ int main(int argc, char *argv[])
 		return ret;
 	}
 
-	return 0;
+	return T_EXIT_PASS;
 }

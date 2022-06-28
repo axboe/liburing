@@ -249,7 +249,7 @@ int main(int argc, char *argv[])
 	int ret;
 
 	if (argc > 1)
-		return 0;
+		return T_EXIT_SKIP;
 
 	ret = test_overflow();
 	if (ret) {
@@ -287,8 +287,8 @@ int main(int argc, char *argv[])
 	}
 
 	unlink(fname);
-	return 0;
+	return T_EXIT_PASS;
 err:
 	unlink(fname);
-	return 1;
+	return T_EXIT_FAIL;
 }

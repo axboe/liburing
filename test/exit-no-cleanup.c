@@ -74,7 +74,7 @@ int main(int argc, char *argv[])
 	const uint64_t n = 0x42;
 
 	if (argc > 1)
-		return 0;
+		return T_EXIT_SKIP;
 
 	cpus = get_nprocs();
 	res = pthread_barrier_init(&init_barrier, NULL, cpus);

@@ -13,6 +13,7 @@
 #include <sys/eventfd.h>
 
 #include "liburing.h"
+#include "helpers.h"
 
 int main(int argc, char *argv[])
 {
@@ -28,28 +29,28 @@ int main(int argc, char *argv[])
 	int ret, evfd, i;
 
 	if (argc > 1)
-		return 0;
+		return T_EXIT_SKIP;
 
 	ret = io_uring_queue_init_params(8, &ring, &p);
 	if (ret) {
 		fprintf(stderr, "ring setup failed: %d\n", ret);
-		return 1;
+		return T_EXIT_FAIL;
 	}
 	if (!(p.features & IORING_FEAT_CUR_PERSONALITY)) {
 		fprintf(stdout, "Skipping\n");
-		return 0;
+		return T_EXIT_SKIP;
 	}
 
 	evfd = eventfd(0, EFD_CLOEXEC);
 	if (evfd < 0) {
 		perror("eventfd");
-		return 1;
+		return T_EXIT_FAIL;
 	}
 
 	ret = io_uring_register_eventfd(&ring, evfd);
 	if (ret) {
 		fprintf(stderr, "failed to register evfd: %d\n", ret);
-		return 1;
+		return T_EXIT_FAIL;
 	}
 
 	sqe = io_uring_get_sqe(&ring);
@@ -65,7 +66,7 @@ int main(int argc, char *argv[])
 	ret = io_uring_submit(&ring);
 	if (ret != 2) {
 		fprintf(stderr, "submit: %d\n", ret);
-		return 1;
+		return T_EXIT_FAIL;
 	}
 
 	sqe = io_uring_get_sqe(&ring);
@@ -75,38 +76,38 @@ int main(int argc, char *argv[])
 	ret = io_uring_submit(&ring);
 	if (ret != 1) {
 		fprintf(stderr, "submit: %d\n", ret);
-		return 1;
+		return T_EXIT_FAIL;
 	}
 
 	for (i = 0; i < 3; i++) {
 		ret = io_uring_wait_cqe(&ring, &cqe);
 		if (ret) {
 			fprintf(stderr, "wait: %d\n", ret);
-			return 1;
+			return T_EXIT_FAIL;
 		}
 		switch (cqe->user_data) {
 		case 1:
 			/* POLLIN */
 			if (cqe->res != 1) {
 				fprintf(stderr, "poll: %d\n", cqe->res);
-				return 1;
+				return T_EXIT_FAIL;
 			}
 			break;
 		case 2:
 			if (cqe->res != sizeof(ptr)) {
 				fprintf(stderr, "read: %d\n", cqe->res);
-				return 1;
+				return T_EXIT_FAIL;
 			}
 			break;
 		case 3:
 			if (cqe->res) {
 				fprintf(stderr, "nop: %d\n", cqe->res);
-				return 1;
+				return T_EXIT_FAIL;
 			}
 			break;
 		}
 		io_uring_cqe_seen(&ring, cqe);
 	}
 
-	return 0;
+	return T_EXIT_PASS;
 }

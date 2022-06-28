@@ -13,6 +13,7 @@
 #include <sys/eventfd.h>
 
 #include "liburing.h"
+#include "helpers.h"
 
 int main(int argc, char *argv[])
 {
@@ -21,39 +22,39 @@ int main(int argc, char *argv[])
 	int ret, evfd[2], i;
 
 	if (argc > 1)
-		return 0;
+		return T_EXIT_SKIP;
 
 	ret = io_uring_queue_init_params(8, &ring, &p);
 	if (ret) {
 		fprintf(stderr, "ring setup failed: %d\n", ret);
-		return 1;
+		return T_EXIT_FAIL;
 	}
 
 	evfd[0] = eventfd(0, EFD_CLOEXEC);
 	evfd[1] = eventfd(0, EFD_CLOEXEC);
 	if (evfd[0] < 0 || evfd[1] < 0) {
 		perror("eventfd");
-		return 1;
+		return T_EXIT_FAIL;
 	}
 
 	ret = io_uring_register_eventfd(&ring, evfd[0]);
 	if (ret) {
 		fprintf(stderr, "failed to register evfd: %d\n", ret);
-		return 1;
+		return T_EXIT_FAIL;
 	}
 
 	/* Check that registrering again will get -EBUSY */
 	ret = io_uring_register_eventfd(&ring, evfd[1]);
 	if (ret != -EBUSY) {
 		fprintf(stderr, "unexpected 2nd register: %d\n", ret);
-		return 1;
+		return T_EXIT_FAIL;
 	}
 	close(evfd[1]);
 
 	ret = io_uring_unregister_eventfd(&ring);
 	if (ret) {
 		fprintf(stderr, "unexpected unregister: %d\n", ret);
-		return 1;
+		return T_EXIT_FAIL;
 	}
 
 	/* loop 100 registers/unregister */
@@ -61,16 +62,16 @@ int main(int argc, char *argv[])
 		ret = io_uring_register_eventfd(&ring, evfd[0]);
 		if (ret) {
 			fprintf(stderr, "failed to register evfd: %d\n", ret);
-			return 1;
+			return T_EXIT_FAIL;
 		}
 
 		ret = io_uring_unregister_eventfd(&ring);
 		if (ret) {
 			fprintf(stderr, "unexpected unregister: %d\n", ret);
-			return 1;
+			return T_EXIT_FAIL;
 		}
 	}
 
 	close(evfd[0]);
-	return 0;
+	return T_EXIT_PASS;
 }

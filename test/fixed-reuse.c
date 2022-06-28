@@ -124,12 +124,12 @@ int main(int argc, char *argv[])
 	int ret, files[MAX_FILES];
 
 	if (argc > 1)
-		return 0;
+		return T_EXIT_SKIP;
 
 	ret = io_uring_queue_init_params(8, &ring, &p);
 	if (ret) {
 		fprintf(stderr, "ring setup failed: %d\n", ret);
-		return 1;
+		return T_EXIT_FAIL;
 	}
 	if (!(p.features & IORING_FEAT_CQE_SKIP))
 		return 0;
@@ -138,7 +138,7 @@ int main(int argc, char *argv[])
 	ret = io_uring_register_files(&ring, files, ARRAY_SIZE(files));
 	if (ret) {
 		fprintf(stderr, "Failed registering files\n");
-		return 1;
+		return T_EXIT_FAIL;
 	}
 
 	t_create_file_pattern(FNAME1, 4096, PAT1);
@@ -152,9 +152,9 @@ int main(int argc, char *argv[])
 
 	unlink(FNAME1);
 	unlink(FNAME2);
-	return 0;
+	return T_EXIT_PASS;
 err:
 	unlink(FNAME1);
 	unlink(FNAME2);
-	return 1;
+	return T_EXIT_FAIL;
 }

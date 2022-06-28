@@ -621,9 +621,9 @@ int main(int argc, char *argv[])
 
 	if (buf == fname)
 		unlink(fname);
-	return 0;
+	return T_EXIT_PASS;
 err:
 	if (buf == fname)
 		unlink(fname);
-	return 1;
+	return T_EXIT_FAIL;
 }

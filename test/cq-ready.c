@@ -11,6 +11,7 @@
 #include <fcntl.h>
 
 #include "liburing.h"
+#include "helpers.h"
 
 static int queue_n_nops(struct io_uring *ring, int n)
 {
@@ -56,12 +57,12 @@ int main(int argc, char *argv[])
 	unsigned ready;
 
 	if (argc > 1)
-		return 0;
+		return T_EXIT_SKIP;
 
 	ret = io_uring_queue_init(4, &ring, 0);
 	if (ret) {
 		printf("ring setup failed\n");
-		return 1;
+		return T_EXIT_FAIL;
 
 	}
 
@@ -87,8 +88,8 @@ int main(int argc, char *argv[])
 	CHECK_READY(&ring, 0);
 
 	io_uring_queue_exit(&ring);
-	return 0;
+	return T_EXIT_PASS;
 err:
 	io_uring_queue_exit(&ring);
-	return 1;
+	return T_EXIT_FAIL;
 }

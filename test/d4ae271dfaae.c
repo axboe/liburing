@@ -31,9 +31,9 @@ int main(int argc, char *argv[])
 	p.flags = IORING_SETUP_SQPOLL;
 	ret = t_create_ring_params(4, &ring, &p);
 	if (ret == T_SETUP_SKIP)
-		return 0;
+		return T_EXIT_SKIP;
 	else if (ret < 0)
-		return 1;
+		return T_EXIT_FAIL;
 
 	if (argc > 1) {
 		fname = argv[1];

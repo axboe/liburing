@@ -15,6 +15,7 @@
 #include <unistd.h>
 
 #include "liburing.h"
+#include "helpers.h"
 #include "../src/syscall.h"
 
 #define SIZEOF_IO_URING_SQE 64
@@ -114,11 +115,11 @@ int main(int argc, char *argv[])
 {
   void *mmap_ret;
 #if !defined(__i386) && !defined(__x86_64__)
-  return 0;
+  return T_EXIT_SKIP;
 #endif
 
   if (argc > 1)
-    return 0;
+    return T_EXIT_SKIP;
 
   mmap_ret = mmap((void *)0x20000000ul, 0x1000000ul, 7ul, 0x32ul, -1, 0ul);
   if (mmap_ret == MAP_FAILED)
@@ -190,5 +191,5 @@ int main(int argc, char *argv[])
                             "\xbd\x43\x7d\x16\x69\x3e\x05",
          19);
   ioctl(r[3], 0x5404, 0x20000080ul);
-  return 0;
+  return T_EXIT_PASS;
 }
