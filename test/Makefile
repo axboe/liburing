@@ -15,7 +15,7 @@ override CPPFLAGS += \
 	-I../src/include/ \
 	-include ../config-host.h
 
-CFLAGS ?= -g -O2 -Wall -Wextra
+CFLAGS ?= -g -O3 -Wall -Wextra
 XCFLAGS = -Wno-unused-parameter -Wno-sign-compare
 
 ifdef CONFIG_HAVE_STRINGOP_OVERFLOW
