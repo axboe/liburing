@@ -159,6 +159,7 @@ test_srcs := \
 	stdout.c \
 	submit-link-fail.c \
 	submit-reuse.c \
+	sync-cancel.c \
 	symlink.c \
 	teardowns.c \
 	thread-exit.c \
