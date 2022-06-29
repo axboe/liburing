@@ -113,7 +113,7 @@ run_test()
 		echo "Test $test_name timed out (may not be a failure)"
 		TIMED_OUT="$TIMED_OUT <$test_string>"
 	elif [ "$status" -eq 77 ]; then
-		echo "Test $test_name skipped itself"
+		echo "Skipped"
 		SKIPPED="$SKIPPED <$test_string>"
 	elif [ "$status" -ne 0 ]; then
 		echo "Test $test_name failed with ret $status"
