@@ -156,10 +156,6 @@ for tst in "${TESTS[@]}"; do
 	fi
 done
 
-if [ -n "$SKIPPED" ]; then
-	echo "Tests skipped: $SKIPPED"
-fi
-
 if [ -n "$TIMED_OUT" ]; then
 	echo "Tests timed out: $TIMED_OUT"
 fi
