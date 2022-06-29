@@ -10,6 +10,7 @@
 #include <sys/time.h>
 
 #include "liburing.h"
+#include "helpers.h"
 
 #define TIMEOUT_MSEC	200
 static int not_supported;
@@ -33,14 +34,13 @@ static int check_timeout_support(void)
 	ret = io_uring_queue_init_params(1, &ring, &p);
 	if (ret) {
 		fprintf(stderr, "ring setup failed: %d\n", ret);
-		return 1;
+		return T_EXIT_FAIL;
 	}
 
 	/* not really a match, but same kernel added batched completions */
 	if (p.features & IORING_FEAT_POLL_32BITS) {
-		fprintf(stdout, "Skipping\n");
 		not_supported = 1;
-		return 0;
+		return T_EXIT_SKIP;
 	}
 
 	sqe = io_uring_get_sqe(&ring);
@@ -67,10 +67,10 @@ static int check_timeout_support(void)
 
 	io_uring_cqe_seen(&ring, cqe);
 	io_uring_queue_exit(&ring);
-	return 0;
+	return T_EXIT_PASS;
 err:
 	io_uring_queue_exit(&ring);
-	return 1;
+	return T_EXIT_FAIL;
 }
 
 /*
@@ -186,19 +186,19 @@ int main(int argc, char *argv[])
 		return 0;
 
 	ret = check_timeout_support();
-	if (ret) {
+	if (ret == T_EXIT_FAIL) {
 		fprintf(stderr, "check_timeout_support failed: %d\n", ret);
-		return 1;
+		return T_EXIT_FAIL;
 	}
 
 	if (not_supported)
-		return 0;
+		return T_EXIT_SKIP;
 
 	ret = test_timeout_overflow();
 	if (ret) {
 		fprintf(stderr, "test_timeout_overflow failed\n");
-		return 1;
+		return T_EXIT_FAIL;
 	}
 
-	return 0;
+	return T_EXIT_PASS;
 }
