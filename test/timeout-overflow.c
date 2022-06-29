@@ -183,7 +183,7 @@ int main(int argc, char *argv[])
 	int ret;
 
 	if (argc > 1)
-		return 0;
+		return T_EXIT_SKIP;
 
 	ret = check_timeout_support();
 	if (ret == T_EXIT_FAIL) {
