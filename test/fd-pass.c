@@ -22,7 +22,7 @@ static int verify_fixed_read(struct io_uring *ring, int fixed_fd, int fail)
 {
 	struct io_uring_sqe *sqe;
 	struct io_uring_cqe *cqe;
-	char buf[FSIZE];
+	unsigned char buf[FSIZE];
 	int i;
 	
 	sqe = io_uring_get_sqe(ring);
