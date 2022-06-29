@@ -345,3 +345,10 @@ int io_uring_unregister_buf_ring(struct io_uring *ring, int bgid)
 	return ____sys_io_uring_register(ring->ring_fd,
 					 IORING_UNREGISTER_PBUF_RING, &reg, 1);
 }
+
+int io_uring_register_sync_cancel(struct io_uring *ring,
+				  struct io_uring_sync_cancel_reg *reg)
+{
+	return ____sys_io_uring_register(ring->ring_fd,
+					 IORING_REGISTER_SYNC_CANCEL, reg, 1);
+}
