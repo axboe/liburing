@@ -33,6 +33,8 @@
 	})
 #endif
 
+#define __maybe_unused		__attribute__((__unused__))
+
 void *__uring_malloc(size_t len);
 void __uring_free(void *p);
 
