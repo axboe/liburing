@@ -414,6 +414,9 @@ enum {
 	/* sync cancelation API */
 	IORING_REGISTER_SYNC_CANCEL		= 24,
 
+	/* register a range of fixed file slots for automatic slot allocation */
+	IORING_REGISTER_FILE_ALLOC_RANGE	= 25,
+
 	/* this goes last */
 	IORING_REGISTER_LAST
 };
@@ -556,6 +559,13 @@ struct io_uring_getevents_arg {
 	__u32	sigmask_sz;
 	__u32	pad;
 	__u64	ts;
+};
+
+struct io_uring_file_index_range {
+	/* [off, off + len) */
+	__u32	off;
+	__u32	len;
+	__u64	resv;
 };
 
 /*
