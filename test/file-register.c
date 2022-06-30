@@ -840,31 +840,31 @@ int main(int argc, char *argv[])
 
 	ret = io_uring_queue_init(8, &ring, 0);
 	if (ret) {
-		printf("ring setup failed\n");
+		fprintf(stderr, "ring setup failed\n");
 		return T_EXIT_FAIL;
 	}
 
 	ret = test_basic(&ring, 0);
 	if (ret) {
-		printf("test_basic failed\n");
+		fprintf(stderr, "test_basic failed\n");
 		return T_EXIT_FAIL;
 	}
 
 	ret = test_basic(&ring, 1);
 	if (ret) {
-		printf("test_basic failed\n");
+		fprintf(stderr, "test_basic failed\n");
 		return T_EXIT_FAIL;
 	}
 
 	ret = test_basic_many(&ring);
 	if (ret) {
-		printf("test_basic_many failed\n");
+		fprintf(stderr, "test_basic_many failed\n");
 		return T_EXIT_FAIL;
 	}
 
 	ret = test_sparse(&ring);
 	if (ret) {
-		printf("test_sparse failed\n");
+		fprintf(stderr, "test_sparse failed\n");
 		return T_EXIT_FAIL;
 	}
 
@@ -873,79 +873,79 @@ int main(int argc, char *argv[])
 
 	ret = test_additions(&ring);
 	if (ret) {
-		printf("test_additions failed\n");
+		fprintf(stderr, "test_additions failed\n");
 		return T_EXIT_FAIL;
 	}
 
 	ret = test_removals(&ring);
 	if (ret) {
-		printf("test_removals failed\n");
+		fprintf(stderr, "test_removals failed\n");
 		return T_EXIT_FAIL;
 	}
 
 	ret = test_replace(&ring);
 	if (ret) {
-		printf("test_replace failed\n");
+		fprintf(stderr, "test_replace failed\n");
 		return T_EXIT_FAIL;
 	}
 
 	ret = test_replace_all(&ring);
 	if (ret) {
-		printf("test_replace_all failed\n");
+		fprintf(stderr, "test_replace_all failed\n");
 		return T_EXIT_FAIL;
 	}
 
 	ret = test_grow(&ring);
 	if (ret) {
-		printf("test_grow failed\n");
+		fprintf(stderr, "test_grow failed\n");
 		return T_EXIT_FAIL;
 	}
 
 	ret = test_shrink(&ring);
 	if (ret) {
-		printf("test_shrink failed\n");
+		fprintf(stderr, "test_shrink failed\n");
 		return T_EXIT_FAIL;
 	}
 
 	ret = test_zero(&ring);
 	if (ret) {
-		printf("test_zero failed\n");
+		fprintf(stderr, "test_zero failed\n");
 		return T_EXIT_FAIL;
 	}
 
 	ret = test_huge(&ring);
 	if (ret) {
-		printf("test_huge failed\n");
+		fprintf(stderr, "test_huge failed\n");
 		return T_EXIT_FAIL;
 	}
 
 	ret = test_skip(&ring);
 	if (ret) {
-		printf("test_skip failed\n");
+		fprintf(stderr, "test_skip failed\n");
 		return T_EXIT_FAIL;
 	}
 
 	ret = test_sparse_updates();
 	if (ret) {
-		printf("test_sparse_updates failed\n");
+		fprintf(stderr, "test_sparse_updates failed\n");
 		return T_EXIT_FAIL;
 	}
 
 	ret = test_fixed_removal_ordering();
 	if (ret) {
-		printf("test_fixed_removal_ordering failed\n");
+		fprintf(stderr, "test_fixed_removal_ordering failed\n");
 		return T_EXIT_FAIL;
 	}
 
 	ret = test_mixed_af_unix();
 	if (ret) {
-		printf("test_mixed_af_unix failed\n");
+		fprintf(stderr, "test_mixed_af_unix failed\n");
 		return T_EXIT_FAIL;
 	}
 
 	ret = test_partial_register_fail();
 	if (ret) {
-		printf("test_partial_register_fail failed\n");
+		fprintf(stderr, "test_partial_register_fail failed\n");
 		return T_EXIT_FAIL;
 	}
 
