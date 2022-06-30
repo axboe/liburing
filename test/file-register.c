@@ -847,25 +847,25 @@ int main(int argc, char *argv[])
 	ret = test_basic(&ring, 0);
 	if (ret) {
 		printf("test_basic failed\n");
-		return ret;
+		return T_EXIT_FAIL;
 	}
 
 	ret = test_basic(&ring, 1);
 	if (ret) {
 		printf("test_basic failed\n");
-		return ret;
+		return T_EXIT_FAIL;
 	}
 
 	ret = test_basic_many(&ring);
 	if (ret) {
 		printf("test_basic_many failed\n");
-		return ret;
+		return T_EXIT_FAIL;
 	}
 
 	ret = test_sparse(&ring);
 	if (ret) {
 		printf("test_sparse failed\n");
-		return ret;
+		return T_EXIT_FAIL;
 	}
 
 	if (no_update)
@@ -874,49 +874,49 @@ int main(int argc, char *argv[])
 	ret = test_additions(&ring);
 	if (ret) {
 		printf("test_additions failed\n");
-		return ret;
+		return T_EXIT_FAIL;
 	}
 
 	ret = test_removals(&ring);
 	if (ret) {
 		printf("test_removals failed\n");
-		return ret;
+		return T_EXIT_FAIL;
 	}
 
 	ret = test_replace(&ring);
 	if (ret) {
 		printf("test_replace failed\n");
-		return ret;
+		return T_EXIT_FAIL;
 	}
 
 	ret = test_replace_all(&ring);
 	if (ret) {
 		printf("test_replace_all failed\n");
-		return ret;
+		return T_EXIT_FAIL;
 	}
 
 	ret = test_grow(&ring);
 	if (ret) {
 		printf("test_grow failed\n");
-		return ret;
+		return T_EXIT_FAIL;
 	}
 
 	ret = test_shrink(&ring);
 	if (ret) {
 		printf("test_shrink failed\n");
-		return ret;
+		return T_EXIT_FAIL;
 	}
 
 	ret = test_zero(&ring);
 	if (ret) {
 		printf("test_zero failed\n");
-		return ret;
+		return T_EXIT_FAIL;
 	}
 
 	ret = test_huge(&ring);
 	if (ret) {
 		printf("test_huge failed\n");
-		return ret;
+		return T_EXIT_FAIL;
 	}
 
 	ret = test_skip(&ring);
@@ -928,7 +928,7 @@ int main(int argc, char *argv[])
 	ret = test_sparse_updates();
 	if (ret) {
 		printf("test_sparse_updates failed\n");
-		return ret;
+		return T_EXIT_FAIL;
 	}
 
 	ret = test_fixed_removal_ordering();
@@ -946,7 +946,7 @@ int main(int argc, char *argv[])
 	ret = test_partial_register_fail();
 	if (ret) {
 		printf("test_partial_register_fail failed\n");
-		return ret;
+		return T_EXIT_FAIL;
 	}
 
 	return T_EXIT_PASS;
