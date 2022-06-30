@@ -14,6 +14,12 @@ io_uring_prep_recv \- prepare a recv request
 .BI "                        void *" buf ","
 .BI "                        size_t " len ","
 .BI "                        int " flags ");"
+.PP
+.BI "void io_uring_prep_recv_multishot(struct io_uring_sqe *" sqe ","
+.BI "                                  int " sockfd ","
+.BI "                                  void *" buf ","
+.BI "                                  size_t " len ","
+.BI "                                  int " flags ");"
 .fi
 .SH DESCRIPTION
 .PP
@@ -35,6 +41,22 @@ This function prepares an async
 .BR recv (2)
 request. See that man page for details on the arguments specified to this
 prep helper.
+
+The multishot version allows the application to issue a single receive request,
+which repeatedly posts a CQE when data is available. It requires length to be 0
+, the
+.B IOSQE_BUFFER_SELECT
+flag to be set and no
+.B MSG_WAITALL
+flag to be set.
+Therefore each CQE will take a buffer out of a provided buffer pool for receiving.
+The application should check the flags of each CQE, regardless of it's result.
+If a posted CQE does not have the
+.B IORING_CQE_F_MORE
+flag set then the multishot receive will be done and the application should issue a
+new request.
+Multishot variants are available since kernel 5.20.
+
 
 After calling this function, additional io_uring internal modifier flags
 may be set in the SQE
