@@ -60,6 +60,11 @@ void t_create_file_pattern(const char *file, size_t size, char pattern);
 struct iovec *t_create_buffers(size_t buf_num, size_t buf_size);
 
 /*
+ * Helper for creating connected socket pairs
+ */
+int t_create_socket_pair(int fd[2], bool stream);
+
+/*
  * Helper for setting up a ring and checking for user privs
  */
 enum t_setup_ret t_create_ring_params(int depth, struct io_uring *ring,

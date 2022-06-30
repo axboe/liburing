@@ -10,6 +10,10 @@
 #include <unistd.h>
 #include <sys/types.h>
 
+#include <arpa/inet.h>
+#include <netinet/ip.h>
+#include <netinet/tcp.h>
+
 #include "helpers.h"
 #include "liburing.h"
 
@@ -141,5 +145,91 @@ enum t_setup_ret t_register_buffers(struct io_uring *ring,
 	}
 
 	fprintf(stderr, "buffer register failed: %s\n", strerror(-ret));
+	return ret;
+}
+
+int t_create_socket_pair(int fd[2], bool stream)
+{
+	int ret;
+	int type = stream ? SOCK_STREAM : SOCK_DGRAM;
+	int val;
+	struct sockaddr_in serv_addr;
+	struct sockaddr *paddr;
+	size_t paddrlen;
+
+	type |= SOCK_CLOEXEC;
+	fd[0] = socket(AF_INET, type, 0);
+	if (fd[0] < 0)
+		return errno;
+	fd[1] = socket(AF_INET, type, 0);
+	if (fd[1] < 0) {
+		ret = errno;
+		close(fd[0]);
+		return ret;
+	}
+
+	val = 1;
+	if (setsockopt(fd[0], SOL_SOCKET, SO_REUSEADDR, &val, sizeof(val)))
+		goto errno_cleanup;
+
+	memset(&serv_addr, 0, sizeof(serv_addr));
+	serv_addr.sin_family = AF_INET;
+	serv_addr.sin_port = 0;
+	inet_pton(AF_INET, "127.0.0.1", &serv_addr.sin_addr);
+
+	paddr = (struct sockaddr *)&serv_addr;
+	paddrlen = sizeof(serv_addr);
+
+	if (bind(fd[0], paddr, paddrlen)) {
+		fprintf(stderr, "bind failed\n");
+		goto errno_cleanup;
+	}
+
+	if (stream && listen(fd[0], 16)) {
+		fprintf(stderr, "listen failed\n");
+		goto errno_cleanup;
+	}
+
+	if (getsockname(fd[0], &serv_addr, (socklen_t *)&paddrlen)) {
+		fprintf(stderr, "getsockname failed\n");
+		goto errno_cleanup;
+	}
+	inet_pton(AF_INET, "127.0.0.1", &serv_addr.sin_addr);
+
+	if (connect(fd[1], &serv_addr, paddrlen)) {
+		fprintf(stderr, "connect failed\n");
+		goto errno_cleanup;
+	}
+
+	if (!stream) {
+		/* connect the other udp side */
+		if (getsockname(fd[1], &serv_addr, (socklen_t *)&paddrlen)) {
+			fprintf(stderr, "getsockname failed\n");
+			goto errno_cleanup;
+		}
+		inet_pton(AF_INET, "127.0.0.1", &serv_addr.sin_addr);
+
+		if (connect(fd[0], &serv_addr, paddrlen)) {
+			fprintf(stderr, "connect failed\n");
+			goto errno_cleanup;
+		}
+		return 0;
+	}
+
+	/* for stream case we must accept and cleanup the listen socket */
+
+	ret = accept(fd[0], NULL, NULL);
+	if (ret < 0)
+		goto errno_cleanup;
+
+	close(fd[0]);
+	fd[0] = ret;
+
+	return 0;
+
+errno_cleanup:
+	ret = errno;
+	close(fd[0]);
+	close(fd[1]);
 	return ret;
 }
