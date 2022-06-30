@@ -419,6 +419,14 @@ static inline void io_uring_prep_recvmsg(struct io_uring_sqe *sqe, int fd,
 	sqe->msg_flags = flags;
 }
 
+static inline void io_uring_prep_recvmsg_multishot(struct io_uring_sqe *sqe,
+						   int fd, struct msghdr *msg,
+						   unsigned flags)
+{
+	io_uring_prep_recvmsg(sqe, fd, msg, flags);
+	sqe->ioprio |= IORING_RECV_MULTISHOT;
+}
+
 static inline void io_uring_prep_sendmsg(struct io_uring_sqe *sqe, int fd,
 					 const struct msghdr *msg,
 					 unsigned flags)
@@ -675,6 +683,14 @@ static inline void io_uring_prep_recv(struct io_uring_sqe *sqe, int sockfd,
 {
 	io_uring_prep_rw(IORING_OP_RECV, sqe, sockfd, buf, (__u32) len, 0);
 	sqe->msg_flags = (__u32) flags;
+}
+
+static inline void io_uring_prep_recv_multishot(struct io_uring_sqe *sqe,
+						int sockfd, void *buf,
+						size_t len, int flags)
+{
+	io_uring_prep_recv(sqe, sockfd, buf, len, flags);
+	sqe->ioprio |= IORING_RECV_MULTISHOT;
 }
 
 static inline void io_uring_prep_openat2(struct io_uring_sqe *sqe, int dfd,
