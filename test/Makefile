@@ -117,6 +117,7 @@ test_srcs := \
 	poll-link.c \
 	poll-many.c \
 	poll-mshot-update.c \
+	poll-mshot-overflow.c \
 	poll-ring.c \
 	poll-v-poll.c \
 	pollfree.c \
