@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <fcntl.h>
+#include <limits.h>
 #include <sys/resource.h>
 
 #include "helpers.h"
@@ -830,6 +831,170 @@ static int test_partial_register_fail(void)
 	return 0;
 }
 
+static int file_update_alloc(struct io_uring *ring, int *fd)
+{
+	struct io_uring_sqe *sqe;
+	struct io_uring_cqe *cqe;
+	int ret;
+
+	sqe = io_uring_get_sqe(ring);
+	io_uring_prep_files_update(sqe, fd, 1, IORING_FILE_INDEX_ALLOC);
+
+	ret = io_uring_submit(ring);
+	if (ret != 1) {
+		fprintf(stderr, "%s: got %d, wanted 1\n", __FUNCTION__, ret);
+		return -1;
+	}
+
+	ret = io_uring_wait_cqe(ring, &cqe);
+	if (ret < 0) {
+		fprintf(stderr, "%s: io_uring_wait_cqe=%d\n", __FUNCTION__, ret);
+		return -1;
+	}
+	ret = cqe->res;
+	io_uring_cqe_seen(ring, cqe);
+	return ret;
+}
+
+static int test_out_of_range_file_ranges(struct io_uring *ring)
+{
+	int ret;
+
+	ret = io_uring_register_file_alloc_range(ring, 8, 3);
+	if (ret != -EINVAL) {
+		fprintf(stderr, "overlapping range %i\n", ret);
+		return 1;
+	}
+
+	ret = io_uring_register_file_alloc_range(ring, 10, 1);
+	if (ret != -EINVAL) {
+		fprintf(stderr, "out of range index %i\n", ret);
+		return 1;
+	}
+
+	ret = io_uring_register_file_alloc_range(ring, 7, ~1U);
+	if (ret != -EOVERFLOW) {
+		fprintf(stderr, "overflow %i\n", ret);
+		return 1;
+	}
+
+	return 0;
+}
+
+static int test_overallocating_file_range(struct io_uring *ring, int fds[2])
+{
+	int roff = 7, rlen = 2;
+	int ret, i, fd;
+
+	ret = io_uring_register_file_alloc_range(ring, roff, rlen);
+	if (ret) {
+		fprintf(stderr, "io_uring_register_file_alloc_range %i\n", ret);
+		return 1;
+	}
+
+	for (i = 0; i < rlen; i++) {
+		fd = fds[0];
+		ret = file_update_alloc(ring, &fd);
+		if (ret != 1) {
+			fprintf(stderr, "file_update_alloc\n");
+			return 1;
+		}
+
+		if (fd < roff || fd >= roff + rlen) {
+			fprintf(stderr, "invalid off result %i\n", fd);
+			return 1;
+		}
+	}
+
+	fd = fds[0];
+	ret = file_update_alloc(ring, &fd);
+	if (ret != -ENFILE) {
+		fprintf(stderr, "overallocated %i, off %i\n", ret, fd);
+		return 1;
+	}
+
+	return 0;
+}
+
+static int test_zero_range_alloc(struct io_uring *ring, int fds[2])
+{
+	int ret, fd;
+
+	ret = io_uring_register_file_alloc_range(ring, 7, 0);
+	if (ret) {
+		fprintf(stderr, "io_uring_register_file_alloc_range failed %i\n", ret);
+		return 1;
+	}
+
+	fd = fds[0];
+	ret = file_update_alloc(ring, &fd);
+	if (ret != -ENFILE) {
+		fprintf(stderr, "zero alloc %i\n", ret);
+		return 1;
+	}
+	return 0;
+}
+
+static int test_file_alloc_ranges(void)
+{
+	struct io_uring ring;
+	int ret, pipe_fds[2];
+
+	if (pipe(pipe_fds)) {
+		fprintf(stderr, "pipes\n");
+		return 1;
+	}
+	ret = io_uring_queue_init(8, &ring, 0);
+	if (ret) {
+		fprintf(stderr, "queue_init: %d\n", ret);
+		return 1;
+	}
+
+	ret = io_uring_register_files_sparse(&ring, 10);
+	if (ret == -EINVAL) {
+not_supported:
+		close(pipe_fds[0]);
+		close(pipe_fds[1]);
+		io_uring_queue_exit(&ring);
+		printf("file alloc ranges are not supported, skip\n");
+		return 0;
+	} else if (ret) {
+		fprintf(stderr, "io_uring_register_files_sparse %i\n", ret);
+		return ret;
+	}
+
+	ret = io_uring_register_file_alloc_range(&ring, 0, 1);
+	if (ret) {
+		if (ret == -EINVAL)
+			goto not_supported;
+		fprintf(stderr, "io_uring_register_file_alloc_range %i\n", ret);
+		return 1;
+	}
+
+	ret = test_overallocating_file_range(&ring, pipe_fds);
+	if (ret) {
+		fprintf(stderr, "test_overallocating_file_range() failed\n");
+		return 1;
+	}
+
+	ret = test_out_of_range_file_ranges(&ring);
+	if (ret) {
+		fprintf(stderr, "test_out_of_range_file_ranges() failed\n");
+		return 1;
+	}
+
+	ret = test_zero_range_alloc(&ring, pipe_fds);
+	if (ret) {
+		fprintf(stderr, "test_zero_range_alloc() failed\n");
+		return 1;
+	}
+
+	close(pipe_fds[0]);
+	close(pipe_fds[1]);
+	io_uring_queue_exit(&ring);
+	return 0;
+}
+
 int main(int argc, char *argv[])
 {
 	struct io_uring ring;
@@ -944,6 +1109,12 @@ int main(int argc, char *argv[])
 	}
 
 	ret = test_partial_register_fail();
+	if (ret) {
+		fprintf(stderr, "test_partial_register_fail failed\n");
+		return T_EXIT_FAIL;
+	}
+
+	ret = test_file_alloc_ranges();
 	if (ret) {
 		fprintf(stderr, "test_partial_register_fail failed\n");
 		return T_EXIT_FAIL;
