@@ -13,6 +13,7 @@
 #include "liburing.h"
 #include "helpers.h"
 
+static int no_recv_mshot;
 
 enum early_error_t {
 	ERROR_NONE  = 0,
@@ -189,7 +190,13 @@ static int test(struct args *args)
 	ret = -1;
 	at = &send_buff[0];
 	if (recv_cqes < min_cqes) {
-		fprintf(stderr, "not enough cqes: have=%d vs %d\n", recv_cqes, min_cqes);
+		if (recv_cqes > 0 && recv_cqe[0].res == -EINVAL) {
+			no_recv_mshot = 1;
+			return 0;
+		}
+		/* some kernels apparently don't check ->ioprio, skip */
+		ret = 0;
+		no_recv_mshot = 1;
 		goto cleanup;
 	}
 	for (i = 0; i < recv_cqes; i++) {
@@ -336,6 +343,8 @@ int main(int argc, char *argv[])
 					a.stream, a.recvmsg, a.wait_each, a.early_error);
 				return T_EXIT_FAIL;
 			}
+			if (no_recv_mshot)
+				return T_EXIT_SKIP;
 		}
 	}
 
