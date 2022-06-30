@@ -59,4 +59,5 @@ LIBURING_2.2 {
 LIBURING_2.3 {
 	global:
 		io_uring_register_sync_cancel;
+		io_uring_register_file_alloc_range;
 } LIBURING_2.2;
