@@ -34,6 +34,8 @@
 #endif
 
 #define __maybe_unused		__attribute__((__unused__))
+#define __hot			__attribute__((__hot__))
+#define __cold			__attribute__((__cold__))
 
 void *__uring_malloc(size_t len);
 void __uring_free(void *p);
