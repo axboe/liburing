@@ -190,26 +190,28 @@ int t_create_socket_pair(int fd[2], bool stream)
 		goto errno_cleanup;
 	}
 
-	if (getsockname(fd[0], &serv_addr, (socklen_t *)&paddrlen)) {
+	if (getsockname(fd[0], (struct sockaddr *)&serv_addr,
+			(socklen_t *)&paddrlen)) {
 		fprintf(stderr, "getsockname failed\n");
 		goto errno_cleanup;
 	}
 	inet_pton(AF_INET, "127.0.0.1", &serv_addr.sin_addr);
 
-	if (connect(fd[1], &serv_addr, paddrlen)) {
+	if (connect(fd[1], (struct sockaddr *)&serv_addr, paddrlen)) {
 		fprintf(stderr, "connect failed\n");
 		goto errno_cleanup;
 	}
 
 	if (!stream) {
 		/* connect the other udp side */
-		if (getsockname(fd[1], &serv_addr, (socklen_t *)&paddrlen)) {
+		if (getsockname(fd[1], (struct sockaddr *)&serv_addr,
+				(socklen_t *)&paddrlen)) {
 			fprintf(stderr, "getsockname failed\n");
 			goto errno_cleanup;
 		}
 		inet_pton(AF_INET, "127.0.0.1", &serv_addr.sin_addr);
 
-		if (connect(fd[0], &serv_addr, paddrlen)) {
+		if (connect(fd[0], (struct sockaddr *)&serv_addr, paddrlen)) {
 			fprintf(stderr, "connect failed\n");
 			goto errno_cleanup;
 		}
