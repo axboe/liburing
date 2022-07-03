@@ -179,8 +179,9 @@ int main(int argc, char *argv[])
 	ret = test(fname);
 	if (ret == T_EXIT_FAIL) {
 		fprintf(stderr, "test failed\n");
-		return T_EXIT_FAIL;
+		ret = T_EXIT_FAIL;
 	}
 
+	unlink(fname);
 	return ret;
 }
