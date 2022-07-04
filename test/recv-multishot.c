@@ -25,7 +25,6 @@ enum early_error_t {
 };
 
 struct args {
-	bool recvmsg;
 	bool stream;
 	bool wait_each;
 	enum early_error_t early_error;
@@ -48,7 +47,6 @@ static int test(struct args *args)
 	int recv_cqes = 0;
 	bool early_error = false;
 	bool early_error_started = false;
-	struct msghdr msg = { };
 	struct __kernel_timespec timeout = {
 		.tv_sec = 1,
 	};
@@ -101,13 +99,7 @@ static int test(struct args *args)
 	}
 
 	sqe = io_uring_get_sqe(&ring);
-	if (args->recvmsg) {
-		memset(&msg, 0, sizeof(msg));
-		msg.msg_namelen = sizeof(struct sockaddr_in);
-		io_uring_prep_recvmsg_multishot(sqe, fds[0], &msg, 0);
-	} else {
-		io_uring_prep_recv_multishot(sqe, fds[0], NULL, 0, 0);
-	}
+	io_uring_prep_recv_multishot(sqe, fds[0], NULL, 0, 0);
 	sqe->flags |= IOSQE_BUFFER_SELECT;
 	sqe->buf_group = 7;
 	io_uring_sqe_set_data64(sqe, 1234);
@@ -328,19 +320,18 @@ int main(int argc, char *argv[])
 	if (argc > 1)
 		return T_EXIT_SKIP;
 
-	for (loop = 0; loop < 7; loop++) {
+	for (loop = 0; loop < 4; loop++) {
 		struct args a = {
 			.stream = loop & 0x01,
-			.recvmsg = loop & 0x02,
-			.wait_each = loop & 0x4,
+			.wait_each = loop & 0x2,
 		};
 		for (early_error = 0; early_error < ERROR_EARLY_LAST; early_error++) {
 			a.early_error = (enum early_error_t)early_error;
 			ret = test(&a);
 			if (ret) {
 				fprintf(stderr,
-					"test stream=%d recvmsg=%d wait_each=%d early_error=%d failed\n",
-					a.stream, a.recvmsg, a.wait_each, a.early_error);
+					"test stream=%d wait_each=%d early_error=%d failed\n",
+					a.stream, a.wait_each, a.early_error);
 				return T_EXIT_FAIL;
 			}
 			if (no_recv_mshot)
