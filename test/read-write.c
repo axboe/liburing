@@ -428,28 +428,25 @@ static int test_buf_select_short(const char *filename, int nonvec)
 	return ret;
 }
 
-static int provide_buffers_iovec(struct io_uring *ring, int bgid, int count)
+static int provide_buffers_iovec(struct io_uring *ring, int bgid)
 {
 	struct io_uring_sqe *sqe;
 	struct io_uring_cqe *cqe;
 	int i, ret;
 
-	if (count <= 0)
-		count = BUFFERS;
-
-	for (i = 0; i < count; i++) {
+	for (i = 0; i < BUFFERS; i++) {
 		sqe = io_uring_get_sqe(ring);
 		io_uring_prep_provide_buffers(sqe, vecs[i].iov_base,
 						vecs[i].iov_len, 1, bgid, i);
 	}
 
 	ret = io_uring_submit(ring);
-	if (ret != count) {
+	if (ret != BUFFERS) {
 		fprintf(stderr, "submit: %d\n", ret);
 		return -1;
 	}
 
-	for (i = 0; i < count; i++) {
+	for (i = 0; i < BUFFERS; i++) {
 		ret = io_uring_wait_cqe(ring, &cqe);
 		if (ret) {
 			fprintf(stderr, "wait_cqe=%d\n", ret);
@@ -482,7 +479,7 @@ static int test_buf_select_pipe(void)
 		return 1;
 	}
 
-	ret = provide_buffers_iovec(&ring, 0, 4);
+	ret = provide_buffers_iovec(&ring, 0);
 	if (ret) {
 		fprintf(stderr, "provide buffers failed: %d\n", ret);
 		return 1;
@@ -514,13 +511,6 @@ static int test_buf_select_pipe(void)
 		if (io_uring_wait_cqe(&ring, &cqe)) {
 			fprintf(stderr, "bad wait %d\n", i);
 			return 1;
-		}
-		if (i == 4) {
-			if (cqe->res != -ENOBUFS) {
-				fprintf(stderr, "expected failure %d\n", cqe->res);
-				return 1;
-			}
-			continue;
 		}
 		if (cqe->res != 1) {
 			fprintf(stderr, "expected read %d\n", cqe->res);
@@ -580,7 +570,7 @@ static int test_buf_select(const char *filename, int nonvec)
 	for (i = 0; i < BUFFERS; i++)
 		memset(vecs[i].iov_base, 0x55, vecs[i].iov_len);
 
-	ret = provide_buffers_iovec(&ring, 1, -1);
+	ret = provide_buffers_iovec(&ring, 1);
 	if (ret)
 		return ret;
 
@@ -606,7 +596,7 @@ static int test_rem_buf(int batch, int sqe_flags)
 		return 1;
 	}
 
-	ret = provide_buffers_iovec(&ring, bgid, -1);
+	ret = provide_buffers_iovec(&ring, bgid);
 	if (ret)
 		return ret;
 
