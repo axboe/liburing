@@ -111,7 +111,10 @@ int main(int argc, char *argv[])
 			(void*) (intptr_t) other_fd);
 
 	/* Wait on the event fd for an event to be ready */
-	ret = read(loop_fd, buf, 8);
+	do {
+		ret = read(loop_fd, buf, 8);
+	} while (ret < 0 && errno == EINTR);
+
 	if (ret < 0) {
 		perror("read");
 		return T_EXIT_FAIL;

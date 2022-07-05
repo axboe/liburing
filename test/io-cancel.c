@@ -365,8 +365,13 @@ static int test_cancel_req_across_fork(void)
 		exit(0);
 	} else {
 		int wstatus;
+		pid_t childpid;
 
-		if (waitpid(p, &wstatus, 0) == (pid_t)-1) {
+		do {
+			childpid = waitpid(p, &wstatus, 0);
+		} while (childpid == (pid_t)-1 && errno == EINTR);
+
+		if (childpid == (pid_t)-1) {
 			perror("waitpid()");
 			return 1;
 		}
