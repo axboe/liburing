@@ -101,6 +101,7 @@ test_srcs := \
 	mkdir.c \
 	msg-ring.c \
 	multicqes_drain.c \
+	nolibc.c \
 	nop-all-sizes.c \
 	nop.c \
 	openat2.c \
