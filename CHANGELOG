@@ -1,3 +1,8 @@
+liburing-2.3 release
+
+- Support non-libc build for aarch64.
+
+
 liburing-2.2 release
 
 - Support non-libc builds.
