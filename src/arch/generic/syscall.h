@@ -7,6 +7,8 @@
 #ifndef LIBURING_ARCH_GENERIC_SYSCALL_H
 #define LIBURING_ARCH_GENERIC_SYSCALL_H
 
+#include <fcntl.h>
+
 static inline int ____sys_io_uring_register(int fd, unsigned opcode,
 					    const void *arg, unsigned nr_args)
 {
@@ -39,6 +41,13 @@ static inline int ____sys_io_uring_enter(int fd, unsigned to_submit,
 {
 	return ____sys_io_uring_enter2(fd, to_submit, min_complete, flags, sig,
 				       _NSIG / 8);
+}
+
+static inline int __sys_open(const char *pathname, int flags, mode_t mode)
+{
+	int ret;
+	ret = open(pathname, flags, mode);
+	return (ret < 0) ? -errno : ret;
 }
 
 static inline void *__sys_mmap(void *addr, size_t length, int prot, int flags,

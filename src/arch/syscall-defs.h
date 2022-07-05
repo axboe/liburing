@@ -3,6 +3,20 @@
 #ifndef LIBURING_ARCH_SYSCALL_DEFS_H
 #define LIBURING_ARCH_SYSCALL_DEFS_H
 
+#include <fcntl.h>
+
+static inline int __sys_open(const char *pathname, int flags, mode_t mode)
+{
+	/*
+	 * Some architectures don't have __NR_open, but __NR_openat.
+	 */
+#ifdef __NR_open
+	return __do_syscall3(__NR_open, pathname, flags, mode);
+#else
+	return __do_syscall4(__NR_openat, AT_FDCWD, pathname, flags, mode);
+#endif
+}
+
 static inline void *__sys_mmap(void *addr, size_t length, int prot, int flags,
 			       int fd, off_t offset)
 {
