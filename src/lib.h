@@ -6,7 +6,6 @@
 #include <string.h>
 #include <unistd.h>
 
-#define __INTERNAL__LIBURING_LIB_H
 #if defined(__x86_64__) || defined(__i386__)
 	#include "arch/x86/lib.h"
 #else
@@ -19,7 +18,6 @@
 	/* libc wrappers. */
 	#include "arch/generic/lib.h"
 #endif
-#undef __INTERNAL__LIBURING_LIB_H
 
 
 #ifndef offsetof
