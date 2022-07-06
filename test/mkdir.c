@@ -72,7 +72,7 @@ int main(int argc, char *argv[])
 	if (ret < 0) {
 		if (ret == -EBADF || ret == -EINVAL) {
 			fprintf(stdout, "mkdirat not supported, skipping\n");
-			goto out;
+			goto skip;
 		}
 		fprintf(stderr, "mkdirat: %s\n", strerror(-ret));
 		goto err;
@@ -97,10 +97,13 @@ int main(int argc, char *argv[])
 		goto err1;
 	}
 
-out:
 	unlinkat(AT_FDCWD, fn, AT_REMOVEDIR);
 	io_uring_queue_exit(&ring);
-	return 0;
+	return T_EXIT_PASS;
+skip:
+	unlinkat(AT_FDCWD, fn, AT_REMOVEDIR);
+	io_uring_queue_exit(&ring);
+	return T_EXIT_SKIP;
 err1:
 	unlinkat(AT_FDCWD, fn, AT_REMOVEDIR);
 err:
