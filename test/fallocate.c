@@ -230,7 +230,9 @@ int main(int argc, char *argv[])
 
 	ret = test_fallocate(&ring);
 	if (ret) {
-		fprintf(stderr, "test_fallocate failed\n");
+		if (ret != T_EXIT_SKIP) {
+			fprintf(stderr, "test_fallocate failed\n");
+		}
 		return ret;
 	}
 
@@ -242,7 +244,9 @@ int main(int argc, char *argv[])
 
 	ret = test_fallocate_rlimit(&ring);
 	if (ret) {
-		fprintf(stderr, "test_fallocate_rlimit failed\n");
+		if (ret != T_EXIT_SKIP) {
+			fprintf(stderr, "test_fallocate_rlimit failed\n");
+		}
 		return ret;
 	}
 

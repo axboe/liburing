@@ -165,7 +165,9 @@ int main(int argc, char *argv[])
 
 	ret = test_sqe_update(&r1);
 	if (ret) {
-		fprintf(stderr, "test_sqe_update failed\n");
+		if (ret != T_EXIT_SKIP) {
+			fprintf(stderr, "test_sqe_update failed\n");
+		}
 		return ret;
 	}
 
