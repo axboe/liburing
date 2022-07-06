@@ -380,7 +380,7 @@ int main(int argc, char *argv[])
 		return T_EXIT_FAIL;
 	}
 	if (no_connect)
-		return 0;
+		return T_EXIT_SKIP;
 
 	ret = test_connect(&ring);
 	if (ret == -1) {

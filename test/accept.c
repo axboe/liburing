@@ -510,7 +510,7 @@ static int test_accept_cancel(unsigned usecs, unsigned int nr, bool multishot)
 	int fd, i, ret;
 
 	if (multishot && no_accept_multi)
-		return 0;
+		return T_EXIT_SKIP;
 
 	ret = io_uring_queue_init(32, &m_io_uring, 0);
 	assert(ret >= 0);
@@ -605,7 +605,7 @@ static int test_multishot_accept(int count, bool before, bool overflow)
 	};
 
 	if (no_accept_multi)
-		return 0;
+		return T_EXIT_SKIP;
 
 	ret = io_uring_queue_init(MAX_FDS + 10, &m_io_uring, 0);
 	assert(ret >= 0);
@@ -695,7 +695,7 @@ static int test_multishot_fixed_accept(void)
 	};
 
 	if (no_accept_multi)
-		return 0;
+		return T_EXIT_SKIP;
 
 	memset(fd, -1, sizeof(fd));
 	ret = io_uring_queue_init(MAX_FDS + 10, &m_io_uring, 0);
@@ -742,7 +742,7 @@ int main(int argc, char *argv[])
 		return ret;
 	}
 	if (no_accept)
-		return 0;
+		return T_EXIT_SKIP;
 
 	ret = test_accept(2, false);
 	if (ret) {

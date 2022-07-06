@@ -103,7 +103,7 @@ int main(int argc, char **argv)
 	ret = listen(listen_fd, SOMAXCONN);
 	if (ret < 0) {
 		perror("listen");
-		return 1;
+		return T_EXIT_FAIL;
 	}
 
 	memset(&sa, 0, sizeof(sa));

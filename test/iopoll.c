@@ -323,7 +323,7 @@ int main(int argc, char *argv[])
 	char *fname;
 
 	if (probe_buf_select())
-		return 1;
+		return T_EXIT_FAIL;
 
 	if (argc > 1) {
 		fname = argv[1];
@@ -364,9 +364,9 @@ int main(int argc, char *argv[])
 
 	if (fname != argv[1])
 		unlink(fname);
-	return 0;
+	return T_EXIT_PASS;
 err:
 	if (fname != argv[1])
 		unlink(fname);
-	return 1;
+	return T_EXIT_FAIL;
 }

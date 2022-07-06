@@ -459,20 +459,20 @@ int main(int argc, char **argv)
 	struct rlimit rlim;
 
 	if (argc > 1)
-		return 0;
+		return T_EXIT_SKIP;
 
 	/* setup globals */
 	pagesize = getpagesize();
 	ret = getrlimit(RLIMIT_MEMLOCK, &rlim);
 	if (ret < 0) {
 		perror("getrlimit");
-		return 1;
+		return T_EXIT_PASS;
 	}
 	mlock_limit = rlim.rlim_cur;
 	devnull = open("/dev/null", O_RDWR);
 	if (devnull < 0) {
 		perror("open /dev/null");
-		exit(1);
+		exit(T_EXIT_FAIL);
 	}
 
 	/* invalid fd */

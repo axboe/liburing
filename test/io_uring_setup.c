@@ -15,6 +15,7 @@
 #include <errno.h>
 #include <sys/sysinfo.h>
 #include "liburing.h"
+#include "helpers.h"
 
 #include "../syscall.h"
 
@@ -130,7 +131,7 @@ main(int argc, char **argv)
 	struct io_uring_params p;
 
 	if (argc > 1)
-		return 0;
+		return T_EXIT_SKIP;
 
 	memset(&p, 0, sizeof(p));
 	status |= try_io_uring_setup(0, &p, -1, EINVAL);
@@ -179,8 +180,8 @@ main(int argc, char **argv)
 	}
 
 	if (!status)
-		return 0;
+		return T_EXIT_PASS;
 
 	fprintf(stderr, "FAIL\n");
-	return -1;
+	return T_EXIT_FAIL;
 }

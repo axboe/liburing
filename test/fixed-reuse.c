@@ -132,7 +132,7 @@ int main(int argc, char *argv[])
 		return T_EXIT_FAIL;
 	}
 	if (!(p.features & IORING_FEAT_CQE_SKIP))
-		return 0;
+		return T_EXIT_SKIP;
 
 	memset(files, -1, sizeof(files));
 	ret = io_uring_register_files(&ring, files, ARRAY_SIZE(files));

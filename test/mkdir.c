@@ -10,6 +10,7 @@
 #include <unistd.h>
 
 #include "liburing.h"
+#include "helpers.h"
 
 static int do_mkdirat(struct io_uring *ring, const char *fn)
 {
@@ -59,7 +60,7 @@ int main(int argc, char *argv[])
 	struct io_uring ring;
 
 	if (argc > 1)
-		return 0;
+		return T_EXIT_SKIP;
 
 	ret = io_uring_queue_init(8, &ring, 0);
 	if (ret) {
@@ -104,5 +105,5 @@ err1:
 	unlinkat(AT_FDCWD, fn, AT_REMOVEDIR);
 err:
 	io_uring_queue_exit(&ring);
-	return 1;
+	return T_EXIT_FAIL;
 }

@@ -123,10 +123,10 @@ int main(int argc, char *argv[])
 
   mmap_ret = mmap((void *)0x20000000ul, 0x1000000ul, 7ul, 0x32ul, -1, 0ul);
   if (mmap_ret == MAP_FAILED)
-    return 0;
+    return T_EXIT_SKIP;
   mmap_ret = mmap((void *)0x21000000ul, 0x1000ul, 0ul, 0x32ul, -1, 0ul);
   if (mmap_ret == MAP_FAILED)
-    return 0;
+    return T_EXIT_SKIP;
   intptr_t res = 0;
   *(uint32_t*)0x20000484 = 0;
   *(uint32_t*)0x20000488 = 0;

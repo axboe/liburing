@@ -131,7 +131,7 @@ static int test_sqe_update(struct io_uring *ring)
 	free(fds);
 	if (ret == -EINVAL) {
 		fprintf(stdout, "IORING_OP_FILES_UPDATE not supported, skipping\n");
-		return 0;
+		return T_EXIT_SKIP;
 	}
 	return ret != 10;
 }
@@ -171,5 +171,5 @@ int main(int argc, char *argv[])
 		return ret;
 	}
 
-	return 0;
+	return T_EXIT_PASS;
 }

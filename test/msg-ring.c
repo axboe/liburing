@@ -12,6 +12,7 @@
 #include <pthread.h>
 
 #include "liburing.h"
+#include "helpers.h"
 
 static int no_msg;
 
@@ -183,22 +184,22 @@ int main(int argc, char *argv[])
 	int ret;
 
 	if (argc > 1)
-		return 0;
+		return T_EXIT_SKIP;
 
 	ret = io_uring_queue_init(8, &ring, 0);
 	if (ret) {
 		fprintf(stderr, "ring setup failed: %d\n", ret);
-		return 1;
+		return T_EXIT_FAIL;
 	}
 	ret = io_uring_queue_init(8, &ring2, 0);
 	if (ret) {
 		fprintf(stderr, "ring setup failed: %d\n", ret);
-		return 1;
+		return T_EXIT_FAIL;
 	}
 	ret = io_uring_queue_init(8, &pring, IORING_SETUP_IOPOLL);
 	if (ret) {
 		fprintf(stderr, "ring setup failed: %d\n", ret);
-		return 1;
+		return T_EXIT_FAIL;
 	}
 
 	ret = test_own(&ring);
@@ -208,7 +209,7 @@ int main(int argc, char *argv[])
 	}
 	if (no_msg) {
 		fprintf(stdout, "Skipped\n");
-		return 0;
+		return T_EXIT_SKIP;
 	}
 	ret = test_own(&pring);
 	if (ret) {
@@ -232,5 +233,5 @@ int main(int argc, char *argv[])
 
 	pthread_join(thread, &tret);
 
-	return 0;
+	return T_EXIT_PASS;
 }

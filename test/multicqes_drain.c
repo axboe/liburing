@@ -17,6 +17,7 @@
 #include <poll.h>
 
 #include "liburing.h"
+#include "helpers.h"
 
 enum {
 	multi,
@@ -360,12 +361,12 @@ int main(int argc, char *argv[])
 	int i, ret;
 
 	if (argc > 1)
-		return 0;
+		return T_EXIT_SKIP;
 
 	ret = io_uring_queue_init(1024, &ring, 0);
 	if (ret) {
 		printf("ring setup failed\n");
-		return 1;
+		return T_EXIT_FAIL;
 	}
 
 	for (i = 0; i < 5; i++) {

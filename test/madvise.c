@@ -187,9 +187,9 @@ int main(int argc, char *argv[])
 	if (fname != argv[1])
 		unlink(fname);
 	io_uring_queue_exit(&ring);
-	return 0;
+	return T_EXIT_PASS;
 err:
 	if (fname != argv[1])
 		unlink(fname);
-	return 1;
+	return T_EXIT_FAIL;
 }

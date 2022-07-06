@@ -95,7 +95,7 @@ int main(int argc, char *argv[])
 			break;
 		if (errno != EADDRINUSE) {
 			fprintf(stderr, "bind: %s\n", strerror(errno));
-			return 1;
+			return T_EXIT_FAIL;
 		}
 		if (i == 99) {
 			printf("Gave up on finding a port, skipping\n");
@@ -105,7 +105,7 @@ int main(int argc, char *argv[])
 
 	if (listen(sock_listen_fd, BACKLOG) < 0) {
 		perror("Error listening on socket\n");
-		return 1;
+		return T_EXIT_FAIL;
 	}
 
 	if (setup_io_uring())

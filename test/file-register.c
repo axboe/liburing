@@ -1034,7 +1034,7 @@ int main(int argc, char *argv[])
 	}
 
 	if (no_update)
-		return 0;
+		return T_EXIT_SKIP;
 
 	ret = test_additions(&ring);
 	if (ret) {

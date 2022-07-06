@@ -73,7 +73,7 @@ static int do_fadvise(struct io_uring *ring, int fd, off_t offset, off_t len,
 	if (ret == -EINVAL || ret == -EBADF) {
 		fprintf(stdout, "Fadvise not supported, skipping\n");
 		unlink(".fadvise.tmp");
-		exit(0);
+		exit(T_EXIT_SKIP);
 	} else if (ret) {
 		fprintf(stderr, "cqe->res=%d\n", cqe->res);
 	}

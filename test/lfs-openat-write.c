@@ -14,6 +14,8 @@
 #include <sys/resource.h>
 #include <unistd.h>
 
+#include "helpers.h"
+
 static const int RSIZE = 2;
 static const int OPEN_FLAGS = O_RDWR | O_CREAT;
 static const mode_t OPEN_MODE = S_IRUSR | S_IWUSR;
@@ -100,7 +102,7 @@ int main(int argc, char *argv[])
 	int dfd, ret;
 
 	if (argc > 1)
-		return 0;
+		return T_EXIT_SKIP;
 
 	dfd = open("/tmp", O_RDONLY | O_DIRECTORY);
 	if (dfd < 0)

@@ -185,14 +185,14 @@ int main(int argc, char **argv)
 	unsigned completed, dropped;
 
 	if (argc > 1)
-		return 0;
+		return T_EXIT_SKIP;
 
 	ret = io_uring_queue_init(IORING_MAX_ENTRIES, &ring, 0);
 	if (ret == -ENOMEM)
 		ret = io_uring_queue_init(IORING_MAX_ENTRIES_FALLBACK, &ring, 0);
 	if (ret < 0) {
 		perror("io_uring_queue_init");
-		exit(1);
+		exit(T_EXIT_FAIL);
 	}
 	mask = *sq->kring_mask;
 
@@ -254,8 +254,8 @@ int main(int argc, char **argv)
 	}
 
 	if (!status)
-		return 0;
+		return T_EXIT_PASS;
 
 	fprintf(stderr, "FAIL\n");
-	return -1;
+	return T_EXIT_FAIL;
 }
