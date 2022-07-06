@@ -373,7 +373,7 @@ int main(int argc, char *argv[])
 		ret = test_simple_drain(&ring);
 		if (ret) {
 			fprintf(stderr, "test_simple_drain failed\n");
-			break;
+			return T_EXIT_FAIL;
 		}
 	}
 
@@ -381,8 +381,8 @@ int main(int argc, char *argv[])
 		ret = test_generic_drain(&ring);
 		if (ret) {
 			fprintf(stderr, "test_generic_drain failed\n");
-			break;
+			return T_EXIT_FAIL;
 		}
 	}
-	return ret;
+	return T_EXIT_PASS;
 }
