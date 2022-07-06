@@ -99,7 +99,7 @@ int main(int argc, char *argv[])
 		}
 		if (i == 99) {
 			printf("Gave up on finding a port, skipping\n");
-			goto out;
+			goto skip;
 		}
 	}
 
@@ -129,7 +129,9 @@ int main(int argc, char *argv[])
 		return T_EXIT_FAIL;
 	}
 
-out:
 	io_uring_queue_exit(&ring);
 	return T_EXIT_PASS;
+skip:
+	io_uring_queue_exit(&ring);
+	return T_EXIT_SKIP;
 }

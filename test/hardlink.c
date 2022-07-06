@@ -98,7 +98,7 @@ int main(int argc, char *argv[])
 	if (ret < 0) {
 		if (ret == -EBADF || ret == -EINVAL) {
 			fprintf(stdout, "linkat not supported, skipping\n");
-			goto out;
+			goto skip;
 		}
 		fprintf(stderr, "linkat: %s\n", strerror(-ret));
 		goto err1;
@@ -121,7 +121,11 @@ int main(int argc, char *argv[])
 		goto err2;
 	}
 
-out:
+	unlinkat(AT_FDCWD, linkname, 0);
+	unlinkat(AT_FDCWD, target, 0);
+	io_uring_queue_exit(&ring);
+	return T_EXIT_SKIP;
+skip:
 	unlinkat(AT_FDCWD, linkname, 0);
 	unlinkat(AT_FDCWD, target, 0);
 	io_uring_queue_exit(&ring);
@@ -134,4 +138,3 @@ err:
 	io_uring_queue_exit(&ring);
 	return T_EXIT_FAIL;
 }
-

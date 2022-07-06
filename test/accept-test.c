@@ -61,7 +61,7 @@ int main(int argc, char *argv[])
 	if (!ret) {
 		if (cqe->res == -EBADF || cqe->res == -EINVAL) {
 			fprintf(stdout, "Accept not supported, skipping\n");
-			goto out;
+			goto skip;
 		} else if (cqe->res < 0) {
 			fprintf(stderr, "cqe error %d\n", cqe->res);
 			goto err;
@@ -71,9 +71,12 @@ int main(int argc, char *argv[])
 		return T_EXIT_FAIL;
 	}
 
-out:
 	io_uring_queue_exit(&ring);
 	return T_EXIT_PASS;
+
+skip:
+	io_uring_queue_exit(&ring);
+	return T_EXIT_SKIP;
 err:
 	io_uring_queue_exit(&ring);
 	return T_EXIT_FAIL;
