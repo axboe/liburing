@@ -306,7 +306,7 @@ static int test_sparse(struct io_uring *ring)
 	ret = io_uring_register_files(ring, files, 200);
 	if (ret) {
 		if (ret == -EBADF) {
-			fprintf(stdout, "Sparse files not supported\n");
+			fprintf(stdout, "Sparse files not supported, skipping\n");
 			no_update = 1;
 			goto done;
 		}
