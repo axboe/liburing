@@ -136,6 +136,56 @@ static int test_sqe_update(struct io_uring *ring)
 	return ret != 10;
 }
 
+static int test_update_no_table(void)
+{
+	int up_fd, fds[4] = {-1, 0, 1, 4};
+	struct io_uring_sqe *sqe;
+	struct io_uring_cqe *cqe;
+	struct io_uring ring;
+	int ret;
+
+	ret = t_create_ring(2, &ring, 0);
+	if (ret == T_SETUP_SKIP)
+		return T_EXIT_SKIP;
+	else if (ret != T_SETUP_OK)
+		return ret;
+
+	ret = io_uring_register_files(&ring, fds, 4);
+	/* ignore other failures */
+	if (ret && ret != -EBADF) {
+		fprintf(stderr, "Failed registering file table: %d\n", ret);
+		goto fail;
+	}
+
+	sqe = io_uring_get_sqe(&ring);
+	up_fd = ring.ring_fd;
+	io_uring_prep_files_update(sqe, &up_fd, 1, -1); //offset = -1
+	ret = io_uring_submit(&ring);
+	if (ret != 1) {
+		fprintf(stderr, "Failed submit: %d\n", ret);
+		goto fail;
+	}
+
+	ret = io_uring_wait_cqe(&ring, &cqe);
+	if (ret) {
+		fprintf(stderr, "Failed wait: %d\n", ret);
+		goto fail;
+	}
+	ret = cqe->res;
+	io_uring_cqe_seen(&ring, cqe);
+	if (ret != -EMFILE && ret != -EINVAL && ret != -EOVERFLOW &&
+	    ret != -ENXIO) {
+		fprintf(stderr, "Bad cqe res: %d\n", ret);
+		goto fail;
+	}
+
+	io_uring_queue_exit(&ring);
+	return T_EXIT_PASS;
+fail:
+	io_uring_queue_exit(&ring);
+	return T_EXIT_FAIL;
+}
+
 int main(int argc, char *argv[])
 {
 	struct io_uring r1, r2, r3;
@@ -165,9 +215,15 @@ int main(int argc, char *argv[])
 
 	ret = test_sqe_update(&r1);
 	if (ret) {
-		if (ret != T_EXIT_SKIP) {
+		if (ret != T_EXIT_SKIP)
 			fprintf(stderr, "test_sqe_update failed\n");
-		}
+		return ret;
+	}
+
+	ret = test_update_no_table();
+	if (ret) {
+		if (ret != T_EXIT_SKIP)
+			fprintf(stderr, "test_sqe_update failed\n");
 		return ret;
 	}
 
