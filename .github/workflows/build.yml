@@ -7,7 +7,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
 
     strategy:
       fail-fast: false
@@ -84,7 +84,7 @@ jobs:
             cxx: mips-linux-gnu-g++
 
     env:
-      FLAGS: -g -O2 -Wall -Wextra -Werror
+      FLAGS: -g -O3 -Wall -Wextra -Werror
 
     steps:
     - name: Checkout source
