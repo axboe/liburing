@@ -419,6 +419,13 @@ static inline void io_uring_prep_recvmsg(struct io_uring_sqe *sqe, int fd,
 	sqe->msg_flags = flags;
 }
 
+static inline void io_uring_prep_recvmsg_multishot(struct io_uring_sqe *sqe, int fd,
+						   struct msghdr *msg, unsigned flags)
+{
+	io_uring_prep_recvmsg(sqe, fd, msg, flags);
+	sqe->ioprio |= IORING_RECV_MULTISHOT;
+}
+
 static inline void io_uring_prep_sendmsg(struct io_uring_sqe *sqe, int fd,
 					 const struct msghdr *msg,
 					 unsigned flags)
@@ -683,6 +690,65 @@ static inline void io_uring_prep_recv_multishot(struct io_uring_sqe *sqe,
 {
 	io_uring_prep_recv(sqe, sockfd, buf, len, flags);
 	sqe->ioprio |= IORING_RECV_MULTISHOT;
+}
+
+static inline struct io_uring_recvmsg_out *io_uring_recvmsg_validate(
+	void *buf, int buf_len, struct msghdr *m)
+{
+	size_t header = m->msg_controllen + m->msg_namelen + sizeof(struct io_uring_recvmsg_out);
+
+	if (buf_len < header)
+		return NULL;
+	return (struct io_uring_recvmsg_out *)buf;
+}
+
+static inline void *io_uring_recvmsg_name(struct io_uring_recvmsg_out *o)
+{
+	return (void *)&o[1];
+}
+
+static inline struct cmsghdr *io_uring_recvmsg_cmsg_firsthdr(struct io_uring_recvmsg_out *o,
+							     struct msghdr *m)
+{
+	if (o->controllen < sizeof(struct cmsghdr))
+		return NULL;
+	return (struct cmsghdr *)((unsigned char *)io_uring_recvmsg_name(o) + m->msg_namelen);
+}
+
+static inline void *io_uring_recvmsg_payload(struct io_uring_recvmsg_out *o,
+					     struct msghdr *m)
+{
+	return (void *)((unsigned char *)io_uring_recvmsg_name(o) +
+			m->msg_namelen + m->msg_controllen);
+}
+
+static inline size_t io_uring_recvmsg_payload_length(struct io_uring_recvmsg_out *o,
+						     int buf_length,
+						     struct msghdr *m)
+{
+	unsigned long payload_start = (unsigned long)io_uring_recvmsg_payload(o, m);
+	unsigned long payload_end = (unsigned long)o + buf_length;
+
+	return payload_end - payload_start;
+}
+
+static inline struct cmsghdr *io_uring_recvmsg_cmsg_nexthdr(struct io_uring_recvmsg_out *o,
+							    struct msghdr *m,
+							    struct cmsghdr *cmsg)
+{
+	unsigned char *end;
+
+	if (cmsg->cmsg_len < sizeof(struct cmsghdr))
+		return NULL;
+	end = (unsigned char *)io_uring_recvmsg_payload(o, m);
+	cmsg = (struct cmsghdr *)((unsigned char *)cmsg + CMSG_ALIGN(cmsg->cmsg_len));
+
+	if ((unsigned char *)(cmsg + 1) > end)
+		return NULL;
+	if (((unsigned char *)cmsg) + CMSG_ALIGN(cmsg->cmsg_len) > end)
+		return NULL;
+
+	return cmsg;
 }
 
 static inline void io_uring_prep_openat2(struct io_uring_sqe *sqe, int dfd,
