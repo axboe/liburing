@@ -745,7 +745,8 @@ io_uring_recvmsg_cmsg_nexthdr(struct io_uring_recvmsg_out *o, struct msghdr *m,
 
 	if (cmsg->cmsg_len < sizeof(struct cmsghdr))
 		return NULL;
-	end = (unsigned char *) io_uring_recvmsg_payload(o, m);
+	end = (unsigned char *) io_uring_recvmsg_cmsg_firsthdr(o, m) +
+		o->controllen;
 	cmsg = (struct cmsghdr *)((unsigned char *) cmsg +
 			CMSG_ALIGN(cmsg->cmsg_len));
 
