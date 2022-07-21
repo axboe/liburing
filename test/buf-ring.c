@@ -206,6 +206,30 @@ static int test_reg_unreg(int bgid)
 	return 0;
 }
 
+static int test_bad_reg(int bgid)
+{
+	struct io_uring ring;
+	int ret;
+	struct io_uring_buf_reg reg = { };
+
+	ret = t_create_ring(1, &ring, 0);
+	if (ret == T_SETUP_SKIP)
+		return 0;
+	else if (ret != T_SETUP_OK)
+		return 1;
+
+	reg.ring_addr = 4096;
+	reg.ring_entries = 32;
+	reg.bgid = bgid;
+
+	ret = io_uring_register_buf_ring(&ring, &reg, 0);
+	if (!ret)
+		fprintf(stderr, "Buffer ring register worked unexpectedly\n");
+
+	io_uring_queue_exit(&ring);
+	return !ret;
+}
+
 static int test_one_read(int fd, int bgid, struct io_uring *ring)
 {
 	int ret;
@@ -358,6 +382,12 @@ int main(int argc, char *argv[])
 		}
 		if (no_buf_ring)
 			break;
+
+		ret = test_bad_reg(bgids[i]);
+		if (ret) {
+			fprintf(stderr, "test_bad_reg failed\n");
+			return T_EXIT_FAIL;
+		}
 
 		ret = test_double_reg_unreg(bgids[i]);
 		if (ret) {
