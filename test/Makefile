@@ -197,21 +197,9 @@ test_targets := $(patsubst %.cc,%,$(test_targets))
 run_test_targets := $(patsubst %,%.run_test,$(test_targets))
 test_targets := $(patsubst %,%.t,$(test_targets))
 all_targets += $(test_targets)
-
-#
-# Build ../src/syscall.c manually from test's Makefile to support
-# liburing nolibc.
-#
-# Functions in ../src/syscall.c require libc to work with, if we
-# build liburing without libc, we don't have those functions
-# in liburing.a. So build it manually here.
-#
-helpers = helpers.o ../src/syscall.o
+helpers = helpers.o
 
 all: $(test_targets)
-
-../src/syscall.o: ../src/syscall.c
-	$(QUIET_CC)$(CC) $(CPPFLAGS) $(CFLAGS) -o $@ -c $<
 
 helpers.o: helpers.c
 	$(QUIET_CC)$(CC) $(CPPFLAGS) $(CFLAGS) -o $@ -c $<

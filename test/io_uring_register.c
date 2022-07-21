@@ -37,7 +37,7 @@ static int expect_fail(int fd, unsigned int opcode, void *arg,
 	int ret;
 
 	ret = __sys_io_uring_register(fd, opcode, arg, nr_args);
-	if (ret != -1) {
+	if (ret >= 0) {
 		int ret2 = 0;
 
 		fprintf(stderr, "expected %s, but call succeeded\n", strerror(error));
@@ -55,8 +55,8 @@ static int expect_fail(int fd, unsigned int opcode, void *arg,
 		return 1;
 	}
 
-	if (errno != error) {
-		fprintf(stderr, "expected %d, got %d\n", error, errno);
+	if (ret != error) {
+		fprintf(stderr, "expected %d, got %d\n", error, ret);
 		return 1;
 	}
 	return 0;
@@ -279,7 +279,7 @@ static int test_iovec_nr(int fd)
 		iovs[i].iov_len = pagesize;
 	}
 
-	status |= expect_fail(fd, IORING_REGISTER_BUFFERS, iovs, nr, EINVAL);
+	status |= expect_fail(fd, IORING_REGISTER_BUFFERS, iovs, nr, -EINVAL);
 
 	/* reduce to UIO_MAXIOV */
 	nr = UIO_MAXIOV;
@@ -310,12 +310,12 @@ static int test_iovec_size(int fd)
 	/* NULL pointer for base */
 	iov.iov_base = 0;
 	iov.iov_len = 4096;
-	status |= expect_fail(fd, IORING_REGISTER_BUFFERS, &iov, 1, EFAULT);
+	status |= expect_fail(fd, IORING_REGISTER_BUFFERS, &iov, 1, -EFAULT);
 
 	/* valid base, 0 length */
 	iov.iov_base = &buf;
 	iov.iov_len = 0;
-	status |= expect_fail(fd, IORING_REGISTER_BUFFERS, &iov, 1, EFAULT);
+	status |= expect_fail(fd, IORING_REGISTER_BUFFERS, &iov, 1, -EFAULT);
 
 	/* valid base, length exceeds size */
 	/* this requires an unampped page directly after buf */
@@ -326,7 +326,7 @@ static int test_iovec_size(int fd)
 	assert(ret == 0);
 	iov.iov_base = buf;
 	iov.iov_len = 2 * pagesize;
-	status |= expect_fail(fd, IORING_REGISTER_BUFFERS, &iov, 1, EFAULT);
+	status |= expect_fail(fd, IORING_REGISTER_BUFFERS, &iov, 1, -EFAULT);
 	munmap(buf, pagesize);
 
 	/* huge page */
@@ -346,20 +346,21 @@ static int test_iovec_size(int fd)
 		iov.iov_len = 2*1024*1024;
 		ret = __sys_io_uring_register(fd, IORING_REGISTER_BUFFERS, &iov, 1);
 		if (ret < 0) {
-			if (errno == ENOMEM)
+			if (ret == -ENOMEM)
 				printf("Unable to test registering of a huge "
 				       "page.  Try increasing the "
 				       "RLIMIT_MEMLOCK resource limit by at "
 				       "least 2MB.");
 			else {
-				fprintf(stderr, "expected success, got %d\n", errno);
+				fprintf(stderr, "expected success, got %d\n", ret);
 				status = 1;
 			}
 		} else {
 			ret = __sys_io_uring_register(fd,
 					IORING_UNREGISTER_BUFFERS, 0, 0);
 			if (ret < 0) {
-				perror("io_uring_unregister");
+				fprintf(stderr, "io_uring_unregister: %s\n",
+					strerror(-ret));
 				status = 1;
 			}
 		}
@@ -373,7 +374,7 @@ static int test_iovec_size(int fd)
 		status = 1;
 	iov.iov_base = buf;
 	iov.iov_len = 2*1024*1024;
-	status |= expect_fail(fd, IORING_REGISTER_BUFFERS, &iov, 1, EOPNOTSUPP);
+	status |= expect_fail(fd, IORING_REGISTER_BUFFERS, &iov, 1, -EOPNOTSUPP);
 	munmap(buf, 2*1024*1024);
 
 	/* bump up against the soft limit and make sure we get EFAULT
@@ -401,7 +402,7 @@ static int ioring_poll(struct io_uring *ring, int fd, int fixed)
 
 	ret = io_uring_submit(ring);
 	if (ret != 1) {
-		fprintf(stderr, "failed to submit poll sqe: %d.\n", errno);
+		fprintf(stderr, "failed to submit poll sqe: %d.\n", ret);
 		return 1;
 	}
 
@@ -443,7 +444,7 @@ static int test_poll_ringfd(void)
 	 * fail, because the kernel does not allow registering of the
 	 * ring_fd.
 	 */
-	status |= expect_fail(fd, IORING_REGISTER_FILES, &fd, 1, EBADF);
+	status |= expect_fail(fd, IORING_REGISTER_FILES, &fd, 1, -EBADF);
 
 	/* tear down queue */
 	io_uring_queue_exit(&ring);
@@ -476,14 +477,14 @@ int main(int argc, char **argv)
 	}
 
 	/* invalid fd */
-	status |= expect_fail(-1, 0, NULL, 0, EBADF);
+	status |= expect_fail(-1, 0, NULL, 0, -EBADF);
 	/* valid fd that is not an io_uring fd */
-	status |= expect_fail(devnull, 0, NULL, 0, EOPNOTSUPP);
+	status |= expect_fail(devnull, 0, NULL, 0, -EOPNOTSUPP);
 
 	/* invalid opcode */
 	memset(&p, 0, sizeof(p));
 	fd = new_io_uring(1, &p);
-	ret = expect_fail(fd, ~0U, NULL, 0, EINVAL);
+	ret = expect_fail(fd, ~0U, NULL, 0, -EINVAL);
 	if (ret) {
 		/* if this succeeds, tear down the io_uring instance
 		 * and start clean for the next test. */

@@ -39,13 +39,13 @@ static int expect_fail(int fd, unsigned int to_submit,
 	int ret;
 
 	ret = __sys_io_uring_enter(fd, to_submit, min_complete, flags, sig);
-	if (ret != -1) {
-		fprintf(stderr, "expected %s, but call succeeded\n", strerror(error));
+	if (ret >= 0) {
+		fprintf(stderr, "expected %s, but call succeeded\n", strerror(-error));
 		return 1;
 	}
 
-	if (errno != error) {
-		fprintf(stderr, "expected %d, got %d\n", error, errno);
+	if (ret != error) {
+		fprintf(stderr, "expected %d, got %d\n", error, ret);
 		return 1;
 	}
 
@@ -54,17 +54,17 @@ static int expect_fail(int fd, unsigned int to_submit,
 
 static int try_io_uring_enter(int fd, unsigned int to_submit,
 			      unsigned int min_complete, unsigned int flags,
-			      sigset_t *sig, int expect, int error)
+			      sigset_t *sig, int expect)
 {
 	int ret;
 
-	if (expect == -1)
-		return expect_fail(fd, to_submit, min_complete,
-				   flags, sig, error);
+	if (expect < 0)
+		return expect_fail(fd, to_submit, min_complete, flags, sig,
+				   expect);
 
 	ret = __sys_io_uring_enter(fd, to_submit, min_complete, flags, sig);
 	if (ret != expect) {
-		fprintf(stderr, "Expected %d, got %d\n", expect, errno);
+		fprintf(stderr, "Expected %d, got %d\n", expect, ret);
 		return 1;
 	}
 
@@ -197,16 +197,16 @@ int main(int argc, char **argv)
 	mask = *sq->kring_mask;
 
 	/* invalid flags */
-	status |= try_io_uring_enter(ring.ring_fd, 1, 0, ~0U, NULL, -1, EINVAL);
+	status |= try_io_uring_enter(ring.ring_fd, 1, 0, ~0U, NULL, -EINVAL);
 
 	/* invalid fd, EBADF */
-	status |= try_io_uring_enter(-1, 0, 0, 0, NULL, -1, EBADF);
+	status |= try_io_uring_enter(-1, 0, 0, 0, NULL, -EBADF);
 
 	/* valid, non-ring fd, EOPNOTSUPP */
-	status |= try_io_uring_enter(0, 0, 0, 0, NULL, -1, EOPNOTSUPP);
+	status |= try_io_uring_enter(0, 0, 0, 0, NULL, -EOPNOTSUPP);
 
 	/* to_submit: 0, flags: 0;  should get back 0. */
-	status |= try_io_uring_enter(ring.ring_fd, 0, 0, 0, NULL, 0, 0);
+	status |= try_io_uring_enter(ring.ring_fd, 0, 0, 0, NULL, 0);
 
 	/* fill the sq ring */
 	sq_entries = *ring.sq.kring_entries;
@@ -214,7 +214,7 @@ int main(int argc, char **argv)
 	ret = __sys_io_uring_enter(ring.ring_fd, 0, sq_entries,
 					IORING_ENTER_GETEVENTS, NULL);
 	if (ret < 0) {
-		perror("io_uring_enter");
+		fprintf(stderr, "io_uring_enter: %s\n", strerror(-ret));
 		status = 1;
 	} else {
 		/*

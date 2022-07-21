@@ -40,7 +40,7 @@ static int register_rsrc(struct io_uring *ring, int type, int nr,
 			  const void *arg, const __u64 *tags)
 {
 	struct io_uring_rsrc_register reg;
-	int ret, reg_type;
+	int reg_type;
 
 	memset(&reg, 0, sizeof(reg));
 	reg.nr = nr;
@@ -51,9 +51,8 @@ static int register_rsrc(struct io_uring *ring, int type, int nr,
 	if (type != TEST_IORING_RSRC_FILE)
 		reg_type = IORING_REGISTER_BUFFERS2;
 
-	ret = __sys_io_uring_register(ring->ring_fd, reg_type,
-					&reg, sizeof(reg));
-	return ret ? -errno : 0;
+	return __sys_io_uring_register(ring->ring_fd, reg_type, &reg,
+				       sizeof(reg));
 }
 
 /*
@@ -64,7 +63,7 @@ static int update_rsrc(struct io_uring *ring, int type, int nr, int off,
 			const void *arg, const __u64 *tags)
 {
 	struct io_uring_rsrc_update2 up;
-	int ret, up_type;
+	int up_type;
 
 	memset(&up, 0, sizeof(up));
 	up.offset = off;
@@ -75,9 +74,7 @@ static int update_rsrc(struct io_uring *ring, int type, int nr, int off,
 	up_type = IORING_REGISTER_FILES_UPDATE2;
 	if (type != TEST_IORING_RSRC_FILE)
 		up_type = IORING_REGISTER_BUFFERS_UPDATE;
-	ret = __sys_io_uring_register(ring->ring_fd, up_type,
-				      &up, sizeof(up));
-	return ret < 0 ? -errno : ret;
+	return __sys_io_uring_register(ring->ring_fd, up_type, &up, sizeof(up));
 }
 
 static bool has_rsrc_update(void)

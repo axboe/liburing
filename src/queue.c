@@ -92,9 +92,9 @@ static int _io_uring_get_cqe(struct io_uring *ring,
 
 		if (ring->int_flags & INT_FLAG_REG_RING)
 			flags |= IORING_ENTER_REGISTERED_RING;
-		ret = ____sys_io_uring_enter2(ring->enter_ring_fd, data->submit,
-					      data->wait_nr, flags, data->arg,
-					      data->sz);
+		ret = __sys_io_uring_enter2(ring->enter_ring_fd, data->submit,
+					    data->wait_nr, flags, data->arg,
+					    data->sz);
 		if (ret < 0) {
 			err = ret;
 			break;
@@ -162,7 +162,7 @@ again:
 
 		if (ring->int_flags & INT_FLAG_REG_RING)
 			flags |= IORING_ENTER_REGISTERED_RING;
-		____sys_io_uring_enter(ring->enter_ring_fd, 0, 0, flags, NULL);
+		__sys_io_uring_enter(ring->enter_ring_fd, 0, 0, flags, NULL);
 		overflow_checked = true;
 		goto again;
 	}
@@ -360,8 +360,8 @@ static int __io_uring_submit(struct io_uring *ring, unsigned submitted,
 		if (ring->int_flags & INT_FLAG_REG_RING)
 			flags |= IORING_ENTER_REGISTERED_RING;
 
-		ret = ____sys_io_uring_enter(ring->enter_ring_fd, submitted,
-						wait_nr, flags, NULL);
+		ret = __sys_io_uring_enter(ring->enter_ring_fd, submitted,
+					   wait_nr, flags, NULL);
 	} else
 		ret = submitted;
 
@@ -407,5 +407,5 @@ int __io_uring_sqring_wait(struct io_uring *ring)
 	if (ring->int_flags & INT_FLAG_REG_RING)
 		flags |= IORING_ENTER_REGISTERED_RING;
 
-	return  ____sys_io_uring_enter(ring->enter_ring_fd, 0, 0, flags, NULL);
+	return __sys_io_uring_enter(ring->enter_ring_fd, 0, 0, flags, NULL);
 }

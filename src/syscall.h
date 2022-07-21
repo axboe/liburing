@@ -85,17 +85,4 @@ static inline bool IS_ERR(const void *ptr)
 /* libc syscall wrappers. */
 #include "arch/generic/syscall.h"
 #endif
-
-/*
- * For backward compatibility.
- * (these __sys* functions always use libc, see syscall.c)
- */
-int __sys_io_uring_setup(unsigned entries, struct io_uring_params *p);
-int __sys_io_uring_enter(int fd, unsigned to_submit, unsigned min_complete,
-			 unsigned flags, sigset_t *sig);
-int __sys_io_uring_enter2(int fd, unsigned to_submit, unsigned min_complete,
-			  unsigned flags, sigset_t *sig, int sz);
-int __sys_io_uring_register(int fd, unsigned int opcode, const void *arg,
-			    unsigned int nr_args);
-
 #endif

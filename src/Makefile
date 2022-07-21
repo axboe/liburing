@@ -39,8 +39,6 @@ ifeq ($(CONFIG_NOLIBC),y)
 	override CFLAGS += -nostdlib -nodefaultlibs -ffreestanding
 	override CPPFLAGS += -nostdlib -nodefaultlibs -ffreestanding
 	override LINK_FLAGS += -nostdlib -nodefaultlibs
-else
-	liburing_srcs += syscall.c
 endif
 
 override CPPFLAGS += -MT "$@" -MMD -MP -MF "$@.d"
