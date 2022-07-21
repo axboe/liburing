@@ -10,6 +10,7 @@
 #include <sys/wait.h>
 
 #include "liburing.h"
+#include "helpers.h"
 
 int check_final_cqe(struct io_uring *ring)
 {
@@ -22,23 +23,23 @@ int check_final_cqe(struct io_uring *ring)
 			count++;
 			if (signalled_no_more) {
 				fprintf(stderr, "signalled no more!\n");
-				return 1;
+				return T_EXIT_FAIL;
 			}
 			if (!(cqe->flags & IORING_CQE_F_MORE))
 				signalled_no_more = true;
 		} else if (cqe->user_data != 3) {
 			fprintf(stderr, "%d: got unexpected %d\n", count, (int)cqe->user_data);
-			return 1;
+			return T_EXIT_FAIL;
 		}
 		io_uring_cqe_seen(ring, cqe);
 	}
 
 	if (!count) {
 		fprintf(stderr, "no cqe\n");
-		return 1;
+		return T_EXIT_FAIL;
 	}
 
-	return 0;
+	return T_EXIT_PASS;
 }
 
 int main(int argc, char *argv[])
@@ -54,7 +55,7 @@ int main(int argc, char *argv[])
 
 	if (pipe(pipe1) != 0) {
 		perror("pipe");
-		return 1;
+		return T_EXIT_FAIL;
 	}
 
 	struct io_uring_params params = {
@@ -65,20 +66,20 @@ int main(int argc, char *argv[])
 	ret = io_uring_queue_init_params(2, &ring, &params);
 	if (ret) {
 		fprintf(stderr, "ring setup failed: %d\n", ret);
-		return 1;
+		return T_EXIT_FAIL;
 	}
 
 	sqe = io_uring_get_sqe(&ring);
 	if (!sqe) {
 		fprintf(stderr, "get sqe failed\n");
-		return 1;
+		return T_EXIT_FAIL;
 	}
 	io_uring_prep_poll_multishot(sqe, pipe1[0], POLLIN);
 	io_uring_sqe_set_data64(sqe, 1);
 
 	if (io_uring_cq_ready(&ring)) {
 		fprintf(stderr, "unexpected cqe\n");
-		return 1;
+		return T_EXIT_FAIL;
 	}
 
 	for (i = 0; i < 2; i++) {
@@ -95,18 +96,18 @@ int main(int argc, char *argv[])
 
 	if (ret <= 0) {
 		fprintf(stderr, "write failed: %d\n", errno);
-		return 1;
+		return T_EXIT_FAIL;
 	}
 
 	/* should have 2 cqe + 1 overflow now, so take out two cqes */
 	for (i = 0; i < 2; i++) {
 		if (io_uring_peek_cqe(&ring, &cqe)) {
 			fprintf(stderr, "unexpectedly no cqe\n");
-			return 1;
+			return T_EXIT_FAIL;
 		}
 		if (cqe->user_data != 2) {
 			fprintf(stderr, "unexpected user_data\n");
-			return 1;
+			return T_EXIT_FAIL;
 		}
 		io_uring_cqe_seen(&ring, cqe);
 	}
@@ -119,7 +120,7 @@ int main(int argc, char *argv[])
 
 	if (ret != 1) {
 		fprintf(stderr, "bad poll remove\n");
-		return 1;
+		return T_EXIT_FAIL;
 	}
 
 	ret = check_final_cqe(&ring);
