@@ -75,6 +75,20 @@ static int arm_poll(struct io_uring *ring, int off)
 	return 0;
 }
 
+static int submit_arm_poll(struct io_uring *ring, int off)
+{
+	int ret;
+
+	ret = arm_poll(ring, off);
+	if (ret)
+		return ret;
+
+	ret = io_uring_submit(ring);
+	if (ret < 0)
+		return ret;
+	return ret == 1 ? 0 : -1;
+}
+
 static int reap_polls(struct io_uring *ring)
 {
 	struct io_uring_cqe *cqe;
@@ -106,6 +120,18 @@ static int reap_polls(struct io_uring *ring)
 		off = cqe->user_data;
 		if (off == 0x12345678)
 			goto seen;
+		if (!(cqe->flags & IORING_CQE_F_MORE)) {
+			/* need to re-arm poll */
+			ret = submit_arm_poll(ring, off);
+			if (ret)
+				break;
+			if (cqe->res <= 0) {
+				/* retry this one */
+				i--;
+				goto seen;
+			}
+		}
+
 		ret = read(p[off].fd[0], &c, 1);
 		if (ret != 1) {
 			if (ret == -1 && errno == EAGAIN)
