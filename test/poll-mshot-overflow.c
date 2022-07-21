@@ -59,15 +59,16 @@ int main(int argc, char *argv[])
 	}
 
 	struct io_uring_params params = {
-		.flags = IORING_SETUP_CQSIZE,
+		/* cheat using SINGLE_ISSUER existence to know if this behaviour
+		 * is updated
+		 */
+		.flags = IORING_SETUP_CQSIZE | IORING_SETUP_SINGLE_ISSUER,
 		.cq_entries = 2
 	};
 
 	ret = io_uring_queue_init_params(2, &ring, &params);
-	if (ret) {
-		fprintf(stderr, "ring setup failed: %d\n", ret);
-		return T_EXIT_FAIL;
-	}
+	if (ret)
+		return T_EXIT_SKIP;
 
 	sqe = io_uring_get_sqe(&ring);
 	if (!sqe) {
