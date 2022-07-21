@@ -213,52 +213,23 @@ static int arm_polls(struct io_uring *ring)
 	return 0;
 }
 
-int main(int argc, char *argv[])
+static int run(int cqe)
 {
 	struct io_uring ring;
 	struct io_uring_params params = { };
-	struct rlimit rlim;
 	pthread_t thread;
 	int i, j, ret;
-
-	if (argc > 1)
-		return 0;
-
-	ret = has_poll_update();
-	if (ret < 0) {
-		fprintf(stderr, "poll update check failed %i\n", ret);
-		return -1;
-	} else if (!ret) {
-		fprintf(stderr, "no poll update, skip\n");
-		return 0;
-	}
-
-	if (getrlimit(RLIMIT_NOFILE, &rlim) < 0) {
-		perror("getrlimit");
-		goto err_noring;
-	}
-
-	if (rlim.rlim_cur < (2 * NFILES + 5)) {
-		rlim.rlim_cur = (2 * NFILES + 5);
-		rlim.rlim_max = rlim.rlim_cur;
-		if (setrlimit(RLIMIT_NOFILE, &rlim) < 0) {
-			if (errno == EPERM)
-				goto err_nofail;
-			perror("setrlimit");
-			goto err_noring;
-		}
-	}
 
 	for (i = 0; i < NFILES; i++) {
 		if (pipe(p[i].fd) < 0) {
 			perror("pipe");
-			goto err_noring;
+			return 1;
 		}
 		fcntl(p[i].fd[0], F_SETFL, O_NONBLOCK);
 	}
 
 	params.flags = IORING_SETUP_CQSIZE;
-	params.cq_entries = 4096;
+	params.cq_entries = cqe;
 	ret = io_uring_queue_init_params(RING_SIZE, &ring, &params);
 	if (ret) {
 		if (ret == -EINVAL) {
@@ -286,10 +257,63 @@ int main(int argc, char *argv[])
 	}
 
 	io_uring_queue_exit(&ring);
+	for (i = 0; i < NFILES; i++) {
+		close(p[i].fd[0]);
+		close(p[i].fd[1]);
+	}
 	return 0;
 err:
 	io_uring_queue_exit(&ring);
-err_noring:
+	return 1;
+}
+
+int main(int argc, char *argv[])
+{
+	struct rlimit rlim;
+	int ret;
+
+	if (argc > 1)
+		return 0;
+
+	ret = has_poll_update();
+	if (ret < 0) {
+		fprintf(stderr, "poll update check failed %i\n", ret);
+		return -1;
+	} else if (!ret) {
+		fprintf(stderr, "no poll update, skip\n");
+		return 0;
+	}
+
+	if (getrlimit(RLIMIT_NOFILE, &rlim) < 0) {
+		perror("getrlimit");
+		goto err;
+	}
+
+	if (rlim.rlim_cur < (2 * NFILES + 5)) {
+		rlim.rlim_cur = (2 * NFILES + 5);
+		rlim.rlim_max = rlim.rlim_cur;
+		if (setrlimit(RLIMIT_NOFILE, &rlim) < 0) {
+			if (errno == EPERM)
+				goto err_nofail;
+			perror("setrlimit");
+			goto err;
+		}
+	}
+
+	ret = run(1024);
+	if (ret) {
+		fprintf(stderr, "run(1024) failed\n");
+		goto err;
+	}
+
+	ret = run(8192);
+	if (ret) {
+		fprintf(stderr, "run(8192) failed\n");
+		goto err;
+	}
+
+	return 0;
+err:
 	fprintf(stderr, "poll-many failed\n");
 	return 1;
 err_nofail:
