@@ -239,6 +239,24 @@ variant. This is a requirement for using certain request types, as of 5.19
 only the
 .B IORING_OP_URING_CMD
 passthrough command for NVMe passthrough needs this. Available since 5.19.
+.TP
+.B IORING_SETUP_SINGLE_ISSUER
+A hint to the kernel that only a single task can submit requests, which is used
+for internal optimisations. The kernel enforces the rule, which only affects
+.I
+io_uring_enter(2)
+calls submitting requests and will fail them with
+.B -EEXIST
+if the restriction is violated.
+The submitter task may differ from the task that created the ring.
+Note that when
+.B IORING_SETUP_SQPOLL
+is set it is considered that the polling task is doing all submissions
+on behalf of the userspace and so it always complies with the rule disregarding
+how many userspace tasks do
+.I
+io_uring_enter(2).
+Available since 5.20.
 .PP
 If no flags are specified, the io_uring instance is setup for
 interrupt driven I/O.  I/O may be submitted using
