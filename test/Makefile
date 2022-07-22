@@ -174,6 +174,7 @@ test_srcs := \
 	wakeup-hang.c \
 	xattr.c \
 	skip-cqe.c \
+	single-issuer.c \
 	# EOL
 
 all_targets :=
