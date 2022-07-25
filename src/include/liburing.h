@@ -601,10 +601,9 @@ static inline void io_uring_prep_files_update(struct io_uring_sqe *sqe,
 static inline void io_uring_prep_fallocate(struct io_uring_sqe *sqe, int fd,
 					   int mode, off_t offset, off_t len)
 {
-
 	io_uring_prep_rw(IORING_OP_FALLOCATE, sqe, fd,
-			(const uintptr_t *) (unsigned long) len,
-			(unsigned int) mode, (__u64) offset);
+			0, (unsigned int) mode, (__u64) offset);
+	sqe->addr = (__u64) len;
 }
 
 static inline void io_uring_prep_openat(struct io_uring_sqe *sqe, int dfd,
