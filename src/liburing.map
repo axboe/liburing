@@ -60,4 +60,6 @@ LIBURING_2.3 {
 	global:
 		io_uring_register_sync_cancel;
 		io_uring_register_file_alloc_range;
+		io_uring_register_notifications;
+		io_uring_unregister_notifications;
 } LIBURING_2.2;

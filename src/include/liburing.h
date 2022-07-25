@@ -189,6 +189,10 @@ int io_uring_register_sync_cancel(struct io_uring *ring,
 int io_uring_register_file_alloc_range(struct io_uring *ring,
 					unsigned off, unsigned len);
 
+int io_uring_register_notifications(struct io_uring *ring, unsigned nr,
+				    struct io_uring_notification_slot *slots);
+int io_uring_unregister_notifications(struct io_uring *ring);
+
 /*
  * Helper for the peek/wait single cqe functions. Exported because of that,
  * but probably shouldn't be used directly in an application.
@@ -675,6 +679,44 @@ static inline void io_uring_prep_send(struct io_uring_sqe *sqe, int sockfd,
 {
 	io_uring_prep_rw(IORING_OP_SEND, sqe, sockfd, buf, (__u32) len, 0);
 	sqe->msg_flags = (__u32) flags;
+}
+
+static inline void io_uring_prep_sendzc(struct io_uring_sqe *sqe, int sockfd,
+				        const void *buf, size_t len, int flags,
+				        unsigned slot_idx, unsigned zc_flags)
+{
+	io_uring_prep_rw(IORING_OP_SENDZC_NOTIF, sqe, sockfd, buf, (__u32) len, 0);
+	sqe->msg_flags = (__u32) flags;
+	sqe->notification_idx = slot_idx;
+	sqe->ioprio = zc_flags;
+}
+
+static inline void io_uring_prep_sendzc_fixed(struct io_uring_sqe *sqe, int sockfd,
+					      const void *buf, size_t len,
+					      int flags, unsigned slot_idx,
+					      unsigned zc_flags, unsigned buf_idx)
+{
+	io_uring_prep_sendzc(sqe, sockfd, buf, len, flags, slot_idx, zc_flags);
+	sqe->ioprio |= IORING_RECVSEND_FIXED_BUF;
+	sqe->buf_index = buf_idx;
+}
+
+static inline void io_uring_prep_sendzc_set_addr(struct io_uring_sqe *sqe,
+						 const struct sockaddr *dest_addr,
+						 __u16 addr_len)
+{
+	sqe->addr2 = (unsigned long)(void *)dest_addr;
+	sqe->addr_len = addr_len;
+}
+
+static inline void io_uring_prep_notif_update(struct io_uring_sqe *sqe,
+					      __u64 new_tag, /* 0 to ignore */
+					      unsigned offset, unsigned nr)
+{
+	io_uring_prep_rw(IORING_OP_FILES_UPDATE, sqe, -1, 0, nr,
+			 (__u64)offset);
+	sqe->addr = new_tag;
+	sqe->ioprio = IORING_RSRC_UPDATE_NOTIF;
 }
 
 static inline void io_uring_prep_recv(struct io_uring_sqe *sqe, int sockfd,
