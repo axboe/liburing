@@ -15,6 +15,8 @@
 /examples/io_uring-test
 /examples/link-cp
 /examples/ucontext-cp
+/examples/poll-bench
+/examples/send-zerocopy
 
 /test/*.t
 /test/*.dmesg
