@@ -760,24 +760,6 @@ io_uring_recvmsg_cmsg_firsthdr(struct io_uring_recvmsg_out *o,
 			msgh->msg_namelen);
 }
 
-static inline void *io_uring_recvmsg_payload(struct io_uring_recvmsg_out *o,
-					     struct msghdr *msgh)
-{
-	return (void *)((unsigned char *)io_uring_recvmsg_name(o) +
-			msgh->msg_namelen + msgh->msg_controllen);
-}
-
-static inline size_t
-io_uring_recvmsg_payload_length(struct io_uring_recvmsg_out *o,
-				int buf_len, struct msghdr *msgh)
-{
-	unsigned long payload_start, payload_end;
-
-	payload_start = (unsigned long) io_uring_recvmsg_payload(o, msgh);
-	payload_end = (unsigned long) o + buf_len;
-	return payload_end - payload_start;
-}
-
 static inline struct cmsghdr *
 io_uring_recvmsg_cmsg_nexthdr(struct io_uring_recvmsg_out *o, struct msghdr *msgh,
 			      struct cmsghdr *cmsg)
@@ -797,6 +779,24 @@ io_uring_recvmsg_cmsg_nexthdr(struct io_uring_recvmsg_out *o, struct msghdr *msg
 		return NULL;
 
 	return cmsg;
+}
+
+static inline void *io_uring_recvmsg_payload(struct io_uring_recvmsg_out *o,
+					     struct msghdr *msgh)
+{
+	return (void *)((unsigned char *)io_uring_recvmsg_name(o) +
+			msgh->msg_namelen + msgh->msg_controllen);
+}
+
+static inline size_t
+io_uring_recvmsg_payload_length(struct io_uring_recvmsg_out *o,
+				int buf_len, struct msghdr *msgh)
+{
+	unsigned long payload_start, payload_end;
+
+	payload_start = (unsigned long) io_uring_recvmsg_payload(o, msgh);
+	payload_end = (unsigned long) o + buf_len;
+	return payload_end - payload_start;
 }
 
 static inline void io_uring_prep_openat2(struct io_uring_sqe *sqe, int dfd,
