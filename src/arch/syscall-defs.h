@@ -27,7 +27,7 @@ static inline void *__sys_mmap(void *addr, size_t length, int prot, int flags,
 {
 	int nr;
 
-#if defined(__i386__)
+#if defined(__NR_mmap2)
 	nr = __NR_mmap2;
 	offset >>= 12;
 #else
