@@ -20,7 +20,6 @@ enum t_test_result {
 	T_EXIT_PASS   = 0,
 	T_EXIT_FAIL   = 1,
 	T_EXIT_SKIP   = 77,
-	T_EXIT_ERROR  = 99,
 };
 
 /*
