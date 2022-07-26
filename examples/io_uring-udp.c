@@ -131,7 +131,7 @@ static int setup_sock(int af, int port)
 			.sin6_addr = IN6ADDR_ANY_INIT
 		};
 
-		ret = bind(fd, &addr6, sizeof(addr6));
+		ret = bind(fd, (struct sockaddr *) &addr6, sizeof(addr6));
 	} else {
 		struct sockaddr_in addr = {
 			.sin_family = af,
@@ -139,7 +139,7 @@ static int setup_sock(int af, int port)
 			.sin_addr = { INADDR_ANY }
 		};
 
-		ret = bind(fd, &addr, sizeof(addr));
+		ret = bind(fd, (struct sockaddr *) &addr, sizeof(addr));
 	}
 
 	if (ret) {
