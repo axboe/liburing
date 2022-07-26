@@ -734,9 +734,9 @@ static inline void io_uring_prep_recv_multishot(struct io_uring_sqe *sqe,
 }
 
 static inline struct io_uring_recvmsg_out *
-io_uring_recvmsg_validate(void *buf, int buf_len, struct msghdr *m)
+io_uring_recvmsg_validate(void *buf, int buf_len, struct msghdr *msgh)
 {
-	int header = m->msg_controllen + m->msg_namelen +
+	int header = msgh->msg_controllen + msgh->msg_namelen +
 				sizeof(struct io_uring_recvmsg_out);
 
 	if (buf_len < header)
@@ -751,42 +751,42 @@ static inline void *io_uring_recvmsg_name(struct io_uring_recvmsg_out *o)
 
 static inline struct cmsghdr *
 io_uring_recvmsg_cmsg_firsthdr(struct io_uring_recvmsg_out *o,
-			       struct msghdr *m)
+			       struct msghdr *msgh)
 {
 	if (o->controllen < sizeof(struct cmsghdr))
 		return NULL;
 
 	return (struct cmsghdr *)((unsigned char *) io_uring_recvmsg_name(o) +
-			m->msg_namelen);
+			msgh->msg_namelen);
 }
 
 static inline void *io_uring_recvmsg_payload(struct io_uring_recvmsg_out *o,
-					     struct msghdr *m)
+					     struct msghdr *msgh)
 {
 	return (void *)((unsigned char *)io_uring_recvmsg_name(o) +
-			m->msg_namelen + m->msg_controllen);
+			msgh->msg_namelen + msgh->msg_controllen);
 }
 
 static inline size_t
 io_uring_recvmsg_payload_length(struct io_uring_recvmsg_out *o,
-				int buf_length, struct msghdr *m)
+				int buf_len, struct msghdr *msgh)
 {
 	unsigned long payload_start, payload_end;
 
-	payload_start = (unsigned long) io_uring_recvmsg_payload(o, m);
-	payload_end = (unsigned long) o + buf_length;
+	payload_start = (unsigned long) io_uring_recvmsg_payload(o, msgh);
+	payload_end = (unsigned long) o + buf_len;
 	return payload_end - payload_start;
 }
 
 static inline struct cmsghdr *
-io_uring_recvmsg_cmsg_nexthdr(struct io_uring_recvmsg_out *o, struct msghdr *m,
+io_uring_recvmsg_cmsg_nexthdr(struct io_uring_recvmsg_out *o, struct msghdr *msgh,
 			      struct cmsghdr *cmsg)
 {
 	unsigned char *end;
 
 	if (cmsg->cmsg_len < sizeof(struct cmsghdr))
 		return NULL;
-	end = (unsigned char *) io_uring_recvmsg_cmsg_firsthdr(o, m) +
+	end = (unsigned char *) io_uring_recvmsg_cmsg_firsthdr(o, msgh) +
 		o->controllen;
 	cmsg = (struct cmsghdr *)((unsigned char *) cmsg +
 			CMSG_ALIGN(cmsg->cmsg_len));
