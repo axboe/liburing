@@ -13,6 +13,7 @@
 
 /examples/io_uring-cp
 /examples/io_uring-test
+/examples/io_uring-udp
 /examples/link-cp
 /examples/ucontext-cp
 /examples/poll-bench

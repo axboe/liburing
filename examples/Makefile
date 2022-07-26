@@ -13,6 +13,7 @@ endif
 example_srcs := \
 	io_uring-cp.c \
 	io_uring-test.c \
+	io_uring-udp.c \
 	link-cp.c \
 	poll-bench.c \
 	send-zerocopy.c
