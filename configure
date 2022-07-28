@@ -367,6 +367,23 @@ if compile_prog "" "" "has_ucontext"; then
 fi
 print_config "has_ucontext" "$has_ucontext"
 
+##########################################
+# Check NVME_URING_CMD support
+nvme_uring_cmd="no"
+cat > $TMPC << EOF
+#include <linux/nvme_ioctl.h>
+int main(void)
+{
+  struct nvme_uring_cmd *cmd;
+
+  return sizeof(struct nvme_uring_cmd);
+}
+EOF
+if compile_prog "" "" "nvme uring cmd"; then
+  nvme_uring_cmd="yes"
+fi
+print_config "NVMe uring command support" "$nvme_uring_cmd"
+
 #############################################################################
 if test "$liburing_nolibc" = "yes"; then
   output_sym "CONFIG_NOLIBC"
@@ -401,6 +418,9 @@ if test "$stringop_overflow" = "yes"; then
 fi
 if test "$array_bounds" = "yes"; then
   output_sym "CONFIG_HAVE_ARRAY_BOUNDS"
+fi
+if test "$nvme_uring_cmd" = "yes"; then
+  output_sym "CONFIG_HAVE_NVME_URING"
 fi
 
 echo "CC=$cc" >> $config_host_mak
