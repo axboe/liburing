@@ -90,6 +90,7 @@ test_srcs := \
 	io-cancel.c \
 	iopoll.c \
 	io_uring_enter.c \
+	io_uring_passthrough.c \
 	io_uring_register.c \
 	io_uring_setup.c \
 	lfs-openat.c \
