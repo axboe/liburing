@@ -76,11 +76,6 @@ static int __test_io(const char *file, struct io_uring *ring, int tc, int read,
 	__u64 slba;
 	__u32 nlb;
 
-#ifdef VERBOSE
-	fprintf(stdout, "%s: start %d/%d/%d/%d: ", __FUNCTION__, read,
-							sqthread, fixed,
-							nonvec);
-#endif
 	if (read)
 		open_flags = O_RDONLY;
 	else
@@ -240,14 +235,8 @@ static int __test_io(const char *file, struct io_uring *ring, int tc, int read,
 	}
 
 	close(fd);
-#ifdef VERBOSE
-	fprintf(stdout, "PASS\n");
-#endif
 	return 0;
 err:
-#ifdef VERBOSE
-	fprintf(stderr, "FAILED\n");
-#endif
 	if (fd != -1)
 		close(fd);
 	return 1;
@@ -327,7 +316,7 @@ static int test_io_uring_submit_enters(const char *file)
 	for (i = 0; i < 500; i++) {
 		ret = io_uring_submit(&ring);
 		if (ret != 0) {
-			fprintf(stderr, "still had %d sqes to submit, this is unexpected", ret);
+			fprintf(stderr, "still had %d sqes to submit\n", ret);
 			goto err;
 		}
 
