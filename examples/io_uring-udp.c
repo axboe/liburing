@@ -73,7 +73,9 @@ static int setup_buffer_pool(struct ctx *ctx)
 
 	ret = io_uring_register_buf_ring(&ctx->ring, &reg, 0);
 	if (ret) {
-		fprintf(stderr, "buf_ring init: %s\n", strerror(-ret));
+		fprintf(stderr, "buf_ring init failed: %s\n"
+				"NB This requires a kernel version >= 6.0\n",
+				strerror(-ret));
 		return ret;
 	}
 
@@ -98,7 +100,9 @@ static int setup_context(struct ctx *ctx)
 
 	ret = io_uring_queue_init_params(QD, &ctx->ring, &params);
 	if (ret < 0) {
-		fprintf(stderr, "queue_init: %s\n", strerror(-ret));
+		fprintf(stderr, "queue_init failed: %s\n"
+				"NB: This requires a kernel version >= 6.0\n",
+				strerror(-ret));
 		return ret;
 	}
 
@@ -237,7 +241,10 @@ static int process_cqe_recv(struct ctx *ctx, struct io_uring_cqe *cqe,
 		return 0;
 
 	if (!(cqe->flags & IORING_CQE_F_BUFFER) || cqe->res < 0) {
-		fprintf(stderr, "bad res %d\n", cqe->res);
+		fprintf(stderr, "recv cqe bad res %d\n", cqe->res);
+		if (cqe->res == -EFAULT || cqe->res == -EINVAL)
+			fprintf(stderr,
+				"NB: This requires a kernel version >= 6.0\n");
 		return -1;
 	}
 	idx = cqe->flags >> 16;
