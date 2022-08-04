@@ -550,10 +550,12 @@ static int test_registration(int sock_tx, int sock_rx)
 }
 
 static int prepare_ip(struct sockaddr_storage *addr, int *sock_client, int *sock_server,
-		      bool ipv6, bool client_connect, bool msg_zc)
+		      bool ipv6, bool client_connect, bool msg_zc, bool tcp)
 {
 	int family, addr_size;
 	int ret, val;
+	int listen_sock = -1;
+	int sock;
 
 	memset(addr, 0, sizeof(*addr));
 	if (ipv6) {
@@ -574,17 +576,28 @@ static int prepare_ip(struct sockaddr_storage *addr, int *sock_client, int *sock
 	}
 
 	/* server sock setup */
-	*sock_server = socket(family, SOCK_DGRAM, 0);
-	if (*sock_server < 0) {
+	if (tcp) {
+		sock = listen_sock = socket(family, SOCK_STREAM, IPPROTO_TCP);
+	} else {
+		sock = *sock_server = socket(family, SOCK_DGRAM, 0);
+	}
+	if (sock < 0) {
 		perror("socket");
 		return 1;
 	}
 	val = 1;
-	setsockopt(*sock_server, SOL_SOCKET, SO_REUSEADDR, &val, sizeof(val));
-	ret = bind(*sock_server, (struct sockaddr *)addr, addr_size);
+	setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &val, sizeof(val));
+	val = 1;
+	setsockopt(sock, SOL_SOCKET, SO_REUSEPORT, &val, sizeof(val));
+
+	ret = bind(sock, (struct sockaddr *)addr, addr_size);
 	if (ret < 0) {
 		perror("bind");
 		return 1;
+	}
+	if (tcp) {
+		ret = listen(sock, 128);
+		assert(ret != -1);
 	}
 
 	if (ipv6) {
@@ -598,7 +611,12 @@ static int prepare_ip(struct sockaddr_storage *addr, int *sock_client, int *sock
 	}
 
 	/* client sock setup */
-	*sock_client = socket(family, SOCK_DGRAM, 0);
+	if (tcp) {
+		*sock_client = socket(family, SOCK_STREAM, IPPROTO_TCP);
+		assert(client_connect);
+	} else {
+		*sock_client = socket(family, SOCK_DGRAM, 0);
+	}
 	if (*sock_client < 0) {
 		perror("socket");
 		return 1;
@@ -616,6 +634,14 @@ static int prepare_ip(struct sockaddr_storage *addr, int *sock_client, int *sock
 			perror("setsockopt zc");
 			return 1;
 		}
+	}
+	if (tcp) {
+		*sock_server = accept(listen_sock, NULL, NULL);
+		if (!*sock_server) {
+			fprintf(stderr, "can't accept\n");
+			return 1;
+		}
+		close(listen_sock);
 	}
 	return 0;
 }
@@ -721,17 +747,20 @@ static int do_test_inet_send(struct io_uring *ring, int sock_client, int sock_se
 static int test_inet_send(struct io_uring *ring)
 {
 	struct sockaddr_storage addr;
-	int sock_client, sock_server;
-	int ret, j;
-	__u64 i;
+	int sock_client = -1, sock_server = -1;
+	int ret, j, i;
 
-	for (j = 0; j < 8; j++) {
+	for (j = 0; j < 16; j++) {
 		bool ipv6 = j & 1;
 		bool client_connect = j & 2;
 		bool msg_zc_set = j & 4;
+		bool tcp = j & 8;
+
+		if (tcp && !client_connect)
+			continue;
 
 		ret = prepare_ip(&addr, &sock_client, &sock_server, ipv6,
-				 client_connect, msg_zc_set);
+				 client_connect, msg_zc_set, tcp);
 		if (ret) {
 			fprintf(stderr, "sock prep failed %d\n", ret);
 			return 1;
@@ -746,6 +775,8 @@ static int test_inet_send(struct io_uring *ring)
 			bool aligned = i & 32;
 			int buf_idx = aligned ? 0 : 1;
 
+			if (tcp && cork)
+				continue;
 			if (mix_register && (!cork || fixed_buf))
 				continue;
 			if (!client_connect && addr_arg == NULL)
