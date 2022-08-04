@@ -653,7 +653,8 @@ static int do_test_inet_send(struct io_uring *ring, int sock_client, int sock_se
 	size_t chunk_size = send_size / nr_reqs;
 	size_t chunk_size_last = send_size - chunk_size * (nr_reqs - 1);
 	char *buf = buffers_iov[buf_idx].iov_base;
-	size_t bytes_received = 0;
+	pid_t p;
+	int wstatus;
 
 	assert(send_size <= buffers_iov[buf_idx].iov_len);
 	memset(rx_buffer, 0, send_size);
@@ -700,16 +701,35 @@ static int do_test_inet_send(struct io_uring *ring, int sock_client, int sock_se
 		return 1;
 	}
 
-	while (bytes_received != send_size) {
-		ret = recv(sock_server,
-			   rx_buffer + bytes_received,
-			   send_size - bytes_received, 0);
-		if (ret <= 0) {
-			fprintf(stderr, "recv failed, got %i, errno %i\n",
-				ret, errno);
-			return 1;
+	p = fork();
+	if (p == -1) {
+		fprintf(stderr, "fork() failed\n");
+		return 1;
+	}
+
+	if (p == 0) {
+		size_t bytes_received = 0;
+
+		while (bytes_received != send_size) {
+			ret = recv(sock_server,
+				   rx_buffer + bytes_received,
+				   send_size - bytes_received, 0);
+			if (ret <= 0) {
+				fprintf(stderr, "recv failed, got %i, errno %i\n",
+					ret, errno);
+				exit(1);
+			}
+			bytes_received += ret;
 		}
-		bytes_received += ret;
+
+		for (i = 0; i < send_size; i++) {
+			if (buf[i] != rx_buffer[i]) {
+				fprintf(stderr, "botched data, first mismated byte %i, "
+					"%u vs %u\n", i, buf[i], rx_buffer[i]);
+				exit(1);
+			}
+		}
+		exit(0);
 	}
 
 	for (i = 0; i < nr_reqs; i++) {
@@ -734,11 +754,17 @@ static int do_test_inet_send(struct io_uring *ring, int sock_client, int sock_se
 		io_uring_cqe_seen(ring, cqe);
 	}
 
-	for (i = 0; i < send_size; i++) {
-		if (buf[i] != rx_buffer[i]) {
-			fprintf(stderr, "botched data, first mismated byte %i, "
-				"%u vs %u\n", i, buf[i], rx_buffer[i]);
-		}
+	if (waitpid(p, &wstatus, 0) == (pid_t)-1) {
+		perror("waitpid()");
+		return 1;
+	}
+	if (!WIFEXITED(wstatus)) {
+		fprintf(stderr, "child failed %i\n", WEXITSTATUS(wstatus));
+		return 1;
+	}
+	if (WEXITSTATUS(wstatus)) {
+		fprintf(stderr, "child failed\n");
+		return 1;
 	}
 	return 0;
 }
