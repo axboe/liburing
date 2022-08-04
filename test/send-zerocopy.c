@@ -46,7 +46,6 @@
 
 #define NR_SLOTS 5
 #define ZC_TAG 10000
-#define MAX_PAYLOAD 8195
 #define BUFFER_OFFSET 41
 
 #ifndef ARRAY_SIZE
@@ -54,14 +53,8 @@
 #endif
 
 static int seqs[NR_SLOTS];
-static char tx_buffer[MAX_PAYLOAD] __attribute__((aligned(4096)));
-static char rx_buffer[MAX_PAYLOAD] __attribute__((aligned(4096)));
-static struct iovec buffers_iov[] = {
-	{ .iov_base = tx_buffer,
-	  .iov_len = sizeof(tx_buffer), },
-	{ .iov_base = tx_buffer + BUFFER_OFFSET,
-	  .iov_len = sizeof(tx_buffer) - BUFFER_OFFSET - 13, },
-};
+static char *tx_buffer, *rx_buffer;
+static struct iovec buffers_iov[2];
 
 static inline bool tag_userdata(__u64 user_data)
 {
@@ -662,7 +655,7 @@ static int do_test_inet_send(struct io_uring *ring, int sock_client, int sock_se
 	char *buf = buffers_iov[buf_idx].iov_base;
 
 	assert(send_size <= buffers_iov[buf_idx].iov_len);
-	memset(rx_buffer, 0, sizeof(rx_buffer));
+	memset(rx_buffer, 0, send_size);
 
 	for (i = 0; i < nr_reqs; i++) {
 		bool cur_fixed_buf = fixed_buf;
@@ -804,9 +797,22 @@ int main(int argc, char *argv[])
 {
 	struct io_uring ring;
 	int i, ret, sp[2];
+	size_t len = 8096;
 
 	if (argc > 1)
 		return T_EXIT_SKIP;
+
+	tx_buffer = aligned_alloc(4096, len);
+	rx_buffer = aligned_alloc(4096, len);
+	if (!tx_buffer || !rx_buffer) {
+		fprintf(stderr, "can't allocate buffers\n");
+		return T_EXIT_FAIL;
+	}
+
+	buffers_iov[0].iov_base = tx_buffer;
+	buffers_iov[0].iov_len = len;
+	buffers_iov[1].iov_base = tx_buffer + BUFFER_OFFSET;
+	buffers_iov[1].iov_len = len - BUFFER_OFFSET - 13;
 
 	ret = io_uring_queue_init(32, &ring, 0);
 	if (ret) {
@@ -824,8 +830,9 @@ int main(int argc, char *argv[])
 	}
 
 	srand((unsigned)time(NULL));
-	for (i = 0; i < sizeof(tx_buffer); i++)
+	for (i = 0; i < len; i++)
 		tx_buffer[i] = i;
+	memset(rx_buffer, 0, len);
 
 	if (socketpair(AF_UNIX, SOCK_DGRAM, 0, sp) != 0) {
 		perror("Failed to create Unix-domain socket pair\n");
