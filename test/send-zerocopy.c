@@ -676,7 +676,7 @@ static int do_test_inet_send(struct io_uring *ring, int sock_client, int sock_se
 
 	ret = io_uring_submit(ring);
 	if (ret != nr_reqs) {
-		fprintf(stderr, "submit failed %i expected %i\n", ret, nr_reqs);
+		fprintf(stderr, "submit failed, got %i expected %i\n", ret, nr_reqs);
 		return 1;
 	}
 
@@ -704,14 +704,15 @@ static int do_test_inet_send(struct io_uring *ring, int sock_client, int sock_se
 
 	ret = recv(sock_server, rx_buffer, send_size, 0);
 	if (ret != send_size) {
-		fprintf(stderr, "recv less than expected or recv failed %i\n", ret);
+		fprintf(stderr, "recv less than expected or recv failed, "
+			"got %i, errno %i\n", ret, errno);
 		return 1;
 	}
 
 	for (i = 0; i < send_size; i++) {
 		if (buf[i] != rx_buffer[i]) {
-			fprintf(stderr, "botched data, first byte %i, %u vs %u\n",
-				i, buf[i], rx_buffer[i]);
+			fprintf(stderr, "botched data, first mismated byte %i, "
+				"%u vs %u\n", i, buf[i], rx_buffer[i]);
 		}
 	}
 	return 0;
