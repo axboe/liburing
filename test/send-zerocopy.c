@@ -653,6 +653,7 @@ static int do_test_inet_send(struct io_uring *ring, int sock_client, int sock_se
 	size_t chunk_size = send_size / nr_reqs;
 	size_t chunk_size_last = send_size - chunk_size * (nr_reqs - 1);
 	char *buf = buffers_iov[buf_idx].iov_base;
+	size_t bytes_received = 0;
 
 	assert(send_size <= buffers_iov[buf_idx].iov_len);
 	memset(rx_buffer, 0, send_size);
@@ -699,6 +700,18 @@ static int do_test_inet_send(struct io_uring *ring, int sock_client, int sock_se
 		return 1;
 	}
 
+	while (bytes_received != send_size) {
+		ret = recv(sock_server,
+			   rx_buffer + bytes_received,
+			   send_size - bytes_received, 0);
+		if (ret <= 0) {
+			fprintf(stderr, "recv failed, got %i, errno %i\n",
+				ret, errno);
+			return 1;
+		}
+		bytes_received += ret;
+	}
+
 	for (i = 0; i < nr_reqs; i++) {
 		int expected = chunk_size;
 
@@ -719,13 +732,6 @@ static int do_test_inet_send(struct io_uring *ring, int sock_client, int sock_se
 			return 1;
 		}
 		io_uring_cqe_seen(ring, cqe);
-	}
-
-	ret = recv(sock_server, rx_buffer, send_size, 0);
-	if (ret != send_size) {
-		fprintf(stderr, "recv less than expected or recv failed, "
-			"got %i, errno %i\n", ret, errno);
-		return 1;
 	}
 
 	for (i = 0; i < send_size; i++) {
