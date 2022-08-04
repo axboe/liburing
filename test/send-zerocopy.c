@@ -54,7 +54,7 @@
 
 static int seqs[NR_SLOTS];
 static char *tx_buffer, *rx_buffer;
-static struct iovec buffers_iov[2];
+static struct iovec buffers_iov[3];
 
 static inline bool tag_userdata(__u64 user_data)
 {
@@ -662,7 +662,7 @@ static int do_test_inet_send(struct io_uring *ring, int sock_client, int sock_se
 	for (i = 0; i < nr_reqs; i++) {
 		bool cur_fixed_buf = fixed_buf;
 		size_t cur_size = chunk_size;
-		int msg_flags = 0;
+		int msg_flags = MSG_WAITALL;
 
 		if (mix_register)
 			cur_fixed_buf = rand() & 1;
@@ -791,15 +791,26 @@ static int test_inet_send(struct io_uring *ring)
 			return 1;
 		}
 
-		for (i = 0; i < 64; i++) {
+		for (i = 0; i < 128; i++) {
 			bool fixed_buf = i & 1;
 			struct sockaddr_storage *addr_arg = (i & 2) ? &addr : NULL;
 			size_t size = (i & 4) ? 137 : 4096;
 			bool cork = i & 8;
 			bool mix_register = i & 16;
 			bool aligned = i & 32;
+			bool large_buf = i & 64;
 			int buf_idx = aligned ? 0 : 1;
 
+			if (!tcp || !large_buf)
+				continue;
+			if (large_buf) {
+				buf_idx = 2;
+				size = buffers_iov[buf_idx].iov_len;
+				if (!aligned || !tcp)
+					continue;
+			}
+			if (!buffers_iov[buf_idx].iov_base)
+				continue;
 			if (tcp && cork)
 				continue;
 			if (mix_register && (!cork || fixed_buf))
@@ -829,22 +840,33 @@ int main(int argc, char *argv[])
 {
 	struct io_uring ring;
 	int i, ret, sp[2];
-	size_t len = 8096;
+	size_t len;
 
 	if (argc > 1)
 		return T_EXIT_SKIP;
 
+	len = 1U << 25; /* 32MB, should be enough to trigger a short send */
 	tx_buffer = aligned_alloc(4096, len);
 	rx_buffer = aligned_alloc(4096, len);
+	if (tx_buffer && rx_buffer) {
+		buffers_iov[2].iov_base = tx_buffer;
+		buffers_iov[2].iov_len = len;
+	} else {
+		printf("skip large buffer tests, can't alloc\n");
+
+		len = 8192;
+		tx_buffer = aligned_alloc(4096, len);
+		rx_buffer = aligned_alloc(4096, len);
+	}
 	if (!tx_buffer || !rx_buffer) {
 		fprintf(stderr, "can't allocate buffers\n");
 		return T_EXIT_FAIL;
 	}
 
 	buffers_iov[0].iov_base = tx_buffer;
-	buffers_iov[0].iov_len = len;
+	buffers_iov[0].iov_len = 8192;
 	buffers_iov[1].iov_base = tx_buffer + BUFFER_OFFSET;
-	buffers_iov[1].iov_len = len - BUFFER_OFFSET - 13;
+	buffers_iov[1].iov_len = 8192 - BUFFER_OFFSET - 13;
 
 	ret = io_uring_queue_init(32, &ring, 0);
 	if (ret) {
