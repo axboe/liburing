@@ -431,7 +431,7 @@ static int test_fixed_read_write(struct io_uring *ring, int index)
 	iov[0].iov_len = 4096;
 	memset(iov[0].iov_base, 0x5a, 4096);
 
-	iov[1].iov_base = t_malloc(4096);
+	iov[1].iov_base = t_calloc(1, 4096);
 	iov[1].iov_len = 4096;
 
 	sqe = io_uring_get_sqe(ring);
