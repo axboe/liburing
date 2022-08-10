@@ -52,6 +52,9 @@ static int test_read(struct io_uring *ring, bool async, int blocksize)
 	unsigned char buff[QUEUE_SIZE * blocksize];
 	unsigned char reordered[QUEUE_SIZE * blocksize];
 
+	memset(buff, 0, QUEUE_SIZE * blocksize);
+	memset(reordered, 0, QUEUE_SIZE * blocksize);
+
 	create_file(".test_fpos_read", FILE_SIZE);
 	fd = open(".test_fpos_read", O_RDONLY);
 	unlink(".test_fpos_read");
