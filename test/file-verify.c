@@ -347,13 +347,16 @@ static int test(struct io_uring *ring, const char *fname, int buffered,
 				void *ptr;
 
 				t_posix_memalign(&ptr, 4096, CHUNK_SIZE / nr_vecs);
+				memset(ptr, 0, CHUNK_SIZE / nr_vecs);
 				vecs[j][i].iov_base = ptr;
 				vecs[j][i].iov_len = CHUNK_SIZE / nr_vecs;
 			}
 		}
 	} else {
-		for (j = 0; j < READ_BATCH; j++)
+		for (j = 0; j < READ_BATCH; j++) {
 			t_posix_memalign(&buf[j], 4096, CHUNK_SIZE);
+			memset(buf[j], 0, CHUNK_SIZE);
+		}
 		nr_vecs = 0;
 	}
 
