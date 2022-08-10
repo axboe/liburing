@@ -33,6 +33,7 @@ static int get_file_fd(void)
 	}
 
 	buf = t_malloc(BLOCK);
+	memset(buf, 0, BLOCK);
 	ret = write(fd, buf, BLOCK);
 	if (ret != BLOCK) {
 		if (ret < 0)
