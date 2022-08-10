@@ -26,7 +26,7 @@ static int test(struct io_uring *ring)
 {
 	struct io_uring_cqe *cqe;
 	struct io_uring_sqe *sqe;
-	char buf[BSIZE];
+	char buf[BSIZE] = { };
 	int ret, i;
 
 	/* open FNAME1 in slot 0 */
