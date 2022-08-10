@@ -23,7 +23,7 @@ static int test_underprep_fail(bool hardlink, bool drain, bool link_last,
 	struct io_uring ring;
 	struct io_uring_sqe *sqe;
 	struct io_uring_cqe *cqe;
-	char buffer[1];
+	char buffer[1] = { };
 	int i, ret, fds[2];
 
 	if (drain)
