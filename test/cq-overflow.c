@@ -33,14 +33,15 @@ static int test_io(const char *file, unsigned long usecs, unsigned *drops, int f
 	fd = open(file, O_RDONLY | O_DIRECT);
 	if (fd < 0) {
 		perror("file open");
-		goto err;
+		return 1;
 	}
 
 	memset(&p, 0, sizeof(p));
 	ret = io_uring_queue_init_params(ENTRIES, &ring, &p);
 	if (ret) {
+		close(fd);
 		fprintf(stderr, "ring create failed: %d\n", ret);
-		goto err;
+		return 1;
 	}
 	nodrop = 0;
 	if (p.features & IORING_FEAT_NODROP)
