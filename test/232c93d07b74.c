@@ -121,7 +121,7 @@ static void *rcv(void *arg)
 	int done = 0;
 
 	while (!done && bytes_read != 33) {
-		char buff[RECV_BUFF_SIZE];
+		char buff[RECV_BUFF_SIZE] = { };
 		struct iovec iov;
 
 		iov.iov_base = buff;
