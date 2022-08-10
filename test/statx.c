@@ -40,7 +40,7 @@ static int test_statx(struct io_uring *ring, const char *path)
 {
 	struct io_uring_cqe *cqe;
 	struct io_uring_sqe *sqe;
-	struct statx x1, x2;
+	struct statx x1 = { }, x2 = { };
 	int ret;
 
 	sqe = io_uring_get_sqe(ring);
