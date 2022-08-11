@@ -21,7 +21,7 @@ int main(int argc, char *argv[])
 	struct io_uring_sqe *sqe;
 	struct io_uring_cqe *cqe;
 	struct io_uring ring;
-	uint64_t ptr = 0;
+	uint64_t ptr;
 	struct iovec vec = {
 		.iov_base = &ptr,
 		.iov_len = sizeof(ptr)
