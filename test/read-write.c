@@ -759,6 +759,7 @@ static int test_write_efbig(void)
 			goto err;
 		}
 		io_uring_prep_writev(sqe, fd, &vecs[i], 1, off);
+		io_uring_sqe_set_data64(sqe, i);
 		off += BS;
 	}
 
@@ -774,7 +775,7 @@ static int test_write_efbig(void)
 			fprintf(stderr, "wait_cqe=%d\n", ret);
 			goto err;
 		}
-		if (i < 16) {
+		if (cqe->user_data < 16) {
 			if (cqe->res != BS) {
 				fprintf(stderr, "bad write: %d\n", cqe->res);
 				goto err;
@@ -818,6 +819,8 @@ int main(int argc, char *argv[])
 		fname = buf;
 		t_create_file(fname, FILE_SIZE);
 	}
+
+	signal(SIGXFSZ, SIG_IGN);
 
 	vecs = t_create_buffers(BUFFERS, BS);
 
