@@ -210,14 +210,14 @@ static int test_fxattr(void)
 
 	/* Test reading attributes. */
 	value_len = io_uring_fgetxattr(&ring, fd, KEY1, value, XATTR_SIZE);
-	if (value_len != strlen(value) || strncmp(value, VALUE1, value_len)) {
+	if (value_len != strlen(VALUE1) || strncmp(value, VALUE1, value_len)) {
 		fprintf(stderr, "Error: fgetxattr expected value: %s, returned value: %s\n", VALUE1, value);
 		rc = -1;
 		goto Exit;
 	}
 
 	value_len = io_uring_fgetxattr(&ring, fd, KEY2, value, XATTR_SIZE);
-	if (value_len != strlen(value)|| strncmp(value, VALUE2, value_len)) {
+	if (value_len != strlen(VALUE2) || strncmp(value, VALUE2, value_len)) {
 		fprintf(stderr, "Error: fgetxattr expected value: %s, returned value: %s\n", VALUE2, value);
 		rc = -1;
 		goto Exit;
