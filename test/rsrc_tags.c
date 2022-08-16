@@ -182,7 +182,7 @@ static int test_buffers_update(void)
 		return 1;
 	}
 
-	/* test that CQE is not emmited before we're done with a buffer */
+	/* test that CQE is not emitted before we're done with a buffer */
 	sqe = io_uring_get_sqe(&ring);
 	io_uring_prep_read_fixed(sqe, pipes[0], tmp_buf, 10, 0, 0);
 	sqe->user_data = 100;

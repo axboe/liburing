@@ -79,7 +79,7 @@ int main(int argc, char *argv[])
 	assert(ret == 1);
 
 	/*
-	 * Read may stuck because of bug there request was be incorrecly
+	 * Read may stuck because of bug there request was be incorrectly
 	 * merged with <REQ1> request
 	 */
 	ret = io_uring_wait_cqe_timeout(&ring, &cqe, &ts);
