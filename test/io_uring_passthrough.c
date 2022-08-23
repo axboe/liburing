@@ -271,6 +271,72 @@ static int test_io(const char *file, int tc, int read, int sqthread,
 extern int __io_uring_flush_sq(struct io_uring *ring);
 
 /*
+ * Send a passthrough command that nvme will fail during submission.
+ * This comes handy for testing error handling.
+ */
+static int test_invalid_passthru_submit(const char *file)
+{
+	struct io_uring ring;
+	int fd, ret, ring_flags, open_flags;
+	struct io_uring_cqe *cqe;
+	struct io_uring_sqe *sqe;
+	struct nvme_uring_cmd *cmd;
+
+	ring_flags = IORING_SETUP_IOPOLL | IORING_SETUP_SQE128;
+	ring_flags |= IORING_SETUP_CQE32;
+
+	ret = t_create_ring(1, &ring, ring_flags);
+	if (ret != T_SETUP_OK) {
+		fprintf(stderr, "ring create failed: %d\n", ret);
+		return 1;
+	}
+
+	open_flags = O_RDONLY;
+	fd = open(file, open_flags);
+	if (fd < 0) {
+		perror("file open");
+		goto err;
+	}
+
+	sqe = io_uring_get_sqe(&ring);
+	io_uring_prep_read(sqe, fd, vecs[0].iov_base, vecs[0].iov_len, 0);
+	sqe->cmd_op = NVME_URING_CMD_IO;
+	sqe->opcode = IORING_OP_URING_CMD;
+	sqe->user_data = 1;
+	cmd = (struct nvme_uring_cmd *)sqe->cmd;
+	memset(cmd, 0, sizeof(struct nvme_uring_cmd));
+	cmd->opcode = nvme_cmd_read;
+	cmd->addr = (__u64)(uintptr_t)&vecs[0].iov_base;
+	cmd->data_len = vecs[0].iov_len;
+	/* populate wrong nsid to force failure */
+	cmd->nsid = nsid + 1;
+
+	ret = io_uring_submit(&ring);
+	if (ret != 1) {
+		fprintf(stderr, "submit got %d, wanted %d\n", ret, 1);
+		goto err;
+	}
+	ret = io_uring_wait_cqe(&ring, &cqe);
+	if (ret) {
+		fprintf(stderr, "wait_cqe=%d\n", ret);
+		goto err;
+	}
+	if (cqe->res == 0) {
+		fprintf(stderr, "cqe res %d, wanted failure\n", cqe->res);
+		goto err;
+	}
+	io_uring_cqe_seen(&ring, cqe);
+	close(fd);
+	io_uring_queue_exit(&ring);
+	return 0;
+err:
+	if (fd != -1)
+		close(fd);
+	io_uring_queue_exit(&ring);
+	return 1;
+}
+
+/*
  * if we are polling io_uring_submit needs to always enter the
  * kernel to fetch events
  */
@@ -370,6 +436,12 @@ int main(int argc, char *argv[])
 	ret = test_io_uring_submit_enters(fname);
 	if (ret) {
 		fprintf(stderr, "test_io_uring_submit_enters failed\n");
+		goto err;
+	}
+
+	ret = test_invalid_passthru_submit(fname);
+	if (ret) {
+		fprintf(stderr, "test_invalid_passthru_submit failed\n");
 		goto err;
 	}
 
