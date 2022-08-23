@@ -16,12 +16,12 @@ io_uring_prep_renameat \- prepare a renameat request
 .BI "                            const char *" oldpath ","
 .BI "                            int " newdirfd ","
 .BI "                            const char *" newpath ","
-.BI "                            int " flags ");"
+.BI "                            unsigned int " flags ");"
 .PP
 .BI "void io_uring_prep_rename(struct io_uring_sqe *" sqe ","
 .BI "                          const char *" oldpath ","
 .BI "                          const char *" newpath ","
-.BI "                          int " flags ");"
+.BI "                          unsigned int " flags ");"
 .fi
 .SH DESCRIPTION
 .PP

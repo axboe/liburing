@@ -862,7 +862,7 @@ static inline void io_uring_prep_unlink(struct io_uring_sqe *sqe,
 
 static inline void io_uring_prep_renameat(struct io_uring_sqe *sqe, int olddfd,
 					  const char *oldpath, int newdfd,
-					  const char *newpath, int flags)
+					  const char *newpath, unsigned int flags)
 {
 	io_uring_prep_rw(IORING_OP_RENAMEAT, sqe, olddfd, oldpath,
 				(__u32) newdfd,
