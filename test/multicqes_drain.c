@@ -117,7 +117,7 @@ __u8 generate_flags(int sqe_op)
 	/*
 	 * avoid below case:
 	 * sqe0(multishot, link)->sqe1(nop, link)->sqe2(nop)->sqe3(cancel_sqe0)
-	 * sqe3 may excute before sqe0 so that sqe0 isn't cancelled
+	 * sqe3 may execute before sqe0 so that sqe0 isn't cancelled
 	 */
 	if (sqe_op == multi)
 		flags &= ~IOSQE_IO_LINK;

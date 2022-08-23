@@ -28,7 +28,7 @@ int main(int argc, char *argv[])
 	}
 
 	if (io_uring_queue_init(32, &ring, 0) < 0) {
-		fprintf(stderr, "Faild to init io_uring\n");
+		fprintf(stderr, "Failed to init io_uring\n");
 		close(fd);
 		return T_EXIT_FAIL;
 	}

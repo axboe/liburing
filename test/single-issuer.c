@@ -88,7 +88,7 @@ int main(int argc, char *argv[])
 	/* test that the creator iw allowed to submit */
 	ret = try_submit(&ring);
 	if (ret) {
-		fprintf(stderr, "the creater can't submit %i\n", ret);
+		fprintf(stderr, "the creator can't submit %i\n", ret);
 		return T_EXIT_FAIL;
 	}
 

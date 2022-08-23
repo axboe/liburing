@@ -156,7 +156,7 @@ static int test_single_timeout_nr(struct io_uring *ring, int nr)
 
 		/*
 		 * NOP commands have user_data as 1. Check that we get the
-		 * at least 'nr' NOPs first, then the successfully removed timout.
+		 * at least 'nr' NOPs first, then the successfully removed timeout.
 		 */
 		if (io_uring_cqe_get_data(cqe) == NULL) {
 			if (i < nr) {
@@ -588,7 +588,7 @@ static int test_multi_timeout(struct io_uring *ring)
 		}
 
 		if (cqe->user_data != user_data) {
-			fprintf(stderr, "%s: unexpected timeout req %d sequece\n",
+			fprintf(stderr, "%s: unexpected timeout req %d sequence\n",
 				__FUNCTION__, i+1);
 			goto err;
 		}
@@ -678,7 +678,7 @@ static int test_multi_timeout_nr(struct io_uring *ring)
 		case 1:
 			/* Should be timeout req_2 */
 			if (cqe->user_data != 2) {
-				fprintf(stderr, "%s: unexpected timeout req %d sequece\n",
+				fprintf(stderr, "%s: unexpected timeout req %d sequence\n",
 					__FUNCTION__, i+1);
 				goto err;
 			}
@@ -691,7 +691,7 @@ static int test_multi_timeout_nr(struct io_uring *ring)
 		case 2:
 			/* Should be timeout req_1 */
 			if (cqe->user_data != 1) {
-				fprintf(stderr, "%s: unexpected timeout req %d sequece\n",
+				fprintf(stderr, "%s: unexpected timeout req %d sequence\n",
 					__FUNCTION__, i+1);
 				goto err;
 			}

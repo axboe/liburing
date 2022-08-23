@@ -2,7 +2,7 @@
 .\"
 .\" SPDX-License-Identifier: LGPL-2.0-or-later
 .\"
-.TH io_uring_sqe_set_flags "January 25, 2022" "liburing-2.1" "liburing Manual"
+.TH io_uring_sqe_set_flags 3 "January 25, 2022" "liburing-2.1" "liburing Manual"
 .SH NAME
 io_uring_sqe_set_flags \- set flags for submission queue entry
 .SH SYNOPSIS
@@ -65,7 +65,7 @@ one completes.
 .B IOSQE_CQE_SKIP_SUCCESS
 Request that no CQE be generated for this request, if it completes successfully.
 This can be useful in cases where the application doesn't need to know when
-a specific request completed, if it completed succesfully.
+a specific request completed, if it completed successfully.
 .TP
 .B IOSQE_BUFFER_SELECT
 If set, and if the request types supports it, select an IO buffer from the

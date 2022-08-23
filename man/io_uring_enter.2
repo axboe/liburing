@@ -3,7 +3,7 @@
 .\"
 .\" SPDX-License-Identifier: LGPL-2.0-or-later
 .\"
-.TH IO_URING_ENTER 2 2019-01-22 "Linux" "Linux Programmer's Manual"
+.TH io_uring_enter 2 2019-01-22 "Linux" "Linux Programmer's Manual"
 .SH NAME
 io_uring_enter \- initiate and/or complete asynchronous I/O
 .SH SYNOPSIS
@@ -34,7 +34,7 @@ specifies the number of I/Os to submit from the submission queue.
 is a bitmask of the following values:
 .TP
 .B IORING_ENTER_GETEVENTS
-If this flag is set, then the system call will wait for the specificied
+If this flag is set, then the system call will wait for the specified
 number of events in
 .I min_complete
 before returning. This flag can be set along with
@@ -1052,7 +1052,7 @@ set, and a
 field matching the
 .I off
 value being passed in. This request type can be used to either just wake or
-interrupt anyone waiting for completions on the target ring, ot it can be used
+interrupt anyone waiting for completions on the target ring, or it can be used
 to pass messages via the two fields. Available since 5.18.
 
 .PP
@@ -1143,7 +1143,7 @@ linked timeout has the flag set, it's guaranteed to not post a CQE.
 
 The semantics are chosen to accommodate several use cases. First, when all but
 the last request of a normal link without linked timeouts are marked with the
-flag, only one CQE per lin is posted. Additionally, it enables supression of
+flag, only one CQE per lin is posted. Additionally, it enables suppression of
 CQEs in cases where the side effects of a successfully executed operation is
 enough for userspace to know the state of the system. One such example would
 be writing to a synchronisation file.
