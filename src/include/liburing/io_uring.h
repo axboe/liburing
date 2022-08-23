@@ -10,6 +10,7 @@
 
 #include <linux/fs.h>
 #include <linux/types.h>
+#include <linux/time_types.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -54,6 +55,7 @@ struct io_uring_sqe {
 		__u32		unlink_flags;
 		__u32		hardlink_flags;
 		__u32		xattr_flags;
+		__u32		msg_ring_flags;
 	};
 	__u64	user_data;	/* data to be passed back at completion time */
 	/* pack this to avoid bogus arm OABI complaints */
@@ -148,7 +150,6 @@ enum {
  * IORING_SQ_TASKRUN in the sq ring flags. Not valid with COOP_TASKRUN.
  */
 #define IORING_SETUP_TASKRUN_FLAG	(1U << 9)
-
 #define IORING_SETUP_SQE128		(1U << 10) /* SQEs are 128 byte */
 #define IORING_SETUP_CQE32		(1U << 11) /* CQEs are 32 byte */
 /*
@@ -244,10 +245,13 @@ enum io_uring_op {
  *
  * IORING_POLL_UPDATE		Update existing poll request, matching
  *				sqe->addr as the old user_data field.
+ *
+ * IORING_POLL_LEVEL		Level triggered poll.
  */
 #define IORING_POLL_ADD_MULTI	(1U << 0)
 #define IORING_POLL_UPDATE_EVENTS	(1U << 1)
 #define IORING_POLL_UPDATE_USER_DATA	(1U << 2)
+#define IORING_POLL_ADD_LEVEL		(1U << 3)
 
 /*
  * ASYNC_CANCEL flags.
@@ -256,10 +260,12 @@ enum io_uring_op {
  * IORING_ASYNC_CANCEL_FD	Key off 'fd' for cancelation rather than the
  *				request 'user_data'
  * IORING_ASYNC_CANCEL_ANY	Match any request
+ * IORING_ASYNC_CANCEL_FD_FIXED	'fd' passed in is a fixed descriptor
  */
 #define IORING_ASYNC_CANCEL_ALL	(1U << 0)
 #define IORING_ASYNC_CANCEL_FD	(1U << 1)
-#define IORING_ASYNC_CANCEL_ANY (1U << 2)
+#define IORING_ASYNC_CANCEL_ANY	(1U << 2)
+#define IORING_ASYNC_CANCEL_FD_FIXED	(1U << 3)
 
 /*
  * send/sendmsg and recv/recvmsg flags (sqe->ioprio)
@@ -272,6 +278,12 @@ enum io_uring_op {
  * IORING_RECV_MULTISHOT	Multishot recv. Sets IORING_CQE_F_MORE if
  *				the handler will continue to report
  *				CQEs on behalf of the same SQE.
+ *
+ * IORING_RECVSEND_FIXED_BUF	Use registered buffers, the index is stored in
+ *				the buf_index field.
+ *
+ * IORING_RECVSEND_NOTIF_FLUSH	Flush a notification after a successful
+ *				successful. Only for zerocopy sends.
  */
 #define IORING_RECVSEND_POLL_FIRST	(1U << 0)
 #define IORING_RECV_MULTISHOT		(1U << 1)
@@ -283,6 +295,7 @@ enum io_uring_op {
  */
 #define IORING_ACCEPT_MULTISHOT	(1U << 0)
 
+
 /*
  * IORING_OP_RSRC_UPDATE flags
  */
@@ -290,6 +303,22 @@ enum {
 	IORING_RSRC_UPDATE_FILES,
 	IORING_RSRC_UPDATE_NOTIF,
 };
+
+/*
+ * IORING_OP_MSG_RING command types, stored in sqe->addr
+ */
+enum {
+	IORING_MSG_DATA,	/* pass sqe->len as 'res' and off as user_data */
+	IORING_MSG_SEND_FD,	/* send a registered fd to another ring */
+};
+
+/*
+ * IORING_OP_MSG_RING flags (sqe->msg_ring_flags)
+ *
+ * IORING_MSG_RING_CQE_SKIP	Don't post a CQE to the target ring. Not
+ *				applicable for IORING_MSG_DATA, obviously.
+ */
+#define IORING_MSG_RING_CQE_SKIP	(1U << 0)
 
 /*
  * IO completion data structure (Completion Queue Entry)
@@ -456,6 +485,7 @@ enum {
 	/* register a range of fixed file slots for automatic slot allocation */
 	IORING_REGISTER_FILE_ALLOC_RANGE	= 25,
 
+	/* zerocopy notification API */
 	IORING_REGISTER_NOTIFIERS		= 26,
 	IORING_UNREGISTER_NOTIFIERS		= 27,
 
@@ -535,7 +565,7 @@ struct io_uring_probe {
 	__u8 ops_len;	/* length of ops[] array below */
 	__u16 resv;
 	__u32 resv2[3];
-	struct io_uring_probe_op ops[0];
+	struct io_uring_probe_op ops[];
 };
 
 struct io_uring_restriction {
@@ -581,15 +611,6 @@ struct io_uring_buf_reg {
 	__u64	resv[3];
 };
 
-/* argument for IORING_REGISTER_SYNC_CANCEL */
-struct io_uring_sync_cancel_reg {
-	__u64				addr;
-	__s32				fd;
-	__u32				flags;
-	struct __kernel_timespec	timeout;
-	__u64				pad[4];
-};
-
 /*
  * io_uring_restriction->opcode values
  */
@@ -616,8 +637,22 @@ struct io_uring_getevents_arg {
 	__u64	ts;
 };
 
+/*
+ * Argument for IORING_REGISTER_SYNC_CANCEL
+ */
+struct io_uring_sync_cancel_reg {
+	__u64				addr;
+	__s32				fd;
+	__u32				flags;
+	struct __kernel_timespec	timeout;
+	__u64				pad[4];
+};
+
+/*
+ * Argument for IORING_REGISTER_FILE_ALLOC_RANGE
+ * The range is specified as [off, off + len)
+ */
 struct io_uring_file_index_range {
-	/* [off, off + len) */
 	__u32	off;
 	__u32	len;
 	__u64	resv;
@@ -629,11 +664,6 @@ struct io_uring_recvmsg_out {
 	__u32 payloadlen;
 	__u32 flags;
 };
-
-/*
- * accept flags stored in sqe->ioprio
- */
-#define IORING_ACCEPT_MULTISHOT	(1U << 0)
 
 #ifdef __cplusplus
 }
