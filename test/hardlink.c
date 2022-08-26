@@ -124,7 +124,7 @@ int main(int argc, char *argv[])
 	unlinkat(AT_FDCWD, linkname, 0);
 	unlinkat(AT_FDCWD, target, 0);
 	io_uring_queue_exit(&ring);
-	return T_EXIT_SKIP;
+	return T_EXIT_PASS;
 skip:
 	unlinkat(AT_FDCWD, linkname, 0);
 	unlinkat(AT_FDCWD, target, 0);
