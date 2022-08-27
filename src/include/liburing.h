@@ -43,7 +43,9 @@ extern "C" {
 struct io_uring_sq {
 	unsigned *khead;
 	unsigned *ktail;
+	// Deprecated: use `ring_mask` instead of `*kring_mask`
 	unsigned *kring_mask;
+	// Deprecated: use `ring_entries` instead of `*kring_entries`
 	unsigned *kring_entries;
 	unsigned *kflags;
 	unsigned *kdropped;
@@ -56,13 +58,18 @@ struct io_uring_sq {
 	size_t ring_sz;
 	void *ring_ptr;
 
-	unsigned pad[4];
+	unsigned ring_mask;
+	unsigned ring_entries;
+
+	unsigned pad[2];
 };
 
 struct io_uring_cq {
 	unsigned *khead;
 	unsigned *ktail;
+	// Deprecated: use `ring_mask` instead of `*kring_mask`
 	unsigned *kring_mask;
+	// Deprecated: use `ring_entries` instead of `*kring_entries`
 	unsigned *kring_entries;
 	unsigned *kflags;
 	unsigned *koverflow;
@@ -71,7 +78,10 @@ struct io_uring_cq {
 	size_t ring_sz;
 	void *ring_ptr;
 
-	unsigned pad[4];
+	unsigned ring_mask;
+	unsigned ring_entries;
+
+	unsigned pad[2];
 };
 
 struct io_uring {
@@ -220,7 +230,7 @@ int __io_uring_get_cqe(struct io_uring *ring,
 	 */								\
 	for (head = *(ring)->cq.khead;					\
 	     (cqe = (head != io_uring_smp_load_acquire((ring)->cq.ktail) ? \
-		&(ring)->cq.cqes[io_uring_cqe_index(ring, head, *(ring)->cq.kring_mask)] : NULL)); \
+		&(ring)->cq.cqes[io_uring_cqe_index(ring, head, (ring)->cq.ring_mask)] : NULL)); \
 	     head++)							\
 
 /*
@@ -1034,7 +1044,7 @@ static inline unsigned io_uring_sq_ready(const struct io_uring *ring)
  */
 static inline unsigned io_uring_sq_space_left(const struct io_uring *ring)
 {
-	return *ring->sq.kring_entries - io_uring_sq_ready(ring);
+	return ring->sq.ring_entries - io_uring_sq_ready(ring);
 }
 
 /*
@@ -1124,7 +1134,7 @@ static inline int __io_uring_peek_cqe(struct io_uring *ring,
 	struct io_uring_cqe *cqe;
 	int err = 0;
 	unsigned available;
-	unsigned mask = *ring->cq.kring_mask;
+	unsigned mask = ring->cq.ring_mask;
 	int shift = 0;
 
 	if (ring->flags & IORING_SETUP_CQE32)
@@ -1202,10 +1212,10 @@ static inline struct io_uring_sqe *_io_uring_get_sqe(struct io_uring *ring)
 	if (ring->flags & IORING_SETUP_SQE128)
 		shift = 1;
 
-	if (next - head <= *sq->kring_entries) {
+	if (next - head <= sq->ring_entries) {
 		struct io_uring_sqe *sqe;
 
-		sqe = &sq->sqes[(sq->sqe_tail & *sq->kring_mask) << shift];
+		sqe = &sq->sqes[(sq->sqe_tail & sq->ring_mask) << shift];
 		sq->sqe_tail = next;
 		return sqe;
 	}

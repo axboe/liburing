@@ -80,6 +80,11 @@ err:
 	cq->cqes = cq->ring_ptr + p->cq_off.cqes;
 	if (p->cq_off.flags)
 		cq->kflags = cq->ring_ptr + p->cq_off.flags;
+
+	sq->ring_mask = *sq->kring_mask;
+	sq->ring_entries = *sq->kring_entries;
+	cq->ring_mask = *cq->kring_mask;
+	cq->ring_entries = *cq->kring_entries;
 	return 0;
 }
 
@@ -119,7 +124,7 @@ __cold int io_uring_ring_dontfork(struct io_uring *ring)
 	len = sizeof(struct io_uring_sqe);
 	if (ring->flags & IORING_SETUP_SQE128)
 		len += 64;
-	len *= *ring->sq.kring_entries;
+	len *= ring->sq.ring_entries;
 	ret = __sys_madvise(ring->sq.sqes, len, MADV_DONTFORK);
 	if (ret < 0)
 		return ret;
@@ -182,7 +187,7 @@ __cold void io_uring_queue_exit(struct io_uring *ring)
 	sqe_size = sizeof(struct io_uring_sqe);
 	if (ring->flags & IORING_SETUP_SQE128)
 		sqe_size += 64;
-	__sys_munmap(sq->sqes, sqe_size * *sq->kring_entries);
+	__sys_munmap(sq->sqes, sqe_size * sq->ring_entries);
 	io_uring_unmap_rings(sq, cq);
 	/*
 	 * Not strictly required, but frees up the slot we used now rather

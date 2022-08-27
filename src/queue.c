@@ -142,7 +142,7 @@ again:
 	ready = io_uring_cq_ready(ring);
 	if (ready) {
 		unsigned head = *ring->cq.khead;
-		unsigned mask = *ring->cq.kring_mask;
+		unsigned mask = ring->cq.ring_mask;
 		unsigned last;
 		int i = 0;
 
@@ -178,7 +178,7 @@ done:
 int __io_uring_flush_sq(struct io_uring *ring)
 {
 	struct io_uring_sq *sq = &ring->sq;
-	const unsigned mask = *sq->kring_mask;
+	const unsigned mask = sq->ring_mask;
 	unsigned ktail = *sq->ktail;
 	unsigned to_submit = sq->sqe_tail - sq->sqe_head;
 

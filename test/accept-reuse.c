@@ -26,7 +26,7 @@ int submit_sqe(void)
 	struct io_uring_sq *sq = &io_uring.sq;
 	const unsigned tail = *sq->ktail;
 
-	sq->array[tail & *sq->kring_mask] = 0;
+	sq->array[tail & sq->ring_mask] = 0;
 	io_uring_smp_store_release(sq->ktail, tail + 1);
 
 	return sys_io_uring_enter(io_uring.ring_fd, 1, 0, 0, NULL);

@@ -240,7 +240,7 @@ static void cause_overflow(struct io_uring *ring)
 {
 	int i, ret;
 
-	for (i = 0; i < *ring->cq.kring_entries; i++) {
+	for (i = 0; i < ring->cq.ring_entries; i++) {
 		struct io_uring_sqe *sqe = io_uring_get_sqe(ring);
 
 		io_uring_prep_nop(sqe);

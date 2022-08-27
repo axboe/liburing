@@ -194,7 +194,7 @@ int main(int argc, char **argv)
 		perror("io_uring_queue_init");
 		exit(T_EXIT_FAIL);
 	}
-	mask = *sq->kring_mask;
+	mask = sq->ring_mask;
 
 	/* invalid flags */
 	status |= try_io_uring_enter(ring.ring_fd, 1, 0, ~0U, NULL, -EINVAL);
@@ -209,7 +209,7 @@ int main(int argc, char **argv)
 	status |= try_io_uring_enter(ring.ring_fd, 0, 0, 0, NULL, 0);
 
 	/* fill the sq ring */
-	sq_entries = *ring.sq.kring_entries;
+	sq_entries = ring.sq.ring_entries;
 	submit_io(&ring, sq_entries);
 	ret = __sys_io_uring_enter(ring.ring_fd, 0, sq_entries,
 					IORING_ENTER_GETEVENTS, NULL);
@@ -235,7 +235,7 @@ int main(int argc, char **argv)
 	 * Add an invalid index to the submission queue.  This should
 	 * result in the dropped counter increasing.
 	 */
-	index = *sq->kring_entries + 1; // invalid index
+	index = sq->ring_entries + 1; // invalid index
 	dropped = *sq->kdropped;
 	ktail = *sq->ktail;
 	sq->array[ktail & mask] = index;
