@@ -94,8 +94,8 @@ details on possible values. Note that where synchronous system calls will return
 on failure and set
 .I errno
 to the actual error value, io_uring never uses
-.IR errno .
-Instead it returns the negated
+.IR errno
+for operations submitted to the ring. Instead it returns the negated
 .I errno
 directly in the CQE
 .I res
