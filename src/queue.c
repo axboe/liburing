@@ -12,9 +12,15 @@
  * Returns true if we're not using SQ thread (thus nobody submits but us)
  * or if IORING_SQ_NEED_WAKEUP is set, so submit thread must be explicitly
  * awakened. For the latter case, we set the thread wakeup flag.
+ * If no SQEs are ready for submission, returns false.
  */
-static inline bool sq_ring_needs_enter(struct io_uring *ring, unsigned *flags)
+static inline bool sq_ring_needs_enter(struct io_uring *ring,
+				       unsigned submit,
+				       unsigned *flags)
 {
+	if (!submit)
+		return false;
+
 	if (!(ring->flags & IORING_SETUP_SQPOLL))
 		return true;
 
@@ -85,7 +91,7 @@ static int _io_uring_get_cqe(struct io_uring *ring,
 			flags = IORING_ENTER_GETEVENTS | data->get_flags;
 			need_enter = true;
 		}
-		if (data->submit && sq_ring_needs_enter(ring, &flags))
+		if (sq_ring_needs_enter(ring, data->submit, &flags))
 			need_enter = true;
 		if (!need_enter)
 			break;
@@ -354,7 +360,7 @@ static int __io_uring_submit(struct io_uring *ring, unsigned submitted,
 	int ret;
 
 	flags = 0;
-	if (sq_ring_needs_enter(ring, &flags) || wait_nr) {
+	if (sq_ring_needs_enter(ring, submitted, &flags) || wait_nr) {
 		if (wait_nr || (ring->flags & IORING_SETUP_IOPOLL))
 			flags |= IORING_ENTER_GETEVENTS;
 		if (ring->int_flags & INT_FLAG_REG_RING)
