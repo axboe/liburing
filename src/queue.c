@@ -343,12 +343,13 @@ int io_uring_wait_cqe_timeout(struct io_uring *ring,
 static int __io_uring_submit(struct io_uring *ring, unsigned submitted,
 			     unsigned wait_nr)
 {
+	bool cq_needs_enter = wait_nr || cq_ring_needs_enter(ring);
 	unsigned flags;
 	int ret;
 
 	flags = 0;
-	if (sq_ring_needs_enter(ring, submitted, &flags) || wait_nr) {
-		if (wait_nr || (ring->flags & IORING_SETUP_IOPOLL))
+	if (sq_ring_needs_enter(ring, submitted, &flags) || cq_needs_enter) {
+		if (cq_needs_enter)
 			flags |= IORING_ENTER_GETEVENTS;
 		if (ring->int_flags & INT_FLAG_REG_RING)
 			flags |= IORING_ENTER_REGISTERED_RING;
