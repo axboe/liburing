@@ -184,28 +184,15 @@ done:
 unsigned __io_uring_flush_sq(struct io_uring *ring)
 {
 	struct io_uring_sq *sq = &ring->sq;
-	const unsigned mask = sq->ring_mask;
-	unsigned ktail = *sq->ktail;
-	unsigned to_submit = sq->sqe_tail - sq->sqe_head;
+	unsigned tail = sq->sqe_tail;
 
-	if (!to_submit)
-		goto out;
-
-	/*
-	 * Fill in sqes that we have queued up, adding them to the kernel ring
-	 */
-	do {
-		sq->array[ktail & mask] = sq->sqe_head & mask;
-		ktail++;
-		sq->sqe_head++;
-	} while (--to_submit);
-
-	/*
-	 * Ensure that the kernel sees the SQE updates before it sees the tail
-	 * update.
-	 */
-	io_uring_smp_store_release(sq->ktail, ktail);
-out:
+	if (sq->sqe_head != tail) {
+		sq->sqe_head = tail;
+		/*
+		 * Ensure kernel sees the SQE updates before the tail update.
+		 */
+		io_uring_smp_store_release(sq->ktail, tail);
+	}
 	/*
 	 * This _may_ look problematic, as we're not supposed to be reading
 	 * SQ->head without acquire semantics. When we're in SQPOLL mode, the
@@ -217,7 +204,7 @@ out:
 	 * we can submit. The point is, we need to be able to deal with this
 	 * situation regardless of any perceived atomicity.
 	 */
-	return ktail - *sq->khead;
+	return tail - *sq->khead;
 }
 
 /*
