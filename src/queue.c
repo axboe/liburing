@@ -18,6 +18,9 @@ static inline bool sq_ring_needs_enter(struct io_uring *ring,
 				       unsigned submit,
 				       unsigned *flags)
 {
+	/* see commit 1bafb3ce5f5e */
+	if (ring->flags & IORING_SETUP_IOPOLL)
+		return true;
 	if (!submit)
 		return false;
 
