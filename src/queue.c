@@ -181,7 +181,7 @@ done:
  * Sync internal state with kernel ring state on the SQ side. Returns the
  * number of pending items in the SQ ring, for the shared ring.
  */
-int __io_uring_flush_sq(struct io_uring *ring)
+unsigned __io_uring_flush_sq(struct io_uring *ring)
 {
 	struct io_uring_sq *sq = &ring->sq;
 	const unsigned mask = sq->ring_mask;
