@@ -201,7 +201,7 @@ err:
 	return 1;
 }
 
-extern int __io_uring_flush_sq(struct io_uring *ring);
+extern unsigned __io_uring_flush_sq(struct io_uring *ring);
 
 /*
  * if we are polling io_uring_submit needs to always enter the
