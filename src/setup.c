@@ -148,6 +148,8 @@ __cold int io_uring_queue_init_params(unsigned entries, struct io_uring *ring,
 				      struct io_uring_params *p)
 {
 	int fd, ret;
+	unsigned *sq_array;
+	unsigned sq_entries, index;
 
 	fd = __sys_io_uring_setup(entries, p);
 	if (fd < 0)
@@ -158,6 +160,14 @@ __cold int io_uring_queue_init_params(unsigned entries, struct io_uring *ring,
 		__sys_close(fd);
 		return ret;
 	}
+
+	/*
+	 * Directly map SQ slots to SQEs
+	 */
+	sq_array = ring->sq.array;
+	sq_entries = ring->sq.ring_entries;
+	for (index = 0; index < sq_entries; index++)
+		sq_array[index] = index;
 
 	ring->features = p->features;
 	return 0;
