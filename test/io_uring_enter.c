@@ -38,7 +38,7 @@ static int expect_fail(int fd, unsigned int to_submit,
 {
 	int ret;
 
-	ret = __sys_io_uring_enter(fd, to_submit, min_complete, flags, sig);
+	ret = io_uring_enter(fd, to_submit, min_complete, flags, sig);
 	if (ret >= 0) {
 		fprintf(stderr, "expected %s, but call succeeded\n", strerror(-error));
 		return 1;
@@ -62,7 +62,7 @@ static int try_io_uring_enter(int fd, unsigned int to_submit,
 		return expect_fail(fd, to_submit, min_complete, flags, sig,
 				   expect);
 
-	ret = __sys_io_uring_enter(fd, to_submit, min_complete, flags, sig);
+	ret = io_uring_enter(fd, to_submit, min_complete, flags, sig);
 	if (ret != expect) {
 		fprintf(stderr, "Expected %d, got %d\n", expect, ret);
 		return 1;
@@ -211,8 +211,8 @@ int main(int argc, char **argv)
 	/* fill the sq ring */
 	sq_entries = ring.sq.ring_entries;
 	submit_io(&ring, sq_entries);
-	ret = __sys_io_uring_enter(ring.ring_fd, 0, sq_entries,
-					IORING_ENTER_GETEVENTS, NULL);
+	ret = io_uring_enter(ring.ring_fd, 0, sq_entries,
+			     IORING_ENTER_GETEVENTS, NULL);
 	if (ret < 0) {
 		fprintf(stderr, "io_uring_enter: %s\n", strerror(-ret));
 		status = 1;
@@ -246,7 +246,7 @@ int main(int argc, char **argv)
 	 */
 	io_uring_smp_store_release(sq->ktail, ktail);
 
-	ret = __sys_io_uring_enter(ring.ring_fd, 1, 0, 0, NULL);
+	ret = io_uring_enter(ring.ring_fd, 1, 0, 0, NULL);
 	/* now check to see if our sqe was dropped */
 	if (*sq->kdropped == dropped) {
 		fprintf(stderr, "dropped counter did not increase\n");

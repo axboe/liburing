@@ -102,7 +102,7 @@ try_io_uring_setup(unsigned entries, struct io_uring_params *p, int expect)
 {
 	int ret;
 
-	ret = __sys_io_uring_setup(entries, p);
+	ret = io_uring_setup(entries, p);
 	if (ret != expect) {
 		fprintf(stderr, "expected %d, got %d\n", expect, ret);
 		/* if we got a valid uring, close it */
@@ -164,7 +164,7 @@ main(int argc, char **argv)
 
 	/* read/write on io_uring_fd */
 	memset(&p, 0, sizeof(p));
-	fd = __sys_io_uring_setup(1, &p);
+	fd = io_uring_setup(1, &p);
 	if (fd < 0) {
 		fprintf(stderr, "io_uring_setup failed with %d, expected success\n",
 		       -fd);
