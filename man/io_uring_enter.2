@@ -13,6 +13,10 @@ io_uring_enter \- initiate and/or complete asynchronous I/O
 .BI "int io_uring_enter(unsigned int " fd ", unsigned int " to_submit ,
 .BI "                   unsigned int " min_complete ", unsigned int " flags ,
 .BI "                   sigset_t *" sig );
+.PP
+.BI "int io_uring_enter2(unsigned int " fd ", unsigned int " to_submit ,
+.BI "                    unsigned int " min_complete ", unsigned int " flags ,
+.BI "                    sigset_t *" sig ", size_t " sz );
 .fi
 .PP
 .SH DESCRIPTION
@@ -61,9 +65,9 @@ Since kernel 5.11, the system calls arguments have been modified to look like
 the following:
 
 .nf
-.BI "int io_uring_enter(unsigned int " fd ", unsigned int " to_submit ,
-.BI "                   unsigned int " min_complete ", unsigned int " flags ,
-.BI "                   const void *" arg ", size_t " argsz );
+.BI "int io_uring_enter2(unsigned int " fd ", unsigned int " to_submit ,
+.BI "                    unsigned int " min_complete ", unsigned int " flags ,
+.BI "                    const void *" arg ", size_t " argsz );
 .fi
 
 which is behaves just like the original definition by default. However, if
