@@ -8,7 +8,7 @@
 io_uring_enter \- initiate and/or complete asynchronous I/O
 .SH SYNOPSIS
 .nf
-.BR "#include <linux/io_uring.h>"
+.BR "#include <liburing.h>"
 .PP
 .BI "int io_uring_enter(unsigned int " fd ", unsigned int " to_submit ,
 .BI "                   unsigned int " min_complete ", unsigned int " flags ,
@@ -1299,11 +1299,10 @@ completion queue entry (see section
 rather than through the system call itself.
 
 Errors that occur not on behalf of a submission queue entry are returned via the
-system call directly. On such an error,
-.B -1
-is returned and
+system call directly. On such an error, a negative error code is returned. The
+caller should not rely on
 .I errno
-is set appropriately.
+variable.
 .PP
 .SH ERRORS
 These are the errors returned by

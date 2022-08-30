@@ -9,7 +9,7 @@
 io_uring_setup \- setup a context for performing asynchronous I/O
 .SH SYNOPSIS
 .nf
-.BR "#include <linux/io_uring.h>"
+.BR "#include <liburing.h>"
 .PP
 .BI "int io_uring_setup(u32 " entries ", struct io_uring_params *" p );
 .fi
@@ -566,11 +566,9 @@ or
 .BR io_uring_enter (2)
 system calls.
 
-On error,
-.B -1
-is returned and
+On error, a negative error code is returned. The caller should not rely on
 .I errno
-is set appropriately.
+variable.
 .PP
 .SH ERRORS
 .TP

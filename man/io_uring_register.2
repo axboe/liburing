@@ -8,7 +8,7 @@
 io_uring_register \- register files or user buffers for asynchronous I/O 
 .SH SYNOPSIS
 .nf
-.BR "#include <linux/io_uring.h>"
+.BR "#include <liburing.h>"
 .PP
 .BI "int io_uring_register(unsigned int " fd ", unsigned int " opcode ,
 .BI "                      void *" arg ", unsigned int " nr_args );
@@ -583,11 +583,10 @@ Available since 5.18.
 
 On success,
 .BR io_uring_register ()
-returns 0.  On error,
-.B -1
-is returned, and
+returns 0.  On error, a negative error code is returned. The caller should not
+rely on
 .I errno
-is set accordingly.
+variable.
 
 .SH ERRORS
 .TP
