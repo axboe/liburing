@@ -62,4 +62,8 @@ LIBURING_2.3 {
 		io_uring_register_file_alloc_range;
 		io_uring_register_notifications;
 		io_uring_unregister_notifications;
+		io_uring_enter;
+		io_uring_enter2;
+		io_uring_setup;
+		io_uring_register;
 } LIBURING_2.2;

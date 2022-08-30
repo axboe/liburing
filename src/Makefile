@@ -32,7 +32,7 @@ endif
 
 all: $(all_targets)
 
-liburing_srcs := setup.c queue.c register.c
+liburing_srcs := setup.c queue.c register.c syscall.c
 
 ifeq ($(CONFIG_NOLIBC),y)
 	liburing_srcs += nolibc.c
