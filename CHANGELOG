@@ -1,6 +1,7 @@
 liburing-2.3 release
 
 - Support non-libc build for aarch64.
+- Add io_uring_{enter,enter2,register,setup} syscall functions.
 
 
 liburing-2.2 release
