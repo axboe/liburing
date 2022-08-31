@@ -161,7 +161,7 @@ again:
 	}
 
 	if (overflow_checked)
-		goto done;
+		return 0;
 
 	if (cq_ring_needs_flush(ring)) {
 		int flags = IORING_ENTER_GETEVENTS;
@@ -173,7 +173,6 @@ again:
 		goto again;
 	}
 
-done:
 	return 0;
 }
 
