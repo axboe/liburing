@@ -957,7 +957,7 @@ static inline void io_uring_prep_msg_ring(struct io_uring_sqe *sqe, int fd,
 
 static inline void io_uring_prep_getxattr(struct io_uring_sqe *sqe,
 					  const char *name,
-					  const char *value,
+					  char *value,
 					  const char *path,
 					  size_t len)
 {
@@ -983,7 +983,7 @@ static inline void io_uring_prep_setxattr(struct io_uring_sqe *sqe,
 static inline void io_uring_prep_fgetxattr(struct io_uring_sqe *sqe,
 		                           int         fd,
 					   const char *name,
-					   const char *value,
+					   char *value,
 					   size_t      len)
 {
 	io_uring_prep_rw(IORING_OP_FGETXATTR, sqe, fd, name, len,
