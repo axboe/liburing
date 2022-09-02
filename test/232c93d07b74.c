@@ -27,11 +27,10 @@
 #define RECV_BUFF_SIZE 2
 #define SEND_BUFF_SIZE 3
 
-#define PORT	0x1234
-
 struct params {
 	int tcp;
 	int non_blocking;
+	__be16 bind_port;
 };
 
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -77,10 +76,9 @@ static void *rcv(void *arg)
 		struct sockaddr_in addr;
 
 		addr.sin_family = AF_INET;
-		addr.sin_port = htons(PORT);
 		addr.sin_addr.s_addr = inet_addr("127.0.0.1");
-		res = bind(s0, (struct sockaddr *) &addr, sizeof(addr));
-		assert(res != -1);
+		assert(t_bind_ephemeral_port(s0, &addr) == 0);
+		p->bind_port = addr.sin_port;
 	} else {
 		s0 = socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0);
 		assert(s0 != -1);
@@ -192,7 +190,7 @@ static void *snd(void *arg)
 		struct sockaddr_in addr;
 
 		addr.sin_family = AF_INET;
-		addr.sin_port = htons(PORT);
+		addr.sin_port = p->bind_port;
 		addr.sin_addr.s_addr = inet_addr("127.0.0.1");
 		ret = connect(s0, (struct sockaddr*) &addr, sizeof(addr));
 		assert(ret != -1);
