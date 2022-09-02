@@ -23,6 +23,13 @@ enum t_test_result {
 };
 
 /*
+ * Helper for binding socket to an ephemeral port.
+ * The port number to be bound is returned in @addr->sin_port.
+ */
+int t_bind_ephemeral_port(int fd, struct sockaddr_in *addr);
+
+
+/*
  * Helper for allocating memory in tests.
  */
 void *t_malloc(size_t size);

@@ -29,6 +29,24 @@ void *t_malloc(size_t size)
 }
 
 /*
+ * Helper for binding socket to an ephemeral port.
+ * The port number to be bound is returned in @addr->sin_port.
+ */
+int t_bind_ephemeral_port(int fd, struct sockaddr_in *addr)
+{
+	socklen_t addrlen;
+
+	addr->sin_port = 0;
+	if (bind(fd, (struct sockaddr *)addr, sizeof(*addr)))
+		return -errno;
+
+	addrlen = sizeof(*addr);
+	assert(!getsockname(fd, (struct sockaddr *)addr, &addrlen));
+	assert(addr->sin_port != 0);
+	return 0;
+}
+
+/*
  * Helper for allocating size bytes aligned on a boundary.
  */
 void t_posix_memalign(void **memptr, size_t alignment, size_t size)
