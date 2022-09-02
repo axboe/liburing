@@ -3,6 +3,7 @@
  * Test MSG_WAITALL for recv/recvmsg and include normal sync versions just
  * for comparison.
  */
+#include <assert.h>
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -19,13 +20,11 @@
 
 #define MAX_MSG	128
 
-static int port = 31200;
-
 struct recv_data {
 	pthread_mutex_t mutex;
 	int use_recvmsg;
 	int use_sync;
-	int port;
+	__be16 port;
 };
 
 static int get_conn_sock(struct recv_data *rd, int *sockout)
@@ -36,7 +35,6 @@ static int get_conn_sock(struct recv_data *rd, int *sockout)
 	memset(&saddr, 0, sizeof(saddr));
 	saddr.sin_family = AF_INET;
 	saddr.sin_addr.s_addr = htonl(INADDR_ANY);
-	saddr.sin_port = htons(rd->port);
 
 	sockfd = socket(AF_INET, SOCK_STREAM | SOCK_CLOEXEC, IPPROTO_TCP);
 	if (sockfd < 0) {
@@ -48,11 +46,11 @@ static int get_conn_sock(struct recv_data *rd, int *sockout)
 	setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &val, sizeof(val));
 	setsockopt(sockfd, SOL_SOCKET, SO_REUSEPORT, &val, sizeof(val));
 
-	ret = bind(sockfd, (struct sockaddr *)&saddr, sizeof(saddr));
-	if (ret < 0) {
+	if (t_bind_ephemeral_port(sockfd, &saddr)) {
 		perror("bind");
 		goto err;
 	}
+	rd->port = saddr.sin_port;
 
 	ret = listen(sockfd, 16);
 	if (ret < 0) {
@@ -279,11 +277,6 @@ static int do_send(struct recv_data *rd)
 	for (i = 0; i < MAX_MSG; i++)
 		buf[i] = i;
 
-	memset(&saddr, 0, sizeof(saddr));
-	saddr.sin_family = AF_INET;
-	saddr.sin_port = htons(rd->port);
-	inet_pton(AF_INET, "127.0.0.1", &saddr.sin_addr);
-
 	sockfd = socket(AF_INET, SOCK_STREAM | SOCK_CLOEXEC, IPPROTO_TCP);
 	if (sockfd < 0) {
 		perror("socket");
@@ -291,6 +284,11 @@ static int do_send(struct recv_data *rd)
 	}
 
 	pthread_mutex_lock(&rd->mutex);
+	assert(rd->port != 0);
+	memset(&saddr, 0, sizeof(saddr));
+	saddr.sin_family = AF_INET;
+	saddr.sin_port = rd->port;
+	inet_pton(AF_INET, "127.0.0.1", &saddr.sin_addr);
 
 	ret = connect(sockfd, (struct sockaddr *)&saddr, sizeof(saddr));
 	if (ret < 0) {
@@ -351,7 +349,7 @@ static int test(int use_recvmsg, int use_sync)
 	pthread_mutex_lock(&rd.mutex);
 	rd.use_recvmsg = use_recvmsg;
 	rd.use_sync = use_sync;
-	rd.port = port++;
+	rd.port = 0;
 
 	ret = pthread_create(&recv_thread, NULL, recv_fn, &rd);
 	if (ret) {
