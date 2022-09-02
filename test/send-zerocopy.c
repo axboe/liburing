@@ -239,7 +239,7 @@ static int prepare_ip(struct sockaddr_storage *addr, int *sock_client, int *sock
 static int do_test_inet_send(struct io_uring *ring, int sock_client, int sock_server,
 			     bool fixed_buf, struct sockaddr_storage *addr,
 			     size_t send_size, bool cork, bool mix_register,
-			     int buf_idx)
+			     int buf_idx, bool force_async)
 {
 	const unsigned zc_flags = 0;
 	struct io_uring_sqe *sqe;
@@ -285,6 +285,8 @@ static int do_test_inet_send(struct io_uring *ring, int sock_client, int sock_se
 			io_uring_prep_send_set_addr(sqe, (const struct sockaddr *)addr,
 						    addr_len);
 		}
+		if (force_async)
+			sqe->flags |= IOSQE_ASYNC;
 	}
 
 	ret = io_uring_submit(ring);
@@ -389,7 +391,7 @@ static int test_inet_send(struct io_uring *ring)
 			return 1;
 		}
 
-		for (i = 0; i < 128; i++) {
+		for (i = 0; i < 256; i++) {
 			bool fixed_buf = i & 1;
 			struct sockaddr_storage *addr_arg = (i & 2) ? &addr : NULL;
 			size_t size = (i & 4) ? 137 : 4096;
@@ -398,6 +400,7 @@ static int test_inet_send(struct io_uring *ring)
 			bool aligned = i & 32;
 			bool large_buf = i & 64;
 			int buf_idx = aligned ? 0 : 1;
+			bool force_async = i & 128;
 
 			if (!tcp || !large_buf)
 				continue;
@@ -418,7 +421,7 @@ static int test_inet_send(struct io_uring *ring)
 
 			ret = do_test_inet_send(ring, sock_client, sock_server, fixed_buf,
 						addr_arg, size, cork, mix_register,
-						buf_idx);
+						buf_idx, force_async);
 			if (ret) {
 				fprintf(stderr, "send failed fixed buf %i, conn %i, addr %i, "
 					"cork %i\n",
