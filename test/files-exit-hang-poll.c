@@ -19,8 +19,6 @@
 
 #define BACKLOG 512
 
-#define PORT 9100
-
 static struct io_uring ring;
 
 static void add_poll(struct io_uring *ring, int fd)
@@ -64,7 +62,6 @@ int main(int argc, char *argv[])
 	struct io_uring_cqe *cqe;
 	int ret, sock_listen_fd;
 	const int val = 1;
-	int i;
 
 	if (argc > 1)
 		return T_EXIT_SKIP;
@@ -81,20 +78,9 @@ int main(int argc, char *argv[])
 	serv_addr.sin_family = AF_INET;
 	serv_addr.sin_addr.s_addr = INADDR_ANY;
 
-	for (i = 0; i < 100; i++) {
-		serv_addr.sin_port = htons(PORT + i);
-
-		ret = bind(sock_listen_fd, (struct sockaddr *)&serv_addr, sizeof(serv_addr));
-		if (!ret)
-			break;
-		if (errno != EADDRINUSE) {
-			fprintf(stderr, "bind: %s\n", strerror(errno));
-			return T_EXIT_FAIL;
-		}
-		if (i == 99) {
-			printf("Gave up on finding a port, skipping\n");
-			goto skip;
-		}
+	if (t_bind_ephemeral_port(sock_listen_fd, &serv_addr)) {
+		perror("bind");
+		return T_EXIT_FAIL;
 	}
 
 	if (listen(sock_listen_fd, BACKLOG) < 0) {
@@ -125,7 +111,4 @@ int main(int argc, char *argv[])
 
 	io_uring_queue_exit(&ring);
 	return T_EXIT_PASS;
-skip:
-	io_uring_queue_exit(&ring);
-	return T_EXIT_SKIP;
 }
