@@ -44,7 +44,6 @@
 static bool cfg_reg_ringfd = true;
 static bool cfg_fixed_files = 1;
 static bool cfg_zc = 1;
-static bool cfg_flush = 0;
 static int  cfg_nr_reqs = 8;
 static bool cfg_fixed_buf = 1;
 
@@ -146,13 +145,6 @@ static void do_tx(int domain, int type, int protocol)
 	if (ret)
 		error(1, ret, "io_uring: queue init");
 
-	if (cfg_zc) {
-		struct io_uring_notification_slot b[1] = {{.tag = ZC_TAG}};
-
-		ret = io_uring_register_notifications(&ring, 1, b);
-		if (ret)
-			error(1, ret, "io_uring: tx ctx registration");
-	}
 	if (cfg_fixed_files) {
 		ret = io_uring_register_files(&ring, &fd, 1);
 		if (ret < 0)
@@ -175,14 +167,8 @@ static void do_tx(int domain, int type, int protocol)
 	do {
 		struct io_uring_sqe *sqe;
 		struct io_uring_cqe *cqe;
-		unsigned zc_flags = 0;
 		unsigned buf_idx = 0;
-		unsigned slot_idx = 0;
-		unsigned msg_flags = 0;
-
-		compl_cqes += cfg_flush ? cfg_nr_reqs : 0;
-		if (cfg_flush)
-			zc_flags |= IORING_RECVSEND_NOTIF_FLUSH;
+		unsigned msg_flags = MSG_WAITALL;
 
 		for (i = 0; i < cfg_nr_reqs; i++) {
 			sqe = io_uring_get_sqe(&ring);
@@ -190,22 +176,22 @@ static void do_tx(int domain, int type, int protocol)
 			if (!cfg_zc)
 				io_uring_prep_send(sqe, fd, payload,
 						   cfg_payload_len, 0);
-			else if (cfg_fixed_buf)
-				io_uring_prep_sendzc_fixed(sqe, fd, payload,
-							   cfg_payload_len,
-							   msg_flags, slot_idx,
-							   zc_flags, buf_idx);
-			else
-				io_uring_prep_sendzc(sqe, fd, payload,
-						     cfg_payload_len, msg_flags,
-						     slot_idx, zc_flags);
-
+			else {
+				io_uring_prep_send_zc(sqe, fd, payload,
+						     cfg_payload_len, msg_flags, 0);
+				if (cfg_fixed_buf) {
+					sqe->ioprio |= IORING_RECVSEND_FIXED_BUF;
+					sqe->buf_index = buf_idx;
+				}
+			}
 			sqe->user_data = 1;
 			if (cfg_fixed_files) {
 				sqe->fd = 0;
 				sqe->flags |= IOSQE_FIXED_FILE;
 			}
 		}
+		if (cfg_zc)
+			compl_cqes += cfg_nr_reqs;
 
 		ret = io_uring_submit(&ring);
 		if (ret != cfg_nr_reqs)
@@ -214,27 +200,26 @@ static void do_tx(int domain, int type, int protocol)
 		for (i = 0; i < cfg_nr_reqs; i++) {
 			cqe = wait_cqe_fast(&ring);
 
-			if (cqe->user_data == ZC_TAG) {
+			if (cqe->flags & IORING_CQE_F_NOTIF) {
+				if (cqe->flags & IORING_CQE_F_MORE)
+					error(1, -EINVAL, "F_MORE notif");
 				compl_cqes--;
 				i--;
-			} else if (cqe->user_data != 1) {
-				error(1, cqe->user_data, "invalid user_data");
-			} else if (cqe->res > 0) {
+			} else if (cqe->res >= 0) {
+				if (!(cqe->flags & IORING_CQE_F_MORE) && cfg_zc)
+					error(1, -EINVAL, "no F_MORE");
 				packets++;
 				bytes += cqe->res;
 			} else if (cqe->res == -EAGAIN) {
-				/* request failed, don't flush */
-				if (cfg_flush)
+				if (cfg_zc)
 					compl_cqes--;
-			} else if (cqe->res == -ECONNREFUSED ||
-				   cqe->res == -ECONNRESET ||
-				   cqe->res == -EPIPE) {
-				fprintf(stderr, "Connection failure\n");
+			} else if (cqe->res == -ECONNREFUSED || cqe->res == -EPIPE ||
+				   cqe->res == -ECONNRESET) {
+				fprintf(stderr, "Connection failure");
 				goto out_fail;
 			} else {
 				error(1, cqe->res, "send failed");
 			}
-
 			io_uring_cqe_seen(&ring, cqe);
 		}
 	} while (gettimeofday_ms() < tstop);
@@ -255,12 +240,6 @@ out_fail:
 		io_uring_cqe_seen(&ring, cqe);
 		compl_cqes--;
 	}
-
-	if (cfg_zc) {
-		ret = io_uring_unregister_notifications(&ring);
-		if (ret)
-			error(1, ret, "io_uring: tx ctx unregistration");
-	}
 	io_uring_queue_exit(&ring);
 }
 
@@ -276,7 +255,7 @@ static void do_test(int domain, int type, int protocol)
 
 static void usage(const char *filepath)
 {
-	error(1, 0, "Usage: %s [-f] [-n<N>] [-z0] [-s<payload size>] "
+	error(1, 0, "Usage: %s [-n<N>] [-z<val>] [-s<payload size>] "
 		    "(-4|-6) [-t<time s>] -D<dst_ip> udp", filepath);
 }
 
@@ -294,7 +273,7 @@ static void parse_opts(int argc, char **argv)
 
 	cfg_payload_len = max_payload_len;
 
-	while ((c = getopt(argc, argv, "46D:p:s:t:n:fz:b:k")) != -1) {
+	while ((c = getopt(argc, argv, "46D:p:s:t:n:z:b:k")) != -1) {
 		switch (c) {
 		case '4':
 			if (cfg_family != PF_UNSPEC)
@@ -323,9 +302,6 @@ static void parse_opts(int argc, char **argv)
 		case 'n':
 			cfg_nr_reqs = strtoul(optarg, NULL, 0);
 			break;
-		case 'f':
-			cfg_flush = 1;
-			break;
 		case 'z':
 			cfg_zc = strtoul(optarg, NULL, 0);
 			break;
@@ -337,8 +313,6 @@ static void parse_opts(int argc, char **argv)
 
 	if (cfg_nr_reqs > MAX_SUBMIT_NR)
 		error(1, 0, "-n: submit batch nr exceeds max (%d)", MAX_SUBMIT_NR);
-	if (cfg_flush && !cfg_zc)
-		error(1, 0, "cfg_flush should be used with zc only");
 	if (cfg_payload_len > max_payload_len)
 		error(1, 0, "-s: payload exceeds max (%d)", max_payload_len);
 
