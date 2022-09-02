@@ -11,6 +11,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <pthread.h>
+#include <assert.h>
 
 #include "liburing.h"
 #include "helpers.h"
@@ -19,10 +20,10 @@ static char str[] = "This is a test of send and recv over io_uring!";
 
 #define MAX_MSG	128
 
-#define PORT	10202
 #define HOST	"127.0.0.1"
 
 static int no_socket;
+static __be32 g_port;
 
 static int recv_prep(struct io_uring *ring, struct iovec *iov, int *sock,
 		     int registerfiles)
@@ -34,7 +35,6 @@ static int recv_prep(struct io_uring *ring, struct iovec *iov, int *sock,
 	memset(&saddr, 0, sizeof(saddr));
 	saddr.sin_family = AF_INET;
 	saddr.sin_addr.s_addr = htonl(INADDR_ANY);
-	saddr.sin_port = htons(PORT);
 
 	sockfd = socket(AF_INET, SOCK_DGRAM, 0);
 	if (sockfd < 0) {
@@ -45,11 +45,11 @@ static int recv_prep(struct io_uring *ring, struct iovec *iov, int *sock,
 	val = 1;
 	setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &val, sizeof(val));
 
-	ret = bind(sockfd, (struct sockaddr *)&saddr, sizeof(saddr));
-	if (ret < 0) {
+	if (t_bind_ephemeral_port(sockfd, &saddr)) {
 		perror("bind");
 		goto err;
 	}
+	g_port = saddr.sin_port;
 
 	if (registerfiles) {
 		ret = io_uring_register_files(ring, &sockfd, 1);
@@ -244,9 +244,10 @@ static int do_send(int socket_direct, int alloc)
 		}
 	}
 
+	assert(g_port != 0);
 	memset(&saddr, 0, sizeof(saddr));
 	saddr.sin_family = AF_INET;
-	saddr.sin_port = htons(PORT);
+	saddr.sin_port = g_port;
 	inet_pton(AF_INET, HOST, &saddr.sin_addr);
 
 	sqe = io_uring_get_sqe(&ring);
