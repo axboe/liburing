@@ -16,9 +16,8 @@
 #include "helpers.h"
 
 #define MAX_MSG	128
-
-#define PORT	10201
 #define HOST	"127.0.0.1"
+static __be16 bind_port;
 
 static int recv_prep(struct io_uring *ring, struct iovec *iov, int *sock,
 		     int use_recvmsg)
@@ -31,7 +30,6 @@ static int recv_prep(struct io_uring *ring, struct iovec *iov, int *sock,
 	memset(&saddr, 0, sizeof(saddr));
 	saddr.sin_family = AF_INET;
 	saddr.sin_addr.s_addr = htonl(INADDR_ANY);
-	saddr.sin_port = htons(PORT);
 
 	sockfd = socket(AF_INET, SOCK_DGRAM, 0);
 	if (sockfd < 0) {
@@ -42,11 +40,11 @@ static int recv_prep(struct io_uring *ring, struct iovec *iov, int *sock,
 	val = 1;
 	setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &val, sizeof(val));
 
-	ret = bind(sockfd, (struct sockaddr *)&saddr, sizeof(saddr));
-	if (ret < 0) {
+	if (t_bind_ephemeral_port(sockfd, &saddr)) {
 		perror("bind");
 		goto err;
 	}
+	bind_port = saddr.sin_port;
 
 	sqe = io_uring_get_sqe(ring);
 	if (!use_recvmsg) {
@@ -165,7 +163,7 @@ static int do_send(void)
 
 	memset(&saddr, 0, sizeof(saddr));
 	saddr.sin_family = AF_INET;
-	saddr.sin_port = htons(PORT);
+	saddr.sin_port = bind_port;
 	inet_pton(AF_INET, HOST, &saddr.sin_addr);
 
 	sockfd = socket(AF_INET, SOCK_DGRAM, 0);
