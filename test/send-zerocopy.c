@@ -836,6 +836,69 @@ static int test_inet_send(struct io_uring *ring)
 	return 0;
 }
 
+static int test_async_addr(struct io_uring *ring)
+{
+	struct io_uring_sqe *sqe;
+	struct io_uring_cqe *cqe;
+	struct sockaddr_storage addr;
+	int sock_tx = -1, sock_rx = -1;
+	struct __kernel_timespec ts;
+	int ret;
+
+	ret = prepare_ip(&addr, &sock_tx, &sock_rx, true, false, false, false);
+	if (ret) {
+		fprintf(stderr, "sock prep failed %d\n", ret);
+		return 1;
+	}
+
+	sqe = io_uring_get_sqe(ring);
+	ts.tv_sec = 1;
+	ts.tv_nsec = 0;
+	io_uring_prep_timeout(sqe, &ts, 0, IORING_TIMEOUT_ETIME_SUCCESS);
+	sqe->user_data = 1;
+	sqe->flags |= IOSQE_IO_LINK;
+
+	sqe = io_uring_get_sqe(ring);
+	io_uring_prep_sendzc(sqe, sock_tx, tx_buffer, 1, 0, 0, 0);
+	sqe->user_data = 2;
+	io_uring_prep_sendzc_set_addr(sqe, (const struct sockaddr *)&addr,
+				      sizeof(struct sockaddr_in6));
+
+	ret = io_uring_submit(ring);
+	assert(ret == 2);
+	memset(&addr, 0, sizeof(addr));
+
+	ret = io_uring_wait_cqe(ring, &cqe);
+	if (ret) {
+		fprintf(stderr, "io_uring_wait_cqe failed %i\n", ret);
+		return 1;
+	}
+	if (cqe->user_data != 1 || cqe->res != -ETIME) {
+		fprintf(stderr, "invalid timeout res %i %i\n",
+			(int)cqe->user_data, cqe->res);
+		return 1;
+	}
+	io_uring_cqe_seen(ring, cqe);
+
+	ret = io_uring_wait_cqe(ring, &cqe);
+	if (ret) {
+		fprintf(stderr, "io_uring_wait_cqe failed %i\n", ret);
+		return 1;
+	}
+	if (cqe->user_data != 2 || cqe->res != 1) {
+		fprintf(stderr, "invalid send %i %i\n",
+			(int)cqe->user_data, cqe->res);
+		return 1;
+	}
+	io_uring_cqe_seen(ring, cqe);
+	ret = recv(sock_rx, rx_buffer, 1, MSG_TRUNC);
+	assert(ret == 1);
+
+	close(sock_tx);
+	close(sock_rx);
+	return 0;
+}
+
 int main(int argc, char *argv[])
 {
 	struct io_uring ring;
@@ -971,6 +1034,12 @@ int main(int argc, char *argv[])
 	ret = test_inet_send(&ring);
 	if (ret) {
 		fprintf(stderr, "test_inet_send() failed\n");
+		return ret;
+	}
+
+	ret = test_async_addr(&ring);
+	if (ret) {
+		fprintf(stderr, "test_async_addr() failed\n");
 		return ret;
 	}
 out:
