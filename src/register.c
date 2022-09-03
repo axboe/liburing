@@ -94,7 +94,7 @@ int io_uring_register_files_update_tag(struct io_uring *ring, unsigned off,
  * Returns number of files updated on success, -ERROR on failure.
  */
 int io_uring_register_files_update(struct io_uring *ring, unsigned off,
-				   int *files, unsigned nr_files)
+				   const int *files, unsigned nr_files)
 {
 	struct io_uring_files_update up = {
 		.offset	= off,
