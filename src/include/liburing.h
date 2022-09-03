@@ -170,7 +170,7 @@ int io_uring_register_files_update_tag(struct io_uring *ring, unsigned off,
 
 int io_uring_unregister_files(struct io_uring *ring);
 int io_uring_register_files_update(struct io_uring *ring, unsigned off,
-				   int *files, unsigned nr_files);
+				   const int *files, unsigned nr_files);
 int io_uring_register_eventfd(struct io_uring *ring, int fd);
 int io_uring_register_eventfd_async(struct io_uring *ring, int fd);
 int io_uring_unregister_eventfd(struct io_uring *ring);
