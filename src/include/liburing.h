@@ -33,6 +33,42 @@
 #define uring_likely(cond)	__builtin_expect(!!(cond), 1)
 #endif
 
+#ifdef __alpha__
+/*
+ * alpha and mips are the exceptions, all other architectures have
+ * common numbers for new system calls.
+ */
+#ifndef __NR_io_uring_setup
+#define __NR_io_uring_setup		535
+#endif
+#ifndef __NR_io_uring_enter
+#define __NR_io_uring_enter		536
+#endif
+#ifndef __NR_io_uring_register
+#define __NR_io_uring_register		537
+#endif
+#elif defined __mips__
+#ifndef __NR_io_uring_setup
+#define __NR_io_uring_setup		(__NR_Linux + 425)
+#endif
+#ifndef __NR_io_uring_enter
+#define __NR_io_uring_enter		(__NR_Linux + 426)
+#endif
+#ifndef __NR_io_uring_register
+#define __NR_io_uring_register		(__NR_Linux + 427)
+#endif
+#else /* !__alpha__ and !__mips__ */
+#ifndef __NR_io_uring_setup
+#define __NR_io_uring_setup		425
+#endif
+#ifndef __NR_io_uring_enter
+#define __NR_io_uring_enter		426
+#endif
+#ifndef __NR_io_uring_register
+#define __NR_io_uring_register		427
+#endif
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
