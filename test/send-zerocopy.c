@@ -44,7 +44,7 @@
 #define HOST	"127.0.0.1"
 #define HOSTV6	"::1"
 
-#define ZC_TAG 10000
+#define RX_TAG 10000
 #define BUFFER_OFFSET 41
 
 #ifndef ARRAY_SIZE
@@ -250,8 +250,6 @@ static int do_test_inet_send(struct io_uring *ring, int sock_client, int sock_se
 	size_t chunk_size = send_size / nr_reqs;
 	size_t chunk_size_last = send_size - chunk_size * (nr_reqs - 1);
 	char *buf = buffers_iov[buf_idx].iov_base;
-	pid_t p;
-	int wstatus;
 
 	memset(rx_buffer, 0, send_size);
 
@@ -289,42 +287,17 @@ static int do_test_inet_send(struct io_uring *ring, int sock_client, int sock_se
 			sqe->flags |= IOSQE_ASYNC;
 	}
 
+	sqe = io_uring_get_sqe(ring);
+	io_uring_prep_recv(sqe, sock_server, rx_buffer, send_size, MSG_WAITALL);
+	sqe->user_data = RX_TAG;
+
 	ret = io_uring_submit(ring);
-	if (ret != nr_reqs) {
+	if (ret != nr_reqs + 1) {
 		fprintf(stderr, "submit failed, got %i expected %i\n", ret, nr_reqs);
 		return 1;
 	}
 
-	p = fork();
-	if (p == -1) {
-		fprintf(stderr, "fork() failed\n");
-		return 1;
-	} else if (p == 0) {
-		size_t bytes_received = 0;
-
-		while (bytes_received != send_size) {
-			ret = recv(sock_server,
-				   rx_buffer + bytes_received,
-				   send_size - bytes_received, 0);
-			if (ret <= 0) {
-				fprintf(stderr, "recv failed, got %i, errno %i\n",
-					ret, errno);
-				exit(1);
-			}
-			bytes_received += ret;
-		}
-
-		for (i = 0; i < send_size; i++) {
-			if (buf[i] != rx_buffer[i]) {
-				fprintf(stderr, "botched data, first mismated byte %i, "
-					"%u vs %u\n", i, buf[i], rx_buffer[i]);
-				exit(1);
-			}
-		}
-		exit(0);
-	}
-
-	nr_cqes = 2 * nr_reqs;
+	nr_cqes = 2 * nr_reqs + 1;
 	for (i = 0; i < nr_cqes; i++) {
 		int expected = chunk_size;
 
@@ -333,8 +306,18 @@ static int do_test_inet_send(struct io_uring *ring, int sock_client, int sock_se
 			fprintf(stderr, "io_uring_wait_cqe failed %i\n", ret);
 			return 1;
 		}
+		if (cqe->user_data == RX_TAG) {
+			if (cqe->res != send_size) {
+				fprintf(stderr, "rx failed %i\n", cqe->res);
+				return 1;
+			}
+			io_uring_cqe_seen(ring, cqe);
+			continue;
+		}
+
 		if (cqe->user_data >= nr_reqs) {
-			fprintf(stderr, "invalid user_data\n");
+			fprintf(stderr, "invalid user_data %lu\n",
+					(unsigned long)cqe->user_data);
 			return 1;
 		}
 		if (!(cqe->flags & IORING_CQE_F_NOTIF)) {
@@ -354,17 +337,12 @@ static int do_test_inet_send(struct io_uring *ring, int sock_client, int sock_se
 		io_uring_cqe_seen(ring, cqe);
 	}
 
-	if (waitpid(p, &wstatus, 0) == (pid_t)-1) {
-		perror("waitpid()");
-		return 1;
-	}
-	if (!WIFEXITED(wstatus)) {
-		fprintf(stderr, "child failed %i\n", WEXITSTATUS(wstatus));
-		return 1;
-	}
-	if (WEXITSTATUS(wstatus)) {
-		fprintf(stderr, "child failed\n");
-		return 1;
+	for (i = 0; i < send_size; i++) {
+		if (buf[i] != rx_buffer[i]) {
+			fprintf(stderr, "botched data, first mismated byte %i, "
+				"%u vs %u\n", i, buf[i], rx_buffer[i]);
+			return 1;
+		}
 	}
 	return 0;
 }
