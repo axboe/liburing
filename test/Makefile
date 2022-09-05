@@ -62,6 +62,7 @@ test_srcs := \
 	d4ae271dfaae.c \
 	d77a67ed5f27.c \
 	defer.c \
+	defer-taskrun.c \
 	double-poll-crash.c \
 	drop-submit.c \
 	eeed8b54e0df.c \
