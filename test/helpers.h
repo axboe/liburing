@@ -82,6 +82,8 @@ enum t_setup_ret t_register_buffers(struct io_uring *ring,
 				    const struct iovec *iovecs,
 				    unsigned nr_iovecs);
 
+bool t_probe_defer_taskrun(void);
+
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
 
 #ifdef __cplusplus

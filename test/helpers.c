@@ -75,7 +75,7 @@ static void __t_create_file(const char *file, size_t size, char pattern)
 {
 	ssize_t ret;
 	char *buf;
-	int fd; 
+	int fd;
 
 	buf = t_malloc(size);
 	memset(buf, pattern, size);
@@ -112,7 +112,7 @@ struct iovec *t_create_buffers(size_t buf_num, size_t buf_size)
 	vecs = t_malloc(buf_num * sizeof(struct iovec));
 	for (i = 0; i < buf_num; i++) {
 		t_posix_memalign(&vecs[i].iov_base, buf_size, buf_size);
-		vecs[i].iov_len = buf_size; 
+		vecs[i].iov_len = buf_size;
 	}
 	return vecs;
 }
@@ -252,4 +252,17 @@ errno_cleanup:
 	close(fd[0]);
 	close(fd[1]);
 	return ret;
+}
+
+bool t_probe_defer_taskrun(void)
+{
+	struct io_uring ring;
+	int ret;
+
+	ret = io_uring_queue_init(1, &ring, IORING_SETUP_SINGLE_ISSUER |
+					    IORING_SETUP_DEFER_TASKRUN);
+	if (ret < 0)
+		return false;
+	io_uring_queue_exit(&ring);
+	return true;
 }
