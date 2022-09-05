@@ -257,6 +257,25 @@ how many userspace tasks do
 .I
 io_uring_enter(2).
 Available since 5.20.
+.TP
+.B IORING_SETUP_DEFER_TASKRUN
+By default, io_uring will process all outstanding work at the end of any system
+call or thread interrupt. This can delay the application from making other progress.
+Setting this flag will hint to io_uring that it should defer work until an
+.BR io_uring_enter(2)
+call with the 
+.B IORING_ENTER_GETEVENTS
+flag set. This allows the application to request work to run just before it wants to
+process completions.
+This flag requires the
+.BR IORING_SETUP_SINGLE_ISSUER
+flag to be set, and also enforces that the call to
+.BR io_uring_enter(2)
+is called from the same thread that submitted requests.
+Note that if this flag is set then it is the application's responsibility to periodically
+trigger work (for example via any of the CQE waiting functions) or else completions may
+not be delivered.
+Available since 6.1.
 .PP
 If no flags are specified, the io_uring instance is setup for
 interrupt driven I/O.  I/O may be submitted using
