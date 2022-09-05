@@ -156,6 +156,7 @@ int main(int argc, char *argv[])
 		ret = write(fd, buf, BUF_SIZE);
 		if (ret != BUF_SIZE) {
 			fprintf(stderr, "bad file prep write\n");
+			close(fd);
 			goto err;
 		}
 	}
@@ -164,32 +165,36 @@ int main(int argc, char *argv[])
 	ret = test(fname, 1, 0);
 	if (ret) {
 		fprintf(stderr, "dio test failed\n");
-		return ret;
+		goto err;
 	}
 	if (no_buf_ring)
-		return 0;
+		goto pass;
 
 	ret = test(fname, 0, 0);
 	if (ret) {
 		fprintf(stderr, "buffered test failed\n");
-		return ret;
+		goto err;
 	}
 
 	ret = test(fname, 1, 1);
 	if (ret) {
 		fprintf(stderr, "dio async test failed\n");
-		return ret;
+		goto err;
 	}
 
 	ret = test(fname, 0, 1);
 	if (ret) {
 		fprintf(stderr, "buffered async test failed\n");
-		return ret;
+		goto err;
 	}
 
-	return 0;
+pass:
+	ret = T_EXIT_PASS;
+	goto out;
 err:
+	ret = T_EXIT_FAIL;
+out:
 	if (do_unlink)
 		unlink(fname);
-	return 1;
+	return ret;
 }
