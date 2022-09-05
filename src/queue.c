@@ -130,6 +130,15 @@ int __io_uring_get_cqe(struct io_uring *ring, struct io_uring_cqe **cqe_ptr,
 	return _io_uring_get_cqe(ring, cqe_ptr, &data);
 }
 
+int io_uring_get_events(struct io_uring *ring)
+{
+	int flags = IORING_ENTER_GETEVENTS;
+
+	if (ring->int_flags & INT_FLAG_REG_RING)
+		flags |= IORING_ENTER_REGISTERED_RING;
+	return __sys_io_uring_enter(ring->enter_ring_fd, 0, 0, flags, NULL);
+}
+
 /*
  * Fill in an array of IO completions up to count, if any are available.
  * Returns the amount of IO completions filled.
@@ -164,11 +173,7 @@ again:
 		return 0;
 
 	if (cq_ring_needs_flush(ring)) {
-		int flags = IORING_ENTER_GETEVENTS;
-
-		if (ring->int_flags & INT_FLAG_REG_RING)
-			flags |= IORING_ENTER_REGISTERED_RING;
-		__sys_io_uring_enter(ring->enter_ring_fd, 0, 0, flags, NULL);
+		io_uring_get_events(ring);
 		overflow_checked = true;
 		goto again;
 	}
@@ -340,9 +345,9 @@ int io_uring_wait_cqe_timeout(struct io_uring *ring,
  * Returns number of sqes submitted
  */
 static int __io_uring_submit(struct io_uring *ring, unsigned submitted,
-			     unsigned wait_nr)
+			     unsigned wait_nr, bool getevents)
 {
-	bool cq_needs_enter = wait_nr || cq_ring_needs_enter(ring);
+	bool cq_needs_enter = getevents || wait_nr || cq_ring_needs_enter(ring);
 	unsigned flags;
 	int ret;
 
@@ -363,7 +368,7 @@ static int __io_uring_submit(struct io_uring *ring, unsigned submitted,
 
 static int __io_uring_submit_and_wait(struct io_uring *ring, unsigned wait_nr)
 {
-	return __io_uring_submit(ring, __io_uring_flush_sq(ring), wait_nr);
+	return __io_uring_submit(ring, __io_uring_flush_sq(ring), wait_nr, false);
 }
 
 /*
@@ -384,6 +389,11 @@ int io_uring_submit(struct io_uring *ring)
 int io_uring_submit_and_wait(struct io_uring *ring, unsigned wait_nr)
 {
 	return __io_uring_submit_and_wait(ring, wait_nr);
+}
+
+int io_uring_submit_and_get_events(struct io_uring *ring)
+{
+	return __io_uring_submit(ring, __io_uring_flush_sq(ring), 0, true);
 }
 
 #ifdef LIBURING_INTERNAL

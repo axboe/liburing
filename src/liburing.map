@@ -66,4 +66,6 @@ LIBURING_2.3 {
 		io_uring_enter2;
 		io_uring_setup;
 		io_uring_register;
+		io_uring_get_events;
+		io_uring_submit_and_get_events;
 } LIBURING_2.2;
