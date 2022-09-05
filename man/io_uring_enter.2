@@ -1330,7 +1330,18 @@ is a valid file descriptor, but the io_uring ring is not in the right state
 for details on how to enable the ring.
 .TP
 .B EBUSY
-The application is attempting to overcommit the number of requests it can have
+If the
+.B IORING_FEAT_NODROP
+feature flag is set, then
+.B EBUSY
+will be returned if there were overflow entries,
+.B IORING_ENTER_GETEVENTS
+flag is set and not all of the overflow entries were able to be flushed to
+the CQ ring.
+
+Without
+.B IORING_FEAT_NODROP
+the application is attempting to overcommit the number of requests it can have
 pending. The application should wait for some completions and try again. May
 occur if the application tries to queue more requests than we have room for in
 the CQ ring, or if the application attempts to wait for more events without
