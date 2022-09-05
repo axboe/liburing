@@ -285,6 +285,8 @@ static int do_test_inet_send(struct io_uring *ring, int sock_client, int sock_se
 		}
 		if (force_async)
 			sqe->flags |= IOSQE_ASYNC;
+		if (cork && i != nr_reqs - 1)
+			sqe->flags |= IOSQE_IO_LINK;
 	}
 
 	sqe = io_uring_get_sqe(ring);
@@ -380,11 +382,9 @@ static int test_inet_send(struct io_uring *ring)
 			int buf_idx = aligned ? 0 : 1;
 			bool force_async = i & 128;
 
-			if (!tcp || !large_buf)
-				continue;
 			if (large_buf) {
 				buf_idx = 2;
-				if (!aligned || !tcp || small_send)
+				if (!aligned || !tcp || small_send || cork)
 					continue;
 			}
 			if (!buffers_iov[buf_idx].iov_base)
