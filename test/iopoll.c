@@ -274,13 +274,17 @@ ok:
 }
 
 static int test_io(const char *file, int write, int sqthread, int fixed,
-		   int buf_select)
+		   int buf_select, int defer)
 {
 	struct io_uring ring;
 	int ret, ring_flags = IORING_SETUP_IOPOLL;
 
 	if (no_iopoll)
 		return 0;
+
+	if (defer)
+		ring_flags |= IORING_SETUP_SINGLE_ISSUER |
+			      IORING_SETUP_DEFER_TASKRUN;
 
 	ret = t_create_ring(64, &ring, ring_flags);
 	if (ret == T_SETUP_SKIP)
@@ -337,19 +341,22 @@ int main(int argc, char *argv[])
 
 	vecs = t_create_buffers(BUFFERS, BS);
 
-	nr = 16;
+	nr = 32;
 	if (no_buf_select)
 		nr = 8;
+	else if (!t_probe_defer_taskrun())
+		nr = 16;
 	for (i = 0; i < nr; i++) {
 		int write = (i & 1) != 0;
 		int sqthread = (i & 2) != 0;
 		int fixed = (i & 4) != 0;
 		int buf_select = (i & 8) != 0;
+		int defer = (i & 16) != 0;
 
-		ret = test_io(fname, write, sqthread, fixed, buf_select);
+		ret = test_io(fname, write, sqthread, fixed, buf_select, defer);
 		if (ret) {
-			fprintf(stderr, "test_io failed %d/%d/%d/%d\n",
-				write, sqthread, fixed, buf_select);
+			fprintf(stderr, "test_io failed %d/%d/%d/%d/%d\n",
+				write, sqthread, fixed, buf_select, defer);
 			goto err;
 		}
 		if (no_iopoll)

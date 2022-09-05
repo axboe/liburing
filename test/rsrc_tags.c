@@ -401,7 +401,8 @@ static int test_notag(void)
 
 int main(int argc, char *argv[])
 {
-	int ring_flags[] = {0, IORING_SETUP_IOPOLL, IORING_SETUP_SQPOLL};
+	int ring_flags[] = {0, IORING_SETUP_IOPOLL, IORING_SETUP_SQPOLL,
+			    IORING_SETUP_SINGLE_ISSUER | IORING_SETUP_DEFER_TASKRUN};
 	int i, ret;
 
 	if (argc > 1)
@@ -423,7 +424,12 @@ int main(int argc, char *argv[])
 	}
 
 	for (i = 0; i < sizeof(ring_flags) / sizeof(ring_flags[0]); i++) {
-		ret = test_files(ring_flags[i]);
+		int flag = ring_flags[i];
+
+		if (flag & IORING_SETUP_DEFER_TASKRUN && !t_probe_defer_taskrun())
+			continue;
+
+		ret = test_files(flag);
 		if (ret) {
 			printf("test_tag failed, type %i\n", i);
 			return ret;

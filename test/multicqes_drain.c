@@ -233,6 +233,8 @@ static int test_generic_drain(struct io_uring *ring)
 
 		if (trigger_event(pipes[i]))
 			goto err;
+
+		io_uring_get_events(ring);
 	}
 	sleep(1);
 	i = 0;
@@ -246,7 +248,7 @@ static int test_generic_drain(struct io_uring *ring)
 	 * compl_bits is a bit map to record completions.
 	 * eg. sqe[0], sqe[1], sqe[2] fully completed
 	 * then compl_bits is 000...00111b
-	 * 
+	 *
 	 */
 	unsigned long long compl_bits = 0;
 	for (j = 0; j < i; j++) {
@@ -295,7 +297,12 @@ static int test_simple_drain(struct io_uring *ring)
 	io_uring_prep_poll_add(sqe[1], pipe2[0], POLLIN);
 	sqe[1]->user_data = 1;
 
-	ret = io_uring_submit(ring);
+	/* This test relies on multishot poll to trigger events continually.
+	 * however with IORING_SETUP_DEFER_TASKRUN this will only happen when
+	 * triggered with a get_events. Hence we sprinkle get_events whenever
+	 * there might be work to process in order to get the same result
+	 */
+	ret = io_uring_submit_and_get_events(ring);
 	if (ret < 0) {
 		printf("sqe submit failed\n");
 		goto err;
@@ -307,9 +314,11 @@ static int test_simple_drain(struct io_uring *ring)
 	for (i = 0; i < 2; i++) {
 		if (trigger_event(pipe1))
 			goto err;
+		io_uring_get_events(ring);
 	}
 	if (trigger_event(pipe2))
 			goto err;
+	io_uring_get_events(ring);
 
 	for (i = 0; i < 2; i++) {
 		sqe[i] = io_uring_get_sqe(ring);
@@ -355,15 +364,17 @@ err:
 	return 1;
 }
 
-int main(int argc, char *argv[])
+static int test(bool defer_taskrun)
 {
 	struct io_uring ring;
 	int i, ret;
+	unsigned int flags = 0;
 
-	if (argc > 1)
-		return T_EXIT_SKIP;
+	if (defer_taskrun)
+		flags = IORING_SETUP_SINGLE_ISSUER |
+			IORING_SETUP_DEFER_TASKRUN;
 
-	ret = io_uring_queue_init(1024, &ring, 0);
+	ret = io_uring_queue_init(1024, &ring, flags);
 	if (ret) {
 		printf("ring setup failed\n");
 		return T_EXIT_FAIL;
@@ -384,5 +395,32 @@ int main(int argc, char *argv[])
 			return T_EXIT_FAIL;
 		}
 	}
+
+	io_uring_queue_exit(&ring);
+
 	return T_EXIT_PASS;
+}
+
+int main(int argc, char *argv[])
+{
+	int ret;
+
+	if (argc > 1)
+		return T_EXIT_SKIP;
+
+	ret = test(false);
+	if (ret != T_EXIT_PASS) {
+		fprintf(stderr, "%s: test(false) failed\n", argv[0]);
+		return ret;
+	}
+
+	if (t_probe_defer_taskrun()) {
+		ret = test(true);
+		if (ret != T_EXIT_PASS) {
+			fprintf(stderr, "%s: test(true) failed\n", argv[0]);
+			return ret;
+		}
+	}
+
+	return ret;
 }

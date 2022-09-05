@@ -42,16 +42,13 @@ int check_final_cqe(struct io_uring *ring)
 	return T_EXIT_PASS;
 }
 
-int main(int argc, char *argv[])
+static int test(bool defer_taskrun)
 {
 	struct io_uring_cqe *cqe;
 	struct io_uring_sqe *sqe;
 	struct io_uring ring;
 	int pipe1[2];
 	int ret, i;
-
-	if (argc > 1)
-		return 0;
 
 	if (pipe(pipe1) != 0) {
 		perror("pipe");
@@ -65,6 +62,10 @@ int main(int argc, char *argv[])
 		.flags = IORING_SETUP_CQSIZE | IORING_SETUP_SINGLE_ISSUER,
 		.cq_entries = 2
 	};
+
+	if (defer_taskrun)
+		params.flags |= IORING_SETUP_SINGLE_ISSUER |
+				IORING_SETUP_DEFER_TASKRUN;
 
 	ret = io_uring_queue_init_params(2, &ring, &params);
 	if (ret)
@@ -113,6 +114,9 @@ int main(int argc, char *argv[])
 		io_uring_cqe_seen(&ring, cqe);
 	}
 
+	/* make sure everything is processed */
+	io_uring_get_events(&ring);
+
 	/* now remove the poll */
 	sqe = io_uring_get_sqe(&ring);
 	io_uring_prep_poll_remove(sqe, 1);
@@ -125,6 +129,34 @@ int main(int argc, char *argv[])
 	}
 
 	ret = check_final_cqe(&ring);
+
+	close(pipe1[0]);
+	close(pipe1[1]);
+	io_uring_queue_exit(&ring);
+
+	return ret;
+}
+
+int main(int argc, char *argv[])
+{
+	int ret;
+
+	if (argc > 1)
+		return T_EXIT_SKIP;
+
+	ret = test(false);
+	if (ret != T_EXIT_PASS) {
+		fprintf(stderr, "%s: test(false) failed\n", argv[0]);
+		return ret;
+	}
+
+	if (t_probe_defer_taskrun()) {
+		ret = test(true);
+		if (ret != T_EXIT_PASS) {
+			fprintf(stderr, "%s: test(true) failed\n", argv[0]);
+			return ret;
+		}
+	}
 
 	return ret;
 }

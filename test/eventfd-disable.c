@@ -15,7 +15,7 @@
 #include "liburing.h"
 #include "helpers.h"
 
-int main(int argc, char *argv[])
+static int test(bool defer)
 {
 	struct io_uring_params p = {};
 	struct io_uring_sqe *sqe;
@@ -28,8 +28,9 @@ int main(int argc, char *argv[])
 	};
 	int ret, evfd, i;
 
-	if (argc > 1)
-		return T_EXIT_SKIP;
+	if (defer)
+		p.flags |= IORING_SETUP_SINGLE_ISSUER |
+			   IORING_SETUP_DEFER_TASKRUN;
 
 	ret = io_uring_queue_init_params(64, &ring, &p);
 	if (ret) {
@@ -148,5 +149,31 @@ int main(int argc, char *argv[])
 		io_uring_cqe_seen(&ring, cqe);
 	}
 
+	io_uring_queue_exit(&ring);
+	close(evfd);
 	return T_EXIT_PASS;
+}
+
+int main(int argc, char *argv[])
+{
+	int ret;
+
+	if (argc > 1)
+		return T_EXIT_SKIP;
+
+	ret = test(false);
+	if (ret != T_EXIT_PASS) {
+		fprintf(stderr, "%s: test(false) failed\n", argv[0]);
+		return ret;
+	}
+
+	if (t_probe_defer_taskrun()) {
+		ret = test(true);
+		if (ret != T_EXIT_PASS) {
+			fprintf(stderr, "%s: test(true) failed\n", argv[0]);
+			return ret;
+		}
+	}
+
+	return ret;
 }

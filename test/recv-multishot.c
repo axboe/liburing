@@ -29,6 +29,7 @@ struct args {
 	bool wait_each;
 	bool recvmsg;
 	enum early_error_t early_error;
+	bool defer;
 };
 
 static int check_sockaddr(struct sockaddr_in *in)
@@ -76,19 +77,22 @@ static int test(struct args *args)
 		.tv_sec = 1,
 	};
 	struct msghdr msg;
+	struct io_uring_params params = { };
+	int n_sqe = 32;
 
 	memset(recv_buffs, 0, sizeof(recv_buffs));
 
-	if (args->early_error == ERROR_EARLY_OVERFLOW) {
-		struct io_uring_params params = {
-			.flags = IORING_SETUP_CQSIZE,
-			.cq_entries = N_CQE_OVERFLOW
-		};
+	if (args->defer)
+		params.flags |= IORING_SETUP_SINGLE_ISSUER |
+				IORING_SETUP_DEFER_TASKRUN;
 
-		ret = io_uring_queue_init_params(N_CQE_OVERFLOW, &ring, &params);
-	} else {
-		ret = io_uring_queue_init(32, &ring, 0);
+	if (args->early_error == ERROR_EARLY_OVERFLOW) {
+		params.flags |= IORING_SETUP_CQSIZE;
+		params.cq_entries = N_CQE_OVERFLOW;
+		n_sqe = N_CQE_OVERFLOW;
 	}
+
+	ret = io_uring_queue_init_params(n_sqe, &ring, &params);
 	if (ret) {
 		fprintf(stderr, "queue init failed: %d\n", ret);
 		return ret;
@@ -457,23 +461,30 @@ int main(int argc, char *argv[])
 	int ret;
 	int loop;
 	int early_error = 0;
+	bool has_defer;
 
 	if (argc > 1)
 		return T_EXIT_SKIP;
 
-	for (loop = 0; loop < 8; loop++) {
+	has_defer = t_probe_defer_taskrun();
+
+	for (loop = 0; loop < 16; loop++) {
 		struct args a = {
 			.stream = loop & 0x01,
 			.wait_each = loop & 0x2,
 			.recvmsg = loop & 0x04,
+			.defer = loop & 0x08,
 		};
+		if (a.defer && !has_defer)
+			continue;
 		for (early_error = 0; early_error < ERROR_EARLY_LAST; early_error++) {
 			a.early_error = (enum early_error_t)early_error;
 			ret = test(&a);
 			if (ret) {
 				fprintf(stderr,
-					"test stream=%d wait_each=%d recvmsg=%d early_error=%d failed\n",
-					a.stream, a.wait_each, a.recvmsg, a.early_error);
+					"test stream=%d wait_each=%d recvmsg=%d early_error=%d "
+					" defer=%d failed\n",
+					a.stream, a.wait_each, a.recvmsg, a.early_error, a.defer);
 				return T_EXIT_FAIL;
 			}
 			if (no_recv_mshot)
