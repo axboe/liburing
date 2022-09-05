@@ -430,6 +430,10 @@ static int test(struct io_uring *ring, const char *fname, int buffered,
 				fprintf(stderr, "bad read %d, read %d\n", cqe->res, i);
 				goto err;
 			}
+			if (cqe->res < CHUNK_SIZE) {
+				fprintf(stderr, "short read %d, read %d\n", cqe->res, i);
+				goto err;
+			}
 			if (cqe->flags & IORING_CQE_F_BUFFER)
 				index = cqe->flags >> 16;
 			else
