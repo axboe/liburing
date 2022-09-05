@@ -1099,6 +1099,15 @@ static inline unsigned io_uring_cq_ready(const struct io_uring *ring)
 }
 
 /*
+ * Returns true if there are overflow entries waiting to be flushed onto
+ * the CQ ring
+ */
+static inline bool io_uring_cq_has_overflow(const struct io_uring *ring)
+{
+	return IO_URING_READ_ONCE(*ring->sq.kflags) & IORING_SQ_CQ_OVERFLOW;
+}
+
+/*
  * Returns true if the eventfd notification is currently enabled
  */
 static inline bool io_uring_cq_eventfd_enabled(const struct io_uring *ring)
