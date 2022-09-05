@@ -390,7 +390,7 @@ static int test_inet_send(struct io_uring *ring)
 				continue;
 			if (!buffers_iov[buf_flavour].iov_base)
 				continue;
-			if (tcp && cork)
+			if (tcp && (cork || addr_arg))
 				continue;
 			if (mix_register && (!cork || fixed_buf))
 				continue;
