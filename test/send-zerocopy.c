@@ -238,7 +238,7 @@ static int prepare_ip(struct sockaddr_storage *addr, int *sock_client, int *sock
 
 static int do_test_inet_send(struct io_uring *ring, int sock_client, int sock_server,
 			     bool fixed_buf, struct sockaddr_storage *addr,
-			     size_t send_size, bool cork, bool mix_register,
+			     bool small_send, bool cork, bool mix_register,
 			     int buf_idx, bool force_async)
 {
 	const unsigned zc_flags = 0;
@@ -246,13 +246,13 @@ static int do_test_inet_send(struct io_uring *ring, int sock_client, int sock_se
 	struct io_uring_cqe *cqe;
 	int nr_reqs = cork ? 5 : 1;
 	int i, ret, nr_cqes;
+	size_t send_size = small_send ? 137 : buffers_iov[buf_idx].iov_len;
 	size_t chunk_size = send_size / nr_reqs;
 	size_t chunk_size_last = send_size - chunk_size * (nr_reqs - 1);
 	char *buf = buffers_iov[buf_idx].iov_base;
 	pid_t p;
 	int wstatus;
 
-	assert(send_size <= buffers_iov[buf_idx].iov_len);
 	memset(rx_buffer, 0, send_size);
 
 	for (i = 0; i < nr_reqs; i++) {
@@ -394,7 +394,7 @@ static int test_inet_send(struct io_uring *ring)
 		for (i = 0; i < 256; i++) {
 			bool fixed_buf = i & 1;
 			struct sockaddr_storage *addr_arg = (i & 2) ? &addr : NULL;
-			size_t size = (i & 4) ? 137 : 4096;
+			bool small_send = i & 4;
 			bool cork = i & 8;
 			bool mix_register = i & 16;
 			bool aligned = i & 32;
@@ -406,8 +406,7 @@ static int test_inet_send(struct io_uring *ring)
 				continue;
 			if (large_buf) {
 				buf_idx = 2;
-				size = buffers_iov[buf_idx].iov_len;
-				if (!aligned || !tcp)
+				if (!aligned || !tcp || small_send)
 					continue;
 			}
 			if (!buffers_iov[buf_idx].iov_base)
@@ -420,7 +419,7 @@ static int test_inet_send(struct io_uring *ring)
 				continue;
 
 			ret = do_test_inet_send(ring, sock_client, sock_server, fixed_buf,
-						addr_arg, size, cork, mix_register,
+						addr_arg, small_send, cork, mix_register,
 						buf_idx, force_async);
 			if (ret) {
 				fprintf(stderr, "send failed fixed buf %i, conn %i, addr %i, "
@@ -535,8 +534,8 @@ int main(int argc, char *argv[])
 		return T_EXIT_FAIL;
 	}
 
-	buffers_iov[0].iov_base = tx_buffer;
-	buffers_iov[0].iov_len = 8192;
+	buffers_iov[0].iov_base = tx_buffer + 4096;
+	buffers_iov[0].iov_len = 4096;
 	buffers_iov[1].iov_base = tx_buffer + BUFFER_OFFSET;
 	buffers_iov[1].iov_len = 8192 - BUFFER_OFFSET - 13;
 
