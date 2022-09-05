@@ -51,8 +51,15 @@
 	#define ARRAY_SIZE(a) (sizeof(a)/sizeof((a)[0]))
 #endif
 
+enum {
+	BUF_T_NORMAL,
+	BUF_T_SMALL,
+	BUF_T_NONALIGNED,
+	BUF_T_LARGE,
+};
+
 static char *tx_buffer, *rx_buffer;
-static struct iovec buffers_iov[3];
+static struct iovec buffers_iov[4];
 
 static bool check_cq_empty(struct io_uring *ring)
 {
@@ -238,7 +245,7 @@ static int prepare_ip(struct sockaddr_storage *addr, int *sock_client, int *sock
 
 static int do_test_inet_send(struct io_uring *ring, int sock_client, int sock_server,
 			     bool fixed_buf, struct sockaddr_storage *addr,
-			     bool small_send, bool cork, bool mix_register,
+			     bool cork, bool mix_register,
 			     int buf_idx, bool force_async)
 {
 	const unsigned zc_flags = 0;
@@ -246,7 +253,7 @@ static int do_test_inet_send(struct io_uring *ring, int sock_client, int sock_se
 	struct io_uring_cqe *cqe;
 	int nr_reqs = cork ? 5 : 1;
 	int i, ret, nr_cqes;
-	size_t send_size = small_send ? 137 : buffers_iov[buf_idx].iov_len;
+	size_t send_size = buffers_iov[buf_idx].iov_len;
 	size_t chunk_size = send_size / nr_reqs;
 	size_t chunk_size_last = send_size - chunk_size * (nr_reqs - 1);
 	char *buf = buffers_iov[buf_idx].iov_base;
@@ -371,23 +378,17 @@ static int test_inet_send(struct io_uring *ring)
 			return 1;
 		}
 
-		for (i = 0; i < 256; i++) {
-			bool fixed_buf = i & 1;
-			struct sockaddr_storage *addr_arg = (i & 2) ? &addr : NULL;
-			bool small_send = i & 4;
-			bool cork = i & 8;
-			bool mix_register = i & 16;
-			bool aligned = i & 32;
-			bool large_buf = i & 64;
-			int buf_idx = aligned ? 0 : 1;
-			bool force_async = i & 128;
+		for (i = 0; i < 128; i++) {
+			int buf_flavour = i & 3;
+			bool fixed_buf = i & 4;
+			struct sockaddr_storage *addr_arg = (i & 8) ? &addr : NULL;
+			bool cork = i & 16;
+			bool mix_register = i & 32;
+			bool force_async = i & 64;
 
-			if (large_buf) {
-				buf_idx = 2;
-				if (!aligned || !tcp || small_send || cork)
-					continue;
-			}
-			if (!buffers_iov[buf_idx].iov_base)
+			if (buf_flavour == BUF_T_LARGE && !tcp)
+				continue;
+			if (!buffers_iov[buf_flavour].iov_base)
 				continue;
 			if (tcp && cork)
 				continue;
@@ -397,8 +398,8 @@ static int test_inet_send(struct io_uring *ring)
 				continue;
 
 			ret = do_test_inet_send(ring, sock_client, sock_server, fixed_buf,
-						addr_arg, small_send, cork, mix_register,
-						buf_idx, force_async);
+						addr_arg, cork, mix_register,
+						buf_flavour, force_async);
 			if (ret) {
 				fprintf(stderr, "send failed fixed buf %i, conn %i, addr %i, "
 					"cork %i\n",
@@ -498,8 +499,8 @@ int main(int argc, char *argv[])
 	tx_buffer = aligned_alloc(4096, len);
 	rx_buffer = aligned_alloc(4096, len);
 	if (tx_buffer && rx_buffer) {
-		buffers_iov[2].iov_base = tx_buffer;
-		buffers_iov[2].iov_len = len;
+		buffers_iov[BUF_T_LARGE].iov_base = tx_buffer;
+		buffers_iov[BUF_T_LARGE].iov_len = len;
 	} else {
 		printf("skip large buffer tests, can't alloc\n");
 
@@ -512,10 +513,12 @@ int main(int argc, char *argv[])
 		return T_EXIT_FAIL;
 	}
 
-	buffers_iov[0].iov_base = tx_buffer + 4096;
-	buffers_iov[0].iov_len = 4096;
-	buffers_iov[1].iov_base = tx_buffer + BUFFER_OFFSET;
-	buffers_iov[1].iov_len = 8192 - BUFFER_OFFSET - 13;
+	buffers_iov[BUF_T_NORMAL].iov_base = tx_buffer + 4096;
+	buffers_iov[BUF_T_NORMAL].iov_len = 4096;
+	buffers_iov[BUF_T_SMALL].iov_base = tx_buffer;
+	buffers_iov[BUF_T_SMALL].iov_len = 137;
+	buffers_iov[BUF_T_NONALIGNED].iov_base = tx_buffer + BUFFER_OFFSET;
+	buffers_iov[BUF_T_NONALIGNED].iov_len = 8192 - BUFFER_OFFSET - 13;
 
 	ret = io_uring_queue_init(32, &ring, 0);
 	if (ret) {
