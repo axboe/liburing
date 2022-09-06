@@ -1063,18 +1063,20 @@ to pass messages via the two fields. Available since 5.18.
 .B IORING_OP_SEND_ZC
 Issue the zerocopy equivalent of a
 .BR send(2)
-system call. It's similar to IORING_OP_SEND but tries to avoid making
-intermediate copies of data. Zerocopy execution is not guaranteed and it may
-fall back to copying.
+system call. Similar to IORING_OP_SEND, but tries to avoid making intermediate
+copies of data. Zerocopy execution is not guaranteed and it may fall back to
+copying.
 
 The
 .I flags
 field of the first
 .I "struct io_uring_cqe"
-may likely contain IORING_CQE_F_MORE, which means that there will be a second
-completion event, a.k.a. notification, with the
+may likely contain
+.B IORING_CQE_F_MORE ,
+which means that there will be a second completion event / notification for
+the request, with the
 .I user_data
-field set to the same value, and the user must not modify the buffer until the
+field set to the same value. The user must not modify the data buffer until the
 notification is posted. The first cqe follows the usual rules and so its
 .I res
 field will contain the number of bytes sent or a negative error code. The
@@ -1082,12 +1084,14 @@ notification's
 .I res
 field will be set to zero and the
 .I flags
-field will contain IORING_CQE_F_NOTIF. The two step model is needed because
-the kernel may hold on to buffers for a long time, e.g. waiting for a TCP ACK,
-and having a separate cqe for request completions allows the userspace to push
-more data without extra delays. Note, notifications are only responsible for
-controlling the buffers lifetime and don't tell anything about whether the data
-has atually been sent out or received by the other end.
+field will contain
+.B IORING_CQE_F_NOTIF .
+The two step model is needed because the kernel may hold on to buffers for a
+long time, e.g. waiting for a TCP ACK, and having a separate cqe for request
+completions allows userspace to push more data without extra delays. Note,
+notifications are only responsible for controlling the lifetime of the buffers,
+and as such don't mean anything about whether the data has atually been sent
+out or received by the other end.
 
 .I fd
 must be set to the socket file descriptor,
