@@ -142,8 +142,7 @@ static int test_thread_shutdown(void)
 	if (ret)
 		return ret;
 
-	/* check that even before submitting we don't get errors */
-	CHECK(io_uring_get_events(&td.ring) == 0);
+	CHECK(io_uring_get_events(&td.ring) == -EEXIST);
 
 	td.efd = eventfd(0, 0);
 	CHECK(td.efd >= 0);
