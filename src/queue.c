@@ -197,6 +197,9 @@ unsigned __io_uring_flush_sq(struct io_uring *ring)
 		 */
 		io_uring_smp_store_release(sq->ktail, tail);
 	}
+
+	sq->sq_head_cache = 0;
+
 	/*
 	 * This _may_ look problematic, as we're not supposed to be reading
 	 * SQ->head without acquire semantics. When we're in SQPOLL mode, the

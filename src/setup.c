@@ -170,6 +170,7 @@ __cold int io_uring_queue_init_params(unsigned entries, struct io_uring *ring,
 		sq_array[index] = index;
 
 	ring->features = p->features;
+	ring->sq.sq_head_cache = 0;
 	return 0;
 }
 

@@ -97,7 +97,8 @@ struct io_uring_sq {
 	unsigned ring_mask;
 	unsigned ring_entries;
 
-	unsigned pad[2];
+	unsigned sq_head_cache;
+	unsigned pad;
 };
 
 struct io_uring_cq {
@@ -1240,14 +1241,16 @@ static inline int io_uring_wait_cqe(struct io_uring *ring,
 static inline struct io_uring_sqe *_io_uring_get_sqe(struct io_uring *ring)
 {
 	struct io_uring_sq *sq = &ring->sq;
-	unsigned int head = io_uring_smp_load_acquire(sq->khead);
 	unsigned int next = sq->sqe_tail + 1;
 	int shift = 0;
 
 	if (ring->flags & IORING_SETUP_SQE128)
 		shift = 1;
 
-	if (next - head <= sq->ring_entries) {
+	if (!sq->sq_head_cache)
+		sq->sq_head_cache = io_uring_smp_load_acquire(sq->khead);
+
+	if (next - sq->sq_head_cache <= sq->ring_entries) {
 		struct io_uring_sqe *sqe;
 
 		sqe = &sq->sqes[(sq->sqe_tail & sq->ring_mask) << shift];
