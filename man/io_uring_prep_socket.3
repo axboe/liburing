@@ -22,6 +22,12 @@ io_uring_prep_socket \- prepare a socket creation request
 .BI "                                 int " protocol ","
 .BI "                                 unsigned int " file_index ","
 .BI "                                 unsigned int " flags ");"
+.PP
+.BI "void io_uring_prep_socket_direct_alloc(struct io_uring_sqe *" sqe ","
+.BI "                                 int " domain ","
+.BI "                                 int " type ","
+.BI "                                 int " protocol ","
+.BI "                                 unsigned int " flags ");"
 .fi
 .SH DESCRIPTION
 .PP
@@ -41,16 +47,31 @@ argument are currently unused.
 
 The
 .BR io_uring_prep_socket_direct (3)
-works just like
+helper works just like
 .BR io_uring_prep_socket (3),
 except it maps the socket to a direct descriptor rather than return a normal
 file descriptor. The
 .I file_index
-argument should be set to the slot that should be used for this socket, or
-.B IORING_FILE_INDEX_ALLOC
-if io_uring should allocate a free one.
+argument should be set to the slot that should be used for this socket.
 
-If the direct variant is used, the application must first have registered
+The
+.BR io_uring_prep_socket_direct_alloc (3)
+helper works just like
+.BR io_uring_prep_socket_alloc (3),
+except it allocates a new direct descriptor rather than pass a free slot in. It
+is equivalent to using
+.BR io_uring_prep_socket_direct (3)
+with
+.B IORING_FILE_INDEX_ALLOC
+as the
+.I
+file_index .
+Upon completion, the
+.I res
+field of the CQE will return the direct slot that was allocated for the
+socket.
+
+If the direct variants are used, the application must first have registered
 a file table using
 .BR io_uring_register_files (3)
 of the appropriate size. Once registered, a direct socket request may use any
