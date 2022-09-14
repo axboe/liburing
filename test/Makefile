@@ -178,6 +178,7 @@ test_srcs := \
 	skip-cqe.c \
 	single-issuer.c \
 	send-zerocopy.c \
+	xx.c
 	# EOL
 
 all_targets :=
