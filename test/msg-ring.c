@@ -139,19 +139,30 @@ err:
 	return 1;
 }
 
-static int test_invalid(struct io_uring *ring)
+static int test_invalid(struct io_uring *ring, bool fixed)
 {
 	struct io_uring_cqe *cqe;
 	struct io_uring_sqe *sqe;
-	int ret;
+	int ret, fd = 1;
 
 	sqe = io_uring_get_sqe(ring);
 	if (!sqe) {
 		fprintf(stderr, "get sqe failed\n");
-		goto err;
+		return 1;
 	}
 
-	io_uring_prep_msg_ring(sqe, 1, 0, 0x8989, 0);
+	if (fixed) {
+		ret = io_uring_register_files(ring, &fd, 1);
+		if (ret) {
+			fprintf(stderr, "file register %d\n", ret);
+			return 1;
+		}
+		io_uring_prep_msg_ring(sqe, 0, 0, 0x8989, 0);
+		sqe->flags |= IOSQE_FIXED_FILE;
+	} else {
+		io_uring_prep_msg_ring(sqe, 1, 0, 0x8989, 0);
+	}
+
 	sqe->user_data = 1;
 
 	ret = io_uring_submit(ring);
@@ -171,8 +182,12 @@ static int test_invalid(struct io_uring *ring)
 	}
 
 	io_uring_cqe_seen(ring, cqe);
+	if (fixed)
+		io_uring_unregister_files(ring);
 	return 0;
 err:
+	if (fixed)
+		io_uring_unregister_files(ring);
 	return 1;
 }
 
@@ -181,7 +196,7 @@ int main(int argc, char *argv[])
 	struct io_uring ring, ring2, pring;
 	pthread_t thread;
 	void *tret;
-	int ret;
+	int ret, i;
 
 	if (argc > 1)
 		return T_EXIT_SKIP;
@@ -217,10 +232,18 @@ int main(int argc, char *argv[])
 		return ret;
 	}
 
-	ret = test_invalid(&ring);
+	ret = test_invalid(&ring, 0);
 	if (ret) {
 		fprintf(stderr, "test_invalid failed\n");
 		return ret;
+	}
+
+	for (i = 0; i < 2; i++) {
+		ret = test_invalid(&ring, 1);
+		if (ret) {
+			fprintf(stderr, "test_invalid fixed failed\n");
+			return ret;
+		}
 	}
 
 	pthread_create(&thread, NULL, wait_cqe_fn, &ring2);
