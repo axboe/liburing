@@ -190,8 +190,6 @@ static void do_tx(int domain, int type, int protocol)
 				sqe->flags |= IOSQE_FIXED_FILE;
 			}
 		}
-		if (cfg_zc)
-			compl_cqes += cfg_nr_reqs;
 
 		ret = io_uring_submit(&ring);
 		if (ret != cfg_nr_reqs)
@@ -205,19 +203,20 @@ static void do_tx(int domain, int type, int protocol)
 					error(1, -EINVAL, "F_MORE notif");
 				compl_cqes--;
 				i--;
-			} else if (cqe->res >= 0) {
-				if (!(cqe->flags & IORING_CQE_F_MORE) && cfg_zc)
-					error(1, -EINVAL, "no F_MORE");
+				io_uring_cqe_seen(&ring, cqe);
+				continue;
+			}
+			if (cqe->flags & IORING_CQE_F_MORE)
+				compl_cqes++;
+
+			if (cqe->res >= 0) {
 				packets++;
 				bytes += cqe->res;
-			} else if (cqe->res == -EAGAIN) {
-				if (cfg_zc)
-					compl_cqes--;
 			} else if (cqe->res == -ECONNREFUSED || cqe->res == -EPIPE ||
 				   cqe->res == -ECONNRESET) {
 				fprintf(stderr, "Connection failure");
 				goto out_fail;
-			} else {
+			} else if (cqe->res != -EAGAIN) {
 				error(1, cqe->res, "send failed");
 			}
 			io_uring_cqe_seen(&ring, cqe);
