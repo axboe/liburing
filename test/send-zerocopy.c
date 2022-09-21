@@ -117,7 +117,7 @@ static int test_send_faults(struct io_uring *ring, int sock_tx, int sock_rx)
 	int msg_flags = 0;
 	unsigned zc_flags = 0;
 	int payload_size = 100;
-	int ret, i;
+	int ret, i, nr_cqes = 2;
 
 	sqe = io_uring_get_sqe(ring);
 	io_uring_prep_send_zc(sqe, sock_tx, (void *)1UL, payload_size,
@@ -125,7 +125,7 @@ static int test_send_faults(struct io_uring *ring, int sock_tx, int sock_rx)
 	sqe->user_data = 1;
 
 	sqe = io_uring_get_sqe(ring);
-	io_uring_prep_send_zc(sqe, sock_tx, (void *)1UL, payload_size,
+	io_uring_prep_send_zc(sqe, sock_tx, tx_buffer, payload_size,
 			      msg_flags, zc_flags);
 	sqe->user_data = 2;
 	io_uring_prep_send_set_addr(sqe, (const struct sockaddr *)1UL,
@@ -134,12 +134,18 @@ static int test_send_faults(struct io_uring *ring, int sock_tx, int sock_rx)
 	ret = io_uring_submit(ring);
 	assert(ret == 2);
 
-	for (i = 0; i < 2; i++) {
+	for (i = 0; i < nr_cqes; i++) {
 		ret = io_uring_wait_cqe(ring, &cqe);
 		assert(!ret);
 		assert(cqe->user_data <= 2);
-		assert(cqe->res == -EFAULT);
-		assert(!(cqe->flags & IORING_CQE_F_MORE));
+
+		if (cqe->flags & IORING_CQE_F_NOTIF) {
+			assert(ret > 0);
+		} else {
+			assert(cqe->res == -EFAULT);
+			if (cqe->flags & IORING_CQE_F_MORE)
+				nr_cqes++;
+		}
 		io_uring_cqe_seen(ring, cqe);
 	}
 	assert(check_cq_empty(ring));
