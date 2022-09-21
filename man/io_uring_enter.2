@@ -1091,7 +1091,10 @@ long time, e.g. waiting for a TCP ACK, and having a separate cqe for request
 completions allows userspace to push more data without extra delays. Note,
 notifications are only responsible for controlling the lifetime of the buffers,
 and as such don't mean anything about whether the data has atually been sent
-out or received by the other end.
+out or received by the other end. Even errored requests may generate a
+notification, and the user must check for
+.B IORING_CQE_F_MORE
+rather than relying on the result.
 
 .I fd
 must be set to the socket file descriptor,
