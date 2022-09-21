@@ -44,6 +44,7 @@
 #define HOST	"127.0.0.1"
 #define HOSTV6	"::1"
 
+#define CORK_REQS 5
 #define RX_TAG 10000
 #define BUFFER_OFFSET 41
 
@@ -60,6 +61,7 @@ enum {
 
 static char *tx_buffer, *rx_buffer;
 static struct iovec buffers_iov[4];
+static bool has_sendmsg;
 
 static bool check_cq_empty(struct io_uring *ring)
 {
@@ -252,17 +254,26 @@ static int prepare_ip(struct sockaddr_storage *addr, int *sock_client, int *sock
 static int do_test_inet_send(struct io_uring *ring, int sock_client, int sock_server,
 			     bool fixed_buf, struct sockaddr_storage *addr,
 			     bool cork, bool mix_register,
-			     int buf_idx, bool force_async)
+			     int buf_idx, bool force_async, bool use_sendmsg)
 {
+	struct iovec iov[CORK_REQS];
+	struct msghdr msghdr[CORK_REQS];
 	const unsigned zc_flags = 0;
 	struct io_uring_sqe *sqe;
 	struct io_uring_cqe *cqe;
-	int nr_reqs = cork ? 5 : 1;
-	int i, ret, nr_cqes;
+	int nr_reqs = cork ? CORK_REQS : 1;
+	int i, ret, nr_cqes, addr_len = 0;
 	size_t send_size = buffers_iov[buf_idx].iov_len;
 	size_t chunk_size = send_size / nr_reqs;
 	size_t chunk_size_last = send_size - chunk_size * (nr_reqs - 1);
 	char *buf = buffers_iov[buf_idx].iov_base;
+
+	if (addr) {
+		sa_family_t fam = ((struct sockaddr_in *)addr)->sin_family;
+
+		addr_len = (fam == AF_INET) ? sizeof(struct sockaddr_in) :
+					      sizeof(struct sockaddr_in6);
+	}
 
 	memset(rx_buffer, 0, send_size);
 
@@ -280,25 +291,35 @@ static int do_test_inet_send(struct io_uring *ring, int sock_client, int sock_se
 			cur_size = chunk_size_last;
 
 		sqe = io_uring_get_sqe(ring);
-		io_uring_prep_send_zc(sqe, sock_client, buf + i * chunk_size,
-				      cur_size, msg_flags, zc_flags);
+
+		if (!use_sendmsg) {
+			io_uring_prep_send_zc(sqe, sock_client, buf + i * chunk_size,
+					      cur_size, msg_flags, zc_flags);
+			if (real_fixed_buf) {
+				sqe->ioprio |= IORING_RECVSEND_FIXED_BUF;
+				sqe->buf_index = buf_idx;
+			}
+			if (addr)
+				io_uring_prep_send_set_addr(sqe, (const struct sockaddr *)addr,
+							    addr_len);
+		} else {
+			io_uring_prep_sendmsg(sqe, sock_client, &msghdr[i], msg_flags);
+			sqe->opcode = IORING_OP_SENDMSG_ZC;
+
+			memset(&msghdr[i], 0, sizeof(msghdr[i]));
+			iov[i].iov_len = cur_size;
+			iov[i].iov_base = buf + i * chunk_size;
+			msghdr[i].msg_iov = &iov[i];
+			msghdr[i].msg_iovlen = 1;
+			if (addr) {
+				msghdr[i].msg_name = addr;
+				msghdr[i].msg_namelen = addr_len;
+			}
+		}
 		sqe->user_data = i;
-
-		if (real_fixed_buf) {
-			sqe->ioprio |= IORING_RECVSEND_FIXED_BUF;
-			sqe->buf_index = buf_idx;
-		}
-		if (addr) {
-			sa_family_t fam = ((struct sockaddr_in *)addr)->sin_family;
-			int addr_len = fam == AF_INET ? sizeof(struct sockaddr_in) :
-							sizeof(struct sockaddr_in6);
-
-			io_uring_prep_send_set_addr(sqe, (const struct sockaddr *)addr,
-						    addr_len);
-		}
 		if (force_async)
 			sqe->flags |= IOSQE_ASYNC;
-		if (cork && i != nr_reqs - 1)
+		if (i != nr_reqs - 1)
 			sqe->flags |= IOSQE_IO_LINK;
 	}
 
@@ -346,7 +367,8 @@ static int do_test_inet_send(struct io_uring *ring, int sock_client, int sock_se
 		}
 		if ((cqe->flags & IORING_CQE_F_MORE) ==
 		    (cqe->flags & IORING_CQE_F_NOTIF)) {
-			fprintf(stderr, "unexpected cflags %i\n", cqe->flags);
+			fprintf(stderr, "unexpected cflags %i res %i\n",
+					cqe->flags, cqe->res);
 			return 1;
 		}
 		io_uring_cqe_seen(ring, cqe);
@@ -384,13 +406,14 @@ static int test_inet_send(struct io_uring *ring)
 			return 1;
 		}
 
-		for (i = 0; i < 128; i++) {
+		for (i = 0; i < 256; i++) {
 			int buf_flavour = i & 3;
 			bool fixed_buf = i & 4;
 			struct sockaddr_storage *addr_arg = (i & 8) ? &addr : NULL;
 			bool cork = i & 16;
 			bool mix_register = i & 32;
 			bool force_async = i & 64;
+			bool use_sendmsg = i & 128;
 
 			if (buf_flavour == BUF_T_LARGE && !tcp)
 				continue;
@@ -402,10 +425,12 @@ static int test_inet_send(struct io_uring *ring)
 				continue;
 			if (!client_connect && addr_arg == NULL)
 				continue;
+			if (use_sendmsg && (mix_register || fixed_buf || !has_sendmsg))
+				continue;
 
 			ret = do_test_inet_send(ring, sock_client, sock_server, fixed_buf,
 						addr_arg, cork, mix_register,
-						buf_flavour, force_async);
+						buf_flavour, force_async, use_sendmsg);
 			if (ret) {
 				fprintf(stderr, "send failed fixed buf %i, conn %i, addr %i, "
 					"cork %i\n",
@@ -492,6 +517,22 @@ static int test_async_addr(struct io_uring *ring)
 	return 0;
 }
 
+static bool io_check_zc_sendmsg(struct io_uring *ring)
+{
+	struct io_uring_probe *p;
+	int ret;
+
+	p = t_calloc(1, sizeof(*p) + 256 * sizeof(struct io_uring_probe_op));
+	if (!p) {
+		fprintf(stderr, "probe allocation failed\n");
+		return false;
+	}
+	ret = io_uring_register_probe(ring, p, 256);
+	if (ret)
+		return false;
+	return p->ops_len > IORING_OP_SENDMSG_ZC;
+}
+
 int main(int argc, char *argv[])
 {
 	struct io_uring ring;
@@ -549,6 +590,8 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "test_basic_send() failed\n");
 		return T_EXIT_FAIL;
 	}
+
+	has_sendmsg = io_check_zc_sendmsg(&ring);
 
 	ret = test_send_faults(&ring, sp[0], sp[1]);
 	if (ret) {
