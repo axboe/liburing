@@ -195,7 +195,10 @@ unsigned __io_uring_flush_sq(struct io_uring *ring)
 		/*
 		 * Ensure kernel sees the SQE updates before the tail update.
 		 */
-		io_uring_smp_store_release(sq->ktail, tail);
+		if (!(ring->flags & IORING_SETUP_SQPOLL))
+			io_uring_smp_store_release(sq->ktail, tail);
+		else
+			IO_URING_WRITE_ONCE(*sq->ktail, tail);
 	}
 	/*
 	 * This _may_ look problematic, as we're not supposed to be reading
