@@ -1,13 +1,12 @@
 #!/usr/bin/env bash
 
 TESTS=("$@")
-RET=0
 TIMEOUT=60
 DMESG_FILTER="cat"
 TEST_DIR=$(dirname "$0")
-FAILED=""
-SKIPPED=""
-TIMED_OUT=""
+FAILED=()
+SKIPPED=()
+TIMED_OUT=()
 TEST_FILES=""
 declare -A TEST_MAP
 
@@ -94,7 +93,7 @@ run_test()
 	# shellcheck disable=SC2181
 	if [ $? -eq 0 ]; then
 		echo "Test skipped"
-		SKIPPED="$SKIPPED <$test_string>"
+		SKIPPED+=("<$test_string>")
 		return
 	fi
 
@@ -111,18 +110,16 @@ run_test()
 	# Check test status
 	if [ "$status" -eq 124 ]; then
 		echo "Test $test_name timed out (may not be a failure)"
-		TIMED_OUT="$TIMED_OUT <$test_string>"
+		TIMED_OUT+=("<$test_string>")
 	elif [ "$status" -eq 77 ]; then
 		echo "Skipped"
-		SKIPPED="$SKIPPED <$test_string>"
+		SKIPPED+=("<$test_string>")
 	elif [ "$status" -ne 0 ]; then
 		echo "Test $test_name failed with ret $status"
-		FAILED="$FAILED <$test_string>"
-		RET=1
+		FAILED+=("<$test_string>")
 	elif ! _check_dmesg "$dmesg_marker" "$test_name"; then
 		echo "Test $test_name failed dmesg check"
-		FAILED="$FAILED <$test_string>"
-		RET=1
+		FAILED+=("<$test_string>")
 	else
 		if [ -f "output/$out_name" ]; then
 			T_PREV=$(cat "output/$out_name")
@@ -156,14 +153,14 @@ for tst in "${TESTS[@]}"; do
 	fi
 done
 
-if [ -n "$TIMED_OUT" ]; then
-	echo "Tests timed out: $TIMED_OUT"
+if [ "${#TIMED_OUT[*]}" -ne 0 ]; then
+	echo "Tests timed out (${#TIMED_OUT[*]}): ${TIMED_OUT[*]}"
 fi
 
-if [ "${RET}" -ne 0 ]; then
-	echo "Tests failed: $FAILED"
-	exit $RET
-elif [ -n "$SKIPPED" ] && [ -n "$TEST_GNU_EXITCODE" ]; then
+if [ "${#FAILED[*]}" -ne 0 ]; then
+	echo "Tests failed (${#FAILED[*]}): ${FAILED[*]}"
+	exit 1
+elif [ "${#SKIPPED[*]}" -ne 0 ] && [ -n "$TEST_GNU_EXITCODE" ]; then
 	exit 77
 else
 	echo "All tests passed"
