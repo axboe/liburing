@@ -257,12 +257,59 @@ static int test(int use_sqthread, int regfiles)
 	return (intptr_t)retval;
 }
 
+static int test_invalid(void)
+{
+	struct io_uring ring;
+	int ret, i;
+	int fds[2];
+	struct io_uring_cqe *cqe;
+	struct io_uring_sqe *sqe;
+
+	ret = t_create_ring(8, &ring, 0);
+	if (ret)
+		return ret;
+
+	ret = t_create_socket_pair(fds, true);
+	if (ret)
+		return ret;
+
+	sqe = io_uring_get_sqe(&ring);
+	io_uring_prep_sendmsg(sqe, fds[0], NULL, MSG_WAITALL);
+	sqe->flags |= IOSQE_ASYNC;
+
+	sqe = io_uring_get_sqe(&ring);
+	io_uring_prep_recvmsg(sqe, fds[1], NULL, 0);
+	sqe->flags |= IOSQE_ASYNC;
+
+	ret = io_uring_submit_and_wait(&ring, 2);
+	if (ret != 2)
+		return ret;
+
+	for (i = 0; i < 2; i++) {
+		ret = io_uring_peek_cqe(&ring, &cqe);
+		if (ret || cqe->res != -EFAULT)
+			return -1;
+		io_uring_cqe_seen(&ring, cqe);
+	}
+
+	io_uring_queue_exit(&ring);
+	close(fds[0]);
+	close(fds[1]);
+	return 0;
+}
+
 int main(int argc, char *argv[])
 {
 	int ret;
 
 	if (argc > 1)
 		return 0;
+
+	ret = test_invalid();
+	if (ret) {
+		fprintf(stderr, "test_invalid failed\n");
+		return ret;
+	}
 
 	ret = test(0, 0);
 	if (ret) {
