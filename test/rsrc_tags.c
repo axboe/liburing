@@ -347,7 +347,16 @@ static int test_files(int ring_flags)
 	ret = io_uring_register_files_update(&ring, off, &fd, 1);
 	assert(ret == 1);
 	ret = io_uring_wait_cqe(&ring, &cqe);
-	assert(!ret && cqe->user_data == tags[off]);
+	if (ret) {
+		fprintf(stderr, "io_uring wait ret=%d\n", ret);
+		return 1;
+	}
+	if (cqe->user_data != tags[off]) {
+		fprintf(stderr, "data %lx != %lx\n",
+				(unsigned long) cqe->user_data,
+				(unsigned long) tags[off]);
+		return 1;
+	}
 	io_uring_cqe_seen(&ring, cqe);
 
 	/* remove removed file, shouldn't emit old tag */
