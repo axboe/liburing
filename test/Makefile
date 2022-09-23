@@ -90,6 +90,7 @@ test_srcs := \
 	hardlink.c \
 	io-cancel.c \
 	iopoll.c \
+	iopoll-leak.c \
 	io_uring_enter.c \
 	io_uring_passthrough.c \
 	io_uring_register.c \
