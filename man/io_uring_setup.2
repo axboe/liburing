@@ -234,7 +234,7 @@ only the
 passthrough command for NVMe passthrough needs this. Available since 5.19.
 .TP
 .B IORING_SETUP_CQE32
-If set, io_uring will use 32-byte CQEs rather than the normal 32-byte sized
+If set, io_uring will use 32-byte CQEs rather than the normal 16-byte sized
 variant. This is a requirement for using certain request types, as of 5.19
 only the
 .B IORING_OP_URING_CMD
