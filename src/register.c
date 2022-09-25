@@ -256,6 +256,9 @@ int io_uring_register_ring_fd(struct io_uring *ring)
 	};
 	int ret;
 
+	if (ring->int_flags & INT_FLAG_REG_RING)
+		return -EEXIST;
+
 	ret = do_register(ring, IORING_REGISTER_RING_FDS, &up, 1);
 	if (ret == 1) {
 		ring->enter_ring_fd = up.offset;
@@ -271,6 +274,9 @@ int io_uring_unregister_ring_fd(struct io_uring *ring)
 		.offset = ring->enter_ring_fd,
 	};
 	int ret;
+
+	if (!(ring->int_flags & INT_FLAG_REG_RING))
+		return -EINVAL;
 
 	ret = do_register(ring, IORING_UNREGISTER_RING_FDS, &up, 1);
 	if (ret == 1) {
