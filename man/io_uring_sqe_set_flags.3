@@ -37,7 +37,8 @@ overlapped operation of requests that the application knows/assumes will
 always (or most of the time) block, the application can ask for an sqe to be
 issued async from the start. Note that this flag immediately causes the SQE
 to be offloaded to an async helper thread with no initial non-blocking attempt.
-This may be less efficient and should not be used sporadically.
+This may be less efficient and should not be used liberally or without
+understanding the performance and efficiency tradeoffs.
 .TP
 .B IOSQE_IO_LINK
 When this flag is specified, the SQE forms a link with the next SQE in the
