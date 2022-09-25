@@ -231,6 +231,7 @@ int io_uring_register_iowq_max_workers(struct io_uring *ring,
 				       unsigned int *values);
 int io_uring_register_ring_fd(struct io_uring *ring);
 int io_uring_unregister_ring_fd(struct io_uring *ring);
+int io_uring_close_ring_fd(struct io_uring *ring);
 int io_uring_register_buf_ring(struct io_uring *ring,
 			       struct io_uring_buf_reg *reg, unsigned int flags);
 int io_uring_unregister_buf_ring(struct io_uring *ring, int bgid);

@@ -291,6 +291,20 @@ int io_uring_unregister_ring_fd(struct io_uring *ring)
 	return ret;
 }
 
+int io_uring_close_ring_fd(struct io_uring *ring)
+{
+	if (!(ring->features & IORING_FEAT_REG_REG_RING))
+		return -EOPNOTSUPP;
+	if (!(ring->int_flags & INT_FLAG_REG_RING))
+		return -EINVAL;
+	if (ring->ring_fd == -1)
+		return -EBADF;
+
+	__sys_close(ring->ring_fd);
+	ring->ring_fd = -1;
+	return 1;
+}
+
 int io_uring_register_buf_ring(struct io_uring *ring,
 			       struct io_uring_buf_reg *reg,
 			       unsigned int __maybe_unused flags)

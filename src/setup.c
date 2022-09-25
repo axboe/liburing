@@ -205,7 +205,8 @@ __cold void io_uring_queue_exit(struct io_uring *ring)
 	 */
 	if (ring->int_flags & INT_FLAG_REG_RING)
 		io_uring_unregister_ring_fd(ring);
-	__sys_close(ring->ring_fd);
+	if (ring->ring_fd != -1)
+		__sys_close(ring->ring_fd);
 }
 
 __cold struct io_uring_probe *io_uring_get_probe_ring(struct io_uring *ring)
