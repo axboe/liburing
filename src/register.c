@@ -11,6 +11,11 @@
 static inline int do_register(struct io_uring *ring, unsigned int opcode,
 			      const void *arg, unsigned int nr_args)
 {
+	if (ring->features & IORING_FEAT_REG_REG_RING
+	    && ring->int_flags & INT_FLAG_REG_RING) {
+		opcode |= IORING_REGISTER_USE_REGISTERED_RING;
+		return __sys_io_uring_register(ring->enter_ring_fd, opcode, arg, nr_args);
+	}
 	return __sys_io_uring_register(ring->ring_fd, opcode, arg, nr_args);
 }
 
