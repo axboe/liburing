@@ -533,6 +533,55 @@ static bool io_check_zc_sendmsg(struct io_uring *ring)
 	return p->ops_len > IORING_OP_SENDMSG_ZC;
 }
 
+/* see also send_recv.c:test_invalid */
+static int test_invalid_zc(void)
+{
+	struct io_uring ring;
+	int ret, fds[2];
+	struct io_uring_cqe *cqe;
+	struct io_uring_sqe *sqe;
+	bool notif = false;
+
+	if (!has_sendmsg)
+		return 0;
+
+	ret = t_create_ring(8, &ring, 0);
+	if (ret)
+		return ret;
+	ret = t_create_socket_pair(fds, true);
+	if (ret)
+		return ret;
+
+	sqe = io_uring_get_sqe(&ring);
+	io_uring_prep_sendmsg(sqe, fds[0], NULL, MSG_WAITALL);
+	sqe->opcode = IORING_OP_SENDMSG_ZC;
+	sqe->flags |= IOSQE_ASYNC;
+
+	ret = io_uring_submit(&ring);
+	if (ret != 1) {
+		fprintf(stderr, "submit failed %i\n", ret);
+		return ret;
+	}
+	ret = io_uring_wait_cqe(&ring, &cqe);
+	if (ret)
+		return 1;
+	if (cqe->flags & IORING_CQE_F_MORE)
+		notif = true;
+	io_uring_cqe_seen(&ring, cqe);
+
+	if (notif) {
+		ret = io_uring_wait_cqe(&ring, &cqe);
+		if (ret)
+			return 1;
+		io_uring_cqe_seen(&ring, cqe);
+	}
+
+	io_uring_queue_exit(&ring);
+	close(fds[0]);
+	close(fds[1]);
+	return 0;
+}
+
 int main(int argc, char *argv[])
 {
 	struct io_uring ring;
@@ -602,7 +651,7 @@ int main(int argc, char *argv[])
 	ret = test_async_addr(&ring);
 	if (ret) {
 		fprintf(stderr, "test_async_addr() failed\n");
-		return ret;
+		return T_EXIT_FAIL;
 	}
 
 	ret = t_register_buffers(&ring, buffers_iov, ARRAY_SIZE(buffers_iov));
@@ -617,7 +666,13 @@ int main(int argc, char *argv[])
 	ret = test_inet_send(&ring);
 	if (ret) {
 		fprintf(stderr, "test_inet_send() failed\n");
-		return ret;
+		return T_EXIT_FAIL;
+	}
+
+	ret = test_invalid_zc();
+	if (ret) {
+		fprintf(stderr, "test_invalid_zc() failed\n");
+		return T_EXIT_FAIL;
 	}
 out:
 	io_uring_queue_exit(&ring);
