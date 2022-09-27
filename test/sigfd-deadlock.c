@@ -50,7 +50,10 @@ static int test_uring(int sfd)
 	kill(getpid(), SIGINT);
 
 	io_uring_wait_cqe(&ring, &cqe);
-	if (cqe->res < 0) {
+	if (cqe->res == -EOPNOTSUPP) {
+		fprintf(stderr, "signalfd poll not supported\n");
+		ret = T_EXIT_SKIP;
+	} else if (cqe->res < 0) {
 		fprintf(stderr, "poll failed: %d\n", cqe->res);
 		ret = T_EXIT_FAIL;
 	} else if (cqe->res & POLLIN) {
@@ -77,7 +80,7 @@ int main(int argc, char *argv[])
 		return T_EXIT_FAIL;
 
 	ret = test_uring(sfd);
-	if (ret)
+	if (ret == T_EXIT_FAIL)
 		fprintf(stderr, "test_uring signalfd failed\n");
 
 	close(sfd);
