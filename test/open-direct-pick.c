@@ -158,7 +158,7 @@ int main(int argc, char *argv[])
 		return 0;
 	}
 
-	path = "/tmp/.open.close";
+	path = "/tmp/.open.direct.pick";
 	t_create_file(path, 4096);
 
 	ret = test_openat(&ring, path);
