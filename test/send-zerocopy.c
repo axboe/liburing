@@ -141,9 +141,7 @@ static int test_send_faults(struct io_uring *ring, int sock_tx, int sock_rx)
 		assert(!ret);
 		assert(cqe->user_data <= 2);
 
-		if (cqe->flags & IORING_CQE_F_NOTIF) {
-			assert(ret > 0);
-		} else {
+		if (!(cqe->flags & IORING_CQE_F_NOTIF)) {
 			assert(cqe->res == -EFAULT);
 			if (cqe->flags & IORING_CQE_F_MORE)
 				nr_cqes++;
