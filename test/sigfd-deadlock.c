@@ -11,6 +11,7 @@
 #include <poll.h>
 #include <stdio.h>
 #include "liburing.h"
+#include "helpers.h"
 
 static int setup_signal(void)
 {
@@ -34,22 +35,35 @@ static int test_uring(int sfd)
 	struct io_uring ring;
 	int ret;
 
-	io_uring_queue_init(32, &ring, 0);
+	ret = io_uring_queue_init(32, &ring, 0);
+	if (ret)
+		return T_EXIT_FAIL;
 
 	sqe = io_uring_get_sqe(&ring);
 	io_uring_prep_poll_add(sqe, sfd, POLLIN);
-	io_uring_submit(&ring);
+	ret = io_uring_submit(&ring);
+	if (ret < 0) {
+		ret = T_EXIT_FAIL;
+		goto err_exit;
+	}
 
 	kill(getpid(), SIGINT);
 
 	io_uring_wait_cqe(&ring, &cqe);
-	if (cqe->res & POLLIN) {
-		ret = 0;
+	if (cqe->res == -EOPNOTSUPP) {
+		fprintf(stderr, "signalfd poll not supported\n");
+		ret = T_EXIT_SKIP;
+	} else if (cqe->res < 0) {
+		fprintf(stderr, "poll failed: %d\n", cqe->res);
+		ret = T_EXIT_FAIL;
+	} else if (cqe->res & POLLIN) {
+		ret = T_EXIT_PASS;
 	} else {
 		fprintf(stderr, "Unexpected poll mask %x\n", cqe->res);
-		ret = 1;
+		ret = T_EXIT_FAIL;
 	}
 	io_uring_cqe_seen(&ring, cqe);
+err_exit:
 	io_uring_queue_exit(&ring);
 	return ret;
 }
@@ -59,14 +73,14 @@ int main(int argc, char *argv[])
 	int sfd, ret;
 
 	if (argc > 1)
-		return 0;
+		return T_EXIT_PASS;
 
 	sfd = setup_signal();
 	if (sfd < 0)
-		return 1;
+		return T_EXIT_FAIL;
 
 	ret = test_uring(sfd);
-	if (ret)
+	if (ret == T_EXIT_FAIL)
 		fprintf(stderr, "test_uring signalfd failed\n");
 
 	close(sfd);
