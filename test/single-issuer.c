@@ -96,22 +96,40 @@ int main(int argc, char *argv[])
 	if (!fork_t()) {
 		ret = try_submit(&ring);
 		if (ret != -EEXIST)
-			fprintf(stderr, "not owner child could submit %i\n", ret);
+			fprintf(stderr, "1: not owner child could submit %i\n", ret);
 		return ret != -EEXIST;
 	}
 	wait_child_t();
 	io_uring_queue_exit(&ring);
 
 	/* test that the first submitter but not creator can submit */
-	ret = io_uring_queue_init(8, &ring, IORING_SETUP_SINGLE_ISSUER);
+	ret = io_uring_queue_init(8, &ring, IORING_SETUP_SINGLE_ISSUER |
+					    IORING_SETUP_R_DISABLED);
 	if (ret)
 		error(1, ret, "ring init (2) %i", ret);
 
 	if (!fork_t()) {
+		io_uring_enable_rings(&ring);
 		ret = try_submit(&ring);
 		if (ret)
-			fprintf(stderr, "not owner child could submit %i\n", ret);
+			fprintf(stderr, "2: not owner child could submit %i\n", ret);
 		return !!ret;
+	}
+	wait_child_t();
+	io_uring_queue_exit(&ring);
+
+	/* test that only the first enabler can submit */
+	ret = io_uring_queue_init(8, &ring, IORING_SETUP_SINGLE_ISSUER |
+					    IORING_SETUP_R_DISABLED);
+	if (ret)
+		error(1, ret, "ring init (3) %i", ret);
+
+	io_uring_enable_rings(&ring);
+	if (!fork_t()) {
+		ret = try_submit(&ring);
+		if (ret != -EEXIST)
+			fprintf(stderr, "3: not owner child could submit %i\n", ret);
+		return ret != -EEXIST;
 	}
 	wait_child_t();
 	io_uring_queue_exit(&ring);
@@ -119,7 +137,7 @@ int main(int argc, char *argv[])
 	/* test that anyone can submit to a SQPOLL|SINGLE_ISSUER ring */
 	ret = io_uring_queue_init(8, &ring, IORING_SETUP_SINGLE_ISSUER|IORING_SETUP_SQPOLL);
 	if (ret)
-		error(1, ret, "ring init (3) %i", ret);
+		error(1, ret, "ring init (4) %i", ret);
 
 	ret = try_submit(&ring);
 	if (ret) {
@@ -139,13 +157,13 @@ int main(int argc, char *argv[])
 	/* test that IORING_ENTER_REGISTERED_RING doesn't break anything */
 	ret = io_uring_queue_init(8, &ring, IORING_SETUP_SINGLE_ISSUER);
 	if (ret)
-		error(1, ret, "ring init (4) %i", ret);
+		error(1, ret, "ring init (5) %i", ret);
 
 	if (!fork_t()) {
 		ret = try_submit(&ring);
-		if (ret)
-			fprintf(stderr, "not owner child could submit %i\n", ret);
-		return !!ret;
+		if (ret != -EEXIST)
+			fprintf(stderr, "4: not owner child could submit %i\n", ret);
+		return ret != -EEXIST;
 	}
 	wait_child_t();
 	io_uring_queue_exit(&ring);

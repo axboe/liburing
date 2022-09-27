@@ -241,22 +241,22 @@ only the
 passthrough command for NVMe passthrough needs this. Available since 5.19.
 .TP
 .B IORING_SETUP_SINGLE_ISSUER
-A hint to the kernel that only a single task can submit requests, which is used
-for internal optimisations. The kernel enforces the rule, which only affects
-.I
-io_uring_enter(2)
-calls submitting requests and will fail them with
+A hint to the kernel that only a single task (or thread) will submit requests, which is
+used for internal optimisations. The submission task is either the task that created the
+ring, or if
+.B IORING_SETUP_R_DISABLED
+is specified then it is the task that enables the ring through
+.BR io_uring_register (2) .
+The kernel enforces this rule, failing requests with
 .B -EEXIST
 if the restriction is violated.
-The submitter task may differ from the task that created the ring.
 Note that when
 .B IORING_SETUP_SQPOLL
 is set it is considered that the polling task is doing all submissions
 on behalf of the userspace and so it always complies with the rule disregarding
 how many userspace tasks do
-.I
-io_uring_enter(2).
-Available since 5.20.
+.BR io_uring_enter(2).
+Available since 6.0.
 .TP
 .B IORING_SETUP_DEFER_TASKRUN
 By default, io_uring will process all outstanding work at the end of any system

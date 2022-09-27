@@ -123,6 +123,7 @@ void *thread(void *t)
 {
 	struct thread_data *td = t;
 
+	io_uring_enable_rings(&td->ring);
 	io_uring_prep_read(io_uring_get_sqe(&td->ring), td->efd, td->buff, sizeof(td->buff), 0);
 	io_uring_submit(&td->ring);
 
@@ -138,17 +139,20 @@ static int test_thread_shutdown(void)
 	uint64_t val = 1;
 
 	ret = io_uring_queue_init(8, &td.ring, IORING_SETUP_SINGLE_ISSUER |
-					       IORING_SETUP_DEFER_TASKRUN);
+					       IORING_SETUP_DEFER_TASKRUN |
+					       IORING_SETUP_R_DISABLED);
 	if (ret)
 		return ret;
 
-	CHECK(io_uring_get_events(&td.ring) == -EEXIST);
+	CHECK(io_uring_get_events(&td.ring) == -EBADFD);
 
 	td.efd = eventfd(0, 0);
 	CHECK(td.efd >= 0);
 
 	CHECK(pthread_create(&t1, NULL, thread, &td) == 0);
 	CHECK(pthread_join(t1, NULL) == 0);
+
+	CHECK(io_uring_get_events(&td.ring) == -EEXIST);
 
 	CHECK(write(td.efd, &val, sizeof(val)) == sizeof(val));
 	CHECK(io_uring_wait_cqe(&td.ring, &cqe) == -EEXIST);
