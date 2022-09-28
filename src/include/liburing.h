@@ -746,6 +746,25 @@ static inline void io_uring_prep_send_zc(struct io_uring_sqe *sqe, int sockfd,
 	sqe->ioprio = zc_flags;
 }
 
+static inline void io_uring_prep_send_zc_fixed(struct io_uring_sqe *sqe,
+						int sockfd, const void *buf,
+						size_t len, int flags,
+						unsigned zc_flags,
+						unsigned buf_index)
+{
+	io_uring_prep_send_zc(sqe, sockfd, buf, len, flags, zc_flags);
+	sqe->ioprio |= IORING_RECVSEND_FIXED_BUF;
+	sqe->buf_index = buf_index;
+}
+
+static inline void io_uring_prep_sendmsg_zc(struct io_uring_sqe *sqe, int fd,
+					    const struct msghdr *msg,
+					    unsigned flags)
+{
+	io_uring_prep_sendmsg(sqe, fd, msg, flags);
+	sqe->opcode = IORING_OP_SENDMSG_ZC;
+}
+
 static inline void io_uring_prep_send_set_addr(struct io_uring_sqe *sqe,
 						const struct sockaddr *dest_addr,
 						__u16 addr_len)

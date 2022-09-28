@@ -301,8 +301,7 @@ static int do_test_inet_send(struct io_uring *ring, int sock_client, int sock_se
 				io_uring_prep_send_set_addr(sqe, (const struct sockaddr *)addr,
 							    addr_len);
 		} else {
-			io_uring_prep_sendmsg(sqe, sock_client, &msghdr[i], msg_flags);
-			sqe->opcode = IORING_OP_SENDMSG_ZC;
+			io_uring_prep_sendmsg_zc(sqe, sock_client, &msghdr[i], msg_flags);
 
 			memset(&msghdr[i], 0, sizeof(msghdr[i]));
 			iov[i].iov_len = cur_size;
