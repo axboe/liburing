@@ -9,7 +9,7 @@ io_uring_register_sync_cancel \- issue a synchronous cancelation request
 .nf
 .B #include <liburing.h>
 .PP
-.BI "int io_uring_register_buffers(struct io_uring *" ring ",
+.BI "int io_uring_register_sync_cancel(struct io_uring *" ring ",
 .BI "                              struct io_uring_sync_cancel_reg *" reg ");
 .PP
 .SH DESCRIPTION
