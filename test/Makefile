@@ -86,6 +86,7 @@ test_srcs := \
 	fixed-link.c \
 	fixed-reuse.c \
 	fpos.c \
+	fsnotify.c \
 	fsync.c \
 	hardlink.c \
 	io-cancel.c \
