@@ -253,7 +253,7 @@ and
 .BR pwritev2 (2).
 If the file is not seekable,
 .I off
-must be set to zero.
+must be set to zero or -1.
 
 .TP
 .B IORING_OP_READ_FIXED
@@ -789,7 +789,7 @@ contains the read or write offset. If
 .I fd
 does not refer to a seekable file,
 .I off
-must be set to zero. If
+must be set to zero or -1. If
 .I offs
 is set to
 .B -1

@@ -41,7 +41,7 @@ current file offset may result in unpredictable behavior, unless access
 to the file is serialized. It is not encouraged to use this feature if it's
 possible to provide the desired IO offset from the application or library.
 
-On files that are not capable of seeking, the offset is ignored.
+On files that are not capable of seeking, the offset must be 0 or -1.
 
 After the write has been prepared it can be submitted with one of the submit
 functions.
