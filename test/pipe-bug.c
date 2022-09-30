@@ -59,7 +59,7 @@ static int pipe_bug(void)
 	CHECK(io_uring_submit(&ring) == 1);
 	CHECK(io_uring_wait_cqe_timeout(&ring, &cqe, &to) == 0);
 	io_uring_cqe_seen(&ring, cqe);
-	bzero(buf, sizeof(buf));
+	memset(buf, 0, sizeof(buf));
 
 	/* READ */
 	sqe = io_uring_get_sqe(&ring);
