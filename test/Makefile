@@ -112,6 +112,7 @@ test_srcs := \
 	open-direct-link.c \
 	open-direct-pick.c \
 	personality.c \
+	pipe-bug.c \
 	pipe-eof.c \
 	pipe-reuse.c \
 	poll.c \
