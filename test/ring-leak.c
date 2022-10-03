@@ -135,6 +135,17 @@ static int test_iowq_request_cancel(void)
 	return 0;
 }
 
+static void trigger_unix_gc(void)
+{
+	int fd;
+
+	fd = socket(AF_UNIX, SOCK_DGRAM, 0);
+	if (fd < 0)
+		perror("socket dgram");
+	else
+		close(fd);
+}
+
 static int test_scm_cycles(bool update)
 {
 	char buffer[128];
@@ -192,6 +203,8 @@ static int test_scm_cycles(bool update)
 
 	/* should unregister files and close the write fd */
 	io_uring_queue_exit(&ring);
+
+	trigger_unix_gc();
 
 	/*
 	 * We're trying to wait for the ring to "really" exit, that will be
