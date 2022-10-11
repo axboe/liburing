@@ -7,6 +7,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/fanotify.h>
+#include <sys/stat.h>
 #include <sys/wait.h>
 
 #include "liburing.h"
@@ -19,6 +20,7 @@ int main(int argc, char *argv[])
 	struct io_uring ring;
 	int fan, ret, fd, err;
 	char fname[64], *f;
+	struct stat sb;
 	void *buf;
 
 	fan = fanotify_init(FAN_CLASS_NOTIF|FAN_CLASS_CONTENT, 0);
@@ -43,6 +45,16 @@ int main(int argc, char *argv[])
 	}
 	if (fd < 0) {
 		perror("open");
+		goto out;
+	}
+
+	if (fstat(fd, &sb) < 0) {
+		perror("fstat");
+		goto out;
+	}
+	if ((sb.st_mode & S_IFMT) != S_IFREG) {
+		err = T_EXIT_SKIP;
+		close(fd);
 		goto out;
 	}
 
