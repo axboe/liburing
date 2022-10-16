@@ -8,7 +8,7 @@ Homepage: https://git.kernel.dk/cgit/liburing/tree/README
 Vcs-Git: https://git.kernel.dk/liburing
 Vcs-Browser: https://git.kernel.dk/cgit/liburing/
 
-Package: liburing1
+Package: liburing2
 Architecture: linux-any
 Multi-Arch: same
 Pre-Depends: ${misc:Pre-Depends}
@@ -25,7 +25,7 @@ Package: liburing-dev
 Section: libdevel
 Architecture: linux-any
 Multi-Arch: same
-Depends: ${misc:Depends}, liburing1 (= ${binary:Version}),
+Depends: ${misc:Depends}, liburing2 (= ${binary:Version}),
 Description: userspace library for using io_uring
  io_uring is kernel feature to improve development
  The newese Linux IO interface, io_uring could improve
