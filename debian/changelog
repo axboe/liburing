@@ -1,3 +1,14 @@
+liburing (2.2-1) stable; urgency=low
+
+  * Update to 2.2
+  * Bump up so version to 2
+  * Drop liburing1-udeb
+  * Package using dh instead of using dh_* helpers manually
+  * Add linux header dependency to liburing-dev
+  * Bump up debhelper-compact level to 13
+
+ -- Kefu Chai <tchaikov@gmail.com>  Sun, 16 Oct 2022 16:30:48 +0800
+
 liburing (0.7-1) stable; urgency=low
 
   * Update to 0.7
