@@ -91,7 +91,7 @@ static int test_basic_send(struct io_uring *ring, int sock_tx, int sock_rx)
 	ret = io_uring_wait_cqe(ring, &cqe);
 	assert(!ret);
 	assert(cqe->user_data == 1);
-	if (ret == -EINVAL) {
+	if (cqe->res == -EINVAL) {
 		assert(!(cqe->flags & IORING_CQE_F_MORE));
 		return T_EXIT_SKIP;
 	}
