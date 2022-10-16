@@ -13,7 +13,6 @@ export CC
 
 lib := liburing1
 libdbg := $(lib)-dbg
-libudeb := $(lib)-udeb
 libdev := liburing-dev
 
 build-indep:
@@ -70,7 +69,7 @@ binary-arch: install-arch
 	dh_strip -a --ddeb-migration='$(libdbg) (<< 0.3)'
 	dh_compress -a
 	dh_fixperms -a
-	dh_makeshlibs -a --add-udeb '$(libudeb)'
+	dh_makeshlibs -a
 	dh_shlibdeps -a
 	dh_installdeb -a
 	dh_gencontrol -a

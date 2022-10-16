@@ -21,19 +21,6 @@ Description: userspace library for using io_uring
  .
  This package contains the shared library.
 
-Package: liburing1-udeb
-Package-Type: udeb
-Section: debian-installer
-Architecture: linux-any
-Depends: ${misc:Depends}, ${shlibs:Depends},
-Description: userspace library for using io_uring
- io_uring is kernel feature to improve development
- The newese Linux IO interface, io_uring could improve
- system performance a lot. liburing is the userpace
- library to use io_uring feature.
- .
- This package contains the udeb shared library.
-
 Package: liburing-dev
 Section: libdevel
 Architecture: linux-any
