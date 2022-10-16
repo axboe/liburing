@@ -19,7 +19,7 @@ set -xe
 
 # Create dir for build
 base=${1:-/tmp/release}
-codename=$(lsb_release -sc)
+distro=unstable
 releasedir=$base/$(lsb_release -si)/liburing
 rm -rf $releasedir
 mkdir -p $releasedir
@@ -40,7 +40,7 @@ git clean -dxf
 # Change changelog if it's needed
 cur_ver=`head -l debian/changelog | sed -n -e 's/.* (\(.*\)) .*/\1/p'`
 if [ "$cur_ver" != "$version-1" ]; then
-	dch -D $codename --force-distribution -b -v "$version-1" "new version"
+	dch -D $distro --force-distribution -b -v "$version-1" "new version"
 fi
 
 # Create tar archieve
