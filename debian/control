@@ -2,7 +2,8 @@ Source: liburing
 Section: libs
 Priority: optional
 Maintainer: Liu Changcheng <changcheng.liu@intel.com>
-Build-Depends: debhelper (>=9)
+Build-Depends:
+  debhelper-compat (= 9)
 Standards-Version: 4.1.4
 Homepage: https://git.kernel.dk/cgit/liburing/tree/README
 Vcs-Git: https://git.kernel.dk/liburing
