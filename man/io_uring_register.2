@@ -18,7 +18,7 @@ io_uring_register \- register files or user buffers for asynchronous I/O
 .PP
 
 The
-.BR io_uring_register ()
+.BR io_uring_register (2)
 system call registers resources (e.g. user buffers, files, eventfd,
 personality, restrictions) for use in an
 .BR io_uring (7)
@@ -85,7 +85,7 @@ region.
 An application can increase or decrease the size or number of
 registered buffers by first unregistering the existing buffers, and
 then issuing a new call to
-.BR io_uring_register ()
+.BR io_uring_register (2)
 with the new buffers.
 
 Note that before 5.13 registering buffers would wait for the ring to idle.
@@ -428,7 +428,7 @@ array of
 entries.
 
 With an entry it is possible to allow an
-.BR io_uring_register ()
+.BR io_uring_register (2)
 .I opcode,
 or specify which
 .I opcode
@@ -440,7 +440,7 @@ or require certain
 to be specified (these flags must be set on each submission queue entry).
 
 All the restrictions must be submitted with a single
-.BR io_uring_register ()
+.BR io_uring_register (2)
 call and they are handled as an allowlist (opcodes and flags not registered,
 are not allowed).
 
@@ -582,7 +582,7 @@ Available since 5.18.
 .SH RETURN VALUE
 
 On success,
-.BR io_uring_register ()
+.BR io_uring_register (2)
 returns 0.  On error, a negative error code is returned. The caller should not
 rely on
 .I errno

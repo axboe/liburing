@@ -21,13 +21,13 @@ io_uring_enter \- initiate and/or complete asynchronous I/O
 .PP
 .SH DESCRIPTION
 .PP
-.BR io_uring_enter ()
+.BR io_uring_enter (2)
 is used to initiate and complete I/O using the shared submission and
 completion queues setup by a call to
 .BR io_uring_setup (2).
 A single call can both submit new I/O and wait for completions of I/O
 initiated by this call or previous calls to
-.BR io_uring_enter ().
+.BR io_uring_enter (2).
 
 .I fd
 is the file descriptor returned by
@@ -141,12 +141,12 @@ is a pointer to a signal mask (see
 if
 .I sig
 is not NULL,
-.BR io_uring_enter ()
+.BR io_uring_enter (2)
 first replaces the current signal mask by the one pointed to by
 .IR sig ,
 then waits for events to become available in the completion queue, and
 then restores the original signal mask.  The following
-.BR io_uring_enter ()
+.BR io_uring_enter (2)
 call:
 .PP
 .in +4n
@@ -1374,7 +1374,7 @@ in the matching man page for that type, or in the opcodes section above for
 io_uring-specific opcodes.
 .PP
 .SH RETURN VALUE
-.BR io_uring_enter ()
+.BR io_uring_enter (2)
 returns the number of I/Os successfully consumed.  This can be zero
 if
 .I to_submit
@@ -1398,7 +1398,7 @@ variable.
 .PP
 .SH ERRORS
 These are the errors returned by
-.BR io_uring_enter ()
+.BR io_uring_enter (2)
 system call.
 .TP
 .B EAGAIN

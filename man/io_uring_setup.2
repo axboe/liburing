@@ -13,11 +13,13 @@ io_uring_setup \- setup a context for performing asynchronous I/O
 .PP
 .BI "int io_uring_setup(u32 " entries ", struct io_uring_params *" p );
 .fi
-.PP
+.PPAA
 .SH DESCRIPTION
 .PP
-The io_uring_setup() system call sets up a submission queue (SQ) and
-completion queue (CQ) with at least
+The
+.BR io_uring_setup (2)
+system call sets up a submission queue (SQ) and completion queue (CQ) with at
+least
 .I entries
 entries, and returns a file descriptor which can be used to perform
 subsequent operations on the io_uring instance.  The submission and
