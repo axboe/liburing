@@ -21,3 +21,8 @@ override_dh_auto_configure:
 	  --libdir=/usr/lib/$(DEB_HOST_MULTIARCH) \
 	  --libdevdir=/usr/lib/$(DEB_HOST_MULTIARCH) \
 	  --cc=$(CC)
+
+override_dh_auto_test:
+ifeq (,$(filter nocheck,$(DEB_BUILD_OPTIONS)))
+	$(MAKE) runtests
+endif
