@@ -1060,6 +1060,40 @@ interrupt anyone waiting for completions on the target ring, or it can be used
 to pass messages via the two fields. Available since 5.18.
 
 .TP
+.B IORING_OP_SOCKET
+Issue the equivalent of a
+.BR socket(2)
+system call.
+.I fd
+must contain the communication domain,
+.I off
+must contain the communication type,
+.I len
+must contain the protocol, and
+.I rw_flags
+is currently unused and must be set to zero. See also
+.BR socket(2)
+for the general description of the related system call. Available since 5.19.
+
+If the
+.I file_index
+field is set to a positive number, the file won't be installed into the
+normal file table as usual but will be placed into the fixed file table at index
+.I file_index - 1.
+In this case, instead of returning a file descriptor, the result will contain
+either 0 on success or an error. If the index points to a valid empty slot, the
+installation is guaranteed to not fail. If there is already a file in the slot,
+it will be replaced, similar to
+.B IORING_OP_FILES_UPDATE.
+Please note that only io_uring has access to such files and no other syscall
+can use them. See
+.B IOSQE_FIXED_FILE
+and
+.B IORING_REGISTER_FILES.
+
+Available since 5.19.
+
+.TP
 .B IORING_OP_SEND_ZC
 Issue the zerocopy equivalent of a
 .BR send(2)
