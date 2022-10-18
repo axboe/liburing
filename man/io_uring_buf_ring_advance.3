@@ -9,8 +9,8 @@ io_uring_buf_ring_advance \- advance index of provided buffer in buffer ring
 .nf
 .B #include <liburing.h>
 .PP
-.BI "int io_uring_buf_ring_advance(struct io_uring_buf_ring *" br ",
-.BI "                              int " count ");"
+.BI "void io_uring_buf_ring_advance(struct io_uring_buf_ring *" br ",
+.BI "                               int " count ");"
 .fi
 .SH DESCRIPTION
 .PP
