@@ -791,10 +791,9 @@ static inline void io_uring_prep_recv_multishot(struct io_uring_sqe *sqe,
 static inline struct io_uring_recvmsg_out *
 io_uring_recvmsg_validate(void *buf, int buf_len, struct msghdr *msgh)
 {
-	int header = msgh->msg_controllen + msgh->msg_namelen +
+	unsigned long header = msgh->msg_controllen + msgh->msg_namelen +
 				sizeof(struct io_uring_recvmsg_out);
-
-	if (buf_len < header)
+	if (buf_len < 0 || (unsigned long)buf_len < header)
 		return NULL;
 	return (struct io_uring_recvmsg_out *)buf;
 }
