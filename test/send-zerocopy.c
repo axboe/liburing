@@ -88,14 +88,17 @@ static int test_basic_send(struct io_uring *ring, int sock_tx, int sock_rx)
 
 	ret = io_uring_submit(ring);
 	assert(ret == 1);
+
 	ret = io_uring_wait_cqe(ring, &cqe);
-	assert(!ret);
-	assert(cqe->user_data == 1);
+	assert(!ret && cqe->user_data == 1);
 	if (cqe->res == -EINVAL) {
 		assert(!(cqe->flags & IORING_CQE_F_MORE));
 		return T_EXIT_SKIP;
+	} else if (cqe->res != payload_size) {
+		fprintf(stderr, "send failed %i\n", cqe->res);
+		return T_EXIT_FAIL;
 	}
-	assert(cqe->res == payload_size);
+
 	assert(cqe->flags & IORING_CQE_F_MORE);
 	io_uring_cqe_seen(ring, cqe);
 
@@ -152,8 +155,10 @@ static int test_send_faults(struct io_uring *ring, int sock_tx, int sock_rx)
 	return T_EXIT_PASS;
 }
 
-static int prepare_ip(struct sockaddr_storage *addr, int *sock_client, int *sock_server,
-		      bool ipv6, bool client_connect, bool msg_zc, bool tcp)
+static int create_socketpair_ip(struct sockaddr_storage *addr,
+				int *sock_client, int *sock_server,
+				bool ipv6, bool client_connect,
+				bool msg_zc, bool tcp)
 {
 	int family, addr_size;
 	int ret, val;
@@ -396,7 +401,7 @@ static int test_inet_send(struct io_uring *ring)
 		if (tcp && !client_connect)
 			continue;
 
-		ret = prepare_ip(&addr, &sock_client, &sock_server, ipv6,
+		ret = create_socketpair_ip(&addr, &sock_client, &sock_server, ipv6,
 				 client_connect, msg_zc_set, tcp);
 		if (ret) {
 			fprintf(stderr, "sock prep failed %d\n", ret);
@@ -454,7 +459,7 @@ static int test_async_addr(struct io_uring *ring)
 
 	ts.tv_sec = 1;
 	ts.tv_nsec = 0;
-	ret = prepare_ip(&addr, &sock_tx, &sock_rx, true, false, false, false);
+	ret = create_socketpair_ip(&addr, &sock_tx, &sock_rx, true, false, false, false);
 	if (ret) {
 		fprintf(stderr, "sock prep failed %d\n", ret);
 		return 1;
@@ -531,10 +536,10 @@ static bool io_check_zc_sendmsg(struct io_uring *ring)
 }
 
 /* see also send_recv.c:test_invalid */
-static int test_invalid_zc(void)
+static int test_invalid_zc(int fds[2])
 {
 	struct io_uring ring;
-	int ret, fds[2];
+	int ret;
 	struct io_uring_cqe *cqe;
 	struct io_uring_sqe *sqe;
 	bool notif = false;
@@ -543,9 +548,6 @@ static int test_invalid_zc(void)
 		return 0;
 
 	ret = t_create_ring(8, &ring, 0);
-	if (ret)
-		return ret;
-	ret = t_create_socket_pair(fds, true);
 	if (ret)
 		return ret;
 
@@ -572,21 +574,26 @@ static int test_invalid_zc(void)
 			return 1;
 		io_uring_cqe_seen(&ring, cqe);
 	}
-
 	io_uring_queue_exit(&ring);
-	close(fds[0]);
-	close(fds[1]);
 	return 0;
 }
 
 int main(int argc, char *argv[])
 {
+	struct sockaddr_storage addr;
 	struct io_uring ring;
 	int i, ret, sp[2];
 	size_t len;
 
 	if (argc > 1)
 		return T_EXIT_SKIP;
+
+	/* create TCP IPv6 pair */
+	ret = create_socketpair_ip(&addr, &sp[0], &sp[1], true, true, false, true);
+	if (ret) {
+		fprintf(stderr, "sock prep failed %d\n", ret);
+		return T_EXIT_FAIL;
+	}
 
 	len = 1U << 25; /* 32MB, should be enough to trigger a short send */
 	tx_buffer = aligned_alloc(4096, len);
@@ -624,11 +631,6 @@ int main(int argc, char *argv[])
 		tx_buffer[i] = i;
 	memset(rx_buffer, 0, len);
 
-	if (socketpair(AF_UNIX, SOCK_DGRAM, 0, sp) != 0) {
-		perror("Failed to create Unix-domain socket pair\n");
-		return T_EXIT_FAIL;
-	}
-
 	ret = test_basic_send(&ring, sp[0], sp[1]);
 	if (ret == T_EXIT_SKIP)
 		return ret;
@@ -644,6 +646,15 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "test_send_faults() failed\n");
 		return T_EXIT_FAIL;
 	}
+
+	ret = test_invalid_zc(sp);
+	if (ret) {
+		fprintf(stderr, "test_invalid_zc() failed\n");
+		return T_EXIT_FAIL;
+	}
+
+	close(sp[0]);
+	close(sp[1]);
 
 	ret = test_async_addr(&ring);
 	if (ret) {
@@ -663,12 +674,6 @@ int main(int argc, char *argv[])
 	ret = test_inet_send(&ring);
 	if (ret) {
 		fprintf(stderr, "test_inet_send() failed\n");
-		return T_EXIT_FAIL;
-	}
-
-	ret = test_invalid_zc();
-	if (ret) {
-		fprintf(stderr, "test_invalid_zc() failed\n");
 		return T_EXIT_FAIL;
 	}
 out:
