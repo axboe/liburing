@@ -5,11 +5,14 @@ includedir ?= $(prefix)/include
 libdir ?= $(prefix)/lib
 libdevdir ?= $(prefix)/lib
 
+LIBURING_CFLAGS ?=
 CPPFLAGS ?=
 override CPPFLAGS += -D_GNU_SOURCE \
 	-Iinclude/ -include ../config-host.h
 CFLAGS ?= -g -O3 -Wall -Wextra -fno-stack-protector
-override CFLAGS += -Wno-unused-parameter -Wno-sign-compare -DLIBURING_INTERNAL
+override CFLAGS += -Wno-unused-parameter -Wno-sign-compare \
+	-DLIBURING_INTERNAL \
+	$(LIBURING_CFLAGS)
 SO_CFLAGS=-fPIC $(CFLAGS)
 L_CFLAGS=$(CFLAGS)
 LINK_FLAGS=
