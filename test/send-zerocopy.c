@@ -260,6 +260,7 @@ struct send_conf {
 	bool zc;
 	bool iovec;
 	bool long_iovec;
+	bool poll_first;
 	int buf_index;
 	struct sockaddr_storage *addr;
 };
@@ -370,6 +371,8 @@ static int do_test_inet_send(struct io_uring *ring, int sock_client, int sock_se
 		sqe->user_data = i;
 		if (conf->force_async)
 			sqe->flags |= IOSQE_ASYNC;
+		if (conf->poll_first)
+			sqe->ioprio |= IORING_RECVSEND_POLL_FIRST;
 		if (i != nr_reqs - 1)
 			sqe->flags |= IOSQE_IO_LINK;
 	}
@@ -458,7 +461,7 @@ static int test_inet_send(struct io_uring *ring)
 			return 1;
 		}
 
-		for (i = 0; i < 2048; i++) {
+		for (i = 0; i < 4096; i++) {
 			bool regbuf;
 
 			conf.buf_index = i & 3;
@@ -471,6 +474,7 @@ static int test_inet_send(struct io_uring *ring)
 			conf.zc = i & 256;
 			conf.iovec = i & 512;
 			conf.long_iovec = i & 1024;
+			conf.poll_first = i & 2048;
 			conf.tcp = tcp;
 			regbuf = conf.mix_register || conf.fixed_buf;
 
