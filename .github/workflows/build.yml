@@ -26,6 +26,7 @@ jobs:
             cxx_pkg: clang
             cc: clang
             cxx: clang++
+            extra_flags: -Wshorten-64-to-32
 
           # x86 (32-bit) gcc
           - arch: i686
@@ -85,6 +86,9 @@ jobs:
 
     env:
       FLAGS: -g -O3 -Wall -Wextra -Werror
+
+      # Flags for building sources in src/ dir only.
+      LIBURING_CFLAGS: ${{matrix.extra_flags}}
 
     steps:
     - name: Checkout source
