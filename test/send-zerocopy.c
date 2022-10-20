@@ -256,6 +256,7 @@ struct send_conf {
 	bool force_async;
 	bool use_sendmsg;
 	bool tcp;
+	bool zc;
 	int buf_index;
 	struct sockaddr_storage *addr;
 };
@@ -300,8 +301,14 @@ static int do_test_inet_send(struct io_uring *ring, int sock_client, int sock_se
 		sqe = io_uring_get_sqe(ring);
 
 		if (!conf->use_sendmsg) {
-			io_uring_prep_send_zc(sqe, sock_client, buf + i * chunk_size,
-					      cur_size, msg_flags, zc_flags);
+			if (conf->zc) {
+				io_uring_prep_send_zc(sqe, sock_client, buf + i * chunk_size,
+						      cur_size, msg_flags, zc_flags);
+			} else {
+				io_uring_prep_send(sqe, sock_client, buf + i * chunk_size,
+						      cur_size, msg_flags);
+			}
+
 			if (real_fixed_buf) {
 				sqe->ioprio |= IORING_RECVSEND_FIXED_BUF;
 				sqe->buf_index = conf->buf_index;
@@ -310,7 +317,10 @@ static int do_test_inet_send(struct io_uring *ring, int sock_client, int sock_se
 				io_uring_prep_send_set_addr(sqe, (const struct sockaddr *)conf->addr,
 							    addr_len);
 		} else {
-			io_uring_prep_sendmsg_zc(sqe, sock_client, &msghdr[i], msg_flags);
+			if (conf->zc)
+				io_uring_prep_sendmsg_zc(sqe, sock_client, &msghdr[i], msg_flags);
+			else
+				io_uring_prep_sendmsg(sqe, sock_client, &msghdr[i], msg_flags);
 
 			memset(&msghdr[i], 0, sizeof(msghdr[i]));
 			iov[i].iov_len = cur_size;
@@ -413,7 +423,7 @@ static int test_inet_send(struct io_uring *ring)
 			return 1;
 		}
 
-		for (i = 0; i < 256; i++) {
+		for (i = 0; i < 512; i++) {
 			conf.buf_index = i & 3;
 			conf.fixed_buf = i & 4;
 			conf.addr = (i & 8) ? &addr : NULL;
@@ -421,8 +431,19 @@ static int test_inet_send(struct io_uring *ring)
 			conf.mix_register = i & 32;
 			conf.force_async = i & 64;
 			conf.use_sendmsg = i & 128;
+			conf.zc = i & 256;
 			conf.tcp = tcp;
 
+			if (!conf.zc) {
+				if (conf.mix_register || conf.fixed_buf)
+					continue;
+				/*
+				* Non zerocopy send w/ addr was added together with sendmsg_zc,
+				* skip if we the kernel doesn't support it.
+				*/
+				if (conf.addr && !has_sendmsg)
+					continue;
+			}
 			if (conf.buf_index == BUF_T_LARGE && !tcp)
 				continue;
 			if (!buffers_iov[conf.buf_index].iov_base)
@@ -434,6 +455,8 @@ static int test_inet_send(struct io_uring *ring)
 			if (!client_connect && conf.addr == NULL)
 				continue;
 			if (conf.use_sendmsg && (conf.mix_register || conf.fixed_buf || !has_sendmsg))
+				continue;
+			if (msg_zc_set && !conf.zc)
 				continue;
 
 			ret = do_test_inet_send(ring, sock_client, sock_server, &conf);
