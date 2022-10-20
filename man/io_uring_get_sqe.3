@@ -32,9 +32,11 @@ prep functions such as
 and submitted via
 .BR io_uring_submit (3).
 
-Note that the prep functions don't set the
+Note that neither
+.BR io_uring_get_sqe
+nor the prep functions set (or clear) the
 .B user_data
-field of the SQE, that is left to the caller. If the caller expects
+field of the SQE. If the caller expects
 .BR io_uring_cqe_get_data (3)
 or
 .BR io_uring_cqe_get_data64 (3)
