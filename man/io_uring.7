@@ -405,10 +405,36 @@ this field can be used to correlate a submission with a completion.
 is the result from the system call that was performed as part of the
 submission;
 its return value.
+
 The
 .I flags
-field could carry request-specific metadata in the future,
-but is currently unused.
+field carries request-specific information. As of the 6.0 kernel, the following
+flags are defined:
+
+.TP
+.B IORING_CQE_F_BUFFER
+If set, the upper 16 bits of the flags field carries the buffer ID that was
+chosen for this request. The request must have been issued with
+.B IOSQE_BUFFER_SELECT
+set, and used with a request type that supports buffer selection. Additionally,
+buffers must have been provided upfront either via the
+.B IORING_OP_PROVIDE_BUFFERS
+or the
+.B IORING_REGISTER_PBUF_RING
+methods.
+.TP
+.B IORING_CQE_F_MORE
+If set, the application should expect more completions from the request. This
+is used for requests that can generate multiple completions, such as multi-shot
+requests, receive, or accept.
+.TP
+.B IORING_CQE_F_SOCK_NONEMPTY
+If set, upon receiving the data from the socket in the current request, the
+socket still had data left on completion of this request.
+.TP
+.B IORING_CQE_F_NOTIF
+Set for notification CQEs, as seen with the zero-copy networking send and
+receive support.
 .PP
 The general sequence to read completion events off the completion queue is
 as follows:
