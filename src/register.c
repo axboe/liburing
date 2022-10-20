@@ -277,8 +277,11 @@ int io_uring_enable_rings(struct io_uring *ring)
 int io_uring_register_iowq_aff(struct io_uring *ring, size_t cpusz,
 			       const cpu_set_t *mask)
 {
+	if (cpusz >= (1U << 31))
+		return -EINVAL;
+
 	return __sys_io_uring_register(ring->ring_fd, IORING_REGISTER_IOWQ_AFF,
-				       mask, cpusz);
+					mask, (int) cpusz);
 }
 
 int io_uring_unregister_iowq_aff(struct io_uring *ring)

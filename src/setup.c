@@ -248,29 +248,29 @@ __cold void io_uring_free_probe(struct io_uring_probe *probe)
 	uring_free(probe);
 }
 
-static inline int __fls(int x)
+static inline int __fls(unsigned long x)
 {
 	if (!x)
 		return 0;
-	return 8 * sizeof(x) - __builtin_clz(x);
+	return 8 * sizeof(x) - __builtin_clzl(x);
 }
 
 static unsigned roundup_pow2(unsigned depth)
 {
-	return 1UL << __fls(depth - 1);
+	return 1U << __fls(depth - 1);
 }
 
-static size_t npages(size_t size, unsigned page_size)
+static size_t npages(size_t size, long page_size)
 {
 	size--;
 	size /= page_size;
-	return __fls(size);
+	return __fls((int) size);
 }
 
 #define KRING_SIZE	320
 
 static size_t rings_size(struct io_uring_params *p, unsigned entries,
-			 unsigned cq_entries, unsigned page_size)
+			 unsigned cq_entries, long page_size)
 {
 	size_t pages, sq_size, cq_size;
 
