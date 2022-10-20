@@ -55,7 +55,8 @@ or similar. The size of the ring is the product of
 and the size of
 .IR "struct io_uring_buf" .
 .I ring_entries
-is the desired size of the ring, and must be a power-of-2 in size.
+is the desired size of the ring, and must be a power-of-2 in size. The maximum
+size allowed is 2^15 (32768).
 .I bgid
 is the buffer group ID associated with this ring. SQEs that select a buffer
 has a buffer group associated with them in their
