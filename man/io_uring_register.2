@@ -579,6 +579,102 @@ slot, making it available for future use.
 
 Available since 5.18.
 
+.TP
+.B IORING_REGISTER_PBUF_RING
+Registers a shared buffer ring to be used with provided buffers. This is a
+newer alternative to using
+.B IORING_OP_PROVIDE_BUFFERS
+which is more efficient, to be used with request types that support the
+.B IOSQE_BUFFER_SELECT
+flag.
+
+The
+.I arg
+argument must be filled in with the appropriate information. It looks as
+follows:
+.PP
+.in +12n
+.EX
+struct io_uring_buf_reg {
+    __u64 ring_addr;
+    __u32 ring_entries;
+    __u16 bgid;
+    __u16 pad;
+    __u64 resv[3];
+};
+.EE
+.in
+.PP
+.in +8n
+The
+.I ring_addr
+field must contain the address to the memory allocated to fit this ring.
+The memory must be page aligned and hence allocated appropriately using eg
+.BR posix_memalign (3)
+or similar. The size of the ring is the product of
+.I ring_entries
+and the size of
+.IR "struct io_uring_buf" .
+.I ring_entries
+is the desired size of the ring, and must be a power-of-2 in size. The maximum
+size allowed is 2^15 (32768).
+.I bgid
+is the buffer group ID associated with this ring. SQEs that select a buffer
+has a buffer group associated with them in their
+.I buf_group
+field, and the associated CQE will have
+.B IORING_CQE_F_BUFFER
+set in their
+.I flags
+member, which will also contain the specific ID of the buffer selected. The rest
+of the fields are reserved and must be cleared to zero.
+
+The
+.I flags
+argument is currently unused and must be set to zero.
+
+.i nr_args
+must be set to 1.
+
+Also see
+.BR io_uring_register_buf_ring (3)
+for more details. Available since 5.19.
+
+.TP
+.B IORING_UNREGISTER_PBUF_RING
+Unregister a previously registered provided buffer ring.
+.I arg
+must be set to the address of a struct io_uring_buf_reg, with just the
+.I bgid
+field set to the buffer group ID of the previously registered provided buffer
+group.
+.I nr_args
+must be set to 1. Also see
+.B IORING_REGISTER_PBUF_RING .
+
+Available since 5.19.
+
+.TP
+.B IORING_REGISTER_SYNC_CANCEL
+Performs a synchronous cancelation request, which works in a similar fashion to
+.B IORING_OP_ASYNC_CANCEL
+except it completes inline. This can be useful for scenarios where cancelations
+should happen synchronously, rather than needing to issue an SQE and wait for
+completion of that specific CQE.
+
+.I arg
+must be set to a pointer to a struct io_uring_sync_cancel_reg structure, with
+the details filled in for what request(s) to target for cancelation. See
+.BR io_uring_register_sync_cancel (3)
+for details on that. The return values are the same, except they are passed
+back synchronously rather than through the CQE
+.I res
+field.
+.I nr_args
+must be set to 1.
+
+Available since 6.0.
+
 .SH RETURN VALUE
 
 On success,
