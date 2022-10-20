@@ -283,9 +283,9 @@ static int do_test_inet_send(struct io_uring *ring, int sock_client, int sock_se
 		if (mix_register)
 			real_fixed_buf = rand() & 1;
 
-		if (cork && i != nr_reqs - 1)
+		if (i != nr_reqs - 1)
 			msg_flags |= MSG_MORE;
-		if (i == nr_reqs - 1)
+		else
 			cur_size = chunk_size_last;
 
 		sqe = io_uring_get_sqe(ring);
@@ -330,7 +330,7 @@ static int do_test_inet_send(struct io_uring *ring, int sock_client, int sock_se
 		return 1;
 	}
 
-	nr_cqes = 2 * nr_reqs + 1;
+	nr_cqes = nr_reqs + 1;
 	for (i = 0; i < nr_cqes; i++) {
 		int expected = chunk_size;
 
@@ -347,13 +347,19 @@ static int do_test_inet_send(struct io_uring *ring, int sock_client, int sock_se
 			io_uring_cqe_seen(ring, cqe);
 			continue;
 		}
-
+		if ((cqe->flags & IORING_CQE_F_MORE) && (cqe->flags & IORING_CQE_F_NOTIF)) {
+			fprintf(stderr, "unexpected cflags %i res %i\n",
+					cqe->flags, cqe->res);
+			return 1;
+		}
 		if (cqe->user_data >= nr_reqs) {
 			fprintf(stderr, "invalid user_data %lu\n",
 					(unsigned long)cqe->user_data);
 			return 1;
 		}
 		if (!(cqe->flags & IORING_CQE_F_NOTIF)) {
+			if (cqe->flags & IORING_CQE_F_MORE)
+				nr_cqes++;
 			if (cqe->user_data == nr_reqs - 1)
 				expected = chunk_size_last;
 			if (cqe->res != expected) {
@@ -361,12 +367,6 @@ static int do_test_inet_send(struct io_uring *ring, int sock_client, int sock_se
 						 cqe->res, expected);
 				return 1;
 			}
-		}
-		if ((cqe->flags & IORING_CQE_F_MORE) ==
-		    (cqe->flags & IORING_CQE_F_NOTIF)) {
-			fprintf(stderr, "unexpected cflags %i res %i\n",
-					cqe->flags, cqe->res);
-			return 1;
 		}
 		io_uring_cqe_seen(ring, cqe);
 	}
