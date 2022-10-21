@@ -163,6 +163,7 @@ test_srcs := \
 	sqpoll-sleep.c \
 	sq-space_left.c \
 	stdout.c \
+	submit-and-wait.c \
 	submit-link-fail.c \
 	submit-reuse.c \
 	sync-cancel.c \
