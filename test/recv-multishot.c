@@ -13,7 +13,7 @@
 #include "liburing.h"
 #include "helpers.h"
 
-static int no_recv_mshot;
+#define ENORECVMULTISHOT 9999
 
 enum early_error_t {
 	ERROR_NONE  = 0,
@@ -139,6 +139,7 @@ static int test(struct args *args)
 		sqe = io_uring_get_sqe(&ring);
 		io_uring_prep_provide_buffers(sqe, recv_buffs[i],
 					buffer_size, 1, 7, i);
+		io_uring_sqe_set_data64(sqe, 0x999);
 		memset(recv_buffs[i], 0xcc, buffer_size);
 		if (io_uring_submit_and_wait_timeout(&ring, &cqe, 1, &timeout, NULL) != 0) {
 			fprintf(stderr, "provide buffers failed: %d\n", ret);
@@ -186,13 +187,19 @@ static int test(struct args *args)
 			if (args->early_error == ERROR_EARLY_CLOSE_RECEIVER) {
 				/* allow previous sends to complete */
 				usleep(1000);
+				io_uring_get_events(&ring);
 
 				sqe = io_uring_get_sqe(&ring);
 				io_uring_prep_recv(sqe, fds[0], NULL, 0, 0);
 				io_uring_prep_cancel64(sqe, 1234, 0);
+				io_uring_sqe_set_data64(sqe, 0x888);
 				sqe->flags |= IOSQE_CQE_SKIP_SUCCESS;
 				io_uring_submit(&ring);
 				early_error_started = true;
+
+				/* allow the cancel to complete */
+				usleep(1000);
+				io_uring_get_events(&ring);
 			}
 			if (args->early_error == ERROR_EARLY_CLOSE_SENDER) {
 				early_error_started = true;
@@ -246,12 +253,10 @@ static int test(struct args *args)
 	at = &send_buff[0];
 	if (recv_cqes < min_cqes) {
 		if (recv_cqes > 0 && recv_cqe[0].res == -EINVAL) {
-			no_recv_mshot = 1;
-			return 0;
+			return -ENORECVMULTISHOT;
 		}
 		/* some kernels apparently don't check ->ioprio, skip */
-		ret = 0;
-		no_recv_mshot = 1;
+		ret = -ENORECVMULTISHOT;
 		goto cleanup;
 	}
 	for (i = 0; i < recv_cqes; i++) {
@@ -481,14 +486,18 @@ int main(int argc, char *argv[])
 			a.early_error = (enum early_error_t)early_error;
 			ret = test(&a);
 			if (ret) {
+				if (ret == -ENORECVMULTISHOT) {
+					if (loop == 0)
+						return T_EXIT_SKIP;
+					fprintf(stderr,
+						"ENORECVMULTISHOT received but loop>0\n");
+				}
 				fprintf(stderr,
 					"test stream=%d wait_each=%d recvmsg=%d early_error=%d "
 					" defer=%d failed\n",
 					a.stream, a.wait_each, a.recvmsg, a.early_error, a.defer);
 				return T_EXIT_FAIL;
 			}
-			if (no_recv_mshot)
-				return T_EXIT_SKIP;
 		}
 	}
 
