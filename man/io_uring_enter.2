@@ -394,11 +394,45 @@ holds the flags associated with the system call. See also
 .BR sendmsg (2)
 for the general description of the related system call. Available since 5.3.
 
+This command also supports the following modifiers in
+.I ioprio:
+
+.PP
+.in +12
+.B IORING_RECVSEND_POLL_FIRST
+If set, io_uring will assume the socket is currently full and attempting to
+send data will be unsuccessful. For this case, io_uring will arm internal
+poll and trigger a send of the data when there is enough space available.
+This initial send attempt can be wasteful for the case where the socket
+is expected to be full, setting this flag will bypass the initial send
+attempt and go straight to arming poll. If poll does indicate that data can
+be sent, the operation will proceed.
+.EE
+.in
+.PP
+
 .TP
 .B IORING_OP_RECVMSG
 Works just like IORING_OP_SENDMSG, except for
 .BR recvmsg(2)
 instead. See the description of IORING_OP_SENDMSG. Available since 5.3.
+
+This command also supports the following modifiers in
+.I ioprio:
+
+.PP
+.in +12
+.B IORING_RECVSEND_POLL_FIRST
+If set, io_uring will assume the socket is currently empty and attempting to
+receive data will be unsuccessful. For this case, io_uring will arm internal
+poll and trigger a receive of the data when the socket has data to be read.
+This initial receive attempt can be wasteful for the case where the socket
+is expected to be empty, setting this flag will bypass the initial receive
+attempt and go straight to arming poll. If poll does indicate that data is
+ready to be received, the operation will proceed.
+.EE
+.in
+.PP
 
 .TP
 .B IORING_OP_SEND
@@ -416,11 +450,45 @@ holds the flags associated with the system call. See also
 .BR send(2)
 for the general description of the related system call. Available since 5.6.
 
+This command also supports the following modifiers in
+.I ioprio:
+
+.PP
+.in +12
+.B IORING_RECVSEND_POLL_FIRST
+If set, io_uring will assume the socket is currently full and attempting to
+send data will be unsuccessful. For this case, io_uring will arm internal
+poll and trigger a send of the data when there is enough space available.
+This initial send attempt can be wasteful for the case where the socket
+is expected to be full, setting this flag will bypass the initial send
+attempt and go straight to arming poll. If poll does indicate that data can
+be sent, the operation will proceed.
+.EE
+.in
+.PP
+
 .TP
 .B IORING_OP_RECV
 Works just like IORING_OP_SEND, except for
 .BR recv(2)
 instead. See the description of IORING_OP_SEND. Available since 5.6.
+
+This command also supports the following modifiers in
+.I ioprio:
+
+.PP
+.in +12
+.B IORING_RECVSEND_POLL_FIRST
+If set, io_uring will assume the socket is currently empty and attempting to
+receive data will be unsuccessful. For this case, io_uring will arm internal
+poll and trigger a receive of the data when the socket has data to be read.
+This initial receive attempt can be wasteful for the case where the socket
+is expected to be empty, setting this flag will bypass the initial receive
+attempt and go straight to arming poll. If poll does indicate that data is
+ready to be received, the operation will proceed.
+.EE
+.in
+.PP
 
 .TP
 .B IORING_OP_TIMEOUT
@@ -1149,6 +1217,23 @@ specifying its size, turning the request into a
 system call equivalent.
 
 Available since 6.0.
+
+This command also supports the following modifiers in
+.I ioprio:
+
+.PP
+.in +12
+.B IORING_RECVSEND_POLL_FIRST
+If set, io_uring will assume the socket is currently full and attempting to
+send data will be unsuccessful. For this case, io_uring will arm internal
+poll and trigger a send of the data when there is enough space available.
+This initial send attempt can be wasteful for the case where the socket
+is expected to be full, setting this flag will bypass the initial send
+attempt and go straight to arming poll. If poll does indicate that data can
+be sent, the operation will proceed.
+.EE
+.in
+.PP
 
 .PP
 The
