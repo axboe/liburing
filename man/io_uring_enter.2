@@ -1098,8 +1098,11 @@ Available since 5.19.
 Issue the zerocopy equivalent of a
 .BR send(2)
 system call. Similar to IORING_OP_SEND, but tries to avoid making intermediate
-copies of data. Zerocopy execution is not guaranteed and it may fall back to
-copying.
+copies of data. Zerocopy execution is not guaranteed and may fall back to
+copying. The request may also fail with
+.B -EOPNOTSUPP ,
+when a protocol doesn't support zerocopy, in which case users are recommended
+to use copying sends instead.
 
 The
 .I flags
