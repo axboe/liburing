@@ -675,6 +675,45 @@ must be set to 1.
 
 Available since 6.0.
 
+.TP
+.B IORING_REGISTER_FILE_ALLOC_RANGE
+sets the allowable range for fixed file index allocations within the
+kernel. When requests that can instantiate a new fixed file are used with
+.B IORING_FILE_INDEX_ALLOC ,
+the application is asking the kernel to allocate a new fixed file descriptor
+rather than pass in a specific value for one. By default, the kernel will
+pick any available fixed file descriptor within the range available.
+This effectively allows the application to set aside a range just for dynamic
+allocations, with the remainder being used for specific values.
+
+.I nr_args
+must be set to 1 and
+.I arg
+must be set to a pointer to a struct io_uring_file_index_range:
+.PP
+.in +12n
+.EX
+struct io_uring_file_index_range {
+    __u32 off;
+    __u32 len;
+    __u64 resv;
+};
+.EE
+.in
+.PP
+.in +8n
+with
+.I off
+being set to the starting value for the range, and
+.I len
+being set to the number of descriptors. The reserved
+.I resv
+field must be cleared to zero.
+
+The application must have registered a file table first.
+
+Available since 6.0.
+
 .SH RETURN VALUE
 
 On success,
