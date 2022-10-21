@@ -1231,6 +1231,13 @@ This initial send attempt can be wasteful for the case where the socket
 is expected to be full, setting this flag will bypass the initial send
 attempt and go straight to arming poll. If poll does indicate that data can
 be sent, the operation will proceed.
+
+.B IORING_RECVSEND_FIXED_BUF
+If set, instructs io_uring to use a pre-mapped buffer. The
+.I buf_index
+field should contain an index into an array of fixed buffers. See
+.BR io_uring_register (2)
+for details on how to setup a context for fixed buffer I/O.
 .EE
 .in
 .PP
