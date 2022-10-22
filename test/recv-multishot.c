@@ -141,7 +141,7 @@ static int test(struct args *args)
 					buffer_size, 1, 7, i);
 		io_uring_sqe_set_data64(sqe, 0x999);
 		memset(recv_buffs[i], 0xcc, buffer_size);
-		if (io_uring_submit_and_wait_timeout(&ring, &cqe, 1, &timeout, NULL) != 0) {
+		if (io_uring_submit_and_wait_timeout(&ring, &cqe, 1, &timeout, NULL) < 0) {
 			fprintf(stderr, "provide buffers failed: %d\n", ret);
 			ret = -1;
 			goto cleanup;
