@@ -50,51 +50,38 @@ and of structure length
 and using modifier flags in
 .IR flags .
 
-For a direct descriptor accept request, the offset is specified by the
-.I file_index
-argument. Direct descriptors are io_uring private file descriptors. They
-avoid some of the overhead associated with thread shared file tables and
-can be used in any io_uring request that takes a file descriptor. To do so,
+There are four versions of the accept function as
+there are two orthogonal aspects to the feature,
+whether a regular file descriptor is returned for the accepted connection
+or a direct descriptor is selected and returned for the accepted connection
+and
+whether the request represents a single accept request or multiple accept requests.
+
+Direct descriptors are io_uring private file descriptors
+and are managed like registered files.
+They avoid some of the overhead associated with thread shared file tables and
+can be used in any io_uring request that takes a file descriptor.
+To use a direct descriptor in subsequent operations,
 .B IOSQE_FIXED_FILE
 must be set in the SQE
 .I flags
 member, and the SQE
 .I fd
 field should use the direct descriptor value rather than the regular file
-descriptor. Direct descriptors are managed like registered files.
+descriptor. The SQE
+.I fd
+field is often specified in the library function as the
+.I fd
+or
+.I sockfd
+argument but the
+application will have to at least set
+.B IOSQE_FIXED_FILE
+in the SQE
+.I flags
+member separately, after the SQE is prepared.
 
-If the direct variant is used, the application must first have registered
-a file table using
-.BR io_uring_register_files (3)
-of the appropriate size. Once registered, a direct accept request may use any
-entry in that table, as long as it is within the size of the registered table.
-If a specified entry already contains a file, the file will first be removed
-from the table and closed. It's consistent with the behavior of updating an
-existing file with
-.BR io_uring_register_files_update (3).
-Note that old kernels don't check the SQE
-.I file_index
-field, which is not a problem for liburing helpers, but users of the raw
-io_uring interface need to zero SQEs to avoid unexpected behavior. This also
-means that applications should check for availability of
-.B IORING_OP_ACCEPT_DIRECT
-before using it, they cannot rely on a
-.B -EINVAL
-CQE
-.I res
-return.
-
-For a direct descriptor accept request, the
-.I file_index
-argument can be set to
-.BR IORING_FILE_INDEX_ALLOC ,
-In this case a free entry in io_uring file table will
-be used automatically and the file index will be returned as CQE
-.IR res .
-.B -ENFILE
-is otherwise returned if there is no free entries in the io_uring file table.
-
-The multishot version accept and accept_direct allow an application to issue
+The multishot accept and accept_direct versions allow an application to issue
 a single accept request, which will repeatedly trigger a CQE when a connection
 request comes in. Like other multishot type requests, the application should
 look at the CQE
@@ -103,26 +90,68 @@ and see if
 .B IORING_CQE_F_MORE
 is set on completion as an indication of whether or not the accept request
 will generate further CQEs. Note that for the multishot variants, setting
-.B addr
+.I addr
 and
-.B addrlen
+.I addrlen
 may not make a lot of sense, as the same value would be used for every
 accepted connection. This means that the data written to
-.B addr
+.I addr
 may be overwritten by a new connection before the application has had time
 to process a past connection. If the application knows that a new connection
 cannot come in before a previous one has been processed, it may be used as
 expected. The multishot variants are available since 5.19.
 
-For multishot with direct descriptors,
-.B IORING_FILE_INDEX_ALLOC
-must be used as the file descriptor. This tells io_uring to allocate a free
-direct descriptor from our table, rather than the application passing one in.
-Failure to do so will result in the accept request being terminated with
-.BR -EINVAL .
-The allocated descriptor will be returned in the CQE
+If a direct variant is used, the application must first have registered
+a file table using
+.BR io_uring_register_files (3)
+of the appropriate size. Once registered,
+.BR io_uring_prep_accept_direct (3)
+may specify any
+.I file_index
+of that table, as long as it is within the size of the registered table.
+If the specified entry already contains a file, the file will first be removed
+from the table and closed, consistent with the behavior of updating an
+existing file with
+.BR io_uring_register_files_update (3).
+
+.B TODO
+
+How to warn that the library doesn't offer direct help in determining whether
+the kernel supports the direct methods?
+There is no
+.B IORING_OP_ACCEPT_DIRECT
+which the
+earlier version of this man page said should be checked.
+Is there another OP that can be checked
+that should map to when the single shot accept direct would be supported and
+can they be directed to checking for
+.B IORING_OP_SOCKET
+for multishot direct version as both the multishot accept capability and the
+.B IORING_OP_SOCKET
+operation were introduced in the same kernel?
+And the operation can be tested for but the capability cannot.
+
+The application cannot rely on a
+.B -EINVAL
+CQE
 .I res
-field, like a non-direct accept request.
+return value as
+the operation can be interpreted as a regular accept
+and a regular file descriptor may be returned.
+
+In the first direct descriptor accept request version, where the
+.I file_index
+is given, the application can instruct the kernel to make its own selection
+from the free entries of the io_uring file table table
+by setting
+.I file_index
+to
+.BR IORING_FILE_INDEX_ALLOC .
+If a free entry in io_uring file table is available,
+it will be returned as the CQE
+.IR res .
+.B -ENFILE
+is otherwise returned if there are no free entries remaining.
 
 These functions prepare an async
 .BR accept4 (2)
@@ -137,10 +166,24 @@ field will contain the result of the operation. For singleshot accept, the
 non-direct accept returns the installed file descriptor as its value, the
 direct accept returns
 .B 0
-on success. The caller must know which direct descriptor was picked for this
-request. For multishot accept, the non-direct accept returns the installed
-file descriptor as its value, the direct accept returns the file index used on
-success. See the related man page for details on possible values for the
+on success when the
+.I file_index
+was used as a table index;
+the caller must know which direct descriptor was given for this
+request in this case as it is not returned,
+.B 0
+is returned.
+When
+.I file_index
+was given as
+.BR IORING_FILE_INDEX_ALLOC ,
+the file index that was chosen is returned.
+
+For the multishot accept,
+when multiple successful CQE may be returned,
+the non-direct accept CQE contain the installed file descriptor,
+the direct accept CQE contain the file index chosen.
+See the related man page for details on possible values for the
 non-direct accept. Note that where synchronous system calls will return
 .B -1
 on failure and set
