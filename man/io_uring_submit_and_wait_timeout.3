@@ -38,14 +38,10 @@ After the caller retrieves a submission queue entry (SQE) with
 and prepares the SQE, it can be submitted with
 .BR io_uring_submit_and_wait_timeout (3) .
 
-Unlike the other submit functions, this does not return the number of submitted entries.
-The actual number submitted can be less than the total number of ready SQEs if there
-was an error submitting an SQE. It is not an error to submit less than the total number of SQEs.
-
 .SH RETURN VALUE
 On success
 .BR io_uring_submit_and_wait_timeout (3)
-returns 0 and the cqe_ptr param is filled in. On failure it returns
+returns the number of submitted submission queue entries. On failure it returns
 .BR -errno .
 The most common failure case is not receiving a completion within the specified
 timeout,
