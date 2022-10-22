@@ -20,11 +20,11 @@ wait for the completion with timeout
 .PP
 The
 .BR io_uring_submit_and_wait_timeout (3)
-function submits the next events to the submission queue belonging to the
+function submits the next requests from the submission queue belonging to the
 .I ring
 and waits for
 .I wait_nr
-completion events or until the timeout
+completion events, or until the timeout
 .I ts
 expires. The completion events are stored in the
 .I cqe_ptr
@@ -43,6 +43,8 @@ On success
 .BR io_uring_submit_and_wait_timeout (3)
 returns the number of submitted submission queue entries. On failure it returns
 .BR -errno .
+Note that in earlier versions of the liburing library, the return value was 0
+on success.
 The most common failure case is not receiving a completion within the specified
 timeout,
 .B -ETIME
