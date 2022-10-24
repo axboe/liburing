@@ -769,7 +769,7 @@ static inline void io_uring_prep_send_set_addr(struct io_uring_sqe *sqe,
 						const struct sockaddr *dest_addr,
 						__u16 addr_len)
 {
-	sqe->addr2 = (unsigned long)(void *)dest_addr;
+	sqe->addr2 = (unsigned long)(const void *)dest_addr;
 	sqe->addr_len = addr_len;
 }
 
