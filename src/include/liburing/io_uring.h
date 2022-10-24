@@ -10,7 +10,16 @@
 
 #include <linux/fs.h>
 #include <linux/types.h>
+/*
+ * this file is shared with liburing and that has to autodetect
+ * if linux/time_types.h is available
+ */
+#ifdef __KERNEL__
+#define HAVE_LINUX_TIME_TYPES_H 1
+#endif
+#ifdef HAVE_LINUX_TIME_TYPES_H
 #include <linux/time_types.h>
+#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -56,6 +65,7 @@ struct io_uring_sqe {
 		__u32		hardlink_flags;
 		__u32		xattr_flags;
 		__u32		msg_ring_flags;
+		__u32		uring_cmd_flags;
 	};
 	__u64	user_data;	/* data to be passed back at completion time */
 	/* pack this to avoid bogus arm OABI complaints */
@@ -218,6 +228,14 @@ enum io_uring_op {
 	/* this goes last, obviously */
 	IORING_OP_LAST,
 };
+
+/*
+ * sqe->uring_cmd_flags
+ * IORING_URING_CMD_FIXED	use registered buffer; pass thig flag
+ *				along with setting sqe->buf_index.
+ */
+#define IORING_URING_CMD_FIXED	(1U << 0)
+
 
 /*
  * sqe->fsync_flags
