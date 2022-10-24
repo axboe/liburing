@@ -97,9 +97,7 @@ a different range than that targetted by specific requests.
 Note that old kernels don't check the SQE
 .I file_index
 field meaning
-applications should check that the direct table registration
-succeeded before trying to use one of the direct variants.
-Applications cannot rely on a
+applications cannot rely on a
 .B -EINVAL
 CQE
 .I res
