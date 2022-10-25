@@ -2,7 +2,18 @@ liburing-2.3 release
 
 - Support non-libc build for aarch64.
 - Add io_uring_{enter,enter2,register,setup} syscall functions.
-
+- Add sync cancel interface, io_uring_register_sync_cancel().
+- Fix return value of io_uring_submit_and_wait_timeout() to match the
+  man page.
+- Improvements to the regression tests
+- Add support and test case for passthrough IO
+- Add recv and recvmsg multishot helpers and support
+- Add documentation and support for IORING_SETUP_DEFER_TASKRUN
+- Fix potential missing kernel entry with IORING_SETUP_IOPOLL
+- Add support and documentation for zero-copy network transmit
+- Various optimizations
+- Many cleanups
+- Many man page additions and updates
 
 liburing-2.2 release
 
