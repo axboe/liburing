@@ -445,13 +445,16 @@ static int test_inet_send(struct io_uring *ring)
 	int sock_client = -1, sock_server = -1;
 	int ret, j, i;
 
-	for (j = 0; j < 16; j++) {
+	for (j = 0; j < 32; j++) {
 		bool ipv6 = j & 1;
 		bool client_connect = j & 2;
 		bool msg_zc_set = j & 4;
 		bool tcp = j & 8;
+		bool swap_sockets = j & 16;
 
 		if (tcp && !client_connect)
+			continue;
+		if (swap_sockets && !tcp)
 			continue;
 
 		ret = prepare_ip(&addr, &sock_client, &sock_server, ipv6,
@@ -459,6 +462,12 @@ static int test_inet_send(struct io_uring *ring)
 		if (ret) {
 			fprintf(stderr, "sock prep failed %d\n", ret);
 			return 1;
+		}
+		if (swap_sockets) {
+			int tmp_sock = sock_client;
+
+			sock_client = sock_server;
+			sock_server = tmp_sock;
 		}
 
 		for (i = 0; i < 4096; i++) {
