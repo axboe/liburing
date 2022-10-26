@@ -718,8 +718,10 @@ Available since 6.0.
 
 On success,
 .BR io_uring_register (2)
-returns 0.  On error, a negative error code is returned. The caller should not
-rely on
+returns either 0 or a positive value, depending on the
+.I opcode
+used.  On error, a negative error value is returned. The caller should not rely
+on the
 .I errno
 variable.
 
