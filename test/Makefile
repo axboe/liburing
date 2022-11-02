@@ -86,6 +86,7 @@ test_srcs := \
 	fixed-link.c \
 	fixed-reuse.c \
 	fpos.c \
+	fsnotify.c \
 	fsync.c \
 	hardlink.c \
 	io-cancel.c \
@@ -112,6 +113,7 @@ test_srcs := \
 	open-direct-link.c \
 	open-direct-pick.c \
 	personality.c \
+	pipe-bug.c \
 	pipe-eof.c \
 	pipe-reuse.c \
 	poll.c \
