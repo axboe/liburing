@@ -116,7 +116,7 @@ static int test_basic_send(struct io_uring *ring, int sock_tx, int sock_rx)
 	return T_EXIT_PASS;
 }
 
-static int test_send_faults(struct io_uring *ring, int sock_tx, int sock_rx)
+static int test_send_faults(int sock_tx, int sock_rx)
 {
 	struct io_uring_sqe *sqe;
 	struct io_uring_cqe *cqe;
@@ -124,24 +124,31 @@ static int test_send_faults(struct io_uring *ring, int sock_tx, int sock_rx)
 	unsigned zc_flags = 0;
 	int payload_size = 100;
 	int ret, i, nr_cqes = 2;
+	struct io_uring ring;
 
-	sqe = io_uring_get_sqe(ring);
+	ret = io_uring_queue_init(32, &ring, IORING_SETUP_SUBMIT_ALL);
+	if (ret) {
+		fprintf(stderr, "queue init failed: %d\n", ret);
+		return -1;
+	}
+
+	sqe = io_uring_get_sqe(&ring);
 	io_uring_prep_send_zc(sqe, sock_tx, (void *)1UL, payload_size,
 			      msg_flags, zc_flags);
 	sqe->user_data = 1;
 
-	sqe = io_uring_get_sqe(ring);
+	sqe = io_uring_get_sqe(&ring);
 	io_uring_prep_send_zc(sqe, sock_tx, tx_buffer, payload_size,
 			      msg_flags, zc_flags);
 	sqe->user_data = 2;
 	io_uring_prep_send_set_addr(sqe, (const struct sockaddr *)1UL,
 				    sizeof(struct sockaddr_in6));
 
-	ret = io_uring_submit(ring);
+	ret = io_uring_submit(&ring);
 	assert(ret == 2);
 
 	for (i = 0; i < nr_cqes; i++) {
-		ret = io_uring_wait_cqe(ring, &cqe);
+		ret = io_uring_wait_cqe(&ring, &cqe);
 		assert(!ret);
 		assert(cqe->user_data <= 2);
 
@@ -150,9 +157,9 @@ static int test_send_faults(struct io_uring *ring, int sock_tx, int sock_rx)
 			if (cqe->flags & IORING_CQE_F_MORE)
 				nr_cqes++;
 		}
-		io_uring_cqe_seen(ring, cqe);
+		io_uring_cqe_seen(&ring, cqe);
 	}
-	assert(check_cq_empty(ring));
+	assert(check_cq_empty(&ring));
 	return T_EXIT_PASS;
 }
 
@@ -728,7 +735,7 @@ int main(int argc, char *argv[])
 
 	has_sendmsg = io_check_zc_sendmsg(&ring);
 
-	ret = test_send_faults(&ring, sp[0], sp[1]);
+	ret = test_send_faults(sp[0], sp[1]);
 	if (ret) {
 		fprintf(stderr, "test_send_faults() failed\n");
 		return T_EXIT_FAIL;
