@@ -172,6 +172,12 @@ static int test_send_faults(int sock_tx, int sock_rx)
 			}
 			if (cqe->flags & IORING_CQE_F_MORE)
 				nr_cqes++;
+		} else {
+			if (cqe->res != 0 || cqe->flags != IORING_CQE_F_NOTIF) {
+				fprintf(stderr, "invalid notif cqe %i %i\n",
+					cqe->res, cqe->flags);
+				return -1;
+			}
 		}
 		io_uring_cqe_seen(&ring, cqe);
 	}
