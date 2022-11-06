@@ -192,13 +192,13 @@ static int do_send(void)
 	sockfd = socket(AF_INET, SOCK_DGRAM, 0);
 	if (sockfd < 0) {
 		perror("socket");
-		return 1;
+		goto err2;
 	}
 
 	ret = connect(sockfd, (struct sockaddr *)&saddr, sizeof(saddr));
 	if (ret < 0) {
 		perror("connect");
-		return 1;
+		goto err;
 	}
 
 	sqe = io_uring_get_sqe(&ring);
@@ -214,8 +214,7 @@ static int do_send(void)
 	ret = io_uring_wait_cqe(&ring, &cqe);
 	if (cqe->res == -EINVAL) {
 		fprintf(stdout, "send not supported, skipping\n");
-		close(sockfd);
-		return 0;
+		goto err;
 	}
 	if (cqe->res != iov.iov_len) {
 		fprintf(stderr, "failed cqe: %d\n", cqe->res);
@@ -223,9 +222,13 @@ static int do_send(void)
 	}
 
 	close(sockfd);
+	io_uring_queue_exit(&ring);
 	return 0;
+
 err:
 	close(sockfd);
+err2:
+	io_uring_queue_exit(&ring);
 	return 1;
 }
 
