@@ -264,11 +264,19 @@ static int test(struct args *args)
 
 		bool const is_last = i == recv_cqes - 1;
 
+		/*
+		 * Older kernels could terminate multishot early due to overflow,
+		 * but later ones will not. So discriminate based on the MORE flag.
+		 */
+		bool const early_last = args->early_error == ERROR_EARLY_OVERFLOW &&
+					!args->wait_each &&
+					i == N_CQE_OVERFLOW &&
+					!(cqe->flags & IORING_CQE_F_MORE);
+
 		bool const should_be_last =
 			(cqe->res <= 0) ||
 			(args->stream && is_last) ||
-			(args->early_error == ERROR_EARLY_OVERFLOW &&
-			 !args->wait_each && i == N_CQE_OVERFLOW);
+			early_last;
 		int *this_recv;
 		int orig_payload_size = cqe->res;
 
