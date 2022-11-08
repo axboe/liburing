@@ -122,8 +122,8 @@ test_srcs := \
 	poll-cancel-ton.c \
 	poll-link.c \
 	poll-many.c \
-	poll-mshot-update.c \
 	poll-mshot-overflow.c \
+	poll-mshot-update.c \
 	poll-ring.c \
 	poll-v-poll.c \
 	pollfree.c \
@@ -144,10 +144,12 @@ test_srcs := \
 	sendmsg_fs_cve.c \
 	send_recv.c \
 	send_recvmsg.c \
+	send-zerocopy.c \
 	shared-wq.c \
 	short-read.c \
 	shutdown.c \
 	sigfd-deadlock.c \
+	single-issuer.c \
 	skip-cqe.c \
 	socket.c \
 	socket-rw.c \
@@ -168,8 +170,8 @@ test_srcs := \
 	submit-and-wait.c \
 	submit-link-fail.c \
 	submit-reuse.c \
-	sync-cancel.c \
 	symlink.c \
+	sync-cancel.c \
 	teardowns.c \
 	thread-exit.c \
 	timeout.c \
@@ -179,9 +181,6 @@ test_srcs := \
 	unlink.c \
 	wakeup-hang.c \
 	xattr.c \
-	skip-cqe.c \
-	single-issuer.c \
-	send-zerocopy.c \
 	# EOL
 
 all_targets :=
