@@ -68,6 +68,18 @@ of 0, then the buffer IDs will range from
 The application must be aware of this to make sense of the buffer ID passed
 back in the CQE.
 
+Buffer IDs always range from
+.B 0
+to
+.B 65535 ,
+as there are only 16-bits available in the CQE to pass them back. This range
+is independent of how the buffer group initially got created. Attempting to
+add buffer IDs larger than that, or buffer IDs that will wrap when cast to
+a 16-bit value, will cause the request to fail with
+.B -E2BIG
+or
+.B -EINVAL .
+
 Not all requests support buffer selection, as it only really makes sense for
 requests that receive data from the kernel rather than write or provide data.
 Currently, this mode of operation is supported for any file read or socket
