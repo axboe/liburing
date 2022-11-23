@@ -12,9 +12,10 @@
 #include <poll.h>
 #include <sys/wait.h>
 
+#include "helpers.h"
 #include "liburing.h"
 
-int main(int argc, char *argv[])
+static int test_basic(void)
 {
 	struct io_uring_cqe *cqe;
 	struct io_uring_sqe *sqe;
@@ -23,20 +24,16 @@ int main(int argc, char *argv[])
 	pid_t p;
 	int ret;
 
-	if (argc > 1)
-		return 0;
-
 	if (pipe(pipe1) != 0) {
 		perror("pipe");
 		return 1;
 	}
 
 	p = fork();
-	switch (p) {
-	case -1:
+	if (p == -1) {
 		perror("fork");
 		exit(2);
-	case 0: {
+	} else if (p == 0) {
 		ret = io_uring_queue_init(1, &ring, 0);
 		if (ret) {
 			fprintf(stderr, "child: ring setup failed: %d\n", ret);
@@ -78,18 +75,36 @@ int main(int argc, char *argv[])
 							(long) cqe->res);
 			return 1;
 		}
-		exit(0);
-		}
-	default:
-		do {
-			errno = 0;
-			ret = write(pipe1[1], "foo", 3);
-		} while (ret == -1 && errno == EINTR);
 
-		if (ret != 3) {
-			fprintf(stderr, "parent: bad write return %d\n", ret);
-			return 1;
-		}
-		return 0;
+		io_uring_queue_exit(&ring);
+		exit(0);
 	}
+
+	do {
+		errno = 0;
+		ret = write(pipe1[1], "foo", 3);
+	} while (ret == -1 && errno == EINTR);
+
+	if (ret != 3) {
+		fprintf(stderr, "parent: bad write return %d\n", ret);
+		return 1;
+	}
+	close(pipe1[0]);
+	close(pipe1[1]);
+	return 0;
+}
+
+int main(int argc, char *argv[])
+{
+	int ret;
+
+	if (argc > 1)
+		return 0;
+
+	ret = test_basic();
+	if (ret) {
+		fprintf(stderr, "test_basic() failed %i\n", ret);
+		return T_EXIT_FAIL;
+	}
+	return 0;
 }
