@@ -193,11 +193,8 @@ int io_uring_register_files(struct io_uring *ring, const int *files,
 
 int io_uring_unregister_files(struct io_uring *ring)
 {
-	int ret;
-
-	ret = __sys_io_uring_register(ring->ring_fd, IORING_UNREGISTER_FILES,
-				      NULL, 0);
-	return (ret < 0) ? ret : 0;
+	return __sys_io_uring_register(ring->ring_fd, IORING_UNREGISTER_FILES,
+				       NULL, 0);
 }
 
 int io_uring_register_eventfd(struct io_uring *ring, int event_fd)
