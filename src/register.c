@@ -208,30 +208,21 @@ int io_uring_unregister_files(struct io_uring *ring)
 
 int io_uring_register_eventfd(struct io_uring *ring, int event_fd)
 {
-	int ret;
-
-	ret = __sys_io_uring_register(ring->ring_fd, IORING_REGISTER_EVENTFD,
-				      &event_fd, 1);
-	return (ret < 0) ? ret : 0;
+	return __sys_io_uring_register(ring->ring_fd, IORING_REGISTER_EVENTFD,
+				       &event_fd, 1);
 }
 
 int io_uring_unregister_eventfd(struct io_uring *ring)
 {
-	int ret;
-
-	ret = __sys_io_uring_register(ring->ring_fd, IORING_UNREGISTER_EVENTFD,
-				      NULL, 0);
-	return (ret < 0) ? ret : 0;
+	return __sys_io_uring_register(ring->ring_fd, IORING_UNREGISTER_EVENTFD,
+				       NULL, 0);
 }
 
 int io_uring_register_eventfd_async(struct io_uring *ring, int event_fd)
 {
-	int ret;
-
-	ret = __sys_io_uring_register(ring->ring_fd,
-				      IORING_REGISTER_EVENTFD_ASYNC, &event_fd,
-				      1);
-	return (ret < 0) ? ret : 0;
+	return __sys_io_uring_register(ring->ring_fd,
+				       IORING_REGISTER_EVENTFD_ASYNC, &event_fd,
+				       1);
 }
 
 int io_uring_register_probe(struct io_uring *ring, struct io_uring_probe *p,
