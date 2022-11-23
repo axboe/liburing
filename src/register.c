@@ -54,20 +54,14 @@ int io_uring_register_buffers_sparse(struct io_uring *ring, unsigned nr)
 int io_uring_register_buffers(struct io_uring *ring, const struct iovec *iovecs,
 			      unsigned nr_iovecs)
 {
-	int ret;
-
-	ret = __sys_io_uring_register(ring->ring_fd, IORING_REGISTER_BUFFERS,
-				      iovecs, nr_iovecs);
-	return (ret < 0) ? ret : 0;
+	return __sys_io_uring_register(ring->ring_fd, IORING_REGISTER_BUFFERS,
+				       iovecs, nr_iovecs);
 }
 
 int io_uring_unregister_buffers(struct io_uring *ring)
 {
-	int ret;
-
-	ret = __sys_io_uring_register(ring->ring_fd, IORING_UNREGISTER_BUFFERS,
-				      NULL, 0);
-	return (ret < 0) ? ret : 0;
+	return __sys_io_uring_register(ring->ring_fd, IORING_UNREGISTER_BUFFERS,
+				       NULL, 0);
 }
 
 int io_uring_register_files_update_tag(struct io_uring *ring, unsigned off,
