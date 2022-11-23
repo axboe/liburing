@@ -11,9 +11,16 @@
 #include <signal.h>
 #include <poll.h>
 #include <sys/wait.h>
+#include <error.h>
 
 #include "helpers.h"
 #include "liburing.h"
+
+static void do_setsockopt(int fd, int level, int optname, int val)
+{
+	if (setsockopt(fd, level, optname, &val, sizeof(val)))
+		error(1, errno, "setsockopt %d.%d: %d", level, optname, val);
+}
 
 static int test_basic(void)
 {
@@ -94,6 +101,85 @@ static int test_basic(void)
 	return 0;
 }
 
+static int test_missing_events(void)
+{
+	struct io_uring_cqe *cqe;
+	struct io_uring_sqe *sqe;
+	struct io_uring ring;
+	int i, ret, sp[2];
+	char buf[2] = {};
+	int res_mask = 0;
+
+	if (!t_probe_defer_taskrun())
+		return 0;
+
+	ret = io_uring_queue_init(8, &ring, IORING_SETUP_SINGLE_ISSUER |
+					    IORING_SETUP_DEFER_TASKRUN);
+	if (ret) {
+		fprintf(stderr, "ring setup failed: %d\n", ret);
+		return 1;
+	}
+
+	if (socketpair(AF_UNIX, SOCK_STREAM, 0, sp) != 0) {
+		perror("Failed to create Unix-domain socket pair\n");
+		return 1;
+	}
+	do_setsockopt(sp[0], SOL_SOCKET, SO_SNDBUF, 1);
+	ret = send(sp[0], buf, sizeof(buf), 0);
+	if (ret != sizeof(buf)) {
+		perror("send failed\n");
+		return 1;
+	}
+
+	sqe = io_uring_get_sqe(&ring);
+	io_uring_prep_poll_multishot(sqe, sp[0], POLLIN|POLLOUT);
+	ret = io_uring_submit(&ring);
+	if (ret != 1) {
+		fprintf(stderr, "sqe submit failed: %d\n", ret);
+		return 1;
+	}
+
+	/* trigger EPOLLIN */
+	ret = send(sp[1], buf, sizeof(buf), 0);
+	if (ret != sizeof(buf)) {
+		fprintf(stderr, "send sp[1] failed %i %i\n", ret, errno);
+		return 1;
+	}
+
+	/* trigger EPOLLOUT */
+	ret = recv(sp[1], buf, sizeof(buf), 0);
+	if (ret != sizeof(buf)) {
+		perror("recv failed\n");
+		return 1;
+	}
+
+	for (i = 0; ; i++) {
+		if (i == 0)
+			ret = io_uring_wait_cqe(&ring, &cqe);
+		else
+			ret = io_uring_peek_cqe(&ring, &cqe);
+
+		if (i != 0 && ret == -EAGAIN) {
+			break;
+		}
+		if (ret) {
+			fprintf(stderr, "wait completion %d, %i\n", ret, i);
+			return 1;
+		}
+		res_mask |= cqe->res;
+		io_uring_cqe_seen(&ring, cqe);
+	}
+
+	if ((res_mask & (POLLIN|POLLOUT)) != (POLLIN|POLLOUT)) {
+		fprintf(stderr, "missing poll events %i\n", res_mask);
+		return 1;
+	}
+	io_uring_queue_exit(&ring);
+	close(sp[0]);
+	close(sp[1]);
+	return 0;
+}
+
 int main(int argc, char *argv[])
 {
 	int ret;
@@ -106,5 +192,12 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "test_basic() failed %i\n", ret);
 		return T_EXIT_FAIL;
 	}
+
+	ret = test_missing_events();
+	if (ret) {
+		fprintf(stderr, "test_missing_events() failed %i\n", ret);
+		return T_EXIT_FAIL;
+	}
+
 	return 0;
 }
