@@ -219,11 +219,8 @@ int io_uring_register_eventfd_async(struct io_uring *ring, int event_fd)
 int io_uring_register_probe(struct io_uring *ring, struct io_uring_probe *p,
 			    unsigned int nr_ops)
 {
-	int ret;
-
-	ret = __sys_io_uring_register(ring->ring_fd, IORING_REGISTER_PROBE, p,
-				      nr_ops);
-	return (ret < 0) ? ret : 0;
+	return __sys_io_uring_register(ring->ring_fd, IORING_REGISTER_PROBE, p,
+				       nr_ops);
 }
 
 int io_uring_register_personality(struct io_uring *ring)
