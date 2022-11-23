@@ -14,12 +14,6 @@
 
 #include "liburing.h"
 
-static void sig_alrm(int sig)
-{
-	fprintf(stderr, "Timed out!\n");
-	exit(1);
-}
-
 int main(int argc, char *argv[])
 {
 	struct io_uring_cqe *cqe;
@@ -43,19 +37,11 @@ int main(int argc, char *argv[])
 		perror("fork");
 		exit(2);
 	case 0: {
-		struct sigaction act;
-
 		ret = io_uring_queue_init(1, &ring, 0);
 		if (ret) {
 			fprintf(stderr, "child: ring setup failed: %d\n", ret);
 			return 1;
 		}
-
-		memset(&act, 0, sizeof(act));
-		act.sa_handler = sig_alrm;
-		act.sa_flags = SA_RESTART;
-		sigaction(SIGALRM, &act, NULL);
-		alarm(1);
 
 		sqe = io_uring_get_sqe(&ring);
 		if (!sqe) {
