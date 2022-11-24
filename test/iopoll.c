@@ -201,8 +201,6 @@ err:
 	return 1;
 }
 
-extern unsigned __io_uring_flush_sq(struct io_uring *ring);
-
 /*
  * if we are polling io_uring_submit needs to always enter the
  * kernel to fetch events

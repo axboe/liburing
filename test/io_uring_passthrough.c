@@ -268,8 +268,6 @@ static int test_io(const char *file, int tc, int read, int sqthread,
 	return ret;
 }
 
-extern unsigned __io_uring_flush_sq(struct io_uring *ring);
-
 /*
  * Send a passthrough command that nvme will fail during submission.
  * This comes handy for testing error handling.

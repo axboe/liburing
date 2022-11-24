@@ -266,3 +266,36 @@ bool t_probe_defer_taskrun(void)
 	io_uring_queue_exit(&ring);
 	return true;
 }
+
+/*
+ * Sync internal state with kernel ring state on the SQ side. Returns the
+ * number of pending items in the SQ ring, for the shared ring.
+ */
+unsigned __io_uring_flush_sq(struct io_uring *ring)
+{
+	struct io_uring_sq *sq = &ring->sq;
+	unsigned tail = sq->sqe_tail;
+
+	if (sq->sqe_head != tail) {
+		sq->sqe_head = tail;
+		/*
+		 * Ensure kernel sees the SQE updates before the tail update.
+		 */
+		if (!(ring->flags & IORING_SETUP_SQPOLL))
+			IO_URING_WRITE_ONCE(*sq->ktail, tail);
+		else
+			io_uring_smp_store_release(sq->ktail, tail);
+	}
+	/*
+	 * This _may_ look problematic, as we're not supposed to be reading
+	 * SQ->head without acquire semantics. When we're in SQPOLL mode, the
+	 * kernel submitter could be updating this right now. For non-SQPOLL,
+	 * task itself does it, and there's no potential race. But even for
+	 * SQPOLL, the load is going to be potentially out-of-date the very
+	 * instant it's done, regardless or whether or not it's done
+	 * atomically. Worst case, we're going to be over-estimating what
+	 * we can submit. The point is, we need to be able to deal with this
+	 * situation regardless of any perceived atomicity.
+	 */
+	return tail - *sq->khead;
+}

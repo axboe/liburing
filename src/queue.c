@@ -201,7 +201,7 @@ again:
  * Sync internal state with kernel ring state on the SQ side. Returns the
  * number of pending items in the SQ ring, for the shared ring.
  */
-unsigned __io_uring_flush_sq(struct io_uring *ring)
+static unsigned __io_uring_flush_sq(struct io_uring *ring)
 {
 	struct io_uring_sq *sq = &ring->sq;
 	unsigned tail = sq->sqe_tail;
