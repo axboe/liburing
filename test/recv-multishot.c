@@ -9,6 +9,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <pthread.h>
+#include <assert.h>
 
 #include "liburing.h"
 #include "helpers.h"
@@ -469,6 +470,84 @@ cleanup:
 	return ret;
 }
 
+static int test_enobuf(void)
+{
+	struct io_uring ring;
+	struct io_uring_sqe *sqe;
+	struct io_uring_cqe *cqes[16];
+	char buffs[256];
+	int ret, i, fds[2];
+
+	if (t_create_ring(8, &ring, 0) != T_SETUP_OK) {
+		fprintf(stderr, "ring create\n");
+		return -1;
+	}
+
+	ret = t_create_socket_pair(fds, false);
+	if (ret) {
+		fprintf(stderr, "t_create_socket_pair\n");
+		return ret;
+	}
+
+	sqe = io_uring_get_sqe(&ring);
+	assert(sqe);
+	/* deliberately only 2 provided buffers */
+	io_uring_prep_provide_buffers(sqe, &buffs[0], 1, 2, 0, 0);
+	io_uring_sqe_set_data64(sqe, 0);
+
+	sqe = io_uring_get_sqe(&ring);
+	assert(sqe);
+	io_uring_prep_recv_multishot(sqe, fds[0], NULL, 0, 0);
+	io_uring_sqe_set_data64(sqe, 1);
+	sqe->buf_group = 0;
+	sqe->flags |= IOSQE_BUFFER_SELECT;
+
+	ret = io_uring_submit(&ring);
+	if (ret != 2) {
+		fprintf(stderr, "bad submit %d\n", ret);
+		return -1;
+	}
+	for (i = 0; i < 3; i++) {
+		do {
+			ret = write(fds[1], "?", 1);
+		} while (ret == -1 && errno == EINTR);
+	}
+
+	ret = io_uring_wait_cqes(&ring, &cqes[0], 4, NULL, NULL);
+	if (ret) {
+		fprintf(stderr, "wait cqes\n");
+		return ret;
+	}
+
+	ret = io_uring_peek_batch_cqe(&ring, &cqes[0], 4);
+	if (ret != 4) {
+		fprintf(stderr, "peek batch cqes\n");
+		return -1;
+	}
+
+	/* provide buffers */
+	assert(cqes[0]->user_data == 0);
+	assert(cqes[0]->res == 0);
+
+	/* valid recv */
+	assert(cqes[1]->user_data == 1);
+	assert(cqes[2]->user_data == 1);
+	assert(cqes[1]->res == 1);
+	assert(cqes[2]->res == 1);
+	assert(cqes[1]->flags & (IORING_CQE_F_BUFFER | IORING_CQE_F_MORE));
+	assert(cqes[2]->flags & (IORING_CQE_F_BUFFER | IORING_CQE_F_MORE));
+
+	/* missing buffer */
+	assert(cqes[3]->user_data == 1);
+	assert(cqes[3]->res == -ENOBUFS);
+	assert(!(cqes[3]->flags & (IORING_CQE_F_BUFFER | IORING_CQE_F_MORE)));
+
+	close(fds[0]);
+	close(fds[1]);
+	io_uring_queue_exit(&ring);
+	return 0;
+}
+
 int main(int argc, char *argv[])
 {
 	int ret;
@@ -507,6 +586,12 @@ int main(int argc, char *argv[])
 				return T_EXIT_FAIL;
 			}
 		}
+	}
+
+	ret = test_enobuf();
+	if (ret) {
+		fprintf(stderr, "test_enobuf() failed: %d\n", ret);
+		return T_EXIT_FAIL;
 	}
 
 	return T_EXIT_PASS;
