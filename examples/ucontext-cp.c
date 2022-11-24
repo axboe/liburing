@@ -68,7 +68,7 @@ DEFINE_AWAIT_OP(readv)
 DEFINE_AWAIT_OP(writev)
 #undef DEFINE_AWAIT_OP
 
-int await_delay(async_context *pctx, time_t seconds)
+static int await_delay(async_context *pctx, time_t seconds)
 {
 	struct io_uring_sqe *sqe = io_uring_get_sqe(pctx->ring);
 	struct io_uring_cqe *cqe;
