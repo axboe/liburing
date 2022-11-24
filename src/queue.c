@@ -81,7 +81,7 @@ static int _io_uring_get_cqe(struct io_uring *ring,
 		}
 		if (!cqe && !data->wait_nr && !data->submit) {
 			/*
-			 * If we already looped once, we already entererd
+			 * If we already looped once, we already entered
 			 * the kernel. Since there's nothing to submit or
 			 * wait for, don't keep retrying.
 			 */
