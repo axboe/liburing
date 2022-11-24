@@ -215,7 +215,7 @@ __cold struct io_uring_probe *io_uring_get_probe_ring(struct io_uring *ring)
 	int r;
 
 	len = sizeof(*probe) + 256 * sizeof(struct io_uring_probe_op);
-	probe = uring_malloc(len);
+	probe = malloc(len);
 	if (!probe)
 		return NULL;
 	memset(probe, 0, len);
@@ -224,7 +224,7 @@ __cold struct io_uring_probe *io_uring_get_probe_ring(struct io_uring *ring)
 	if (r >= 0)
 		return probe;
 
-	uring_free(probe);
+	free(probe);
 	return NULL;
 }
 
@@ -245,7 +245,7 @@ __cold struct io_uring_probe *io_uring_get_probe(void)
 
 __cold void io_uring_free_probe(struct io_uring_probe *probe)
 {
-	uring_free(probe);
+	free(probe);
 }
 
 static inline int __fls(unsigned long x)
