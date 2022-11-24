@@ -37,6 +37,7 @@
 #define __hot			__attribute__((__hot__))
 #define __cold			__attribute__((__cold__))
 
+void *__uring_memset(void *s, int c, size_t n);
 void *__uring_malloc(size_t len);
 void __uring_free(void *p);
 
@@ -57,5 +58,9 @@ static inline void uring_free(void *ptr)
 	free(ptr);
 #endif
 }
+
+#ifdef CONFIG_NOLIBC
+#define memset(PTR, C, LEN)	__uring_memset(PTR, C, LEN)
+#endif
 
 #endif /* #ifndef LIBURING_LIB_H */

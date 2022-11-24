@@ -7,7 +7,7 @@
 #include "lib.h"
 #include "syscall.h"
 
-void *memset(void *s, int c, size_t n)
+void *__uring_memset(void *s, int c, size_t n)
 {
 	size_t i;
 	unsigned char *p = s;
