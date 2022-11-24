@@ -26,7 +26,8 @@ jobs:
             cxx_pkg: clang
             cc: clang
             cxx: clang++
-            extra_flags: -Wshorten-64-to-32
+            liburing_extra_flags: -Wshorten-64-to-32
+            extra_flags: -Wmissing-prototypes
 
           # x86 (32-bit) gcc
           - arch: i686
@@ -85,10 +86,10 @@ jobs:
             cxx: mips-linux-gnu-g++
 
     env:
-      FLAGS: -g -O3 -Wall -Wextra -Werror
+      FLAGS: -g -O3 -Wall -Wextra -Werror ${{matrix.extra_flags}}
 
       # Flags for building sources in src/ dir only.
-      LIBURING_CFLAGS: ${{matrix.extra_flags}}
+      LIBURING_CFLAGS: ${{matrix.liburing_extra_flags}}
 
     steps:
     - name: Checkout source
