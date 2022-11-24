@@ -214,8 +214,17 @@ helpers.o: helpers.c
 %.t: %.c $(helpers) helpers.h ../src/liburing.a
 	$(QUIET_CC)$(CC) $(CPPFLAGS) $(CFLAGS) -o $@ $< $(helpers) $(LDFLAGS)
 
+#
+# Clang++ is not happy with -Wmissing-prototypes:
+#
+#   cc1plus: warning: command-line option '-Wmissing-prototypes' \
+#   is valid for C/ObjC but not for C++
+#
 %.t: %.cc $(helpers) helpers.h ../src/liburing.a
-	$(QUIET_CXX)$(CXX) $(CPPFLAGS) $(CXXFLAGS) -o $@ $< $(helpers) $(LDFLAGS)
+	$(QUIET_CXX)$(CXX) \
+	$(patsubst -Wmissing-prototypes,,$(CPPFLAGS)) \
+	$(patsubst -Wmissing-prototypes,,$(CXXFLAGS)) \
+	-o $@ $< $(helpers) $(LDFLAGS)
 
 
 install: $(test_targets) runtests.sh runtests-loop.sh
