@@ -77,7 +77,7 @@ static void *send_thread(void *arg)
 	return NULL;
 }
 
-void *recv_thread(void *arg)
+static void *recv_thread(void *arg)
 {
 	struct data *data = arg;
 	struct io_uring ring;

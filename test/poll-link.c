@@ -71,7 +71,7 @@ static void *send_thread(void *arg)
 	return 0;
 }
 
-void *recv_thread(void *arg)
+static void *recv_thread(void *arg)
 {
 	struct sockaddr_in addr = { };
 	struct data *data = arg;

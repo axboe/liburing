@@ -119,7 +119,7 @@ struct thread_data {
 	char buff[8];
 };
 
-void *thread(void *t)
+static void *thread(void *t)
 {
 	struct thread_data *td = t;
 

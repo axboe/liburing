@@ -12,7 +12,7 @@
 #include "liburing.h"
 #include "helpers.h"
 
-int check_final_cqe(struct io_uring *ring)
+static int check_final_cqe(struct io_uring *ring)
 {
 	struct io_uring_cqe *cqe;
 	int count = 0;

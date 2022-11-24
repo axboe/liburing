@@ -96,7 +96,7 @@ err:
 	return 1;
 }
 
-int test_link_drain_multi(struct io_uring *ring)
+static int test_link_drain_multi(struct io_uring *ring)
 {
 	struct io_uring_cqe *cqe;
 	struct io_uring_sqe *sqe[9];

@@ -15,7 +15,7 @@
 
 static int use_sqpoll = 0;
 
-void notify_fd(int fd)
+static void notify_fd(int fd)
 {
 	char buf[8] = {0, 0, 0, 0, 0, 0, 1};
 	int ret;
@@ -25,7 +25,7 @@ void notify_fd(int fd)
 		perror("write");
 }
 
-void *delay_set_fd_from_thread(void *data)
+static void *delay_set_fd_from_thread(void *data)
 {
 	int fd = (intptr_t) data;
 

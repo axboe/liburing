@@ -21,7 +21,8 @@
 
 /* bogus: setup returns a valid fd on success... expect can't predict the
    fd we'll get, so this really only takes 1 parameter: error */
-int try_io_uring_setup(unsigned entries, struct io_uring_params *p, int expect)
+static int try_io_uring_setup(unsigned entries, struct io_uring_params *p,
+			      int expect)
 {
 	int ret;
 

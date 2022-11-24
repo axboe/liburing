@@ -92,7 +92,7 @@ SIZEOF_IO_URING_CQE + 63) & ~63;
 }
 
 
-void trigger_bug(void)
+static void trigger_bug(void)
 {
     intptr_t res = 0;
     *(uint32_t*)0x20000204 = 0;

@@ -120,7 +120,8 @@ static inline int ilog2(uint32_t i)
 	return log;
 }
 
-int nvme_get_info(const char *file)
+__attribute__((__unused__))
+static int nvme_get_info(const char *file)
 {
 	struct nvme_id_ns ns;
 	int fd, err;

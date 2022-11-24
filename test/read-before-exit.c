@@ -22,7 +22,7 @@ struct data {
         uint64_t buf2;
 };
 
-void *submit(void *data)
+static void *submit(void *data)
 {
 	struct io_uring_sqe *sqe;
 	struct data *d = data;

@@ -42,12 +42,16 @@ struct sqe_info {
  * up an entry in multi_sqes when form a cancellation sqe.
  * multi_cap: limitation of number of multishot sqes
  */
-const unsigned sqe_flags[4] = {0, IOSQE_IO_LINK, IOSQE_IO_DRAIN,
-	IOSQE_IO_LINK | IOSQE_IO_DRAIN};
-int multi_sqes[max_entry], cnt = 0;
-int multi_cap = max_entry / 5;
+static const unsigned sqe_flags[4] = {
+	0,
+	IOSQE_IO_LINK,
+	IOSQE_IO_DRAIN,
+	IOSQE_IO_LINK | IOSQE_IO_DRAIN
+};
+static int multi_sqes[max_entry], cnt = 0;
+static int multi_cap = max_entry / 5;
 
-int write_pipe(int pipe, char *str)
+static int write_pipe(int pipe, char *str)
 {
 	int ret;
 	do {
@@ -57,7 +61,7 @@ int write_pipe(int pipe, char *str)
 	return ret;
 }
 
-void read_pipe(int pipe)
+static void read_pipe(int pipe)
 {
 	char str[4] = {0};
 	int ret;
@@ -67,7 +71,7 @@ void read_pipe(int pipe)
 		perror("read");
 }
 
-int trigger_event(int p[])
+static int trigger_event(int p[])
 {
 	int ret;
 	if ((ret = write_pipe(p[1], "foo")) != 3) {
@@ -78,7 +82,8 @@ int trigger_event(int p[])
 	return 0;
 }
 
-void io_uring_sqe_prep(int op, struct io_uring_sqe *sqe, unsigned sqe_flags, int arg)
+static void io_uring_sqe_prep(int op, struct io_uring_sqe *sqe,
+			      unsigned sqe_flags, int arg)
 {
 	switch (op) {
 		case multi:
@@ -98,7 +103,7 @@ void io_uring_sqe_prep(int op, struct io_uring_sqe *sqe, unsigned sqe_flags, int
 	sqe->flags = sqe_flags;
 }
 
-__u8 generate_flags(int sqe_op)
+static __u8 generate_flags(int sqe_op)
 {
 	__u8 flags = 0;
 	/*
@@ -136,7 +141,7 @@ __u8 generate_flags(int sqe_op)
  * - ensure number of multishot sqes doesn't exceed multi_cap
  * - don't generate multishot sqes after high watermark
  */
-int generate_opcode(int i, int pre_flags)
+static int generate_opcode(int i, int pre_flags)
 {
 	int sqe_op;
 	int high_watermark = max_entry - max_entry / 5;
@@ -163,7 +168,7 @@ static inline void add_multishot_sqe(int index)
 	multi_sqes[cnt++] = index;
 }
 
-int remove_multishot_sqe()
+static int remove_multishot_sqe(void)
 {
 	int ret;
 
