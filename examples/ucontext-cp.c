@@ -68,23 +68,8 @@ DEFINE_AWAIT_OP(readv)
 DEFINE_AWAIT_OP(writev)
 #undef DEFINE_AWAIT_OP
 
-int await_poll(async_context *pctx, int fd, short poll_mask) {
-	struct io_uring_sqe *sqe = io_uring_get_sqe(pctx->ring);
-	struct io_uring_cqe *cqe;
-	if (!sqe)
-		return -1;
-
-	io_uring_prep_poll_add(sqe, fd, poll_mask);
-	io_uring_sqe_set_data(sqe, pctx);
-	swapcontext(&pctx->ctx_fnew, &pctx->ctx_main);
-	io_uring_peek_cqe(pctx->ring, &cqe);
-	assert(cqe);
-	io_uring_cqe_seen(pctx->ring, cqe);
-
-	return cqe->res;
-}
-
-int await_delay(async_context *pctx, time_t seconds) {
+int await_delay(async_context *pctx, time_t seconds)
+{
 	struct io_uring_sqe *sqe = io_uring_get_sqe(pctx->ring);
 	struct io_uring_cqe *cqe;
 	struct __kernel_timespec ts = {
