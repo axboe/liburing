@@ -23,6 +23,7 @@
 #include <linux/swab.h>
 #include "liburing/compat.h"
 #include "liburing/io_uring.h"
+#include "liburing/io_uring_version.h"
 #include "liburing/barrier.h"
 
 #ifndef uring_unlikely
