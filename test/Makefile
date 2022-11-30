@@ -67,10 +67,12 @@ test_srcs := \
 	drop-submit.c \
 	eeed8b54e0df.c \
 	empty-eownerdead.c \
+	eploop.c \
 	eventfd.c \
 	eventfd-disable.c \
 	eventfd-reg.c \
 	eventfd-ring.c \
+	evloop.c \
 	exec-target.c \
 	exit-no-cleanup.c \
 	fadvise.c \
