@@ -1348,6 +1348,24 @@ struct io_uring_sqe *io_uring_get_sqe(struct io_uring *ring);
 ssize_t io_uring_mlock_size(unsigned entries, unsigned flags);
 ssize_t io_uring_mlock_size_params(unsigned entries, struct io_uring_params *p);
 
+/*
+ * Versioning information for liburing.
+ *
+ * Use IO_URING_CHECK_VERSION() for compile time checks including from
+ * preprocessor directives.
+ *
+ * Use io_uring_check_version() for runtime checks of the version of
+ * liburing that was loaded by the dynamic linker.
+ */
+int io_uring_major_version(void);
+int io_uring_minor_version(void);
+bool io_uring_check_version(int major, int minor);
+
+#define IO_URING_CHECK_VERSION(major,minor) \
+  (major > IO_URING_VERSION_MAJOR ||        \
+   (major == IO_URING_VERSION_MAJOR &&      \
+    minor >= IO_URING_VERSION_MINOR))
+
 #ifdef __cplusplus
 }
 #endif
