@@ -33,7 +33,7 @@ argument.
 The default behavior is a single-shot poll request. When the specified event
 has triggered, a completion CQE is posted and no more events will be generated
 by the poll request.
-.BR io_uring_prep_multishot (3)
+.BR io_uring_prep_poll_multishot (3)
 behaves identically in terms of events, but it persist across notifications
 and will repeatedly post notifications for the same registration. A CQE
 posted from a multishot poll request will have
