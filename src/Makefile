@@ -35,7 +35,7 @@ endif
 
 all: $(all_targets)
 
-liburing_srcs := setup.c queue.c register.c syscall.c
+liburing_srcs := setup.c queue.c register.c syscall.c version.c
 
 ifeq ($(CONFIG_NOLIBC),y)
 	liburing_srcs += nolibc.c
@@ -73,6 +73,7 @@ install: $(all_targets)
 	install -D -m 644 include/liburing.h $(includedir)/liburing.h
 	install -D -m 644 include/liburing/compat.h $(includedir)/liburing/compat.h
 	install -D -m 644 include/liburing/barrier.h $(includedir)/liburing/barrier.h
+	install -D -m 644 include/liburing/io_uring_version.h $(includedir)/liburing/io_uring_version.h
 	install -D -m 644 liburing.a $(libdevdir)/liburing.a
 ifeq ($(ENABLE_SHARED),1)
 	install -D -m 755 $(libname) $(libdir)/$(libname)
@@ -84,6 +85,7 @@ clean:
 	@rm -f $(all_targets) $(liburing_objs) $(liburing_sobjs) $(soname).new
 	@rm -f *.so* *.a *.o *.d
 	@rm -f include/liburing/compat.h
+	@rm -f include/liburing/io_uring_version.h
 
 	@# When cleaning, we don't include ../config-host.mak,
 	@# so the nolibc objects are always skipped, clean them up!

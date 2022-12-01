@@ -181,6 +181,7 @@ test_srcs := \
 	timeout-overflow.c \
 	tty-write-dpoll.c \
 	unlink.c \
+	version.c \
 	wakeup-hang.c \
 	xattr.c \
 	# EOL

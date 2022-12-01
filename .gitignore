@@ -10,6 +10,7 @@
 /src/liburing.a
 /src/liburing.so*
 /src/include/liburing/compat.h
+/src/include/liburing/io_uring_version.h
 
 /examples/io_uring-cp
 /examples/io_uring-test
