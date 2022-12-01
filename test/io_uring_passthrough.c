@@ -18,6 +18,7 @@
 #define BUFFERS		(FILE_SIZE / BS)
 
 static struct iovec *vecs;
+static int no_pt;
 
 /*
  * Each offset in the file has the ((test_case / 2) * FILE_SIZE)
@@ -205,6 +206,10 @@ static int __test_io(const char *file, struct io_uring *ring, int tc, int read,
 			goto err;
 		}
 		if (cqe->res != 0) {
+			if (!no_pt) {
+				no_pt = 1;
+				goto skip;
+			}
 			fprintf(stderr, "cqe res %d, wanted 0\n", cqe->res);
 			goto err;
 		}
@@ -234,6 +239,7 @@ static int __test_io(const char *file, struct io_uring *ring, int tc, int read,
 		}
 	}
 
+skip:
 	close(fd);
 	return 0;
 err:
@@ -429,6 +435,8 @@ int main(int argc, char *argv[])
 				read, sqthread, fixed, nonvec);
 			goto err;
 		}
+		if (no_pt)
+			return T_EXIT_SKIP;
 	}
 
 	ret = test_io_uring_submit_enters(fname);
