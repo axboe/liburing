@@ -21,10 +21,15 @@ ENABLE_SHARED ?= 1
 
 soname=liburing.so.$(VERSION_MAJOR)
 libname=liburing.so.$(VERSION)
+ffi_soname=liburing-ffi.so.$(VERSION_MAJOR)
+ffi_libname=liburing-ffi.so.$(VERSION)
+
 all_targets += liburing.a
+all_targets += liburing-ffi.a
 
 ifeq ($(ENABLE_SHARED),1)
 all_targets += $(libname)
+all_targets += $(ffi_libname)
 endif
 
 include ../Makefile.quiet
@@ -47,6 +52,8 @@ endif
 override CPPFLAGS += -MT "$@" -MMD -MP -MF "$@.d"
 liburing_objs := $(patsubst %.c,%.ol,$(liburing_srcs))
 liburing_sobjs := $(patsubst %.c,%.os,$(liburing_srcs))
+liburing_ffi_objs := ffi.ol
+liburing_ffi_sobjs := ffi.os
 
 %.os: %.c
 	$(QUIET_CC)$(CC) $(CPPFLAGS) $(SO_CFLAGS) -c -o $@ $<
@@ -65,8 +72,16 @@ liburing.a: $(liburing_objs)
 	$(QUIET_AR)$(AR) r liburing.a $^
 	$(QUIET_RANLIB)$(RANLIB) liburing.a
 
+liburing-ffi.a: $(liburing_objs) $(liburing_ffi_objs)
+	@rm -f liburing-ffi.a
+	$(QUIET_AR)$(AR) r liburing-ffi.a $^
+	$(QUIET_RANLIB)$(RANLIB) liburing-ffi.a
+
 $(libname): $(liburing_sobjs) liburing.map
 	$(QUIET_CC)$(CC) $(SO_CFLAGS) -shared -Wl,--version-script=liburing.map -Wl,-soname=$(soname) -o $@ $(liburing_sobjs) $(LINK_FLAGS)
+
+$(ffi_libname): $(liburing_ffi_objs) $(liburing_ffi_sobjs) liburing-ffi.map
+	$(QUIET_CC)$(CC) $(SO_CFLAGS) -shared -Wl,--version-script=liburing-ffi.map -Wl,-soname=$(ffi_soname) -o $@ $(liburing_sobjs) $(liburing_ffi_sobjs) $(LINK_FLAGS)
 
 install: $(all_targets)
 	install -D -m 644 include/liburing/io_uring.h $(includedir)/liburing/io_uring.h
@@ -75,14 +90,18 @@ install: $(all_targets)
 	install -D -m 644 include/liburing/barrier.h $(includedir)/liburing/barrier.h
 	install -D -m 644 include/liburing/io_uring_version.h $(includedir)/liburing/io_uring_version.h
 	install -D -m 644 liburing.a $(libdevdir)/liburing.a
+	install -D -m 644 liburing-ffi.a $(libdevdir)/liburing-ffi.a
 ifeq ($(ENABLE_SHARED),1)
 	install -D -m 755 $(libname) $(libdir)/$(libname)
+	install -D -m 755 $(ffi_libname) $(libdir)/$(ffi_libname)
 	ln -sf $(libname) $(libdir)/$(soname)
 	ln -sf $(relativelibdir)$(libname) $(libdevdir)/liburing.so
+	ln -sf $(ffi_libname) $(libdir)/$(ffi_soname)
+	ln -sf $(relativelibdir)$(ffi_libname) $(libdevdir)/liburing-ffi.so
 endif
 
 clean:
-	@rm -f $(all_targets) $(liburing_objs) $(liburing_sobjs) $(soname).new
+	@rm -f $(all_targets) $(liburing_objs) $(liburing_sobjs) $(liburing_ffi_objs) $(liburing_ffi_sobjs) $(soname).new
 	@rm -f *.so* *.a *.o *.d
 	@rm -f include/liburing/compat.h
 	@rm -f include/liburing/io_uring_version.h
