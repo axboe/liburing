@@ -24,8 +24,10 @@ function prepares a request for providing the kernel with buffers. The
 submission queue entry
 .I sqe
 is setup to consume
+.I nr
+number of
 .I len
-number of buffers starting at
+sized buffers starting at
 .I addr
 and identified by the buffer group ID of
 .I bgid
@@ -100,8 +102,9 @@ These are the errors that are reported in the CQE
 .I res
 field. On success,
 .I res
-will contain the number of successfully provided buffers. On error,
-the following errors can occur.
+will contain
+.B 0
+or the number of successfully provided buffers.
 .TP
 .B -ENOMEM
 The kernel was unable to allocate memory for the request.
@@ -118,12 +121,6 @@ buffers can be specified.
 .TP
 .B -EFAULT
 Some of the user memory given was invalid for the application.
-.TP
-.B -EBADF
-On of the descriptors located in
-.I fds
-didn't refer to a valid file descriptor, or one of the file descriptors in
-the array referred to an io_uring instance.
 .TP
 .B -EOVERFLOW
 The product of
