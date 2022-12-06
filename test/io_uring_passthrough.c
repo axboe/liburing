@@ -350,6 +350,8 @@ static int test_io_uring_submit_enters(const char *file)
 	int fd, i, ret, ring_flags, open_flags;
 	unsigned head;
 	struct io_uring_cqe *cqe;
+	struct nvme_uring_cmd *cmd;
+	struct io_uring_sqe *sqe;
 
 	ring_flags = IORING_SETUP_IOPOLL;
 	ring_flags |= IORING_SETUP_SQE128;
@@ -369,12 +371,28 @@ static int test_io_uring_submit_enters(const char *file)
 	}
 
 	for (i = 0; i < BUFFERS; i++) {
-		struct io_uring_sqe *sqe;
 		off_t offset = BS * (rand() % BUFFERS);
+		__u64 slba;
+		__u32 nlb;
 
 		sqe = io_uring_get_sqe(&ring);
-		io_uring_prep_writev(sqe, fd, &vecs[i], 1, offset);
-		sqe->user_data = 1;
+		io_uring_prep_readv(sqe, fd, &vecs[i], 1, offset);
+		sqe->user_data = i;
+		sqe->opcode = IORING_OP_URING_CMD;
+		sqe->cmd_op = NVME_URING_CMD_IO;
+		cmd = (struct nvme_uring_cmd *)sqe->cmd;
+		memset(cmd, 0, sizeof(struct nvme_uring_cmd));
+
+		slba = offset >> lba_shift;
+		nlb = (BS >> lba_shift) - 1;
+
+		cmd->opcode = nvme_cmd_read;
+		cmd->cdw10 = slba & 0xffffffff;
+		cmd->cdw11 = slba >> 32;
+		cmd->cdw12 = nlb;
+		cmd->addr = (__u64)(uintptr_t)&vecs[i];
+		cmd->data_len = 1;
+		cmd->nsid = nsid;
 	}
 
 	/* submit manually to avoid adding IORING_ENTER_GETEVENTS */
