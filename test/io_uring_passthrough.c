@@ -286,8 +286,7 @@ static int test_invalid_passthru_submit(const char *file)
 	struct io_uring_sqe *sqe;
 	struct nvme_uring_cmd *cmd;
 
-	ring_flags = IORING_SETUP_IOPOLL | IORING_SETUP_SQE128;
-	ring_flags |= IORING_SETUP_CQE32;
+	ring_flags = IORING_SETUP_CQE32 | IORING_SETUP_SQE128;
 
 	ret = t_create_ring(1, &ring, ring_flags);
 	if (ret != T_SETUP_OK) {
