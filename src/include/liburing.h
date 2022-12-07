@@ -288,8 +288,7 @@ int __io_uring_get_cqe(struct io_uring *ring,
 /*
  * Must be called after io_uring_for_each_cqe()
  */
-IOURINGINLINE void io_uring_cq_advance(struct io_uring *ring,
-				       unsigned nr)
+IOURINGINLINE void io_uring_cq_advance(struct io_uring *ring, unsigned nr)
 {
 	if (nr) {
 		struct io_uring_cq *cq = &ring->cq;
@@ -485,8 +484,9 @@ IOURINGINLINE void io_uring_prep_recvmsg(struct io_uring_sqe *sqe, int fd,
 	sqe->msg_flags = flags;
 }
 
-IOURINGINLINE void io_uring_prep_recvmsg_multishot(struct io_uring_sqe *sqe, int fd,
-						   struct msghdr *msg, unsigned flags)
+IOURINGINLINE void io_uring_prep_recvmsg_multishot(struct io_uring_sqe *sqe,
+						   int fd, struct msghdr *msg,
+						   unsigned flags)
 {
 	io_uring_prep_recvmsg(sqe, fd, msg, flags);
 	sqe->ioprio |= IORING_RECV_MULTISHOT;
@@ -713,8 +713,8 @@ IOURINGINLINE void io_uring_prep_write(struct io_uring_sqe *sqe, int fd,
 
 struct statx;
 IOURINGINLINE void io_uring_prep_statx(struct io_uring_sqe *sqe, int dfd,
-				const char *path, int flags, unsigned mask,
-				struct statx *statxbuf)
+				       const char *path, int flags,
+				       unsigned mask, struct statx *statxbuf)
 {
 	io_uring_prep_rw(IORING_OP_STATX, sqe, dfd, path, mask,
 				(__u64) (unsigned long) statxbuf);
@@ -930,7 +930,8 @@ IOURINGINLINE void io_uring_prep_renameat(struct io_uring_sqe *sqe, int olddfd,
 }
 
 IOURINGINLINE void io_uring_prep_rename(struct io_uring_sqe *sqe,
-					  const char *oldpath, const char *newpath)
+					const char *oldpath,
+					const char *newpath)
 {
 	io_uring_prep_renameat(sqe, AT_FDCWD, oldpath, AT_FDCWD, newpath, 0);
 }
@@ -964,7 +965,8 @@ IOURINGINLINE void io_uring_prep_symlinkat(struct io_uring_sqe *sqe,
 }
 
 IOURINGINLINE void io_uring_prep_symlink(struct io_uring_sqe *sqe,
-					   const char *target, const char *linkpath)
+					 const char *target,
+					 const char *linkpath)
 {
 	io_uring_prep_symlinkat(sqe, target, AT_FDCWD, linkpath);
 }
@@ -979,7 +981,8 @@ IOURINGINLINE void io_uring_prep_linkat(struct io_uring_sqe *sqe, int olddfd,
 }
 
 IOURINGINLINE void io_uring_prep_link(struct io_uring_sqe *sqe,
-					const char *oldpath, const char *newpath, int flags)
+				      const char *oldpath, const char *newpath,
+				      int flags)
 {
 	io_uring_prep_linkat(sqe, AT_FDCWD, oldpath, AT_FDCWD, newpath, flags);
 }
@@ -993,10 +996,8 @@ IOURINGINLINE void io_uring_prep_msg_ring(struct io_uring_sqe *sqe, int fd,
 }
 
 IOURINGINLINE void io_uring_prep_getxattr(struct io_uring_sqe *sqe,
-					  const char *name,
-					  char *value,
-					  const char *path,
-					  unsigned int len)
+					  const char *name, char *value,
+					  const char *path, unsigned int len)
 {
 	io_uring_prep_rw(IORING_OP_GETXATTR, sqe, 0, name, len,
 				(__u64) (uintptr_t) value);
@@ -1005,10 +1006,8 @@ IOURINGINLINE void io_uring_prep_getxattr(struct io_uring_sqe *sqe,
 }
 
 IOURINGINLINE void io_uring_prep_setxattr(struct io_uring_sqe *sqe,
-					  const char *name,
-					  const char *value,
-					  const char *path,
-					  int flags,
+					  const char *name, const char *value,
+					  const char *path, int flags,
 					  unsigned int len)
 {
 	io_uring_prep_rw(IORING_OP_SETXATTR, sqe, 0, name, len,
@@ -1018,22 +1017,17 @@ IOURINGINLINE void io_uring_prep_setxattr(struct io_uring_sqe *sqe,
 }
 
 IOURINGINLINE void io_uring_prep_fgetxattr(struct io_uring_sqe *sqe,
-					   int fd,
-					   const char *name,
-					   char *value,
-					   unsigned int len)
+					   int fd, const char *name,
+					   char *value, unsigned int len)
 {
 	io_uring_prep_rw(IORING_OP_FGETXATTR, sqe, fd, name, len,
 				(__u64) (uintptr_t) value);
 	sqe->xattr_flags = 0;
 }
 
-IOURINGINLINE void io_uring_prep_fsetxattr(struct io_uring_sqe *sqe,
-					   int		fd,
-					   const char	*name,
-					   const char	*value,
-					   int		flags,
-					   unsigned int len)
+IOURINGINLINE void io_uring_prep_fsetxattr(struct io_uring_sqe *sqe, int fd,
+					   const char *name, const char	*value,
+					   int flags, unsigned int len)
 {
 	io_uring_prep_rw(IORING_OP_FSETXATTR, sqe, fd, name, len,
 				(__u64) (uintptr_t) value);
@@ -1060,8 +1054,9 @@ IOURINGINLINE void io_uring_prep_socket_direct(struct io_uring_sqe *sqe,
 }
 
 IOURINGINLINE void io_uring_prep_socket_direct_alloc(struct io_uring_sqe *sqe,
-				int domain, int type, int protocol,
-				unsigned int flags)
+						     int domain, int type,
+						     int protocol,
+						     unsigned int flags)
 {
 	io_uring_prep_rw(IORING_OP_SOCKET, sqe, domain, NULL, protocol, type);
 	sqe->rw_flags = flags;
