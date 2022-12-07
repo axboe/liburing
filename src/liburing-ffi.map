@@ -56,6 +56,10 @@ LIBURING_2.4 {
 		io_uring_get_events;
 		io_uring_submit_and_get_events;
 
+		io_uring_major_version;
+		io_uring_minor_version;
+		io_uring_check_version;
+
 		io_uring_peek_cqe;
 		io_uring_prep_timeout_update;
 		io_uring_buf_ring_init;
