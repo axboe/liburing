@@ -119,6 +119,18 @@ is a submission queue ring setup using the
 described below.
 .TP
 .BR
+Note that, when using a ring setup with
+.B IORING_SETUP_SQPOLL,
+you never directly call the
+.I io_uring_enter()
+system call. That is usually taken care of by liburing’s
+.I io_uring_submit()
+function. It automatically determines if you are using
+polling mode or not and deals with when your program needs to call
+.I io_uring_enter()
+without you having to bother about it.
+.TP
+.BR
 Before version 5.11 of the Linux kernel, to successfully use this feature, the
 application must register a set of files to be used for IO through
 .BR io_uring_register (2)
