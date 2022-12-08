@@ -64,8 +64,8 @@ directly in the CQE
 .I res
 field.
 .SH NOTES
-Unless an application explicitly needs to pass in more than iovec, it is more
-efficient to use
+Unless an application explicitly needs to pass in more than one iovec, it
+is more efficient to use
 .BR io_uring_prep_write (3)
 rather than this function, as no state has to be maintained for a
 non-vectored IO request.
