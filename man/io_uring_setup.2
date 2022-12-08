@@ -122,12 +122,12 @@ described below.
 Note that, when using a ring setup with
 .B IORING_SETUP_SQPOLL,
 you never directly call the
-.I io_uring_enter()
-system call. That is usually taken care of by liburing’s
-.I io_uring_submit()
+.BR io_uring_enter (2)
+system call. That is usually taken care of by liburing's
+.BR io_uring_submit (3)
 function. It automatically determines if you are using
 polling mode or not and deals with when your program needs to call
-.I io_uring_enter()
+.BR io_uring_enter (2)
 without you having to bother about it.
 .TP
 .BR
