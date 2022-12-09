@@ -107,6 +107,7 @@ test_srcs := \
 	madvise.c \
 	mkdir.c \
 	msg-ring.c \
+	msg-ring-flags.c \
 	multicqes_drain.c \
 	nolibc.c \
 	nop-all-sizes.c \
