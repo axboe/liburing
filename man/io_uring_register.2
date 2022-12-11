@@ -620,20 +620,16 @@ is the desired size of the ring, and must be a power-of-2 in size. The maximum
 size allowed is 2^15 (32768).
 .I bgid
 is the buffer group ID associated with this ring. SQEs that select a buffer
-has a buffer group associated with them in their
+have a buffer group associated with them in their
 .I buf_group
-field, and the associated CQE will have
+field, and the associated CQEs will have
 .B IORING_CQE_F_BUFFER
 set in their
 .I flags
 member, which will also contain the specific ID of the buffer selected. The rest
 of the fields are reserved and must be cleared to zero.
 
-The
-.I flags
-argument is currently unused and must be set to zero.
-
-.i nr_args
+.I nr_args
 must be set to 1.
 
 Also see
