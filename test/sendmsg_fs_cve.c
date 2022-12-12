@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 /*
  * repro-CVE-2020-29373 -- Reproducer for CVE-2020-29373.
  *
