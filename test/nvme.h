@@ -57,8 +57,8 @@ enum nvme_io_opcode {
 	nvme_cmd_read			= 0x02,
 };
 
-int nsid;
-__u32 lba_shift;
+static int nsid;
+static __u32 lba_shift;
 
 struct nvme_lbaf {
 	__le16			ms;

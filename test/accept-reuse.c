@@ -11,7 +11,7 @@
 #include "helpers.h"
 #include "../src/syscall.h"
 
-struct io_uring io_uring;
+static struct io_uring io_uring;
 
 static int sys_io_uring_enter(const int fd, const unsigned to_submit,
 			      const unsigned min_complete,

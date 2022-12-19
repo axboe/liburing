@@ -12,9 +12,9 @@
 #define TIMEOUT_MSEC	200
 #define TIMEOUT_SEC	10
 
-int thread_ret0, thread_ret1;
-int cnt = 0;
-pthread_mutex_t mutex;
+static int thread_ret0, thread_ret1;
+static int cnt = 0;
+static pthread_mutex_t mutex;
 
 static void msec_to_ts(struct __kernel_timespec *ts, unsigned int msec)
 {

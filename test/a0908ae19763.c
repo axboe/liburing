@@ -14,7 +14,7 @@
 #include "helpers.h"
 #include "../src/syscall.h"
 
-uint64_t r[1] = {0xffffffffffffffff};
+static uint64_t r[1] = {0xffffffffffffffff};
 
 int main(int argc, char *argv[])
 {

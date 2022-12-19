@@ -342,7 +342,7 @@ static void loop(void)
 #define __NR_io_uring_enter 426
 #endif
 
-uint64_t r[4] = {0xffffffffffffffff, 0xffffffffffffffff, 0x0, 0x0};
+static uint64_t r[4] = {0xffffffffffffffff, 0xffffffffffffffff, 0x0, 0x0};
 
 void execute_call(int call)
 {

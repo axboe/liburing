@@ -39,7 +39,7 @@ static void kill_and_wait(int pid, int* status)
 
 #define WAIT_FLAGS __WALL
 
-uint64_t r[3] = {0xffffffffffffffff, 0x0, 0x0};
+static uint64_t r[3] = {0xffffffffffffffff, 0x0, 0x0};
 
 static long syz_io_uring_setup(volatile long a0, volatile long a1,
 volatile long a2, volatile long a3, volatile long a4, volatile long

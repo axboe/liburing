@@ -109,7 +109,7 @@ static long syz_open_dev(volatile long a0, volatile long a1, volatile long a2)
   }
 }
 
-uint64_t r[4] = {0xffffffffffffffff, 0x0, 0x0, 0xffffffffffffffff};
+static uint64_t r[4] = {0xffffffffffffffff, 0x0, 0x0, 0xffffffffffffffff};
 
 int main(int argc, char *argv[])
 {

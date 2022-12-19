@@ -262,7 +262,7 @@ static void loop(void)
   }
 }
 
-uint64_t r[1] = {0xffffffffffffffff};
+static uint64_t r[1] = {0xffffffffffffffff};
 
 void execute_call(int call)
 {
