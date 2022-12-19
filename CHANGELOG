@@ -1,3 +1,9 @@
+liburing-2.4 release
+
+- Add io_uring_{major,minor,check}_version() functions.
+- Add IO_URING_{MAJOR,MINOR,CHECK}_VERSION() macros.
+- FFI support (for non-C/C++ languages integration).
+
 liburing-2.3 release
 
 - Support non-libc build for aarch64.
