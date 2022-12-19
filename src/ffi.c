@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 #define IOURINGINLINE
 
 #ifdef __clang__
