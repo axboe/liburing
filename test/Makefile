@@ -13,7 +13,8 @@ override CPPFLAGS += \
 	-D_GNU_SOURCE \
 	-D__SANE_USERSPACE_TYPES__ \
 	-I../src/include/ \
-	-include ../config-host.h
+	-include ../config-host.h \
+	-D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64
 
 CFLAGS ?= -g -O3 -Wall -Wextra
 XCFLAGS = -Wno-unused-parameter -Wno-sign-compare

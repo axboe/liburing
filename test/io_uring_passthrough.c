@@ -35,7 +35,8 @@ static int verify_buf(int tc, void *buf, off_t off)
 	ptr = buf;
 	for (i = 0; i < u_in_buf; i++) {
 		if (off != *ptr) {
-			fprintf(stderr, "Found %u, wanted %lu\n", *ptr, off);
+			fprintf(stderr, "Found %u, wanted %llu\n", *ptr,
+					(unsigned long long) off);
 			return 1;
 		}
 		ptr++;

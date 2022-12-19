@@ -8,7 +8,8 @@ libdevdir ?= $(prefix)/lib
 LIBURING_CFLAGS ?=
 CPPFLAGS ?=
 override CPPFLAGS += -D_GNU_SOURCE \
-	-Iinclude/ -include ../config-host.h
+	-Iinclude/ -include ../config-host.h \
+	-D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64
 CFLAGS ?= -g -O3 -Wall -Wextra -fno-stack-protector
 override CFLAGS += -Wno-unused-parameter -Wno-sign-compare \
 	-DLIBURING_INTERNAL \
