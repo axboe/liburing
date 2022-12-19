@@ -25,7 +25,7 @@ runtests-parallel: all
 	@$(MAKE) -C test runtests-parallel
 
 config-host.mak: configure
-	@if [ ! -e "$@" ]; then					\
+	+@if [ ! -e "$@" ]; then				\
 	  echo "Running configure ...";				\
 	  ./configure;						\
 	else							\
