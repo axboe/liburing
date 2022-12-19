@@ -611,7 +611,7 @@ static int test_multishot_accept(int count, bool before, bool overflow)
 	return ret;
 }
 
-static int test_accept_multishot_wrong_arg()
+static int test_accept_multishot_wrong_arg(void)
 {
 	struct io_uring m_io_uring;
 	struct io_uring_cqe *cqe;

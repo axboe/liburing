@@ -176,7 +176,7 @@ static void kill_and_wait(int pid, int* status)
 }
 
 #define SYZ_HAVE_SETUP_TEST 1
-static void setup_test()
+static void setup_test(void)
 {
   prctl(PR_SET_PDEATHSIG, SIGKILL, 0, 0, 0);
   setpgrp();

@@ -54,7 +54,7 @@ static int inject_fault(int nth)
   return fd;
 }
 
-static int setup_fault()
+static int setup_fault(void)
 {
   static struct {
     const char* file;
