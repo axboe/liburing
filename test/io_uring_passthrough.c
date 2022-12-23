@@ -265,6 +265,10 @@ static int test_io(const char *file, int tc, int read, int sqthread,
 	if (ret == T_SETUP_SKIP)
 		return 0;
 	if (ret != T_SETUP_OK) {
+		if (ret == -EINVAL) {
+			no_pt = 1;
+			return T_SETUP_SKIP;
+		}
 		fprintf(stderr, "ring create failed: %d\n", ret);
 		return 1;
 	}
@@ -448,14 +452,17 @@ int main(int argc, char *argv[])
 		int nonvec = (i & 8) != 0;
 
 		ret = test_io(fname, i, read, sqthread, fixed, nonvec);
+		if (no_pt)
+			break;
 		if (ret) {
 			fprintf(stderr, "test_io failed %d/%d/%d/%d\n",
 				read, sqthread, fixed, nonvec);
 			goto err;
 		}
-		if (no_pt)
-			return T_EXIT_SKIP;
 	}
+
+	if (no_pt)
+		return T_EXIT_SKIP;
 
 	ret = test_io_uring_submit_enters(fname);
 	if (ret) {
