@@ -144,7 +144,9 @@ feature flag.
 In version 5.11 and later, it is no longer necessary to register files to use
 this feature. 5.11 also allows using this as non-root, if the user has the
 .B CAP_SYS_NICE
-capability.
+capability. In 5.13 this requirement was also relaxed, and no special privileges
+are needed for SQPOLL in newer kernels. Certain stable kernels older than 5.13
+may also support unprivileged SQPOLL.
 .TP
 .B IORING_SETUP_SQ_AFF
 If this flag is specified, then the poll thread will be bound to the
