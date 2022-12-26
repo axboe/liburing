@@ -9,12 +9,12 @@ io_uring_buf_ring_add \- add buffers to a shared buffer ring
 .nf
 .B #include <liburing.h>
 .PP
-.BI "int io_uring_buf_ring_add(struct io_uring_buf_ring *" br ",
-.BI "                          void *" addr ",
-.BI "                          unsigned int " len ",
-.BI "                          unsigned short " bid ",
-.BI "                          int " mask ",
-.BI "                          int " buf_offset ");"
+.BI "void io_uring_buf_ring_add(struct io_uring_buf_ring *" br ",
+.BI "                           void *" addr ",
+.BI "                           unsigned int " len ",
+.BI "                           unsigned short " bid ",
+.BI "                           int " mask ",
+.BI "                           int " buf_offset ");"
 .fi
 .SH DESCRIPTION
 .PP
