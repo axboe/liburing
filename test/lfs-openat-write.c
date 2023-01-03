@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: MIT */
 
-#include <liburing.h>
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -11,6 +10,7 @@
 #include <sys/resource.h>
 #include <unistd.h>
 
+#include "liburing.h"
 #include "helpers.h"
 
 static const int RSIZE = 2;
