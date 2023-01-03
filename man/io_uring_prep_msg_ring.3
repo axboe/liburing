@@ -14,6 +14,13 @@ io_uring_prep_msg_ring \- send a message to another ring
 .BI "                        unsigned int " len ","
 .BI "                        __u64 " data ","
 .BI "                        unsigned int " flags ");"
+.PP
+.BI "void io_uring_prep_msg_ring_cqe_flags(struct io_uring_sqe *" sqe ","
+.BI "                        int " fd ","
+.BI "                        unsigned int " len ","
+.BI "                        __u64 " data ","
+.BI "                        unsigned int " flags ","
+.BI "                        unsigned int " cqe_flags ");"
 .fi
 .SH DESCRIPTION
 .PP
@@ -46,6 +53,18 @@ and
 fields. The use case may be anything from simply waking up someone waiting
 on the targeted ring, or it can be used to pass messages between the two
 rings.
+
+.BR io_uring_prep_msg_ring_cqe_flags (3)
+is similar to
+.BR io_uring_prep_msg_ring (3) .
+But has an addition
+.I cqe_flags
+parameter, which is used to set
+.I flags
+field on CQE side. That way, you can set the CQE flags field
+.I cqe->flags
+when sending a message. Be aware that io_uring could potentially set additional
+bits into this field.
 
 .SH RETURN VALUE
 None
