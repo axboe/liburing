@@ -71,6 +71,14 @@ application must poll for completions on the CQ ring by calling
 It is illegal to mix and match polled and non-polled I/O on an io_uring
 instance.
 
+This is only applicable for storage devices for now, and the storage device
+must be configured for polling. How to do that depends on the device type
+in question. For NVMe devices, the nvme driver must be loaded with the
+.I poll_queues
+parameter set to the desired number of polling queues. The polling queues
+will be shared appropriately between the CPUs in the system, if the number
+is less than the number of online CPU threads.
+
 .TP
 .B IORING_SETUP_SQPOLL
 When this flag is specified, a kernel thread is created to perform
