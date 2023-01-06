@@ -12,8 +12,15 @@ void *__uring_memset(void *s, int c, size_t n)
 	size_t i;
 	unsigned char *p = s;
 
-	for (i = 0; i < n; i++)
+	for (i = 0; i < n; i++) {
 		p[i] = (unsigned char) c;
+
+		/*
+		 * An empty inline ASM to avoid auto-vectorization
+		 * because it's too bloated for liburing.
+		 */
+		__asm__ volatile ("");
+	}
 
 	return s;
 }
