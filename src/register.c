@@ -333,11 +333,10 @@ int io_uring_register_sync_cancel(struct io_uring *ring,
 int io_uring_register_file_alloc_range(struct io_uring *ring,
 					unsigned off, unsigned len)
 {
-	struct io_uring_file_index_range range;
-
-	memset(&range, 0, sizeof(range));
-	range.off = off;
-	range.len = len;
+	struct io_uring_file_index_range range = {
+		.off = off,
+		.len = len
+	};
 
 	return __sys_io_uring_register(ring->ring_fd,
 				       IORING_REGISTER_FILE_ALLOC_RANGE, &range,
