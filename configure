@@ -5,6 +5,22 @@ set -e
 cc=${CC:-gcc}
 cxx=${CXX:-g++}
 
+#
+# TODO(ammarfaizi2): Remove this notice and `--nolibc` option.
+#
+nolibc_deprecated() {
+  echo "";
+  echo "=================================================================";
+  echo "";
+  echo "  --nolibc option is deprecated and has no effect.";
+  echo "  It will be removed in a future liburing release.";
+  echo "";
+  echo "  liburing on x86-64, x86 (32-bit) and aarch64 always use CONFIG_NOLIBC.";
+  echo "";
+  echo "=================================================================";
+  echo "";
+}
+
 for opt do
   optarg=$(expr "x$opt" : 'x[^=]*=\(.*\)' || true)
   case "$opt" in
@@ -26,7 +42,7 @@ for opt do
   ;;
   --cxx=*) cxx="$optarg"
   ;;
-  --nolibc) liburing_nolibc="yes"
+  --nolibc) nolibc_deprecated
   ;;
   *)
     echo "ERROR: unknown option $opt"
@@ -385,13 +401,27 @@ fi
 print_config "NVMe uring command support" "$nvme_uring_cmd"
 
 #############################################################################
+#
+# Currently, CONFIG_NOLIBC is only enabled on x86-64, x86 (32-bit) and aarch64.
+#
+cat > $TMPC << EOF
+int main(void){
+#if defined(__x86_64__) || defined(__i386__) || defined(__aarch64__)
+  return 0;
+#else
+#error libc is needed
+#endif
+}
+EOF
+if compile_prog "" "" "nolibc support"; then
+  liburing_nolibc="yes"
+fi
+print_config "nolibc support" "$liburing_nolibc";
+#############################################################################
+
 if test "$liburing_nolibc" = "yes"; then
   output_sym "CONFIG_NOLIBC"
-else
-  liburing_nolibc="no"
 fi
-print_config "liburing_nolibc" "$liburing_nolibc"
-
 if test "$__kernel_rwf_t" = "yes"; then
   output_sym "CONFIG_HAVE_KERNEL_RWF_T"
 fi
