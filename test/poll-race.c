@@ -86,6 +86,9 @@ int main(int argc, char *argv[])
 	struct data d;
 	int i, ret;
 
+	if (argc > 1)
+		return T_EXIT_SKIP;
+
 	pthread_barrier_init(&d.barrier, NULL, 2);
 
 	io_uring_queue_init(NREQS, &ring, 0);
