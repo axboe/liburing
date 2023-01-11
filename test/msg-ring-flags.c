@@ -87,10 +87,8 @@ static int send_msg(struct io_uring *ring, struct io_uring *target)
 	}
 
 	io_uring_cqe_seen(ring, cqe);
-
 	return T_EXIT_PASS;
 }
-
 
 int main(int argc, char *argv[])
 {
@@ -114,9 +112,7 @@ int main(int argc, char *argv[])
 
 	ret = send_msg(&ring, &ring2);
 	if (ret) {
-		if (ret == T_EXIT_SKIP)
-			fprintf(stderr, "test skipped\n");
-		else
+		if (ret != T_EXIT_SKIP)
 			fprintf(stderr, "send_msg failed: %d\n", ret);
 		return ret;
 	}
