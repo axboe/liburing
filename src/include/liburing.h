@@ -987,6 +987,15 @@ IOURINGINLINE void io_uring_prep_link(struct io_uring_sqe *sqe,
 	io_uring_prep_linkat(sqe, AT_FDCWD, oldpath, AT_FDCWD, newpath, flags);
 }
 
+IOURINGINLINE void io_uring_prep_msg_ring_cqe_flags(struct io_uring_sqe *sqe,
+					  int fd, unsigned int len, __u64 data,
+					  unsigned int flags, unsigned int cqe_flags)
+{
+	io_uring_prep_rw(IORING_OP_MSG_RING, sqe, fd, NULL, len, data);
+	sqe->msg_ring_flags = IORING_MSG_RING_FLAGS_PASS | flags;
+	sqe->file_index = cqe_flags;
+}
+
 IOURINGINLINE void io_uring_prep_msg_ring(struct io_uring_sqe *sqe, int fd,
 					  unsigned int len, __u64 data,
 					  unsigned int flags)
