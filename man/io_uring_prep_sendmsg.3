@@ -32,6 +32,15 @@ defined flags in the
 .I flags
 argument.
 
+Note that using
+.B IOSQE_IO_LINK
+with this request type requires the setting of
+.B MSG_WAITALL
+in the
+.IR flags
+argument, as a short send isn't a considered an error condition without
+that being set.
+
 This function prepares an async
 .BR sendmsg (2)
 request. See that man page for details.

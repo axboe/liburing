@@ -30,6 +30,15 @@ of size
 bytes and with modifier flags
 .IR flags .
 
+Note that using
+.B IOSQE_IO_LINK
+with this request type requires the setting of
+.B MSG_WAITALL
+in the
+.IR flags
+argument, as a short send isn't a considered an error condition without
+that being set.
+
 This function prepares an async
 .BR send (2)
 request. See that man page for details.
