@@ -52,6 +52,34 @@ and
 .I fd_in
 given as a registered file descriptor offset.
 
+If
+.I fd_in
+refers to a pipe,
+.IR off_in
+must be -1.
+
+If
+.I fd_in
+does not refer to a pipe and
+.I off_in
+is -1, then bytes are read from
+.I fd_in
+starting from the file offset and it is adjusted appropriately.
+
+If
+.I fd_in
+does not refer to a pipe and
+.I off_in
+is not -1, then the starting offset of
+.I fd_in
+will be
+.IR off_in .
+
+The same rules apply to
+.I fd_out
+and
+.IR off_out .
+
 This function prepares an async
 .BR splice (2)
 request. See that man page for details.
@@ -78,3 +106,13 @@ field.
 .BR io_uring_submit (3),
 .BR io_uring_register (2),
 .BR splice (2)
+
+.SH NOTES
+Note that even if
+.I fd_in
+or
+.I fd_out
+refers to a pipe, the splice operation can still failed with
+.B EINVAL
+if one of the fd doesn't explicitly support splice operation, e.g. reading from
+terminal is unsupported from kernel 5.7 to 5.11.
