@@ -383,26 +383,25 @@ IOURINGINLINE void io_uring_prep_rw(int op, struct io_uring_sqe *sqe, int fd,
 	sqe->__pad2[0] = 0;
 }
 
-/**
- * @pre Either fd_in or fd_out must be a pipe.
- * @param off_in If fd_in refers to a pipe, off_in must be (int64_t) -1;
- *		 If fd_in does not refer to a pipe and off_in is (int64_t) -1,
- *		 then bytes are read from fd_in starting from the file offset
- *		 and it is adjusted appropriately;
- *		 If fd_in does not refer to a pipe and off_in is not
- *		 (int64_t) -1, then the  starting offset of fd_in will be
- *		 off_in.
- * @param off_out The description of off_in also applied to off_out.
- * @param splice_flags see man splice(2) for description of flags.
+/*
+ * io_uring_prep_splice() - Either @fd_in or @fd_out must be a pipe.
+ *
+ * - If @fd_in refers to a pipe, @off_in is ignored and must be set to -1.
+ *
+ * - If @fd_in does not refer to a pipe and @off_in is -1, then @nbytes are read
+ *   from @fd_in starting from the file offset, which is incremented by the
+ *   number of bytes read.
+ *
+ * - If @fd_in does not refer to a pipe and @off_in is not -1, then the starting
+ *   offset of @fd_in will be @off_in.
  *
  * This splice operation can be used to implement sendfile by splicing to an
  * intermediate pipe first, then splice to the final destination.
  * In fact, the implementation of sendfile in kernel uses splice internally.
  *
  * NOTE that even if fd_in or fd_out refers to a pipe, the splice operation
- * can still failed with EINVAL if one of the fd doesn't explicitly support
- * splice operation, e.g. reading from terminal is unsupported from kernel 5.7
- * to 5.11.
+ * can still fail with EINVAL if one of the fd doesn't explicitly support splice
+ * operation, e.g. reading from terminal is unsupported from kernel 5.7 to 5.11.
  * Check issue #291 for more information.
  */
 IOURINGINLINE void io_uring_prep_splice(struct io_uring_sqe *sqe,

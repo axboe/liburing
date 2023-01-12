@@ -55,16 +55,18 @@ given as a registered file descriptor offset.
 If
 .I fd_in
 refers to a pipe,
-.IR off_in
-must be -1.
+.I off_in
+is ignored and must be set to -1.
 
 If
 .I fd_in
 does not refer to a pipe and
 .I off_in
-is -1, then bytes are read from
+is -1, then
+.I nbytes
+are read from
 .I fd_in
-starting from the file offset and it is adjusted appropriately.
+starting from the file offset, which is incremented by the number of bytes read.
 
 If
 .I fd_in
@@ -112,7 +114,7 @@ Note that even if
 .I fd_in
 or
 .I fd_out
-refers to a pipe, the splice operation can still failed with
+refers to a pipe, the splice operation can still fail with
 .B EINVAL
 if one of the fd doesn't explicitly support splice operation, e.g. reading from
 terminal is unsupported from kernel 5.7 to 5.11.
