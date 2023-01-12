@@ -388,8 +388,8 @@ IOURINGINLINE void io_uring_prep_rw(int op, struct io_uring_sqe *sqe, int fd,
  * @param off_in If fd_in refers to a pipe, off_in must be (int64_t) -1;
  *		 If fd_in does not refer to a pipe and off_in is (int64_t) -1,
  *		 then bytes are read from fd_in starting from the file offset
- *		 and it is adjust appropriately;
- *               If fd_in does not refer to a pipe and off_in is not
+ *		 and it is adjusted appropriately;
+ *		 If fd_in does not refer to a pipe and off_in is not
  *		 (int64_t) -1, then the  starting offset of fd_in will be
  *		 off_in.
  * @param off_out The description of off_in also applied to off_out.
