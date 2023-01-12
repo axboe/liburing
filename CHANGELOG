@@ -4,6 +4,8 @@ liburing-2.4 release
 - Add IO_URING_{MAJOR,MINOR,CHECK}_VERSION() macros.
 - FFI support (for non-C/C++ languages integration).
 - Add io_uring_prep_msg_ring_cqe_flags() function.
+- Deprecate --nolibc configure option.
+- CONFIG_NOLIBC is always enabled on x86-64, x86, and aarch64.
 
 liburing-2.3 release
 
