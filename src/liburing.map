@@ -73,4 +73,6 @@ LIBURING_2.4 {
 		io_uring_major_version;
 		io_uring_minor_version;
 		io_uring_check_version;
+		io_uring_register_restrictions;
+		io_uring_enable_rings;
 } LIBURING_2.3;
