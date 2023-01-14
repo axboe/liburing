@@ -95,6 +95,7 @@ test_srcs := \
 	io-cancel.c \
 	iopoll.c \
 	iopoll-leak.c \
+	iopoll-overflow.c \
 	io_uring_enter.c \
 	io_uring_passthrough.c \
 	io_uring_register.c \
