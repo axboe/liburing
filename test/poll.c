@@ -12,6 +12,7 @@
 #include <poll.h>
 #include <sys/wait.h>
 #include <error.h>
+#include <assert.h>
 
 #include "helpers.h"
 #include "liburing.h"
@@ -20,6 +21,15 @@ static void do_setsockopt(int fd, int level, int optname, int val)
 {
 	if (setsockopt(fd, level, optname, &val, sizeof(val)))
 		error(1, errno, "setsockopt %d.%d: %d", level, optname, val);
+}
+
+static bool check_cq_empty(struct io_uring *ring)
+{
+	struct io_uring_cqe *cqe = NULL;
+	int ret;
+
+	ret = io_uring_peek_cqe(ring, &cqe); /* nothing should be there */
+	return ret == -EAGAIN;
 }
 
 static int test_basic(void)
@@ -110,9 +120,6 @@ static int test_missing_events(void)
 	char buf[2] = {};
 	int res_mask = 0;
 
-	if (!t_probe_defer_taskrun())
-		return 0;
-
 	ret = io_uring_queue_init(8, &ring, IORING_SETUP_SINGLE_ISSUER |
 					    IORING_SETUP_DEFER_TASKRUN);
 	if (ret) {
@@ -180,6 +187,66 @@ static int test_missing_events(void)
 	return 0;
 }
 
+static int test_disabled_ring_lazy_polling(int early_poll)
+{
+	struct io_uring_cqe *cqe;
+	struct io_uring_sqe *sqe;
+	struct io_uring ring, ring2;
+	unsigned head;
+	int ret, i = 0;
+
+	ret = io_uring_queue_init(8, &ring, IORING_SETUP_SINGLE_ISSUER |
+					     IORING_SETUP_DEFER_TASKRUN |
+					     IORING_SETUP_R_DISABLED);
+	if (ret) {
+		fprintf(stderr, "ring setup failed: %d\n", ret);
+		return 1;
+	}
+	ret = io_uring_queue_init(8, &ring2, 0);
+	if (ret) {
+		fprintf(stderr, "ring2 setup failed: %d\n", ret);
+		return 1;
+	}
+
+	if (early_poll) {
+		/* start polling disabled DEFER_TASKRUN ring */
+		sqe = io_uring_get_sqe(&ring2);
+		io_uring_prep_poll_add(sqe, ring.ring_fd, POLLIN);
+		ret = io_uring_submit(&ring2);
+		assert(ret == 1);
+		assert(check_cq_empty(&ring2));
+	}
+
+	/* enable rings, which should also activate pollwq */
+	ret = io_uring_enable_rings(&ring);
+	assert(ret >= 0);
+
+	if (!early_poll) {
+		/* start polling enabled DEFER_TASKRUN ring */
+		sqe = io_uring_get_sqe(&ring2);
+		io_uring_prep_poll_add(sqe, ring.ring_fd, POLLIN);
+		ret = io_uring_submit(&ring2);
+		assert(ret == 1);
+		assert(check_cq_empty(&ring2));
+	}
+
+	sqe = io_uring_get_sqe(&ring);
+	io_uring_prep_nop(sqe);
+	ret = io_uring_submit(&ring);
+	assert(ret == 1);
+
+	io_uring_for_each_cqe(&ring2, head, cqe) {
+		i++;
+	}
+	if (i !=  1) {
+		fprintf(stderr, "fail, polling stuck\n");
+		return 1;
+	}
+	io_uring_queue_exit(&ring);
+	io_uring_queue_exit(&ring2);
+	return 0;
+}
+
 int main(int argc, char *argv[])
 {
 	int ret;
@@ -193,10 +260,25 @@ int main(int argc, char *argv[])
 		return T_EXIT_FAIL;
 	}
 
-	ret = test_missing_events();
-	if (ret) {
-		fprintf(stderr, "test_missing_events() failed %i\n", ret);
-		return T_EXIT_FAIL;
+
+	if (t_probe_defer_taskrun()) {
+		ret = test_missing_events();
+		if (ret) {
+			fprintf(stderr, "test_missing_events() failed %i\n", ret);
+			return T_EXIT_FAIL;
+		}
+
+		ret = test_disabled_ring_lazy_polling(false);
+		if (ret) {
+			fprintf(stderr, "test_disabled_ring_lazy_polling(false) failed %i\n", ret);
+			return T_EXIT_FAIL;
+		}
+
+		ret = test_disabled_ring_lazy_polling(true);
+		if (ret) {
+			fprintf(stderr, "test_disabled_ring_lazy_polling(true) failed %i\n", ret);
+			return T_EXIT_FAIL;
+		}
 	}
 
 	return 0;
