@@ -208,6 +208,20 @@ int main(int argc, char *argv[])
 		return T_EXIT_FAIL;
 	}
 	io_uring_queue_exit(&ring);
+
+	if (t_probe_defer_taskrun()) {
+		params.flags |= IORING_SETUP_SINGLE_ISSUER | IORING_SETUP_DEFER_TASKRUN;
+		ret = io_uring_queue_init_params(RING_SIZE, &ring, &params);
+		if (ret) {
+			fprintf(stderr, "ring DEFER setup failed: %d\n", ret);
+			return T_EXIT_FAIL;
+		}
+		if (do_test(&ring)) {
+			fprintf(stderr, "test (DEFER) failed\n");
+			return T_EXIT_FAIL;
+		}
+		io_uring_queue_exit(&ring);
+	}
 	return 0;
 err_nofail:
 	fprintf(stderr, "poll-many: not enough files available (and not root), "
