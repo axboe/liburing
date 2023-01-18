@@ -45,13 +45,14 @@ endif
 	    -e "s%@VERSION@%$(VERSION)%g" \
 	    $< >$@
 
-install: $(NAME).pc
+install: $(NAME).pc $(NAME)-ffi.pc
 	@$(MAKE) -C src install prefix=$(DESTDIR)$(prefix) \
 		includedir=$(DESTDIR)$(includedir) \
 		libdir=$(DESTDIR)$(libdir) \
 		libdevdir=$(DESTDIR)$(libdevdir) \
 		relativelibdir=$(relativelibdir)
 	$(INSTALL) -D -m 644 $(NAME).pc $(DESTDIR)$(libdevdir)/pkgconfig/$(NAME).pc
+	$(INSTALL) -D -m 644 $(NAME)-ffi.pc $(DESTDIR)$(libdevdir)/pkgconfig/$(NAME)-ffi.pc
 	$(INSTALL) -m 755 -d $(DESTDIR)$(mandir)/man2
 	$(INSTALL) -m 644 man/*.2 $(DESTDIR)$(mandir)/man2
 	$(INSTALL) -m 755 -d $(DESTDIR)$(mandir)/man3
@@ -63,7 +64,7 @@ install-tests:
 	@$(MAKE) -C test install prefix=$(DESTDIR)$(prefix) datadir=$(DESTDIR)$(datadir)
 
 clean:
-	@rm -f config-host.mak config-host.h cscope.out $(NAME).pc test/*.dmesg
+	@rm -f config-host.mak config-host.h cscope.out $(NAME).pc $(NAME)-ffi.pc test/*.dmesg
 	@$(MAKE) -C src clean
 	@$(MAKE) -C test clean
 	@$(MAKE) -C examples clean

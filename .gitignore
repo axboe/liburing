@@ -31,5 +31,6 @@ config-host.mak
 config.log
 
 liburing.pc
+liburing-ffi.pc
 
 cscope.out
