@@ -6,7 +6,7 @@ includedir=@includedir@
 Name: @NAME@
 Version: @VERSION@
 Description: io_uring library
-URL: http://git.kernel.dk/cgit/liburing/
+URL: https://git.kernel.dk/cgit/liburing/
 
 Libs: -L${libdir} -luring
 Cflags: -I${includedir}
