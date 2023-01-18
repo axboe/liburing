@@ -5,8 +5,8 @@ includedir=@includedir@
 
 Name: @NAME@
 Version: @VERSION@
-Description: io_uring library
+Description: io_uring FFI library
 URL: https://git.kernel.dk/cgit/liburing/
 
-Libs: -L${libdir} -luring
+Libs: -L${libdir} -luring-ffi
 Cflags: -I${includedir}
