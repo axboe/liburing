@@ -173,7 +173,7 @@ int t_create_socket_pair(int fd[2], bool stream)
 	int val;
 	struct sockaddr_in serv_addr;
 	struct sockaddr *paddr;
-	size_t paddrlen;
+	socklen_t paddrlen;
 
 	type |= SOCK_CLOEXEC;
 	fd[0] = socket(AF_INET, type, 0);
