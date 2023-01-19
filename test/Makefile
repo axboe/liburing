@@ -109,6 +109,7 @@ test_srcs := \
 	mkdir.c \
 	msg-ring.c \
 	msg-ring-flags.c \
+	msg-ring-overflow.c \
 	multicqes_drain.c \
 	nolibc.c \
 	nop-all-sizes.c \
