@@ -19,6 +19,11 @@
 #define LEN 0x20
 #define ID 0x1
 
+struct data {
+	pthread_barrier_t barrier;
+	int fd;
+};
+
 static int recv_msg(struct io_uring *ring)
 {
 	struct io_uring_cqe *cqe;
@@ -45,7 +50,7 @@ static int recv_msg(struct io_uring *ring)
 	return T_EXIT_PASS;
 }
 
-static int send_msg(struct io_uring *ring, struct io_uring *target)
+static int send_msg(struct io_uring *ring, int target_fd)
 {
 	struct io_uring_cqe *cqe;
 	struct io_uring_sqe *sqe;
@@ -57,7 +62,7 @@ static int send_msg(struct io_uring *ring, struct io_uring *target)
 		return T_EXIT_FAIL;
 	}
 
-	io_uring_prep_msg_ring_cqe_flags(sqe, target->ring_fd, LEN, USER_DATA,
+	io_uring_prep_msg_ring_cqe_flags(sqe, target_fd, LEN, USER_DATA,
 					 0, CUSTOM_FLAG);
 	sqe->user_data = ID;
 
@@ -90,9 +95,34 @@ static int send_msg(struct io_uring *ring, struct io_uring *target)
 	return T_EXIT_PASS;
 }
 
+static void *thread_fn(void *data)
+{
+	struct data *d = data;
+	struct io_uring ring;
+	int ret;
+
+	ret = io_uring_queue_init(2, &ring, IORING_SETUP_DEFER_TASKRUN | IORING_SETUP_SINGLE_ISSUER);
+	if (ret) {
+		fprintf(stderr, "ring init failed %d\n", ret);
+		pthread_barrier_wait(&d->barrier);
+		return NULL;
+	}
+
+	d->fd = ring.ring_fd;
+	pthread_barrier_wait(&d->barrier);
+
+	if (recv_msg(&ring))
+		return (void *) 1;
+
+	return NULL;
+}
+
 int main(int argc, char *argv[])
 {
 	struct io_uring ring, ring2;
+	pthread_t thread;
+	struct data d;
+	void *ret2;
 	int ret, i;
 
 	if (argc > 1)
@@ -110,7 +140,7 @@ int main(int argc, char *argv[])
 		return T_EXIT_FAIL;
 	}
 
-	ret = send_msg(&ring, &ring2);
+	ret = send_msg(&ring, ring2.ring_fd);
 	if (ret) {
 		if (ret != T_EXIT_SKIP)
 			fprintf(stderr, "send_msg failed: %d\n", ret);
@@ -124,7 +154,7 @@ int main(int argc, char *argv[])
 	}
 
 	for (i = 0; i < 8; i++) {
-		ret = send_msg(&ring, &ring2);
+		ret = send_msg(&ring, ring2.ring_fd);
 		if (ret) {
 			if (ret != T_EXIT_SKIP)
 				fprintf(stderr, "send_msg failed: %d\n", ret);
@@ -138,6 +168,24 @@ int main(int argc, char *argv[])
 			fprintf(stderr, "recv_msg failed: %d\n", ret);
 			return ret;
 		}
+	}
+
+	pthread_barrier_init(&d.barrier, NULL, 2);
+	d.fd = -1;
+	pthread_create(&thread, NULL, thread_fn, &d);
+	pthread_barrier_wait(&d.barrier);
+	if (d.fd == -1)
+		return T_EXIT_FAIL;
+
+	ret = send_msg(&ring, d.fd);
+	if (ret) {
+		fprintf(stderr, "send msg failed: %d\n", ret);
+		return ret;
+	}
+	pthread_join(thread, &ret2);
+	if (ret2) {
+		fprintf(stderr, "Remote test failed\n");
+		return T_EXIT_FAIL;
 	}
 
 	return T_EXIT_PASS;
