@@ -93,7 +93,7 @@ static int send_msg(struct io_uring *ring, struct io_uring *target)
 int main(int argc, char *argv[])
 {
 	struct io_uring ring, ring2;
-	int ret;
+	int ret, i;
 
 	if (argc > 1)
 		return T_EXIT_SKIP;
@@ -121,6 +121,23 @@ int main(int argc, char *argv[])
 	if (ret) {
 		fprintf(stderr, "recv_msg failed: %d\n", ret);
 		return ret;
+	}
+
+	for (i = 0; i < 8; i++) {
+		ret = send_msg(&ring, &ring2);
+		if (ret) {
+			if (ret != T_EXIT_SKIP)
+				fprintf(stderr, "send_msg failed: %d\n", ret);
+			return ret;
+		}
+	}
+
+	for (i = 0; i < 8; i++) {
+		ret = recv_msg(&ring2);
+		if (ret) {
+			fprintf(stderr, "recv_msg failed: %d\n", ret);
+			return ret;
+		}
 	}
 
 	return T_EXIT_PASS;
