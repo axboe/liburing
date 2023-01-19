@@ -222,10 +222,8 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "test_own failed\n");
 		return ret;
 	}
-	if (no_msg) {
-		fprintf(stdout, "Skipped\n");
+	if (no_msg)
 		return T_EXIT_SKIP;
-	}
 	ret = test_own(&pring);
 	if (ret) {
 		fprintf(stderr, "test_own iopoll failed\n");
