@@ -98,13 +98,13 @@ int main(int argc, char *argv[])
 	if (argc > 1)
 		return T_EXIT_SKIP;
 
-	ret = io_uring_queue_init(8, &ring, 0);
+	ret = io_uring_queue_init(2, &ring, 0);
 	if (ret) {
 		fprintf(stderr, "io_uring_queue_init failed for ring1: %d\n", ret);
 		return T_EXIT_FAIL;
 	}
 
-	ret = io_uring_queue_init(8, &ring2, 0);
+	ret = io_uring_queue_init(2, &ring2, 0);
 	if (ret) {
 		fprintf(stderr, "io_uring_queue_init failed for ring2: %d\n", ret);
 		return T_EXIT_FAIL;
