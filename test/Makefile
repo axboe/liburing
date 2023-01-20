@@ -131,6 +131,7 @@ test_srcs := \
 	poll-mshot-overflow.c \
 	poll-mshot-update.c \
 	poll-race.c \
+	poll-race-mshot.c \
 	poll-ring.c \
 	poll-v-poll.c \
 	pollfree.c \
