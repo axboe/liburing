@@ -14,6 +14,8 @@
 #include "liburing.h"
 #include "helpers.h"
 
+static int no_iopoll;
+
 struct data {
         struct io_uring *ring;
         int timer_fd1;
@@ -35,8 +37,21 @@ static void *submit(void *data)
 	io_uring_prep_read(sqe, d->timer_fd2, &d->buf2, sizeof(d->buf2), 0);
 
 	ret = io_uring_submit(d->ring);
-	if (ret != 2)
+	if (ret != 2) {
+		struct io_uring_cqe *cqe;
+
+		/*
+		 * Kernels without submit-all-on-error behavior will
+		 * fail submitting all, check if that's the case and
+		 * don't error
+		 */
+		ret = io_uring_peek_cqe(d->ring, &cqe);
+		if (!ret && cqe->res == -EOPNOTSUPP) {
+			no_iopoll = 1;
+			return NULL;
+		}
 		return (void *) (uintptr_t) 1;
+	}
 
 	/* Exit suddenly. */
 	return NULL;
@@ -95,9 +110,11 @@ int main(int argc, char *argv[])
 	for (i = 0; i < 1000; i++) {
 		ret = test(IORING_SETUP_IOPOLL);
 		if (ret) {
-			fprintf(stderr, "Test IOPOLL failed\n");
+			fprintf(stderr, "Test IOPOLL failed loop %d\n", ret);
 			return ret;
 		}
+		if (no_iopoll)
+			break;
 	}
 
 	for (i = 0; i < 100; i++) {
