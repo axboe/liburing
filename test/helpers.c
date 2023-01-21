@@ -134,7 +134,8 @@ enum t_setup_ret t_create_ring_params(int depth, struct io_uring *ring,
 		return T_SETUP_SKIP;
 	}
 
-	fprintf(stderr, "queue_init: %s\n", strerror(-ret));
+	if (ret != -EINVAL)
+		fprintf(stderr, "queue_init: %s\n", strerror(-ret));
 	return ret;
 }
 
