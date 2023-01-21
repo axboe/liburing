@@ -21,7 +21,7 @@ static int test(struct io_uring *ring, unsigned dst_flags)
 	struct io_uring_cqe *cqe;
 	struct io_uring_sqe *sqe;
 	struct io_uring dst;
-	int ret, i;
+	int ret, i, err_ret = T_EXIT_FAIL;
 
 	p.flags = dst_flags | IORING_SETUP_CQSIZE;
 	p.cq_entries = 4;
@@ -44,6 +44,15 @@ static int test(struct io_uring *ring, unsigned dst_flags)
 
 	ret = io_uring_submit(ring);
 	if (ret != 8) {
+		/*
+		 * Likely an old kernel that doesn't support the opcode,
+		 * just skip the test.
+		 */
+		if (ret == 1) {
+			err_ret = T_EXIT_SKIP;
+			no_msg = 1;
+			goto err;
+		}
 		fprintf(stderr, "sqe submit failed: %d\n", ret);
 		goto err;
 	}
@@ -103,9 +112,8 @@ out:
 	return no_msg ? T_EXIT_SKIP : T_EXIT_PASS;
 err:
 	io_uring_queue_exit(&dst);
-	return T_EXIT_FAIL;
+	return err_ret;
 }
-
 
 int main(int argc, char *argv[])
 {
@@ -122,7 +130,7 @@ int main(int argc, char *argv[])
 	}
 
 	ret = test(&src, 0);
-	if (ret) {
+	if (ret && !no_msg) {
 		fprintf(stderr, "test failed\n");
 		return ret;
 	}
