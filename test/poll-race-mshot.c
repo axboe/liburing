@@ -18,6 +18,8 @@
 #define BR_MASK		(NREQS - 1)
 #define BUF_SIZE	64
 
+static int no_buf_ring;
+
 struct data {
 	pthread_barrier_t barrier;
 	int fd;
@@ -73,6 +75,10 @@ static int test(struct io_uring *ring, struct data *d)
 
 	ret = io_uring_register_buf_ring(ring, &reg, 0);
 	if (ret) {
+		if (ret == -EINVAL) {
+			no_buf_ring = 1;
+			return T_EXIT_SKIP;
+		}
 		fprintf(stderr, "buf ring reg %d\n", ret);
 		return T_EXIT_FAIL;
 	}
@@ -252,11 +258,16 @@ int main(int argc, char *argv[])
 		io_uring_queue_init(NREQS, &ring, 0);
 		ret = test(&ring, &d);
 		if (ret != T_EXIT_PASS) {
+			if (no_buf_ring)
+				break;
 			fprintf(stderr, "Test failed loop %d\n", i);
 			return T_EXIT_FAIL;
 		}
 		io_uring_queue_exit(&ring);
 	}
+
+	if (no_buf_ring)
+		return T_EXIT_SKIP;
 
 	for (i = 0; i < 1000; i++) {
 		io_uring_queue_init(NREQS, &ring, 0);
