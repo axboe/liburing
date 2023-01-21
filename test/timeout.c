@@ -1303,7 +1303,6 @@ static int test_not_failing_links(void)
 		fprintf(stderr, "%s: wait completion %d\n", __FUNCTION__, ret);
 		return 1;
 	} else if (cqe->user_data == 1 && cqe->res == -EINVAL) {
-		fprintf(stderr, "ETIME_SUCCESS is not supported, skip\n");
 		goto done;
 	} else if (cqe->res != -ETIME || cqe->user_data != 1) {
 		fprintf(stderr, "timeout failed %i %i\n", cqe->res,

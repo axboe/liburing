@@ -78,7 +78,6 @@ int main(int argc, char *argv[])
 
 	ret = io_uring_queue_init(8, &ring, IORING_SETUP_SINGLE_ISSUER);
 	if (ret == -EINVAL) {
-		fprintf(stderr, "SETUP_SINGLE_ISSUER is not supported, skip\n");
 		return T_EXIT_SKIP;
 	} else if (ret) {
 		fprintf(stderr, "io_uring_queue_init() failed %i\n", ret);
