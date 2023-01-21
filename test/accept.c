@@ -735,7 +735,7 @@ int main(int argc, char *argv[])
 
 	if (argc > 1)
 		return T_EXIT_SKIP;
-	goto foo;
+
 	ret = test_accept(1, false);
 	if (ret == T_EXIT_FAIL) {
 		fprintf(stderr, "test_accept failed\n");
@@ -756,7 +756,6 @@ int main(int argc, char *argv[])
 		return ret;
 	}
 
-foo:
 	ret = test_accept_nonblock(false, 1);
 	if (ret == T_EXIT_FAIL) {
 		fprintf(stderr, "test_accept_nonblock failed\n");
