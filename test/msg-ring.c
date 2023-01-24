@@ -93,16 +93,22 @@ static void *wait_cqe_fn(void *data)
 		goto err;
 	}
 
+	io_uring_cqe_seen(ring, cqe);
 	return NULL;
 err:
+	io_uring_cqe_seen(ring, cqe);
 	return (void *) (unsigned long) 1;
 }
 
 static int test_remote(struct io_uring *ring, struct io_uring *target)
 {
+	pthread_t thread;
+	void *tret;
 	struct io_uring_cqe *cqe;
 	struct io_uring_sqe *sqe;
 	int ret;
+
+	pthread_create(&thread, NULL, wait_cqe_fn, target);
 
 	sqe = io_uring_get_sqe(ring);
 	if (!sqe) {
@@ -134,6 +140,7 @@ static int test_remote(struct io_uring *ring, struct io_uring *target)
 	}
 
 	io_uring_cqe_seen(ring, cqe);
+	pthread_join(thread, &tret);
 	return 0;
 err:
 	return 1;
@@ -237,8 +244,6 @@ static int test_disabled_ring(struct io_uring *ring, int flags)
 int main(int argc, char *argv[])
 {
 	struct io_uring ring, ring2, pring;
-	pthread_t thread;
-	void *tret;
 	int ret, i;
 
 	if (argc > 1)
@@ -287,18 +292,13 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	pthread_create(&thread, NULL, wait_cqe_fn, &ring2);
-
 	ret = test_remote(&ring, &ring2);
 	if (ret) {
 		fprintf(stderr, "test_remote failed\n");
 		return T_EXIT_FAIL;
 	}
 
-	pthread_join(thread, &tret);
-
 	io_uring_queue_exit(&ring);
-	io_uring_queue_exit(&ring2);
 	io_uring_queue_exit(&pring);
 
 	if (t_probe_defer_taskrun()) {
@@ -337,5 +337,6 @@ int main(int argc, char *argv[])
 
 	}
 
+	io_uring_queue_exit(&ring2);
 	return T_EXIT_PASS;
 }
