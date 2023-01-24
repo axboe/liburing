@@ -146,6 +146,79 @@ err:
 	return 1;
 }
 
+static void *remote_submit_fn(void *data)
+{
+	struct io_uring_sqe *sqe;
+	struct io_uring_cqe *cqe;
+	struct io_uring *target = data;
+	struct io_uring ring;
+	int ret;
+
+	ret = io_uring_queue_init(8, &ring, 0);
+	if (ret) {
+		fprintf(stderr, "thread ring setup failed: %d\n", ret);
+		goto err;
+	}
+	sqe = io_uring_get_sqe(&ring);
+	if (!sqe) {
+		fprintf(stderr, "get sqe failed\n");
+		goto err;
+	}
+
+	io_uring_prep_msg_ring(sqe, target->ring_fd, 0x20, 0x5aa5, 0);
+	sqe->user_data = 1;
+
+	ret = io_uring_submit(&ring);
+	if (ret <= 0) {
+		fprintf(stderr, "sqe submit failed: %d\n", ret);
+		goto err;
+	}
+
+	ret = io_uring_wait_cqe(&ring, &cqe);
+	if (ret < 0) {
+		fprintf(stderr, "wait completion %d\n", ret);
+		goto err;
+	}
+	if (cqe->res != 0 || cqe->user_data != 1) {
+		fprintf(stderr, "invalid cqe\n");
+		goto err;
+	}
+	io_uring_cqe_seen(&ring, cqe);
+	io_uring_queue_exit(&ring);
+	return NULL;
+err:
+	return (void *) (unsigned long) 1;
+}
+
+static int test_remote_submit(struct io_uring *target)
+{
+	struct io_uring_cqe *cqe;
+	pthread_t thread;
+	void *tret;
+	int ret;
+
+	pthread_create(&thread, NULL, remote_submit_fn, target);
+
+	ret = io_uring_wait_cqe(target, &cqe);
+	if (ret < 0) {
+		fprintf(stderr, "wait completion %d\n", ret);
+		goto err;
+	}
+	if (cqe->res != 0x20) {
+		fprintf(stderr, "cqe res %d\n", cqe->res);
+		return -1;
+	}
+	if (cqe->user_data != 0x5aa5) {
+		fprintf(stderr, "user_data %llx\n", (long long) cqe->user_data);
+		return -1;
+	}
+	io_uring_cqe_seen(target, cqe);
+	pthread_join(thread, &tret);
+	return 0;
+err:
+	return 1;
+}
+
 static int test_invalid(struct io_uring *ring, bool fixed)
 {
 	struct io_uring_cqe *cqe;
@@ -322,6 +395,12 @@ int main(int argc, char *argv[])
 				return T_EXIT_FAIL;
 			}
 		}
+
+		ret = test_remote_submit(&ring);
+		if (ret) {
+			fprintf(stderr, "test_remote_submit failed\n");
+			return T_EXIT_FAIL;
+		}
 		io_uring_queue_exit(&ring);
 
 		if (test_disabled_ring(&ring2, 0)) {
@@ -334,7 +413,6 @@ int main(int argc, char *argv[])
 			fprintf(stderr, "test_disabled_ring defer failed\n");
 			return T_EXIT_FAIL;
 		}
-
 	}
 
 	io_uring_queue_exit(&ring2);
