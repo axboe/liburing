@@ -191,6 +191,49 @@ err:
 	return 1;
 }
 
+static int test_disabled_ring(struct io_uring *ring, int flags)
+{
+	struct io_uring_cqe *cqe;
+	struct io_uring_sqe *sqe;
+	struct io_uring disabled_ring;
+	int ret;
+
+	flags |= IORING_SETUP_R_DISABLED;
+	ret = io_uring_queue_init(8, &disabled_ring, flags);
+	if (ret) {
+		fprintf(stderr, "ring setup failed: %d\n", ret);
+		return 1;
+	}
+
+	sqe = io_uring_get_sqe(ring);
+	io_uring_prep_msg_ring(sqe, disabled_ring.ring_fd, 0x10, 0x1234, 0);
+	sqe->user_data = 1;
+
+	ret = io_uring_submit(ring);
+	if (ret != 1) {
+		fprintf(stderr, "sqe submit failed: %d\n", ret);
+		return 1;
+	}
+
+	ret = io_uring_wait_cqe(ring, &cqe);
+	if (ret < 0) {
+		fprintf(stderr, "wait completion %d\n", ret);
+		return 1;
+	}
+	if (cqe->res != 0 && cqe->res != -EBADFD) {
+		fprintf(stderr, "cqe res %d\n", cqe->res);
+		return 1;
+	}
+	if (cqe->user_data != 1) {
+		fprintf(stderr, "user_data %llx\n", (long long) cqe->user_data);
+		return 1;
+	}
+
+	io_uring_cqe_seen(ring, cqe);
+	io_uring_queue_exit(&disabled_ring);
+	return 0;
+}
+
 int main(int argc, char *argv[])
 {
 	struct io_uring ring, ring2, pring;
@@ -280,6 +323,18 @@ int main(int argc, char *argv[])
 			}
 		}
 		io_uring_queue_exit(&ring);
+
+		if (test_disabled_ring(&ring2, 0)) {
+			fprintf(stderr, "test_disabled_ring failed\n");
+			return T_EXIT_FAIL;
+		}
+
+		if (test_disabled_ring(&ring2, IORING_SETUP_SINGLE_ISSUER |
+						IORING_SETUP_DEFER_TASKRUN)) {
+			fprintf(stderr, "test_disabled_ring defer failed\n");
+			return T_EXIT_FAIL;
+		}
+
 	}
 
 	return T_EXIT_PASS;
