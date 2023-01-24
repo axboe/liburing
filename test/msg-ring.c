@@ -254,5 +254,33 @@ int main(int argc, char *argv[])
 
 	pthread_join(thread, &tret);
 
+	io_uring_queue_exit(&ring);
+	io_uring_queue_exit(&ring2);
+	io_uring_queue_exit(&pring);
+
+	if (t_probe_defer_taskrun()) {
+		ret = io_uring_queue_init(8, &ring, IORING_SETUP_SINGLE_ISSUER |
+						    IORING_SETUP_DEFER_TASKRUN);
+		if (ret) {
+			fprintf(stderr, "deferred ring setup failed: %d\n", ret);
+			return T_EXIT_FAIL;
+		}
+
+		ret = test_own(&ring);
+		if (ret) {
+			fprintf(stderr, "test_own deferred failed\n");
+			return T_EXIT_FAIL;
+		}
+
+		for (i = 0; i < 2; i++) {
+			ret = test_invalid(&ring, i);
+			if (ret) {
+				fprintf(stderr, "test_invalid(0) deferred failed\n");
+				return T_EXIT_FAIL;
+			}
+		}
+		io_uring_queue_exit(&ring);
+	}
+
 	return T_EXIT_PASS;
 }
