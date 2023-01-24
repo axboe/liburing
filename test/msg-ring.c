@@ -220,27 +220,27 @@ int main(int argc, char *argv[])
 	ret = test_own(&ring);
 	if (ret) {
 		fprintf(stderr, "test_own failed\n");
-		return ret;
+		return T_EXIT_FAIL;
 	}
 	if (no_msg)
 		return T_EXIT_SKIP;
 	ret = test_own(&pring);
 	if (ret) {
 		fprintf(stderr, "test_own iopoll failed\n");
-		return ret;
+		return T_EXIT_FAIL;
 	}
 
 	ret = test_invalid(&ring, 0);
 	if (ret) {
 		fprintf(stderr, "test_invalid failed\n");
-		return ret;
+		return T_EXIT_FAIL;
 	}
 
 	for (i = 0; i < 2; i++) {
 		ret = test_invalid(&ring, 1);
 		if (ret) {
 			fprintf(stderr, "test_invalid fixed failed\n");
-			return ret;
+			return T_EXIT_FAIL;
 		}
 	}
 
@@ -249,7 +249,7 @@ int main(int argc, char *argv[])
 	ret = test_remote(&ring, &ring2);
 	if (ret) {
 		fprintf(stderr, "test_remote failed\n");
-		return ret;
+		return T_EXIT_FAIL;
 	}
 
 	pthread_join(thread, &tret);
