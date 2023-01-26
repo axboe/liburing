@@ -40,7 +40,6 @@
 
 #define MAX_MSG	128
 
-#define PORT	10200
 #define HOST	"127.0.0.1"
 #define HOSTV6	"::1"
 
@@ -190,7 +189,8 @@ static int create_socketpair_ip(struct sockaddr_storage *addr,
 				bool ipv6, bool client_connect,
 				bool msg_zc, bool tcp)
 {
-	int family, addr_size;
+	int family;
+	socklen_t addr_size;
 	int ret, val;
 	int listen_sock = -1;
 	int sock;
@@ -201,14 +201,14 @@ static int create_socketpair_ip(struct sockaddr_storage *addr,
 
 		family = AF_INET6;
 		saddr->sin6_family = family;
-		saddr->sin6_port = htons(PORT);
+		saddr->sin6_port = htons(0);
 		addr_size = sizeof(*saddr);
 	} else {
 		struct sockaddr_in *saddr = (struct sockaddr_in *)addr;
 
 		family = AF_INET;
 		saddr->sin_family = family;
-		saddr->sin_port = htons(PORT);
+		saddr->sin_port = htons(0);
 		saddr->sin_addr.s_addr = htonl(INADDR_ANY);
 		addr_size = sizeof(*saddr);
 	}
@@ -223,16 +223,19 @@ static int create_socketpair_ip(struct sockaddr_storage *addr,
 		perror("socket");
 		return 1;
 	}
-	val = 1;
-	setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &val, sizeof(val));
-	val = 1;
-	setsockopt(sock, SOL_SOCKET, SO_REUSEPORT, &val, sizeof(val));
 
 	ret = bind(sock, (struct sockaddr *)addr, addr_size);
 	if (ret < 0) {
 		perror("bind");
 		return 1;
 	}
+
+	ret = getsockname(sock, (struct sockaddr *)addr, &addr_size);
+	if (ret < 0) {
+		fprintf(stderr, "getsockname failed %i\n", errno);
+		return 1;
+	}
+
 	if (tcp) {
 		ret = listen(sock, 128);
 		assert(ret != -1);
