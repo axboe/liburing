@@ -283,6 +283,45 @@ static int test_ring_shutdown(void)
 	return 0;
 }
 
+static int test_drain(void)
+{
+	struct io_uring ring;
+	int ret, i, fd[2];
+	struct io_uring_sqe *sqe;
+	struct io_uring_cqe *cqe;
+	struct iovec iovecs[128];
+	char buff[ARRAY_SIZE(iovecs)];
+
+	ret = io_uring_queue_init(8, &ring, IORING_SETUP_SINGLE_ISSUER |
+					    IORING_SETUP_DEFER_TASKRUN |
+					    IORING_SETUP_TASKRUN_FLAG);
+	CHECK(!ret);
+
+	for (i = 0; i < ARRAY_SIZE(iovecs); i++) {
+		iovecs[i].iov_base = &buff[i];
+		iovecs[i].iov_len = 1;
+	}
+
+	ret = t_create_socket_pair(fd, true);
+	CHECK(!ret);
+
+	sqe = io_uring_get_sqe(&ring);
+	io_uring_prep_writev(sqe, fd[1], &iovecs[0], ARRAY_SIZE(iovecs), 0);
+	sqe->flags |= IOSQE_IO_DRAIN;
+	io_uring_submit(&ring);
+
+	for (i = 0; i < ARRAY_SIZE(iovecs); i++)
+		iovecs[i].iov_base = NULL;
+
+	CHECK(io_uring_wait_cqe(&ring, &cqe) == 0);
+	CHECK(cqe->res == 128);
+
+	close(fd[0]);
+	close(fd[1]);
+	io_uring_queue_exit(&ring);
+	return 0;
+}
+
 int main(int argc, char *argv[])
 {
 	int ret;
@@ -329,6 +368,12 @@ int main(int argc, char *argv[])
 	ret = test_ring_shutdown();
 	if (ret) {
 		fprintf(stderr, "test_ring_shutdown failed\n");
+		return T_EXIT_FAIL;
+	}
+
+	ret = test_drain();
+	if (ret) {
+		fprintf(stderr, "test_drain failed\n");
 		return T_EXIT_FAIL;
 	}
 
