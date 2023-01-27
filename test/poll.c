@@ -187,6 +187,43 @@ static int test_missing_events(void)
 	return 0;
 }
 
+#define NR_SQES		2048
+
+static int test_self_poll(void)
+{
+	struct io_uring_cqe *cqe;
+	struct io_uring_sqe *sqe;
+	struct io_uring ring;
+	int ret, i, j;
+
+	ret = io_uring_queue_init(NR_SQES, &ring, 0);
+	if (ret) {
+		fprintf(stderr, "ring setup failed: %d\n", ret);
+		return T_EXIT_FAIL;
+	}
+
+	for (j = 0; j < 32; j++) {
+		for (i = 0; i < NR_SQES; i++) {
+			sqe = io_uring_get_sqe(&ring);
+			io_uring_prep_poll_add(sqe, ring.ring_fd, POLLIN);
+		}
+
+		ret = io_uring_submit(&ring);
+		assert(ret == NR_SQES);
+	}
+
+	sqe = io_uring_get_sqe(&ring);
+	io_uring_prep_nop(sqe);
+	ret = io_uring_submit(&ring);
+	assert(ret == 1);
+
+	ret = io_uring_wait_cqe(&ring, &cqe);
+	io_uring_cqe_seen(&ring, cqe);
+
+	io_uring_queue_exit(&ring);
+	return T_EXIT_PASS;
+}
+
 static int test_disabled_ring_lazy_polling(int early_poll)
 {
 	struct io_uring_cqe *cqe;
@@ -279,6 +316,12 @@ int main(int argc, char *argv[])
 			fprintf(stderr, "test_disabled_ring_lazy_polling(true) failed %i\n", ret);
 			return T_EXIT_FAIL;
 		}
+	}
+
+	ret = test_self_poll();
+	if (ret) {
+		fprintf(stderr, "test_self_poll failed\n");
+		return T_EXIT_FAIL;
 	}
 
 	return 0;
