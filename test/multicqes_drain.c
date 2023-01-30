@@ -71,13 +71,15 @@ static void read_pipe(int pipe)
 		perror("read");
 }
 
-static int trigger_event(int p[])
+static int trigger_event(struct io_uring *ring, int p[])
 {
 	int ret;
 	if ((ret = write_pipe(p[1], "foo")) != 3) {
 		fprintf(stderr, "bad write return %d\n", ret);
 		return 1;
 	}
+	usleep(1000);
+	io_uring_get_events(ring);
 	read_pipe(p[0]);
 	return 0;
 }
@@ -236,10 +238,8 @@ static int test_generic_drain(struct io_uring *ring)
 		if (si[i].op != multi && si[i].op != single)
 			continue;
 
-		if (trigger_event(pipes[i]))
+		if (trigger_event(ring, pipes[i]))
 			goto err;
-
-		io_uring_get_events(ring);
 	}
 	sleep(1);
 	i = 0;
@@ -317,13 +317,11 @@ static int test_simple_drain(struct io_uring *ring)
 	}
 
 	for (i = 0; i < 2; i++) {
-		if (trigger_event(pipe1))
+		if (trigger_event(ring, pipe1))
 			goto err;
-		io_uring_get_events(ring);
 	}
-	if (trigger_event(pipe2))
-			goto err;
-	io_uring_get_events(ring);
+	if (trigger_event(ring, pipe2))
+		goto err;
 
 	for (i = 0; i < 2; i++) {
 		sqe[i] = io_uring_get_sqe(ring);
