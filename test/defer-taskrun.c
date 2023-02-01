@@ -57,9 +57,14 @@ static void eventfd_trigger(int fd)
 	assert(ret == sizeof(val));
 }
 
-#define CHECK(x) if (!(x)) { \
-		fprintf(stderr, "%s:%d %s failed\n", __FILE__, __LINE__, #x); \
-		return -1; }
+#define CHECK(x)								\
+do {										\
+	if (!(x)) {								\
+		fprintf(stderr, "%s:%d %s failed\n", __FILE__, __LINE__, #x);	\
+		return -1;							\
+	}									\
+} while (0)
+
 
 static int test_eventfd(void)
 {
