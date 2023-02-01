@@ -195,7 +195,7 @@ static int test_accept_timeout(int do_connect, unsigned long timeout)
 	if (ret) {
 		fprintf(stderr, "queue_init: %d\n", ret);
 		return 1;
-	};
+	}
 
 	fast_poll = (p.features & IORING_FEAT_FAST_POLL) != 0;
 	io_uring_queue_exit(&ring);

@@ -12,10 +12,11 @@
 
 #include "liburing.h"
 
-#define DIE(...) do {\
-		fprintf(stderr, __VA_ARGS__);\
-		abort();\
-	} while(0);
+#define DIE(...)				\
+	do {					\
+		fprintf(stderr, __VA_ARGS__);	\
+		abort();			\
+	} while(0)
 
 static const int RSIZE = 2;
 static const int OPEN_FLAGS = O_RDWR | O_CREAT;
