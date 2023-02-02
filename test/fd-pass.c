@@ -13,8 +13,9 @@
 #include "liburing.h"
 #include "helpers.h"
 
-#define FSIZE	128
-#define PAT	0x9a
+#define FSIZE		128
+#define PAT		0x9a
+#define USER_DATA	0x89
 
 static int no_fd_pass;
 
@@ -101,12 +102,8 @@ static int test(const char *filename, int source_fd, int target_fd)
 
 	/* send direct descriptor to destination ring */
 	sqe = io_uring_get_sqe(&sring);
-	io_uring_prep_msg_ring(sqe, dring.ring_fd, 0, 0x89, 0);
-	sqe->addr = IORING_MSG_SEND_FD;
-	/* source fd */
-	sqe->addr3 = source_fd;
-	/* fd in target ring */
-	sqe->file_index = target_fd + 1;
+	io_uring_prep_msg_ring_fd(sqe, dring.ring_fd, source_fd, target_fd,
+					USER_DATA, 0);
 	io_uring_submit(&sring);
 
 	ret = io_uring_wait_cqe(&sring, &cqe);
@@ -130,7 +127,7 @@ static int test(const char *filename, int source_fd, int target_fd)
 		fprintf(stderr, "wait cqe failed %d\n", ret);
 		return T_EXIT_FAIL;
 	}
-	if (cqe->user_data != 0x89) {
+	if (cqe->user_data != USER_DATA) {
 		fprintf(stderr, "bad user_data %ld\n", (long) cqe->res);
 		return T_EXIT_FAIL;
 	}
