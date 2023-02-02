@@ -1003,6 +1003,17 @@ IOURINGINLINE void io_uring_prep_msg_ring(struct io_uring_sqe *sqe, int fd,
 	sqe->msg_ring_flags = flags;
 }
 
+IOURINGINLINE void io_uring_prep_msg_ring_fd(struct io_uring_sqe *sqe, int fd,
+					     int source_fd, int target_fd,
+					     __u64 data, unsigned int flags)
+{
+	io_uring_prep_rw(IORING_OP_MSG_RING, sqe, fd,
+			 (void *) (uintptr_t) IORING_MSG_SEND_FD, 0, data);
+	sqe->addr3 = source_fd;
+	__io_uring_set_target_fixed_file(sqe, target_fd);
+	sqe->msg_ring_flags = flags;
+}
+
 IOURINGINLINE void io_uring_prep_getxattr(struct io_uring_sqe *sqe,
 					  const char *name, char *value,
 					  const char *path, unsigned int len)
