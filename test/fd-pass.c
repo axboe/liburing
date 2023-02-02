@@ -49,7 +49,7 @@ static int verify_fixed_read(struct io_uring *ring, int fixed_fd, int fail)
 	return 0;
 }
 
-static int test(const char *filename)
+static int test(const char *filename, int source_fd, int target_fd)
 {
 	struct io_uring sring, dring;
 	struct io_uring_sqe *sqe;
@@ -82,7 +82,7 @@ static int test(const char *filename)
 
 	/* open direct descriptor */
 	sqe = io_uring_get_sqe(&sring);
-	io_uring_prep_openat_direct(sqe, AT_FDCWD, filename, 0, 0644, 0);
+	io_uring_prep_openat_direct(sqe, AT_FDCWD, filename, 0, 0644, source_fd);
 	io_uring_submit(&sring);
 	ret = io_uring_wait_cqe(&sring, &cqe);
 	if (ret) {
@@ -96,7 +96,7 @@ static int test(const char *filename)
 	io_uring_cqe_seen(&sring, cqe);
 
 	/* verify data is sane for source ring */
-	if (verify_fixed_read(&sring, 0, 0))
+	if (verify_fixed_read(&sring, source_fd, 0))
 		return T_EXIT_FAIL;
 
 	/* send direct descriptor to destination ring */
@@ -104,9 +104,9 @@ static int test(const char *filename)
 	io_uring_prep_msg_ring(sqe, dring.ring_fd, 0, 0x89, 0);
 	sqe->addr = IORING_MSG_SEND_FD;
 	/* source fd */
-	sqe->addr3 = 0;
+	sqe->addr3 = source_fd;
 	/* fd in target ring */
-	sqe->file_index = 1;
+	sqe->file_index = target_fd + 1;
 	io_uring_submit(&sring);
 
 	ret = io_uring_wait_cqe(&sring, &cqe);
@@ -137,12 +137,12 @@ static int test(const char *filename)
 	io_uring_cqe_seen(&dring, cqe);
 
 	/* now verify we can read the sane data from the destination ring */
-	if (verify_fixed_read(&dring, 0, 0))
+	if (verify_fixed_read(&dring, target_fd, 0))
 		return T_EXIT_FAIL;
 
 	/* close descriptor in source ring */
 	sqe = io_uring_get_sqe(&sring);
-	io_uring_prep_close_direct(sqe, 0);
+	io_uring_prep_close_direct(sqe, source_fd);
 	io_uring_submit(&sring);
 
 	ret = io_uring_wait_cqe(&sring, &cqe);
@@ -157,11 +157,11 @@ static int test(const char *filename)
 	io_uring_cqe_seen(&sring, cqe);
 
 	/* check that source ring fails after close */
-	if (verify_fixed_read(&sring, 0, 1))
+	if (verify_fixed_read(&sring, source_fd, 1))
 		return T_EXIT_FAIL;
 
 	/* check we can still read from destination ring */
-	if (verify_fixed_read(&dring, 0, 0))
+	if (verify_fixed_read(&dring, target_fd, 0))
 		return T_EXIT_FAIL;
 
 	return T_EXIT_PASS;
@@ -178,9 +178,27 @@ int main(int argc, char *argv[])
 	sprintf(fname, ".fd-pass.%d", getpid());
 	t_create_file_pattern(fname, FSIZE, PAT);
 
-	ret = test(fname);
+	ret = test(fname, 0, 1);
 	if (ret == T_EXIT_FAIL) {
-		fprintf(stderr, "test failed\n");
+		fprintf(stderr, "test failed 0 1\n");
+		ret = T_EXIT_FAIL;
+	}
+
+	ret = test(fname, 0, 2);
+	if (ret == T_EXIT_FAIL) {
+		fprintf(stderr, "test failed 0 2\n");
+		ret = T_EXIT_FAIL;
+	}
+
+	ret = test(fname, 1, 1);
+	if (ret == T_EXIT_FAIL) {
+		fprintf(stderr, "test failed 1 1\n");
+		ret = T_EXIT_FAIL;
+	}
+
+	ret = test(fname, 1, 0);
+	if (ret == T_EXIT_FAIL) {
+		fprintf(stderr, "test failed 1 0\n");
 		ret = T_EXIT_FAIL;
 	}
 
