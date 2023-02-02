@@ -337,7 +337,7 @@ static int test(struct args *args)
 			case ERROR_EARLY_LAST:
 				fprintf(stderr, "bad error_early\n");
 				goto cleanup;
-			};
+			}
 
 			if (cqe->res <= 0 && cqe->flags & IORING_CQE_F_BUFFER) {
 				fprintf(stderr, "final BUFFER flag set\n");

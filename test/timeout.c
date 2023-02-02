@@ -176,7 +176,7 @@ static int test_single_timeout_nr(struct io_uring *ring, int nr)
 			goto err;
 		}
 		i++;
-	};
+	}
 
 	return 0;
 err:
