@@ -102,8 +102,10 @@ static int test(const char *filename)
 	/* send direct descriptor to destination ring */
 	sqe = io_uring_get_sqe(&sring);
 	io_uring_prep_msg_ring(sqe, dring.ring_fd, 0, 0x89, 0);
-	sqe->addr = 1;
+	sqe->addr = IORING_MSG_SEND_FD;
+	/* source fd */
 	sqe->addr3 = 0;
+	/* fd in target ring */
 	sqe->file_index = 1;
 	io_uring_submit(&sring);
 
