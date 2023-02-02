@@ -15,6 +15,11 @@ io_uring_prep_sendmsg \- prepare a sendmsg request
 .BI "                           int " fd ","
 .BI "                           const struct msghdr *" msg ","
 .BI "                           unsigned " flags ");"
+.PP
+.BI "void io_uring_prep_sendmsg_zc(struct io_uring_sqe *" sqe ","
+.BI "                              int " fd ","
+.BI "                              const struct msghdr *" msg ","
+.BI "                              unsigned " flags ");"
 .fi
 .SH DESCRIPTION
 .PP
@@ -32,13 +37,19 @@ defined flags in the
 .I flags
 argument.
 
+The
+.BR io_uring_prep_sendmsg_zc (3)
+accepts the same parameters as 
+.BR io_uring_prep_sendmsg (3)
+but prepares a zerocopy sendmsg request.
+
 Note that using
 .B IOSQE_IO_LINK
 with this request type requires the setting of
 .B MSG_WAITALL
 in the
-.IR flags
-argument, as a short send isn't a considered an error condition without
+.I flags
+argument, as a short send isn't considered an error condition without
 that being set.
 
 This function prepares an async
