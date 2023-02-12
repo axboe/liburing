@@ -460,8 +460,8 @@ print_config "CXX" "$cxx"
 
 # generate io_uring_version.h
 MAKE_PRINT_VARS="include Makefile.common\nprint-%: ; @echo \$(\$*)\n"
-VERSION_MAJOR=$(env echo -e "$MAKE_PRINT_VARS" | make -s -f - print-VERSION_MAJOR)
-VERSION_MINOR=$(env echo -e "$MAKE_PRINT_VARS" | make -s -f - print-VERSION_MINOR)
+VERSION_MAJOR=$(env echo -e "$MAKE_PRINT_VARS" | make -s --no-print-directory -f - print-VERSION_MAJOR)
+VERSION_MINOR=$(env echo -e "$MAKE_PRINT_VARS" | make -s --no-print-directory -f - print-VERSION_MINOR)
 io_uring_version_h="src/include/liburing/io_uring_version.h"
 cat > $io_uring_version_h << EOF
 /* SPDX-License-Identifier: MIT */
