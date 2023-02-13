@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <stdarg.h>
 #include <sys/types.h>
 
 #include <arpa/inet.h>
@@ -299,4 +300,21 @@ unsigned __io_uring_flush_sq(struct io_uring *ring)
 	 * situation regardless of any perceived atomicity.
 	 */
 	return tail - *sq->khead;
+}
+
+/*
+ * Implementation of error(3), prints an error message and exits.
+ */
+void t_error(int status, int errnum, const char *format, ...)
+{
+	va_list args;
+    	va_start(args, format);
+
+	vfprintf(stderr, format, args);
+    	if (errnum)
+        	fprintf(stderr, ": %s", strerror(errnum));
+
+	fprintf(stderr, "\n");
+	va_end(args);
+    	exit(status);
 }
