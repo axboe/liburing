@@ -89,6 +89,8 @@ unsigned __io_uring_flush_sq(struct io_uring *ring);
 
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
 
+void t_error(int status, int errnum, const char *format, ...);
+
 #ifdef __cplusplus
 }
 #endif

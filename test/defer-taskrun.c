@@ -4,7 +4,6 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
-#include <error.h>
 #include <sys/eventfd.h>
 #include <signal.h>
 #include <poll.h>

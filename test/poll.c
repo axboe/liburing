@@ -11,7 +11,6 @@
 #include <signal.h>
 #include <poll.h>
 #include <sys/wait.h>
-#include <error.h>
 #include <assert.h>
 
 #include "helpers.h"
@@ -20,7 +19,7 @@
 static void do_setsockopt(int fd, int level, int optname, int val)
 {
 	if (setsockopt(fd, level, optname, &val, sizeof(val)))
-		error(1, errno, "setsockopt %d.%d: %d", level, optname, val);
+		t_error(1, errno, "setsockopt %d.%d: %d", level, optname, val);
 }
 
 static bool check_cq_empty(struct io_uring *ring)
