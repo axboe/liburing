@@ -2,6 +2,10 @@
 /*
  * Description: test fsnotify access off O_DIRECT read
  */
+
+#include "helpers.h"
+
+#ifdef CONFIG_HAVE_FANOTIFY
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -11,7 +15,6 @@
 #include <sys/wait.h>
 
 #include "liburing.h"
-#include "helpers.h"
 
 int main(int argc, char *argv[])
 {
@@ -99,3 +102,11 @@ out:
 		unlink(fname);
 	return err;
 }
+
+#else /* #ifdef CONFIG_HAVE_FANOTIFY */
+
+int main(void)
+{
+	return T_EXIT_SKIP;
+}
+#endif /* #ifdef CONFIG_HAVE_FANOTIFY */

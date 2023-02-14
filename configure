@@ -419,6 +419,22 @@ fi
 print_config "nolibc support" "$liburing_nolibc";
 #############################################################################
 
+####################################################
+# Most Android devices don't have sys/fanotify.h
+has_fanotify="no"
+cat > $TMPC << EOF
+#include <sys/fanotify.h>
+int main(void)
+{
+  return 0;
+}
+EOF
+if compile_prog "" "" "fanotify"; then
+  has_fanotify="yes"
+fi
+print_config "has_fanotify" "$has_fanotify"
+####################################################
+
 if test "$liburing_nolibc" = "yes"; then
   output_sym "CONFIG_NOLIBC"
 fi
@@ -451,6 +467,9 @@ if test "$array_bounds" = "yes"; then
 fi
 if test "$nvme_uring_cmd" = "yes"; then
   output_sym "CONFIG_HAVE_NVME_URING"
+fi
+if test "$has_fanotify" = "yes"; then
+  output_sym "CONFIG_HAVE_FANOTIFY"
 fi
 
 echo "CC=$cc" >> $config_host_mak
