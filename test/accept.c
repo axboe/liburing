@@ -374,7 +374,7 @@ static int test(struct io_uring *ring, struct accept_test_args args)
 	int ret = 0;
 	int loop;
 	int32_t recv_s0 = start_accept_listen(&addr, 0,
-					      args.nonblock ? O_NONBLOCK : 0);
+					      args.nonblock ? SOCK_NONBLOCK : 0);
 	if (args.queue_accept_before_connect)
 		queue_accept_conn(ring, recv_s0, args);
 	for (loop = 0; loop < 1 + args.extra_loops; loop++) {
@@ -460,7 +460,7 @@ static int test_accept_many(struct test_accept_many_args args)
 
 	for (i = 0; i < nr_socks; i++)
 		fds[i] = start_accept_listen(NULL, i,
-					     args.nonblock ? O_NONBLOCK : 0);
+					     args.nonblock ? SOCK_NONBLOCK : 0);
 
 	for (i = 0; i < nr; i++) {
 		int sock_idx = args.single_sock ? 0 : i;
