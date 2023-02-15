@@ -19,7 +19,7 @@
 	} while(0)
 
 static const int RSIZE = 2;
-static const int OPEN_FLAGS = O_RDWR | O_CREAT;
+static const int OPEN_FLAGS = O_RDWR | O_CREAT | O_LARGEFILE;
 static const mode_t OPEN_MODE = S_IRUSR | S_IWUSR;
 
 static int open_io_uring(struct io_uring *ring, int dfd, const char *fn)
