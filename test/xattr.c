@@ -50,11 +50,16 @@ static int io_uring_fsetxattr(struct io_uring *ring, int fd, const char *name,
 		return -1;
 	}
 
-	ret = cqe->res;
-	if (ret == -EINVAL)
-		no_xattr = 1;
+	ret = 0;
+	if (cqe->res < 0) {
+		if (cqe->res == -EINVAL || cqe->res == -EOPNOTSUPP) {
+			no_xattr = 1;
+			return -1;
+		}
+		fprintf(stderr, "cqe->res=%d\n", cqe->res);
+		ret = T_EXIT_FAIL;
+	}
 	io_uring_cqe_seen(ring, cqe);
-
 	return ret;
 }
 
@@ -125,9 +130,16 @@ static int io_uring_setxattr(struct io_uring *ring, const char *path,
 		return -1;
 	}
 
-	ret = cqe->res;
+	ret = 0;
+	if (cqe->res < 0) {
+		if (cqe->res == -EINVAL || cqe->res == -EOPNOTSUPP) {
+			no_xattr = 1;
+			return 0;
+		}
+		fprintf(stderr, "cqe->res=%d\n", cqe->res);
+		ret = T_EXIT_FAIL;
+	}
 	io_uring_cqe_seen(ring, cqe);
-
 	return ret;
 }
 
@@ -159,14 +171,13 @@ static int io_uring_getxattr(struct io_uring *ring, const char *path,
 		return -1;
 	}
 
-	ret = cqe->res;
-	if (ret == -1) {
-		fprintf(stderr, "Error couldn'tget value\n");
+	if (cqe->res < 0) {
+		fprintf(stderr, "Error couldn't get value: %d\n", cqe->res);
 		return -1;
 	}
 
 	io_uring_cqe_seen(ring, cqe);
-	return ret;
+	return 0;
 }
 
 /* Test driver for fsetxattr and fgetxattr. */
