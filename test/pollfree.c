@@ -403,13 +403,13 @@ int main(int argc, char *argv[])
   if (argc > 1)
     return 0;
 
-  ret = mmap((void *)0x1ffff000ul, 0x1000ul, 0ul, 0x32ul, -1, 0ul);
+  ret = mmap((void *)0x1ffff000ul, 0x1000ul, 0ul, MAP_ANON|MAP_PRIVATE, -1, 0ul);
   if (ret == MAP_FAILED)
     return 0;
-  ret = mmap((void *)0x20000000ul, 0x1000000ul, 7ul, 0x32ul, -1, 0ul);
+  ret = mmap((void *)0x20000000ul, 0x1000000ul, 7ul, MAP_ANON|MAP_PRIVATE, -1, 0ul);
   if (ret == MAP_FAILED)
     return 0;
-  ret = mmap((void *)0x21000000ul, 0x1000ul, 0ul, 0x32ul, -1, 0ul);
+  ret = mmap((void *)0x21000000ul, 0x1000ul, 0ul, MAP_ANON|MAP_PRIVATE, -1, 0ul);
   if (ret == MAP_FAILED)
     return 0;
   loop();

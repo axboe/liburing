@@ -133,7 +133,7 @@ static void trigger_bug(void)
 }
 int main(void)
 {
-    mmap((void *)0x20000000ul, 0x1000000ul, 7ul, 0x32ul, -1, 0ul);
+    mmap((void *)0x20000000ul, 0x1000000ul, 7ul, MAP_ANON|MAP_PRIVATE, -1, 0ul);
     int pid = fork();
     if (pid < 0)
         exit(1);
