@@ -95,6 +95,11 @@ int main(int argc, char *argv[])
 
 	fd = open(fname, O_RDONLY | O_DIRECT);
 	if (fd < 0) {
+		if (errno == EINVAL) {
+			if (fname != argv[1])
+				unlink(fname);
+			return T_EXIT_SKIP;
+		}
 		perror("open");
 		goto err;
 	}

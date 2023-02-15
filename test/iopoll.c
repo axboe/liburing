@@ -87,6 +87,8 @@ static int __test_io(const char *file, struct io_uring *ring, int write, int sqt
 	}
 	fd = open(file, open_flags);
 	if (fd < 0) {
+		if (errno == EINVAL)
+			return 0;
 		perror("file open");
 		goto err;
 	}
@@ -228,6 +230,10 @@ static int test_io_uring_cqe_peek(const char *file)
 
 	fd = open(file, O_RDONLY | O_DIRECT);
 	if (fd < 0) {
+		if (errno == EINVAL) {
+			io_uring_queue_exit(&ring);
+			return T_EXIT_SKIP;
+		}
 		perror("file open");
 		goto err;
 	}
@@ -296,6 +302,8 @@ static int test_io_uring_submit_enters(const char *file)
 	open_flags = O_WRONLY | O_DIRECT;
 	fd = open(file, open_flags);
 	if (fd < 0) {
+		if (errno == EINVAL)
+			return T_EXIT_SKIP;
 		perror("file open");
 		goto err;
 	}
@@ -433,7 +441,7 @@ int main(int argc, char *argv[])
 	}
 
 	ret = test_io_uring_submit_enters(fname);
-	if (ret) {
+	if (ret == T_EXIT_FAIL) {
 		fprintf(stderr, "test_io_uring_submit_enters failed\n");
 		goto err;
 	}
@@ -442,7 +450,7 @@ int main(int argc, char *argv[])
 	 * Keep this last, it exits on failure
 	 */
 	ret = test_io_uring_cqe_peek(fname);
-	if (ret) {
+	if (ret == T_EXIT_FAIL) {
 		fprintf(stderr, "test_io_uring_cqe_peek failed\n");
 		goto err;
 	}

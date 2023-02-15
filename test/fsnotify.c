@@ -40,11 +40,17 @@ int main(int argc, char *argv[])
 	if (argc > 1) {
 		f = argv[1];
 		fd = open(argv[1], O_RDONLY | O_DIRECT);
+		if (fd < 0 && errno == EINVAL)
+			return T_EXIT_SKIP;
 	} else {
 		sprintf(fname, ".fsnotify.%d", getpid());
 		f = fname;
 		t_create_file(fname, 8192);
 		fd = open(fname, O_RDONLY | O_DIRECT);
+		if (fd < 0 && errno == EINVAL) {
+			unlink(fname);
+			return T_EXIT_SKIP;
+		}
 	}
 	if (fd < 0) {
 		perror("open");

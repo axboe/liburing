@@ -182,11 +182,11 @@ static int test_exec(const char *filename)
 		int wstatus;
 
 		CHECK(waitpid(fork_pid, &wstatus, 0) != (pid_t)-1);
-		if (!WIFEXITED(wstatus) || WEXITSTATUS(wstatus) != T_EXIT_SKIP) {
+		if (!WIFEXITED(wstatus) || WEXITSTATUS(wstatus) == T_EXIT_FAIL) {
 			fprintf(stderr, "child failed %i\n", WEXITSTATUS(wstatus));
 			return -1;
 		}
-		return 0;
+		return T_EXIT_PASS;
 	}
 
 	ret = io_uring_queue_init(8, &ring, IORING_SETUP_SINGLE_ISSUER |
@@ -196,9 +196,15 @@ static int test_exec(const char *filename)
 
 	if (filename) {
 		fd = open(filename, O_RDONLY | O_DIRECT);
+		if (fd < 0 && errno == EINVAL)
+			return T_EXIT_SKIP;
 	} else {
 		t_create_file(EXEC_FILENAME, EXEC_FILESIZE);
 		fd = open(EXEC_FILENAME, O_RDONLY | O_DIRECT);
+		if (fd < 0 && errno == EINVAL) {
+			unlink(EXEC_FILENAME);
+			return T_EXIT_SKIP;
+		}
 		unlink(EXEC_FILENAME);
 	}
 	buff = (char*)malloc(EXEC_FILESIZE);
@@ -211,7 +217,7 @@ static int test_exec(const char *filename)
 	ret = execve("/proc/self/exe", new_argv, new_env);
 	/* if we get here it failed anyway */
 	fprintf(stderr, "execve failed %d\n", ret);
-	return -1;
+	return T_EXIT_FAIL;
 }
 
 static int test_flag(void)
@@ -352,7 +358,7 @@ int main(int argc, char *argv[])
 	}
 
 	ret = test_exec(filename);
-	if (ret) {
+	if (ret == T_EXIT_FAIL) {
 		fprintf(stderr, "test_exec failed\n");
 		return T_EXIT_FAIL;
 	}

@@ -76,6 +76,8 @@ static int __test_io(const char *file, struct io_uring *ring, int write,
 
 	fd = open(file, open_flags);
 	if (fd < 0) {
+		if (errno == EINVAL)
+			return 0;
 		perror("file open");
 		goto err;
 	}

@@ -161,6 +161,8 @@ static int test_io_cancel(const char *file, int do_write, int do_partial,
 
 	fd = open(file, O_RDWR | O_DIRECT);
 	if (fd < 0) {
+		if (errno == EINVAL)
+			return T_EXIT_SKIP;
 		perror("file open");
 		goto err;
 	}
@@ -540,7 +542,7 @@ int main(int argc, char *argv[])
 		int async = (i & 4) != 0;
 
 		ret = test_io_cancel(fname, write, partial, async);
-		if (ret) {
+		if (ret == T_EXIT_FAIL) {
 			fprintf(stderr, "test_io_cancel %d %d %d failed\n",
 				write, partial, async);
 			goto err;
