@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MIT */
 /*
- * Description: run various nop tests
+ * Description: run various eventfd tests
  *
  */
 #include <errno.h>
