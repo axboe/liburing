@@ -9,7 +9,15 @@
 #include <time.h>
 #include <unistd.h>
 #include "liburing.h"
+#include "helpers.h"
 #include "../src/syscall.h"
+
+/*
+ * This syzbot test is known broken on some archs, just allow the ones that
+ * are regularly tested.
+ */
+#if defined(__i386__) || defined(__x86_64__) || defined(__arm__) || \
+    defined(__aarch64__)
 
 static uint64_t current_time_ms(void)
 {
@@ -152,6 +160,9 @@ int main(void)
     }
     return 0;
 }
-
-
-
+#else
+int main(void)
+{
+	return T_EXIT_SKIP;
+}
+#endif
