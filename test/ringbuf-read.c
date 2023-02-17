@@ -68,9 +68,10 @@ static int test(const char *filename, int dio, int async)
 
 	if (posix_memalign((void **) &buf, 4096, FSIZE))
 		return 1;
-	if (posix_memalign((void **) &br, 4096, 4096))
+	if (posix_memalign((void **) &br, 4096, NR_BUFS * sizeof(struct io_uring_buf)))
 		return 1;
 
+	io_uring_buf_ring_init(br);
 	reg.ring_addr = (unsigned long) br;
 	reg.ring_entries = NR_BUFS;
 	reg.bgid = 1;
