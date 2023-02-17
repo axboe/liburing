@@ -31,7 +31,7 @@ static int test_mixed_reg2(int bgid)
 	else if (ret != T_SETUP_OK)
 		return 1;
 
-	if (posix_memalign(&ptr, 4096, 4096))
+	if (posix_memalign(&ptr, 4096, 32 * sizeof(struct io_uring_buf)))
 		return 1;
 
 	reg.ring_addr = (unsigned long) ptr;
@@ -96,7 +96,7 @@ static int test_mixed_reg(int bgid)
 	}
 	io_uring_cqe_seen(&ring, cqe);
 
-	if (posix_memalign(&ptr, 4096, 4096))
+	if (posix_memalign(&ptr, 4096, 32 * sizeof(struct io_uring_buf)))
 		return 1;
 
 	reg.ring_addr = (unsigned long) ptr;
@@ -126,7 +126,7 @@ static int test_double_reg_unreg(int bgid)
 	else if (ret != T_SETUP_OK)
 		return 1;
 
-	if (posix_memalign(&ptr, 4096, 4096))
+	if (posix_memalign(&ptr, 4096, 32 * sizeof(struct io_uring_buf)))
 		return 1;
 
 	reg.ring_addr = (unsigned long) ptr;
@@ -179,7 +179,7 @@ static int test_reg_unreg(int bgid)
 	else if (ret != T_SETUP_OK)
 		return 1;
 
-	if (posix_memalign(&ptr, 4096, 4096))
+	if (posix_memalign(&ptr, 4096, 32 * sizeof(struct io_uring_buf)))
 		return 1;
 
 	reg.ring_addr = (unsigned long) ptr;
