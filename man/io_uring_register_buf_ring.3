@@ -118,7 +118,7 @@ is the buffer ID that will be returned in the CQE once consumed.
 
 Reserved fields must not be touched. Applications must use
 .BR io_uring_buf_ring_init (3)
-to initialise the buffer ring. Applications may use
+to initialise the buffer ring before use. Applications may use
 .BR io_uring_buf_ring_add (3)
 and
 .BR io_uring_buf_ring_advance (3)
