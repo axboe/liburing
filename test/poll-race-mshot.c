@@ -9,13 +9,13 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <pthread.h>
+#include <string.h>
 #include <sys/socket.h>
 
 #include "liburing.h"
 #include "helpers.h"
 
 #define NREQS		64
-#define BR_MASK		(NREQS - 1)
 #define BUF_SIZE	64
 
 static int no_buf_ring;
@@ -31,6 +31,7 @@ static void *thread(void *data)
 	char buf[BUF_SIZE];
 	int ret, i, fd;
 
+	memset(buf, 0x5a, BUF_SIZE);
 	pthread_barrier_wait(&d->barrier);
 	fd = d->fd;
 	for (i = 0; i < NREQS; i++) {
@@ -64,11 +65,12 @@ static int test(struct io_uring *ring, struct data *d)
 
 	d->fd = fd[1];
 
-	if (posix_memalign((void *) &buf, 16384, BUF_SIZE * NREQS))
+	if (posix_memalign((void **) &buf, 16384, BUF_SIZE * NREQS))
 		return T_EXIT_FAIL;
-	if (posix_memalign((void *) &br, 16384, 4096))
+	if (posix_memalign((void **) &br, 16384, sizeof(struct io_uring_buf) * NREQS))
 		return T_EXIT_FAIL;
 
+	io_uring_buf_ring_init(br);
 	reg.ring_addr = (unsigned long) br;
 	reg.ring_entries = NREQS;
 	reg.bgid = 1;
@@ -85,7 +87,8 @@ static int test(struct io_uring *ring, struct data *d)
 
 	ptr = buf;
 	for (i = 0; i < NREQS; i++) {
-		io_uring_buf_ring_add(br, ptr, BUF_SIZE, i + 1, BR_MASK, i);
+		io_uring_buf_ring_add(br, ptr, BUF_SIZE, i + 1,
+				io_uring_buf_ring_mask(NREQS), i);
 		ptr += BUF_SIZE;
 	}
 	io_uring_buf_ring_advance(br, NREQS);
@@ -139,6 +142,8 @@ static int test(struct io_uring *ring, struct data *d)
 	} while (i < NREQS);
 
 	pthread_join(t, &ret2);
+	free(buf);
+	free(br);
 	close(fd[0]);
 	close(fd[1]);
 	return T_EXIT_PASS;
@@ -164,9 +169,10 @@ static int test_mshot(struct io_uring *ring, struct data *d)
 
 	if (posix_memalign((void *) &buf, 16384, BUF_SIZE * NREQS))
 		return T_EXIT_FAIL;
-	if (posix_memalign((void *) &br, 16384, 4096))
+	if (posix_memalign((void *) &br, 16384, sizeof(struct io_uring_buf) * NREQS))
 		return T_EXIT_FAIL;
 
+	io_uring_buf_ring_init(br);
 	reg.ring_addr = (unsigned long) br;
 	reg.ring_entries = NREQS;
 	reg.bgid = 1;
@@ -179,7 +185,8 @@ static int test_mshot(struct io_uring *ring, struct data *d)
 
 	ptr = buf;
 	for (i = 0; i < NREQS; i++) {
-		io_uring_buf_ring_add(br, ptr, BUF_SIZE, i + 1, BR_MASK, i);
+		io_uring_buf_ring_add(br, ptr, BUF_SIZE, i + 1,
+				io_uring_buf_ring_mask(NREQS), i);
 		ptr += BUF_SIZE;
 	}
 	io_uring_buf_ring_advance(br, NREQS);
@@ -238,6 +245,8 @@ static int test_mshot(struct io_uring *ring, struct data *d)
 	}
 
 	pthread_join(t, &ret2);
+	free(buf);
+	free(br);
 	close(fd[0]);
 	close(fd[1]);
 	return T_EXIT_PASS;
