@@ -9,11 +9,13 @@
 #include <stdlib.h>
 #include <string.h>
 #include <fcntl.h>
+#include <sys/mman.h>
 
 #include "liburing.h"
 #include "helpers.h"
 
 static int no_buf_ring;
+static int pagesize;
 
 /* test trying to register classic group when ring group exists */
 static int test_mixed_reg2(int bgid)
@@ -230,6 +232,50 @@ static int test_bad_reg(int bgid)
 	return !ret;
 }
 
+static int test_full_page_reg(int bgid)
+{
+	struct io_uring ring;
+	int ret;
+	void *ptr;
+	struct io_uring_buf_reg reg = { };
+	int entries = pagesize / sizeof(struct io_uring_buf);
+
+	ret = io_uring_queue_init(1, &ring, 0);
+	if (ret) {
+		fprintf(stderr, "queue init failed %d\n", ret);
+		return 1;
+	}
+
+	ret = posix_memalign(&ptr, pagesize, pagesize * 2);
+	if (ret) {
+		fprintf(stderr, "posix_memalign failed %d\n", ret);
+		goto err;
+	}
+
+	ret = mprotect(ptr + pagesize, pagesize, PROT_NONE);
+	if (ret) {
+		fprintf(stderr, "mprotect failed %d\n", errno);
+		goto err1;
+	}
+
+	reg.ring_addr = (unsigned long) ptr;
+	reg.ring_entries = entries;
+	reg.bgid = bgid;
+
+	ret = io_uring_register_buf_ring(&ring, &reg, 0);
+	if (ret)
+		fprintf(stderr, "register buf ring failed %d\n", ret);
+
+	if (mprotect(ptr + pagesize, pagesize, PROT_READ | PROT_WRITE))
+		fprintf(stderr, "reverting mprotect failed %d\n", errno);
+
+err1:
+	free(ptr);
+err:
+	io_uring_queue_exit(&ring);
+	return ret;
+}
+
 static int test_one_read(int fd, int bgid, struct io_uring *ring)
 {
 	int ret;
@@ -374,6 +420,8 @@ int main(int argc, char *argv[])
 	if (argc > 1)
 		return T_EXIT_SKIP;
 
+	pagesize = getpagesize();
+
 	for (i = 0; bgids[i] != -1; i++) {
 		ret = test_reg_unreg(bgids[i]);
 		if (ret) {
@@ -404,6 +452,12 @@ int main(int argc, char *argv[])
 		ret = test_mixed_reg2(bgids[i]);
 		if (ret) {
 			fprintf(stderr, "test_mixed_reg2 failed\n");
+			return T_EXIT_FAIL;
+		}
+
+		ret = test_full_page_reg(bgids[i]);
+		if (ret) {
+			fprintf(stderr, "test_full_page_reg failed\n");
 			return T_EXIT_FAIL;
 		}
 	}
