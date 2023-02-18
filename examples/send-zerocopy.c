@@ -11,6 +11,7 @@
 #include <stdbool.h>
 #include <stdarg.h>
 #include <string.h>
+#include <time.h>
 
 #include <arpa/inet.h>
 #include <linux/errqueue.h>
@@ -32,7 +33,6 @@
 #include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
-#include <sys/time.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 
