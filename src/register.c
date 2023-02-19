@@ -11,8 +11,7 @@
 static inline int do_register(struct io_uring *ring, unsigned int opcode,
 			      const void *arg, unsigned int nr_args)
 {
-	if (ring->features & IORING_FEAT_REG_REG_RING
-	    && ring->int_flags & INT_FLAG_REG_RING) {
+	if (ring->int_flags & INT_FLAG_REG_REG_RING) {
 		opcode |= IORING_REGISTER_USE_REGISTERED_RING;
 		return __sys_io_uring_register(ring->enter_ring_fd, opcode, arg, nr_args);
 	}
@@ -268,6 +267,9 @@ int io_uring_register_ring_fd(struct io_uring *ring)
 	if (ret == 1) {
 		ring->enter_ring_fd = up.offset;
 		ring->int_flags |= INT_FLAG_REG_RING;
+		if (ring->features & IORING_FEAT_REG_REG_RING) {
+			ring->int_flags |= INT_FLAG_REG_REG_RING;
+		}
 	}
 	return ret;
 }
@@ -286,7 +288,7 @@ int io_uring_unregister_ring_fd(struct io_uring *ring)
 	ret = do_register(ring, IORING_UNREGISTER_RING_FDS, &up, 1);
 	if (ret == 1) {
 		ring->enter_ring_fd = ring->ring_fd;
-		ring->int_flags &= ~INT_FLAG_REG_RING;
+		ring->int_flags &= ~(INT_FLAG_REG_RING | INT_FLAG_REG_REG_RING);
 	}
 	return ret;
 }
