@@ -11,7 +11,6 @@
 #include <string.h>
 
 #include <arpa/inet.h>
-#include <linux/errqueue.h>
 #include <linux/if_packet.h>
 #include <linux/ipv6.h>
 #include <linux/socket.h>
