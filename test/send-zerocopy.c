@@ -196,11 +196,9 @@ static int create_socketpair_ip(struct sockaddr_storage *addr,
 				bool ipv6, bool client_connect,
 				bool msg_zc, bool tcp)
 {
-	int family;
 	socklen_t addr_size;
-	int ret, val;
-	int listen_sock = -1;
-	int sock;
+	int family, sock, listen_sock = -1;
+	int ret;
 
 	memset(addr, 0, sizeof(*addr));
 	if (ipv6) {
@@ -277,11 +275,17 @@ static int create_socketpair_ip(struct sockaddr_storage *addr,
 		}
 	}
 	if (msg_zc) {
-		val = 1;
+#ifdef SO_ZEROCOPY
+		int val = 1;
+
 		if (setsockopt(*sock_client, SOL_SOCKET, SO_ZEROCOPY, &val, sizeof(val))) {
 			perror("setsockopt zc");
 			return 1;
 		}
+#else
+		fprintf(stderr, "no SO_ZEROCOPY\n");
+		return 1;
+#endif
 	}
 	if (tcp) {
 		*sock_server = accept(listen_sock, NULL, NULL);
@@ -501,7 +505,10 @@ static int test_inet_send(struct io_uring *ring)
 			continue;
 		if (swap_sockets && !tcp)
 			continue;
-
+#ifndef SO_ZEROCOPY
+		if (msg_zc_set)
+			continue;
+#endif
 		ret = create_socketpair_ip(&addr, &sock_client, &sock_server, ipv6,
 				 client_connect, msg_zc_set, tcp);
 		if (ret) {
