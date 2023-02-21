@@ -31,6 +31,14 @@ application memory, greatly reducing per-I/O overhead.
 .I fd
 is the file descriptor returned by a call to
 .BR io_uring_setup (2).
+If
+.I opcode
+has the flag
+.B IORING_REGISTER_USE_REGISTERED_RING
+ored into it,
+.I fd
+is instead the index of a registered ring fd.
+
 .I opcode
 can be one of:
 

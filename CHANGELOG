@@ -6,6 +6,8 @@ liburing-2.4 release
 - Add io_uring_prep_msg_ring_cqe_flags() function.
 - Deprecate --nolibc configure option.
 - CONFIG_NOLIBC is always enabled on x86-64, x86, and aarch64.
+- Add support for IORING_REGISTER_USE_REGISTERED_RING and use if available.
+- Add io_uring_close_ring_fd() function.
 
 liburing-2.3 release
 

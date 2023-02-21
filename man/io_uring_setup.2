@@ -467,6 +467,13 @@ are used with open or accept, then file assignment needs to happen post
 execution of that SQE. If this flag is set, then the kernel will defer
 file assignment until execution of a given request is started. Available since
 kernel 5.17.
+.TP
+.B IORING_FEAT_REG_REG_RING
+If this flag is set, then io_uring supports calling
+.BR io_uring_register (2)
+using a registered ring fd, via
+.BR IORING_REGISTER_USE_REGISTERED_RING .
+Available since kernel 6.xx.
 
 .PP
 The rest of the fields in the

@@ -11,6 +11,7 @@ include ../config-host.mak
 endif
 
 example_srcs := \
+	io_uring-close-test.c \
 	io_uring-cp.c \
 	io_uring-test.c \
 	io_uring-udp.c \
