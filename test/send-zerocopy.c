@@ -483,6 +483,7 @@ static int test_inet_send(struct io_uring *ring)
 	struct sockaddr_storage addr;
 	int sock_client = -1, sock_server = -1;
 	int ret, j, i;
+	int buf_index;
 
 	for (j = 0; j < 32; j++) {
 		bool ipv6 = j & 1;
@@ -509,20 +510,19 @@ static int test_inet_send(struct io_uring *ring)
 			sock_server = tmp_sock;
 		}
 
-		for (i = 0; i < 4096; i++) {
+		for (i = 0; i < 1024; i++) {
 			bool regbuf;
 
-			conf.buf_index = i & 3;
+			conf.use_sendmsg = i & 1;
+			conf.poll_first = i & 2;
 			conf.fixed_buf = i & 4;
 			conf.addr = (i & 8) ? &addr : NULL;
 			conf.cork = i & 16;
 			conf.mix_register = i & 32;
 			conf.force_async = i & 64;
-			conf.use_sendmsg = i & 128;
-			conf.zc = i & 256;
-			conf.iovec = i & 512;
-			conf.long_iovec = i & 1024;
-			conf.poll_first = i & 2048;
+			conf.zc = i & 128;
+			conf.iovec = i & 256;
+			conf.long_iovec = i & 512;
 			conf.tcp = tcp;
 			regbuf = conf.mix_register || conf.fixed_buf;
 
@@ -538,10 +538,6 @@ static int test_inet_send(struct io_uring *ring)
 				if (conf.addr && !has_sendmsg)
 					continue;
 			}
-			if (conf.buf_index == BUF_T_LARGE && !tcp)
-				continue;
-			if (!buffers_iov[conf.buf_index].iov_base)
-				continue;
 			if (tcp && (conf.cork || conf.addr))
 				continue;
 			if (conf.mix_register && (!conf.cork || conf.fixed_buf))
@@ -553,13 +549,23 @@ static int test_inet_send(struct io_uring *ring)
 			if (msg_zc_set && !conf.zc)
 				continue;
 
-			ret = do_test_inet_send(ring, sock_client, sock_server, &conf);
-			if (ret) {
-				fprintf(stderr, "send failed fixed buf %i, conn %i, addr %i, "
-					"cork %i\n",
-					conf.fixed_buf, client_connect, !!conf.addr,
-					conf.cork);
-				return 1;
+			for (buf_index = 0; buf_index < ARRAY_SIZE(buffers_iov); buf_index++) {
+				size_t len = buffers_iov[buf_index].iov_len;
+
+				if (!buffers_iov[buf_index].iov_base)
+					continue;
+				if (!tcp && len > 4 * page_sz)
+					continue;
+
+				conf.buf_index = buf_index;
+				ret = do_test_inet_send(ring, sock_client, sock_server, &conf);
+				if (ret) {
+					fprintf(stderr, "send failed fixed buf %i, "
+							"conn %i, addr %i, cork %i\n",
+						conf.fixed_buf, client_connect,
+						!!conf.addr, conf.cork);
+					return 1;
+				}
 			}
 		}
 
