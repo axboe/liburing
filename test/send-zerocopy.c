@@ -832,6 +832,15 @@ int main(int argc, char *argv[])
 		return T_EXIT_FAIL;
 	}
 
+	if (buffers_iov[BUF_T_HUGETLB].iov_base) {
+		buffers_iov[BUF_T_HUGETLB].iov_base += 13;
+		buffers_iov[BUF_T_HUGETLB].iov_len -= 26;
+	}
+	if (buffers_iov[BUF_T_LARGE].iov_base) {
+		buffers_iov[BUF_T_LARGE].iov_base += 13;
+		buffers_iov[BUF_T_LARGE].iov_len -= 26;
+	}
+
 	ret = test_inet_send(&ring);
 	if (ret) {
 		fprintf(stderr, "test_inet_send() failed\n");
