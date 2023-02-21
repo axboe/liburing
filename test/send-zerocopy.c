@@ -32,6 +32,8 @@
 #include <sys/time.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <sys/mman.h>
+#include <linux/mman.h>
 
 #include "liburing.h"
 #include "helpers.h"
@@ -55,6 +57,9 @@ enum {
 	BUF_T_SMALL,
 	BUF_T_NONALIGNED,
 	BUF_T_LARGE,
+	BUF_T_HUGETLB,
+
+	__BUF_NR,
 };
 
 /* 32MB, should be enough to trigger a short send */
@@ -62,7 +67,7 @@ enum {
 
 static size_t page_sz;
 static char *tx_buffer, *rx_buffer;
-static struct iovec buffers_iov[4];
+static struct iovec buffers_iov[__BUF_NR];
 static bool has_sendmsg;
 
 static bool check_cq_empty(struct io_uring *ring)
@@ -747,6 +752,11 @@ int main(int argc, char *argv[])
 		return T_EXIT_FAIL;
 	}
 
+	srand((unsigned)time(NULL));
+	for (i = 0; i < len; i++)
+		tx_buffer[i] = i;
+	memset(rx_buffer, 0, len);
+
 	buffers_iov[BUF_T_NORMAL].iov_base = tx_buffer + page_sz;
 	buffers_iov[BUF_T_NORMAL].iov_len = page_sz;
 	buffers_iov[BUF_T_SMALL].iov_base = tx_buffer;
@@ -754,16 +764,25 @@ int main(int argc, char *argv[])
 	buffers_iov[BUF_T_NONALIGNED].iov_base = tx_buffer + BUFFER_OFFSET;
 	buffers_iov[BUF_T_NONALIGNED].iov_len = 2 * page_sz - BUFFER_OFFSET - 13;
 
+	if (len == LARGE_BUF_SIZE) {
+		void *huge_page;
+		int off = page_sz + 27;
+
+		len = 1U << 22;
+		huge_page = mmap(NULL, len, PROT_READ|PROT_WRITE,
+				 MAP_PRIVATE | MAP_HUGETLB | MAP_HUGE_2MB | MAP_ANONYMOUS,
+				 -1, 0);
+		if (huge_page != MAP_FAILED) {
+			buffers_iov[BUF_T_HUGETLB].iov_base = huge_page + off;
+			buffers_iov[BUF_T_HUGETLB].iov_len = len - off;
+		}
+	}
+
 	ret = io_uring_queue_init(32, &ring, 0);
 	if (ret) {
 		fprintf(stderr, "queue init failed: %d\n", ret);
 		return T_EXIT_FAIL;
 	}
-
-	srand((unsigned)time(NULL));
-	for (i = 0; i < len; i++)
-		tx_buffer[i] = i;
-	memset(rx_buffer, 0, len);
 
 	ret = test_basic_send(&ring, sp[0], sp[1]);
 	if (ret == T_EXIT_SKIP)
