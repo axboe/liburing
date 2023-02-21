@@ -57,6 +57,10 @@ enum {
 	BUF_T_LARGE,
 };
 
+/* 32MB, should be enough to trigger a short send */
+#define LARGE_BUF_SIZE		(1U << 25)
+
+static size_t page_sz;
 static char *tx_buffer, *rx_buffer;
 static struct iovec buffers_iov[4];
 static bool has_sendmsg;
@@ -705,6 +709,8 @@ int main(int argc, char *argv[])
 	if (argc > 1)
 		return T_EXIT_SKIP;
 
+	page_sz = sysconf(_SC_PAGESIZE);
+
 	/* create TCP IPv6 pair */
 	ret = create_socketpair_ip(&addr, &sp[0], &sp[1], true, true, false, true);
 	if (ret) {
@@ -712,30 +718,35 @@ int main(int argc, char *argv[])
 		return T_EXIT_FAIL;
 	}
 
-	len = 1U << 25; /* 32MB, should be enough to trigger a short send */
-	tx_buffer = aligned_alloc(4096, len);
-	rx_buffer = aligned_alloc(4096, len);
+	len = LARGE_BUF_SIZE;
+	tx_buffer = aligned_alloc(page_sz, len);
+	rx_buffer = aligned_alloc(page_sz, len);
 	if (tx_buffer && rx_buffer) {
 		buffers_iov[BUF_T_LARGE].iov_base = tx_buffer;
 		buffers_iov[BUF_T_LARGE].iov_len = len;
 	} else {
+		if (tx_buffer)
+			free(tx_buffer);
+		if (rx_buffer)
+			free(rx_buffer);
+
 		printf("skip large buffer tests, can't alloc\n");
 
-		len = 8192;
-		tx_buffer = aligned_alloc(4096, len);
-		rx_buffer = aligned_alloc(4096, len);
+		len = 2 * page_sz;
+		tx_buffer = aligned_alloc(page_sz, len);
+		rx_buffer = aligned_alloc(page_sz, len);
 	}
 	if (!tx_buffer || !rx_buffer) {
 		fprintf(stderr, "can't allocate buffers\n");
 		return T_EXIT_FAIL;
 	}
 
-	buffers_iov[BUF_T_NORMAL].iov_base = tx_buffer + 4096;
-	buffers_iov[BUF_T_NORMAL].iov_len = 4096;
+	buffers_iov[BUF_T_NORMAL].iov_base = tx_buffer + page_sz;
+	buffers_iov[BUF_T_NORMAL].iov_len = page_sz;
 	buffers_iov[BUF_T_SMALL].iov_base = tx_buffer;
 	buffers_iov[BUF_T_SMALL].iov_len = 137;
 	buffers_iov[BUF_T_NONALIGNED].iov_base = tx_buffer + BUFFER_OFFSET;
-	buffers_iov[BUF_T_NONALIGNED].iov_len = 8192 - BUFFER_OFFSET - 13;
+	buffers_iov[BUF_T_NONALIGNED].iov_len = 2 * page_sz - BUFFER_OFFSET - 13;
 
 	ret = io_uring_queue_init(32, &ring, 0);
 	if (ret) {
