@@ -446,7 +446,8 @@ static int do_test_inet_send(struct io_uring *ring, int sock_client, int sock_se
 		}
 		if (cqe->user_data == RX_TAG) {
 			if (cqe->res != send_size) {
-				fprintf(stderr, "rx failed %i\n", cqe->res);
+				fprintf(stderr, "rx failed res: %i, expected %i\n",
+						cqe->res, (int)send_size);
 				return 1;
 			}
 			io_uring_cqe_seen(ring, cqe);
