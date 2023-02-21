@@ -34,6 +34,8 @@
 #include <sys/time.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <sys/mman.h>
+#include <linux/mman.h>
 
 #include "liburing.h"
 
@@ -45,6 +47,7 @@ static bool cfg_fixed_files = 1;
 static bool cfg_zc = 1;
 static int  cfg_nr_reqs = 8;
 static bool cfg_fixed_buf = 1;
+static bool cfg_hugetlb = 0;
 
 static int  cfg_family		= PF_UNSPEC;
 static int  cfg_payload_len;
@@ -54,7 +57,8 @@ static int  cfg_runtime_ms	= 4200;
 static socklen_t cfg_alen;
 static struct sockaddr_storage cfg_dst_addr;
 
-static char payload[IP_MAXPACKET] __attribute__((aligned(4096)));
+static char payload_buf[IP_MAXPACKET] __attribute__((aligned(4096)));
+static char *payload;
 
 /*
  * Implementation of error(3), prints an error message and exits.
@@ -276,7 +280,7 @@ static void usage(const char *filepath)
 
 static void parse_opts(int argc, char **argv)
 {
-	const int max_payload_len = sizeof(payload) -
+	const int max_payload_len = IP_MAXPACKET -
 				    sizeof(struct ipv6hdr) -
 				    sizeof(struct tcphdr) -
 				    40 /* max tcp options */;
@@ -288,7 +292,7 @@ static void parse_opts(int argc, char **argv)
 
 	cfg_payload_len = max_payload_len;
 
-	while ((c = getopt(argc, argv, "46D:p:s:t:n:z:b:k")) != -1) {
+	while ((c = getopt(argc, argv, "46D:p:s:t:n:z:b:l:")) != -1) {
 		switch (c) {
 		case '4':
 			if (cfg_family != PF_UNSPEC)
@@ -323,6 +327,9 @@ static void parse_opts(int argc, char **argv)
 		case 'b':
 			cfg_fixed_buf = strtoul(optarg, NULL, 0);
 			break;
+		case 'l':
+			cfg_hugetlb = strtoul(optarg, NULL, 0);
+			break;
 		}
 	}
 
@@ -342,6 +349,17 @@ int main(int argc, char **argv)
 	const char *cfg_test;
 
 	parse_opts(argc, argv);
+
+	payload = payload_buf;
+	if (cfg_hugetlb) {
+		payload = mmap(NULL, 2*1024*1024, PROT_READ | PROT_WRITE,
+				MAP_PRIVATE | MAP_HUGETLB | MAP_HUGE_2MB | MAP_ANONYMOUS,
+				-1, 0);
+		if (payload == MAP_FAILED) {
+			fprintf(stderr, "hugetlb alloc failed\n");
+			return 1;
+		}
+	}
 
 	cfg_test = argv[argc - 1];
 	if (!strcmp(cfg_test, "tcp"))
