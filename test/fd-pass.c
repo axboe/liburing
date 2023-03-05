@@ -161,6 +161,8 @@ static int test(const char *filename, int source_fd, int target_fd)
 	if (verify_fixed_read(&dring, target_fd, 0))
 		return T_EXIT_FAIL;
 
+	io_uring_queue_exit(&sring);
+	io_uring_queue_exit(&dring);
 	return T_EXIT_PASS;
 }
 
