@@ -48,6 +48,7 @@ static bool cfg_zc = 1;
 static int  cfg_nr_reqs = 8;
 static bool cfg_fixed_buf = 1;
 static bool cfg_hugetlb = 0;
+static bool cfg_defer_taskrun = 0;
 
 static int  cfg_family		= PF_UNSPEC;
 static int  cfg_payload_len;
@@ -151,6 +152,7 @@ static inline struct io_uring_cqe *wait_cqe_fast(struct io_uring *ring)
 
 static void do_tx(int domain, int type, int protocol)
 {
+	const int notif_slack = 128;
 	unsigned long packets = 0;
 	unsigned long bytes = 0;
 	struct io_uring ring;
@@ -158,10 +160,14 @@ static void do_tx(int domain, int type, int protocol)
 	uint64_t tstop;
 	int i, fd, ret;
 	int compl_cqes = 0;
+	int ring_flags = IORING_SETUP_COOP_TASKRUN | IORING_SETUP_SINGLE_ISSUER;
+
+	if (cfg_defer_taskrun)
+		ring_flags |= IORING_SETUP_DEFER_TASKRUN;
 
 	fd = do_setup_tx(domain, type, protocol);
 
-	ret = io_uring_queue_init(512, &ring, IORING_SETUP_COOP_TASKRUN);
+	ret = io_uring_queue_init(512, &ring, ring_flags);
 	if (ret)
 		t_error(1, ret, "io_uring: queue init");
 
@@ -211,7 +217,11 @@ static void do_tx(int domain, int type, int protocol)
 			}
 		}
 
-		ret = io_uring_submit(&ring);
+		if (cfg_defer_taskrun && compl_cqes >= notif_slack)
+			ret = io_uring_submit_and_get_events(&ring);
+		else
+			ret = io_uring_submit(&ring);
+
 		if (ret != cfg_nr_reqs)
 			t_error(1, ret, "submit");
 
@@ -292,7 +302,7 @@ static void parse_opts(int argc, char **argv)
 
 	cfg_payload_len = max_payload_len;
 
-	while ((c = getopt(argc, argv, "46D:p:s:t:n:z:b:l:")) != -1) {
+	while ((c = getopt(argc, argv, "46D:p:s:t:n:z:b:l:d")) != -1) {
 		switch (c) {
 		case '4':
 			if (cfg_family != PF_UNSPEC)
@@ -329,6 +339,9 @@ static void parse_opts(int argc, char **argv)
 			break;
 		case 'l':
 			cfg_hugetlb = strtoul(optarg, NULL, 0);
+			break;
+		case 'd':
+			cfg_defer_taskrun = 1;
 			break;
 		}
 	}
