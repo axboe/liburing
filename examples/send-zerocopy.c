@@ -217,7 +217,7 @@ static int do_flush_datagram(struct thread_data *td, int fd)
 		t_error(1, errno, "recv");
 	if (ret != cfg_payload_len)
 		t_error(1, 0, "recv: ret=%u != %u", ret, cfg_payload_len);
-	if (ret > sizeof(buf) - off)
+	if ((unsigned long) ret > sizeof(buf) - off)
 		ret = sizeof(buf) - off;
 	if (memcmp(buf + off, payload, ret))
 		t_error(1, 0, "recv: data mismatch");
