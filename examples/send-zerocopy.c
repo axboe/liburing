@@ -203,9 +203,9 @@ static int do_flush_tcp(struct thread_data *td, int fd)
 }
 
 /* Flush all outstanding datagrams. Verify first few bytes of each. */
-static int do_flush_datagram(struct thread_data *td, int fd, int type)
+static int do_flush_datagram(struct thread_data *td, int fd)
 {
-	int ret, off = 0;
+	long ret, off = 0;
 	char buf[64];
 
 	/* MSG_TRUNC will return full datagram length */
@@ -231,7 +231,8 @@ static void do_setup_rx(int domain, int type, int protocol)
 {
 	struct sockaddr_storage addr = {};
 	struct thread_data *td;
-	int listen_fd, fd, i;
+	int listen_fd, fd;
+	unsigned int i;
 
 	fd = socket(domain, type, protocol);
 	if (fd == -1)
@@ -280,7 +281,7 @@ static void *do_rx(void *arg)
 		if (cfg_type == SOCK_STREAM)
 			ret = do_flush_tcp(td, fd);
 		else
-			ret = do_flush_datagram(td, fd, cfg_type);
+			ret = do_flush_datagram(td, fd);
 
 		if (ret)
 			break;
@@ -538,8 +539,8 @@ int main(int argc, char **argv)
 	unsigned long long packets = 0, bytes = 0;
 	struct thread_data *td;
 	const char *cfg_test;
+	unsigned int i;
 	void *res;
-	int i;
 
 	parse_opts(argc, argv);
 	set_cpu_affinity();
