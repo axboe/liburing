@@ -10,6 +10,9 @@ ifneq ($(MAKECMDGOALS),clean)
 include ../config-host.mak
 endif
 
+LDFLAGS ?=
+override LDFLAGS += -L../src/ -luring -lpthread
+
 example_srcs := \
 	io_uring-close-test.c \
 	io_uring-cp.c \
