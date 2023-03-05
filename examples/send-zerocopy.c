@@ -12,6 +12,7 @@
 #include <stdarg.h>
 #include <string.h>
 
+#include <sched.h>
 #include <arpa/inet.h>
 #include <linux/if_packet.h>
 #include <linux/ipv6.h>
@@ -49,6 +50,7 @@ static int  cfg_nr_reqs = 8;
 static bool cfg_fixed_buf = 1;
 static bool cfg_hugetlb = 0;
 static bool cfg_defer_taskrun = 0;
+static int  cfg_cpu = -1;
 
 static int  cfg_family		= PF_UNSPEC;
 static int  cfg_payload_len;
@@ -76,6 +78,32 @@ static void t_error(int status, int errnum, const char *format, ...)
 	fprintf(stderr, "\n");
 	va_end(args);
 	exit(status);
+}
+
+static void set_cpu_affinity(void)
+{
+	cpu_set_t mask;
+
+	if (cfg_cpu == -1)
+		return;
+
+	CPU_ZERO(&mask);
+	CPU_SET(cfg_cpu, &mask);
+	if (sched_setaffinity(0, sizeof(mask), &mask))
+		t_error(1, errno, "unable to pin cpu\n");
+}
+
+static void set_iowq_affinity(struct io_uring *ring)
+{
+	cpu_set_t mask;
+	int ret;
+
+	if (cfg_cpu == -1)
+		return;
+
+	ret = io_uring_register_iowq_aff(ring, 1, &mask);
+	if (ret)
+		t_error(1, ret, "unabled to set io-wq affinity\n");
 }
 
 static unsigned long gettimeofday_ms(void)
@@ -170,6 +198,9 @@ static void do_tx(int domain, int type, int protocol)
 	ret = io_uring_queue_init(512, &ring, ring_flags);
 	if (ret)
 		t_error(1, ret, "io_uring: queue init");
+
+	set_cpu_affinity();
+	set_iowq_affinity(&ring);
 
 	if (cfg_fixed_files) {
 		ret = io_uring_register_files(&ring, &fd, 1);
@@ -302,7 +333,7 @@ static void parse_opts(int argc, char **argv)
 
 	cfg_payload_len = max_payload_len;
 
-	while ((c = getopt(argc, argv, "46D:p:s:t:n:z:b:l:d")) != -1) {
+	while ((c = getopt(argc, argv, "46D:p:s:t:n:z:b:l:dC:")) != -1) {
 		switch (c) {
 		case '4':
 			if (cfg_family != PF_UNSPEC)
@@ -343,6 +374,9 @@ static void parse_opts(int argc, char **argv)
 		case 'd':
 			cfg_defer_taskrun = 1;
 			break;
+		case 'C':
+			cfg_cpu = strtol(optarg, NULL, 0);
+			break;
 		}
 	}
 
@@ -362,6 +396,7 @@ int main(int argc, char **argv)
 	const char *cfg_test;
 
 	parse_opts(argc, argv);
+	set_cpu_affinity();
 
 	payload = payload_buf;
 	if (cfg_hugetlb) {
