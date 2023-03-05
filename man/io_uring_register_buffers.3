@@ -9,12 +9,23 @@ io_uring_register_buffers \- register buffers for fixed buffer operations
 .nf
 .B #include <liburing.h>
 .PP
-.BI "int io_uring_register_buffers(struct io_uring *" ring ",
-.BI "                              const struct iovec *" iovecs ",
+.BI "int io_uring_register_buffers(struct io_uring *" ring ","
+.BI "                              const struct iovec *" iovecs ","
 .BI "                              unsigned " nr_iovecs ");"
 .PP
-.BI "int io_uring_register_buffers_sparse(struct io_uring *" ring ",
-.BI "                              unsigned " nr_iovecs ");"
+.BI "int io_uring_register_buffers_tags(struct io_uring *" ring ","
+.BI "                                   const struct iovec *" iovecs ","
+.BI "                                   const __u64 *" tags ","
+.BI "                                   unsigned " nr ");"
+.PP
+.BI "int io_uring_register_buffers_sparse(struct io_uring *" ring ","
+.BI "                                     unsigned " nr_iovecs ");"
+.PP
+.BI "int io_uring_register_buffers_update_tag(struct io_uring *" ring ","
+.BI "                                         unsigned " off ","
+.BI "                                         const struct iovec *" iovecs ","
+.BI "                                         const __u64 *" tags ","
+.BI "                                         unsigned " nr ");"
 .fi
 .SH DESCRIPTION
 .PP
@@ -26,6 +37,16 @@ number of buffers defined by the array
 .I iovecs
 belonging to the
 .IR ring .
+
+The
+.BR io_uring_register_buffers_tags (3)
+function behaves the same as 
+.BR io_uring_register_buffers (3)
+function but additionally takes 
+.I tags
+parameter. See
+.B IORING_REGISTER_BUFFERS2
+for the resource tagging description.
 
 The
 .BR io_uring_register_buffers_sparse (3)
@@ -46,14 +67,36 @@ the buffer is registered rather than doing a map and unmap for each IO
 every time IO is performed to that region. Additionally, it also avoids
 manipulating the page reference counts for each IO.
 
+The
+.BR io_uring_register_buffers_update_tag (3)
+function updates registered buffers with new ones, either turning a sparse 
+entry into a real one, or replacing an existing entry. The 
+.I off
+is offset on which to start the update
+.I nr
+number of buffers defined by the array
+.I iovecs
+belonging to the
+.IR ring .
+The
+.I tags
+points to an array of tags. See
+.B IORING_REGISTER_BUFFERS2
+for the resource tagging description.
+
 .SH RETURN VALUE
 On success
-.BR io_uring_register_buffers (3)
+.BR io_uring_register_buffers (3),
+.BR io_uring_register_buffers_tags (3)
 and
 .BR io_uring_register_buffers_sparse (3)
-return 0. On failure they return
+return 0. 
+.BR io_uring_register_buffers_update_tag (3)
+return number of buffers updated.
+On failure they return
 .BR -errno .
 .SH SEE ALSO
+.BR io_uring_register (2),
 .BR io_uring_get_sqe (3),
 .BR io_uring_unregister_buffers (3),
 .BR io_uring_register_buf_ring (3),
