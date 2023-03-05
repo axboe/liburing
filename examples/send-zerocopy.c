@@ -237,8 +237,6 @@ static void do_setup_rx(int domain, int type, int protocol)
 	if (fd == -1)
 		t_error(1, errno, "socket r");
 
-	do_setsockopt(fd, SOL_SOCKET, SO_RCVBUF, 1 << 21);
-	do_setsockopt(fd, SOL_SOCKET, SO_RCVLOWAT, 1 << 16);
 	do_setsockopt(fd, SOL_SOCKET, SO_REUSEPORT, 1);
 
 	setup_sockaddr(cfg_family, str_addr, &addr);
@@ -327,8 +325,6 @@ static void do_tx(struct thread_data *td, int domain, int type, int protocol)
 	fd = socket(domain, type, protocol);
 	if (fd == -1)
 		t_error(1, errno, "socket t");
-
-	do_setsockopt(fd, SOL_SOCKET, SO_SNDBUF, 1 << 21);
 
 	if (connect(fd, (void *)&td->dst_addr, cfg_alen))
 		t_error(1, errno, "connect, idx %i", td->idx);
