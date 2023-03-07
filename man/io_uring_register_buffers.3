@@ -40,9 +40,9 @@ belonging to the
 
 The
 .BR io_uring_register_buffers_tags (3)
-function behaves the same as 
+function behaves the same as
 .BR io_uring_register_buffers (3)
-function but additionally takes 
+function but additionally takes
 .I tags
 parameter. See
 .B IORING_REGISTER_BUFFERS2
@@ -69,8 +69,8 @@ manipulating the page reference counts for each IO.
 
 The
 .BR io_uring_register_buffers_update_tag (3)
-function updates registered buffers with new ones, either turning a sparse 
-entry into a real one, or replacing an existing entry. The 
+function updates registered buffers with new ones, either turning a sparse
+entry into a real one, or replacing an existing entry. The
 .I off
 is offset on which to start the update
 .I nr
@@ -90,7 +90,7 @@ On success
 .BR io_uring_register_buffers_tags (3)
 and
 .BR io_uring_register_buffers_sparse (3)
-return 0. 
+return 0.
 .BR io_uring_register_buffers_update_tag (3)
 return number of buffers updated.
 On failure they return
