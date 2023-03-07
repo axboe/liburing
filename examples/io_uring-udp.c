@@ -275,7 +275,7 @@ static int process_cqe_recv(struct ctx *ctx, struct io_uring_cqe *cqe,
 		const char *name;
 		struct sockaddr_in *addr = io_uring_recvmsg_name(o);
 
-		name = inet_ntop(ctx->af, addr, buff, sizeof(buff));
+		name = inet_ntop(ctx->af, &addr->sin_addr, buff, sizeof(buff));
 		if (!name)
 			name = "<INVALID>";
 		fprintf(stderr, "received %u bytes %d from %s:%d\n",
