@@ -86,7 +86,7 @@ jobs:
             cxx: mips-linux-gnu-g++
 
     env:
-      FLAGS: -g -O3 -Wall -Wextra -Werror ${{matrix.extra_flags}}
+      FLAGS: -g -O3 -Wall -Wextra -Werror -Wno-sign-compare ${{matrix.extra_flags}}
 
       # Flags for building sources in src/ dir only.
       LIBURING_CFLAGS: ${{matrix.liburing_extra_flags}}
