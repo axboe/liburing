@@ -29,7 +29,7 @@ by
 amount. This effectively bundles both a
 .BR io_uring_buf_ring_advance (3)
 call and a
-.BR io_uring_cq_avance (3)
+.BR io_uring_cq_advance (3)
 into one operation. Since updating either ring index entails a store memory
 barrier, doing both at once is more efficient.
 
