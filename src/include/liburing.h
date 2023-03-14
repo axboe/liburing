@@ -257,6 +257,16 @@ int io_uring_register(unsigned int fd, unsigned int opcode, const void *arg,
 		      unsigned int nr_args);
 
 /*
+ * Mapped buffer ring alloc/register + unregister/free helpers
+ */
+struct io_uring_buf_ring *io_uring_setup_buf_ring(struct io_uring *ring,
+						  unsigned int nentries,
+						  int bgid, unsigned int flags,
+						  int *ret);
+int io_uring_free_buf_ring(struct io_uring *ring, struct io_uring_buf_ring *br,
+			   unsigned int nentries, int bgid);
+
+/*
  * Helper for the peek/wait single cqe functions. Exported because of that,
  * but probably shouldn't be used directly in an application.
  */

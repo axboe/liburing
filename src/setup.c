@@ -368,3 +368,51 @@ __cold ssize_t io_uring_mlock_size(unsigned entries, unsigned flags)
 
 	return io_uring_mlock_size_params(entries, &p);
 }
+
+struct io_uring_buf_ring *io_uring_setup_buf_ring(struct io_uring *ring,
+						  unsigned int nentries,
+						  int bgid, unsigned int flags,
+						  int *ret)
+{
+	struct io_uring_buf_reg reg = { };
+	struct io_uring_buf_ring *br;
+	size_t ring_size;
+	int lret;
+
+	ring_size = nentries * sizeof(struct io_uring_buf);
+	br = __sys_mmap(NULL, ring_size, PROT_READ | PROT_WRITE,
+			MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
+	if (IS_ERR(br)) {
+		*ret = PTR_ERR(br);
+		return NULL;
+	}
+
+	io_uring_buf_ring_init(br);
+
+	reg.ring_addr = (unsigned long) (uintptr_t) br;
+	reg.ring_entries = nentries;
+	reg.bgid = bgid;
+
+	*ret = 0;
+	lret = io_uring_register_buf_ring(ring, &reg, flags);
+	if (lret) {
+		__sys_munmap(br, ring_size);
+		*ret = lret;
+		br = NULL;
+	}
+
+	return br;
+}
+
+int io_uring_free_buf_ring(struct io_uring *ring, struct io_uring_buf_ring *br,
+			   unsigned int nentries, int bgid)
+{
+	int ret;
+
+	ret = io_uring_unregister_buf_ring(ring, bgid);
+	if (ret)
+		return ret;
+
+	__sys_munmap(br, nentries * sizeof(struct io_uring_buf));
+	return 0;
+}
