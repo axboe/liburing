@@ -37,7 +37,6 @@ static int verify_buffer(char *buf, char val)
 
 static int test(const char *filename, int dio, int async)
 {
-	struct io_uring_buf_reg reg = { };
 	struct io_uring_sqe *sqe;
 	struct io_uring_cqe *cqe;
 	struct io_uring ring;
@@ -68,16 +67,9 @@ static int test(const char *filename, int dio, int async)
 
 	if (posix_memalign((void **) &buf, 4096, FSIZE))
 		return 1;
-	if (posix_memalign((void **) &br, 4096, NR_BUFS * sizeof(struct io_uring_buf)))
-		return 1;
 
-	io_uring_buf_ring_init(br);
-	reg.ring_addr = (unsigned long) br;
-	reg.ring_entries = NR_BUFS;
-	reg.bgid = 1;
-
-	ret = io_uring_register_buf_ring(&ring, &reg, 0);
-	if (ret) {
+	br = io_uring_setup_buf_ring(&ring, NR_BUFS, 1, 0, &ret);
+	if (!br) {
 		if (ret == -EINVAL) {
 			no_buf_ring = 1;
 			return 0;

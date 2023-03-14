@@ -49,7 +49,6 @@ static void *thread(void *data)
 
 static int test(struct io_uring *ring, struct data *d)
 {
-	struct io_uring_buf_reg reg = { };
 	struct io_uring_buf_ring *br;
 	struct io_uring_sqe *sqe;
 	struct io_uring_cqe *cqe;
@@ -67,16 +66,9 @@ static int test(struct io_uring *ring, struct data *d)
 
 	if (posix_memalign((void **) &buf, 16384, BUF_SIZE * NREQS))
 		return T_EXIT_FAIL;
-	if (posix_memalign((void **) &br, 16384, sizeof(struct io_uring_buf) * NREQS))
-		return T_EXIT_FAIL;
 
-	io_uring_buf_ring_init(br);
-	reg.ring_addr = (unsigned long) br;
-	reg.ring_entries = NREQS;
-	reg.bgid = 1;
-
-	ret = io_uring_register_buf_ring(ring, &reg, 0);
-	if (ret) {
+	br = io_uring_setup_buf_ring(ring, NREQS, 1, 0, &ret);
+	if (!br) {
 		if (ret == -EINVAL) {
 			no_buf_ring = 1;
 			return T_EXIT_SKIP;
@@ -143,7 +135,7 @@ static int test(struct io_uring *ring, struct data *d)
 
 	pthread_join(t, &ret2);
 	free(buf);
-	free(br);
+	io_uring_free_buf_ring(ring, br, NREQS, 1);
 	close(fd[0]);
 	close(fd[1]);
 	return T_EXIT_PASS;
@@ -151,7 +143,6 @@ static int test(struct io_uring *ring, struct data *d)
 
 static int test_mshot(struct io_uring *ring, struct data *d)
 {
-	struct io_uring_buf_reg reg = { };
 	struct io_uring_buf_ring *br;
 	struct io_uring_sqe *sqe;
 	struct io_uring_cqe *cqe;
@@ -169,16 +160,9 @@ static int test_mshot(struct io_uring *ring, struct data *d)
 
 	if (posix_memalign((void *) &buf, 16384, BUF_SIZE * NREQS))
 		return T_EXIT_FAIL;
-	if (posix_memalign((void *) &br, 16384, sizeof(struct io_uring_buf) * NREQS))
-		return T_EXIT_FAIL;
 
-	io_uring_buf_ring_init(br);
-	reg.ring_addr = (unsigned long) br;
-	reg.ring_entries = NREQS;
-	reg.bgid = 1;
-
-	ret = io_uring_register_buf_ring(ring, &reg, 0);
-	if (ret) {
+	br = io_uring_setup_buf_ring(ring, NREQS, 1, 0, &ret);
+	if (!br) {
 		fprintf(stderr, "buf ring reg %d\n", ret);
 		return T_EXIT_FAIL;
 	}
@@ -245,8 +229,8 @@ static int test_mshot(struct io_uring *ring, struct data *d)
 	}
 
 	pthread_join(t, &ret2);
+	io_uring_free_buf_ring(ring, br, NREQS, 1);
 	free(buf);
-	free(br);
 	close(fd[0]);
 	close(fd[1]);
 	return T_EXIT_PASS;
