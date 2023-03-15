@@ -369,10 +369,44 @@ __cold ssize_t io_uring_mlock_size(unsigned entries, unsigned flags)
 	return io_uring_mlock_size_params(entries, &p);
 }
 
-struct io_uring_buf_ring *io_uring_setup_buf_ring(struct io_uring *ring,
-						  unsigned int nentries,
-						  int bgid, unsigned int flags,
-						  int *ret)
+#if defined(__hppa__)
+static struct io_uring_buf_ring *br_setup(struct io_uring *ring,
+					  unsigned int nentries, int bgid,
+					  unsigned int flags, int *ret)
+{
+	struct io_uring_buf_reg reg = { };
+	struct io_uring_buf_ring *br;
+	size_t ring_size;
+	off_t off;
+	int lret;
+
+	reg.ring_entries = nentries;
+	reg.bgid = bgid;
+	reg.flags = IOU_PBUF_RING_MMAP;
+
+	*ret = 0;
+	lret = io_uring_register_buf_ring(ring, &reg, flags);
+	if (lret) {
+		*ret = lret;
+		return NULL;
+	}
+
+	off = IORING_OFF_PBUF_RING | (unsigned long long) bgid << IORING_OFF_PBUF_SHIFT;
+	ring_size = nentries * sizeof(struct io_uring_buf);
+	br = __sys_mmap(NULL, ring_size, PROT_READ | PROT_WRITE,
+			MAP_SHARED | MAP_POPULATE, ring->ring_fd, off);
+	if (IS_ERR(br)) {
+		*ret = PTR_ERR(br);
+		return NULL;
+	}
+
+	return br;
+
+}
+#else
+static struct io_uring_buf_ring *br_setup(struct io_uring *ring,
+					  unsigned int nentries, int bgid,
+					  unsigned int flags, int *ret)
 {
 	struct io_uring_buf_reg reg = { };
 	struct io_uring_buf_ring *br;
@@ -387,8 +421,6 @@ struct io_uring_buf_ring *io_uring_setup_buf_ring(struct io_uring *ring,
 		return NULL;
 	}
 
-	io_uring_buf_ring_init(br);
-
 	reg.ring_addr = (unsigned long) (uintptr_t) br;
 	reg.ring_entries = nentries;
 	reg.bgid = bgid;
@@ -400,6 +432,22 @@ struct io_uring_buf_ring *io_uring_setup_buf_ring(struct io_uring *ring,
 		*ret = lret;
 		br = NULL;
 	}
+
+	return br;
+
+}
+#endif
+
+struct io_uring_buf_ring *io_uring_setup_buf_ring(struct io_uring *ring,
+						  unsigned int nentries,
+						  int bgid, unsigned int flags,
+						  int *ret)
+{
+	struct io_uring_buf_ring *br;
+
+	br = br_setup(ring, nentries, bgid, flags, ret);
+	if (br)
+		io_uring_buf_ring_init(br);
 
 	return br;
 }
