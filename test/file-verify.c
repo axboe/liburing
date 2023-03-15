@@ -36,9 +36,11 @@ static void verify_buf_sync(void *buf, size_t size, bool registered)
 {
 #if defined(__hppa__)
 	if (registered) {
+		unsigned long off = (unsigned long) buf & 4095;
 		unsigned long p = (unsigned long) buf & ~4095;
 		int i;
 
+		size += off;
 		for (i = 0; i < size; i += 32)
 			asm volatile("fdc 0(%0)" : : "r" (p + i));
 	}
