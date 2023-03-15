@@ -32,14 +32,29 @@
  */
 #define READ_BATCH	16
 
+static void verify_buf_sync(void *buf, size_t size, bool registered)
+{
+#if defined(__hppa__)
+	if (registered) {
+		unsigned long p = (unsigned long) buf & ~4095;
+		int i;
+
+		for (i = 0; i < size; i += 128)
+			asm volatile("fdc 0(%0)" : : "r" (p + i));
+	}
+#endif
+}
+
 /*
  * Each offset in the file has the offset / sizeof(int) stored for every
  * sizeof(int) address.
  */
-static int verify_buf(void *buf, size_t size, off_t off)
+static int verify_buf(void *buf, size_t size, off_t off, bool registered)
 {
 	int i, u_in_buf = size / sizeof(unsigned int);
 	unsigned int *ptr;
+
+	verify_buf_sync(buf, size, registered);
 
 	off /= sizeof(unsigned int);
 	ptr = buf;
@@ -197,7 +212,7 @@ again:
 		goto err;
 	}
 
-	if (verify_buf(buf, CHUNK_SIZE / 2, 0))
+	if (verify_buf(buf, CHUNK_SIZE / 2, 0, false))
 		goto err;
 
 	/*
@@ -445,12 +460,12 @@ static int test(struct io_uring *ring, const char *fname, int buffered,
 					void *buf = vecs[index][j].iov_base;
 					size_t len = vecs[index][j].iov_len;
 
-					if (verify_buf(buf, len, voff))
+					if (verify_buf(buf, len, voff, registered))
 						goto err;
 					voff += len;
 				}
 			} else {
-				if (verify_buf(buf[index], CHUNK_SIZE, voff))
+				if (verify_buf(buf[index], CHUNK_SIZE, voff, registered))
 					goto err;
 			}
 		}
