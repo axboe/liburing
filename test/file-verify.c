@@ -39,7 +39,7 @@ static void verify_buf_sync(void *buf, size_t size, bool registered)
 		unsigned long p = (unsigned long) buf & ~4095;
 		int i;
 
-		for (i = 0; i < size; i += 128)
+		for (i = 0; i < size; i += 32)
 			asm volatile("fdc 0(%0)" : : "r" (p + i));
 	}
 #endif
