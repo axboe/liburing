@@ -54,7 +54,7 @@ static long syz_io_uring_setup(volatile long a0, volatile long a1, volatile long
 	return fd_io_uring;
 }
 
-uint64_t r[1] = {0xffffffffffffffff};
+static uint64_t r[1] = {0xffffffffffffffff};
 
 int main(int argc, char *argv[])
 {
