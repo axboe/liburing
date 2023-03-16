@@ -142,6 +142,7 @@ test_srcs := \
 	recv-msgall-stream.c \
 	recv-multishot.c \
 	reg-reg-ring.c \
+	regbuf-merge.c \
 	register-restrictions.c \
 	rename.c \
 	ringbuf-read.c \
