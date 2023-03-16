@@ -1015,6 +1015,15 @@ IOURINGINLINE void io_uring_prep_msg_ring_fd(struct io_uring_sqe *sqe, int fd,
 	sqe->msg_ring_flags = flags;
 }
 
+IOURINGINLINE void io_uring_prep_msg_ring_fd_alloc(struct io_uring_sqe *sqe,
+						   int fd, int source_fd,
+						   __u64 data, unsigned int flags)
+{
+	io_uring_prep_msg_ring_fd(sqe, fd, source_fd,
+				  IORING_FILE_INDEX_ALLOC - 1,
+				  data, flags);
+}
+
 IOURINGINLINE void io_uring_prep_getxattr(struct io_uring_sqe *sqe,
 					  const char *name, char *value,
 					  const char *path, unsigned int len)
