@@ -80,6 +80,14 @@ static int test(const char *filename, int source_fd, int target_fd)
 		fprintf(stderr, "register files failed %d\n", ret);
 		return T_EXIT_FAIL;
 	}
+	if (target_fd == IORING_FILE_INDEX_ALLOC) {
+		/* we want to test installing into a non-zero slot */
+		ret = io_uring_register_file_alloc_range(&dring, 1, 1);
+		if (ret) {
+			fprintf(stderr, "io_uring_register_file_alloc_range %d\n", ret);
+			return T_EXIT_FAIL;
+		}
+	}
 
 	/* open direct descriptor */
 	sqe = io_uring_get_sqe(&sring);
@@ -102,8 +110,14 @@ static int test(const char *filename, int source_fd, int target_fd)
 
 	/* send direct descriptor to destination ring */
 	sqe = io_uring_get_sqe(&sring);
-	io_uring_prep_msg_ring_fd(sqe, dring.ring_fd, source_fd, target_fd,
-					USER_DATA, 0);
+	if (target_fd == IORING_FILE_INDEX_ALLOC) {
+		io_uring_prep_msg_ring_fd_alloc(sqe, dring.ring_fd, source_fd,
+						USER_DATA, 0);
+	} else {
+
+		io_uring_prep_msg_ring_fd(sqe, dring.ring_fd, source_fd,
+					  target_fd, USER_DATA, 0);
+	}
 	io_uring_submit(&sring);
 
 	ret = io_uring_wait_cqe(&sring, &cqe);
@@ -111,7 +125,7 @@ static int test(const char *filename, int source_fd, int target_fd)
 		fprintf(stderr, "wait cqe failed %d\n", ret);
 		return T_EXIT_FAIL;
 	}
-	if (cqe->res) {
+	if (cqe->res < 0) {
 		if (cqe->res == -EINVAL && !no_fd_pass) {
 			no_fd_pass = 1;
 			return T_EXIT_SKIP;
@@ -130,6 +144,17 @@ static int test(const char *filename, int source_fd, int target_fd)
 	if (cqe->user_data != USER_DATA) {
 		fprintf(stderr, "bad user_data %ld\n", (long) cqe->res);
 		return T_EXIT_FAIL;
+	}
+	if (cqe->res < 0) {
+		fprintf(stderr, "bad result %i\n", cqe->res);
+		return T_EXIT_FAIL;
+	}
+	if (target_fd == IORING_FILE_INDEX_ALLOC) {
+		if (cqe->res != 1) {
+			fprintf(stderr, "invalid allocated index %i\n", cqe->res);
+			return T_EXIT_FAIL;
+		}
+		target_fd = cqe->res;
 	}
 	io_uring_cqe_seen(&dring, cqe);
 
@@ -198,6 +223,12 @@ int main(int argc, char *argv[])
 	ret = test(fname, 1, 0);
 	if (ret == T_EXIT_FAIL) {
 		fprintf(stderr, "test failed 1 0\n");
+		ret = T_EXIT_FAIL;
+	}
+
+	ret = test(fname, 1, IORING_FILE_INDEX_ALLOC);
+	if (ret == T_EXIT_FAIL) {
+		fprintf(stderr, "test failed 1 ALLOC\n");
 		ret = T_EXIT_FAIL;
 	}
 
