@@ -389,6 +389,9 @@ enum {
 #define IORING_OFF_SQ_RING		0ULL
 #define IORING_OFF_CQ_RING		0x8000000ULL
 #define IORING_OFF_SQES			0x10000000ULL
+#define IORING_OFF_PBUF_RING		0x80000000ULL
+#define IORING_OFF_PBUF_SHIFT		16
+#define IORING_OFF_MMAP_MASK		0xf8000000ULL
 
 /*
  * Filled with the offset for mmap(2)
@@ -635,12 +638,26 @@ struct io_uring_buf_ring {
 	};
 };
 
+/*
+ * Flags for IORING_REGISTER_PBUF_RING.
+ *
+ * IOU_PBUF_RING_MMAP:	If set, kernel will allocate the memory for the ring.
+ *			The application must not set a ring_addr in struct
+ *			io_uring_buf_reg, instead it must subsequently call
+ *			mmap(2) with the offset set as:
+ *			IORING_OFF_PBUF_RING | (bgid << IORING_OFF_PBUF_SHIFT)
+ *			to get a virtual mapping for the ring.
+ */
+enum {
+	IOU_PBUF_RING_MMAP	= 1,
+};
+
 /* argument for IORING_(UN)REGISTER_PBUF_RING */
 struct io_uring_buf_reg {
 	__u64	ring_addr;
 	__u32	ring_entries;
 	__u16	bgid;
-	__u16	pad;
+	__u16	flags;
 	__u64	resv[3];
 };
 
