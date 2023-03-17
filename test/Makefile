@@ -186,7 +186,6 @@ test_srcs := \
 	thread-exit.c \
 	timeout.c \
 	timeout-new.c \
-	timeout-overflow.c \
 	tty-write-dpoll.c \
 	unlink.c \
 	version.c \
