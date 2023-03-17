@@ -206,6 +206,9 @@ static int test_bad_reg(int bgid)
 
 static int test_full_page_reg(int bgid)
 {
+#if defined(__hppa__)
+	return T_EXIT_SKIP;
+#else
 	struct io_uring ring;
 	int ret;
 	void *ptr;
@@ -215,7 +218,7 @@ static int test_full_page_reg(int bgid)
 	ret = io_uring_queue_init(1, &ring, 0);
 	if (ret) {
 		fprintf(stderr, "queue init failed %d\n", ret);
-		return 1;
+		return T_EXIT_FAIL;
 	}
 
 	ret = posix_memalign(&ptr, pagesize, pagesize * 2);
@@ -245,7 +248,8 @@ err1:
 	free(ptr);
 err:
 	io_uring_queue_exit(&ring);
-	return ret;
+	return ret ? T_EXIT_FAIL : T_EXIT_PASS;
+#endif
 }
 
 static int test_one_read(int fd, int bgid, struct io_uring *ring)
@@ -412,7 +416,7 @@ int main(int argc, char *argv[])
 		}
 
 		ret = test_full_page_reg(bgids[i]);
-		if (ret) {
+		if (ret == T_EXIT_FAIL) {
 			fprintf(stderr, "test_full_page_reg failed\n");
 			return T_EXIT_FAIL;
 		}
