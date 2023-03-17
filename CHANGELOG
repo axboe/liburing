@@ -9,6 +9,7 @@ liburing-2.4 release
 - Add support for IORING_REGISTER_USE_REGISTERED_RING and use if available.
 - Add io_uring_close_ring_fd() function.
 - Add io_uring_prep_msg_ring_fd_alloc function.
+- Add io_uring_free_buf_ring() and io_uring_setup_buf_ring() functions.
 
 liburing-2.3 release
 
