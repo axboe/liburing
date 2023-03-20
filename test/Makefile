@@ -55,6 +55,7 @@ test_srcs := \
 	ce593a6c480a.c \
 	close-opath.c \
 	connect.c \
+	connect-rep.c \
 	cq-full.c \
 	cq-overflow.c \
 	cq-peek-batch.c \
