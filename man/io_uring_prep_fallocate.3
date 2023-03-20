@@ -13,8 +13,8 @@ io_uring_prep_fallocate \- prepare a fallocate request
 .BI "void io_uring_prep_fallocate(struct io_uring_sqe *" sqe ","
 .BI "                             int " fd ","
 .BI "                             int " mode ","
-.BI "                             off_t " offset ","
-.BI "                             off_t " len ");"
+.BI "                             __u64 " offset ","
+.BI "                             __u64 " len ");"
 .fi
 .SH DESCRIPTION
 .PP
