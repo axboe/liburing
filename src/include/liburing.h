@@ -671,7 +671,7 @@ IOURINGINLINE void io_uring_prep_files_update(struct io_uring_sqe *sqe,
 }
 
 IOURINGINLINE void io_uring_prep_fallocate(struct io_uring_sqe *sqe, int fd,
-					   int mode, off_t offset, off_t len)
+					   int mode, __u64 offset, __u64 len)
 {
 	io_uring_prep_rw(IORING_OP_FALLOCATE, sqe, fd,
 			0, (unsigned int) mode, (__u64) offset);
