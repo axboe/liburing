@@ -12,11 +12,12 @@
 int main(int argc, char *argv[])
 {
 	struct io_uring_sqe *sqe;
+	struct io_uring_cqe *cqe;
 	struct io_uring ring;
 	int ret;
 
 	if (argc > 1)
-		return 1;
+		return T_EXIT_SKIP;
 
 	io_uring_queue_init(1, &ring, 0);
 
@@ -39,5 +40,17 @@ int main(int argc, char *argv[])
 		return T_EXIT_FAIL;
 	}
 
+	ret = io_uring_wait_cqe(&ring, &cqe);
+	if (ret) {
+		fprintf(stderr, "wait cqe: %d\n", ret);
+		return T_EXIT_FAIL;
+	}
+
+	if (cqe->res != -ENFILE) {
+		fprintf(stderr, "Bad CQE res: %d\n", cqe->res);
+		return T_EXIT_FAIL;
+	}
+
+	io_uring_cqe_seen(&ring, cqe);
 	return T_EXIT_PASS;
 }
