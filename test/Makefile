@@ -166,6 +166,7 @@ test_srcs := \
 	single-issuer.c \
 	skip-cqe.c \
 	socket.c \
+	socket-io-cmd.c \
 	socket-rw.c \
 	socket-rw-eagain.c \
 	socket-rw-offset.c \
