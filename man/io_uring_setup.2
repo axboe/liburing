@@ -610,7 +610,9 @@ ptr = mmap(0, cq_off.cqes + cq_entries * sizeof(struct io_uring_cqe),
 .PP
 Closing the file descriptor returned by
 .BR io_uring_setup (2)
-will free all resources associated with the io_uring context.
+will free all resources associated with the io_uring context. Note that this
+may happen asynchronously within the kernel, so it is not guaranteed that
+resources are freed immediately.
 .PP
 .SH RETURN VALUE
 .BR io_uring_setup (2)

@@ -101,7 +101,9 @@ If the application currently has requests in-flight, the registration will
 wait for those to finish before proceeding.
 
 An application need not unregister buffers explicitly before shutting
-down the io_uring instance. Available since 5.1.
+down the io_uring instance. Note, however, that shutdown processing may run
+asynchronously within the kernel. As a result, it is not guaranteed that
+pages are immediately unpinned in this case. Available since 5.1.
 
 .TP
 .B IORING_REGISTER_BUFFERS2
@@ -201,7 +203,7 @@ Available since 5.13.
 This operation takes no argument, and
 .I arg
 must be passed as NULL.  All previously registered buffers associated
-with the io_uring instance will be released. Available since 5.1.
+with the io_uring instance will be released synchronously. Available since 5.1.
 
 .TP
 .B IORING_REGISTER_FILES
