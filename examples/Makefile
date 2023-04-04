@@ -20,7 +20,8 @@ example_srcs := \
 	io_uring-udp.c \
 	link-cp.c \
 	poll-bench.c \
-	send-zerocopy.c
+	send-zerocopy.c \
+	rsrc-update-bench.c
 
 all_targets :=
 
