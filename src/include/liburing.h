@@ -604,6 +604,9 @@ IOURINGINLINE void io_uring_prep_accept_direct(struct io_uring_sqe *sqe, int fd,
 					       unsigned int file_index)
 {
 	io_uring_prep_accept(sqe, fd, addr, addrlen, flags);
+	/* offset by 1 for allocation */
+	if (file_index == IORING_FILE_INDEX_ALLOC)
+		file_index--;
 	__io_uring_set_target_fixed_file(sqe, file_index);
 }
 
@@ -693,6 +696,9 @@ IOURINGINLINE void io_uring_prep_openat_direct(struct io_uring_sqe *sqe,
 					       unsigned file_index)
 {
 	io_uring_prep_openat(sqe, dfd, path, flags, mode);
+	/* offset by 1 for allocation */
+	if (file_index == IORING_FILE_INDEX_ALLOC)
+		file_index--;
 	__io_uring_set_target_fixed_file(sqe, file_index);
 }
 
@@ -882,6 +888,9 @@ IOURINGINLINE void io_uring_prep_openat2_direct(struct io_uring_sqe *sqe,
 						unsigned file_index)
 {
 	io_uring_prep_openat2(sqe, dfd, path, how);
+	/* offset by 1 for allocation */
+	if (file_index == IORING_FILE_INDEX_ALLOC)
+		file_index--;
 	__io_uring_set_target_fixed_file(sqe, file_index);
 }
 
@@ -1021,6 +1030,9 @@ IOURINGINLINE void io_uring_prep_msg_ring_fd(struct io_uring_sqe *sqe, int fd,
 	io_uring_prep_rw(IORING_OP_MSG_RING, sqe, fd,
 			 (void *) (uintptr_t) IORING_MSG_SEND_FD, 0, data);
 	sqe->addr3 = source_fd;
+	/* offset by 1 for allocation */
+	if (target_fd == IORING_FILE_INDEX_ALLOC)
+		target_fd--;
 	__io_uring_set_target_fixed_file(sqe, target_fd);
 	sqe->msg_ring_flags = flags;
 }
@@ -1029,8 +1041,7 @@ IOURINGINLINE void io_uring_prep_msg_ring_fd_alloc(struct io_uring_sqe *sqe,
 						   int fd, int source_fd,
 						   __u64 data, unsigned int flags)
 {
-	io_uring_prep_msg_ring_fd(sqe, fd, source_fd,
-				  IORING_FILE_INDEX_ALLOC - 1,
+	io_uring_prep_msg_ring_fd(sqe, fd, source_fd, IORING_FILE_INDEX_ALLOC,
 				  data, flags);
 }
 
@@ -1089,6 +1100,9 @@ IOURINGINLINE void io_uring_prep_socket_direct(struct io_uring_sqe *sqe,
 {
 	io_uring_prep_rw(IORING_OP_SOCKET, sqe, domain, NULL, protocol, type);
 	sqe->rw_flags = flags;
+	/* offset by 1 for allocation */
+	if (file_index == IORING_FILE_INDEX_ALLOC)
+		file_index--;
 	__io_uring_set_target_fixed_file(sqe, file_index);
 }
 
