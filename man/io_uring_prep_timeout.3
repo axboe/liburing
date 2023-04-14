@@ -51,6 +51,13 @@ Normally a timeout that triggers would return in a
 CQE
 .I res
 value.
+.TP
+.B IORING_TIMEOUT_MULTISHOT
+The request will return multiple timeout completions. The completion flag
+IORING_CQE_F_MORE is set if more timeouts are expected. The value specified in
+.I count
+is the number of repeats. A value of 0 means the timeout is indefinite and can
+only be stopped by a removal request.
 .PP
 The timeout completion event will trigger if either the specified timeout
 has occurred, or the specified number of events to wait for have been posted
