@@ -85,6 +85,13 @@ jobs:
             cc: mips-linux-gnu-gcc
             cxx: mips-linux-gnu-g++
 
+          # hppa
+          - arch: hppa
+            cc_pkg: gcc-hppa-linux-gnu
+            cxx_pkg: g++-hppa-linux-gnu
+            cc: hppa-linux-gnu-gcc
+            cxx: hppa-linux-gnu-g++
+
     env:
       FLAGS: -g -O3 -Wall -Wextra -Werror -Wno-sign-compare ${{matrix.extra_flags}}
 
