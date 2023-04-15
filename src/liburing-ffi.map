@@ -170,6 +170,7 @@ LIBURING_2.4 {
 		io_uring_prep_msg_ring_cqe_flags;
 		io_uring_prep_msg_ring_fd;
 		io_uring_prep_msg_ring_fd_alloc;
+		io_uring_prep_sendto;
 	local:
 		*;
 };

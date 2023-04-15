@@ -758,6 +758,23 @@ IOURINGINLINE void io_uring_prep_send(struct io_uring_sqe *sqe, int sockfd,
 	sqe->msg_flags = (__u32) flags;
 }
 
+IOURINGINLINE void io_uring_prep_send_set_addr(struct io_uring_sqe *sqe,
+						const struct sockaddr *dest_addr,
+						__u16 addr_len)
+{
+	sqe->addr2 = (unsigned long)(const void *)dest_addr;
+	sqe->addr_len = addr_len;
+}
+
+IOURINGINLINE void io_uring_prep_sendto(struct io_uring_sqe *sqe, int sockfd,
+					const void *buf, size_t len, int flags,
+					const struct sockaddr *addr,
+					socklen_t addrlen)
+{
+	io_uring_prep_send(sqe, sockfd, buf, len, flags);
+	io_uring_prep_send_set_addr(sqe, addr, addrlen);
+}
+
 IOURINGINLINE void io_uring_prep_send_zc(struct io_uring_sqe *sqe, int sockfd,
 					 const void *buf, size_t len, int flags,
 					 unsigned zc_flags)
@@ -784,14 +801,6 @@ IOURINGINLINE void io_uring_prep_sendmsg_zc(struct io_uring_sqe *sqe, int fd,
 {
 	io_uring_prep_sendmsg(sqe, fd, msg, flags);
 	sqe->opcode = IORING_OP_SENDMSG_ZC;
-}
-
-IOURINGINLINE void io_uring_prep_send_set_addr(struct io_uring_sqe *sqe,
-						const struct sockaddr *dest_addr,
-						__u16 addr_len)
-{
-	sqe->addr2 = (unsigned long)(const void *)dest_addr;
-	sqe->addr_len = addr_len;
 }
 
 IOURINGINLINE void io_uring_prep_recv(struct io_uring_sqe *sqe, int sockfd,
