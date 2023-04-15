@@ -271,14 +271,22 @@ static int process_cqe_recv(struct ctx *ctx, struct io_uring_cqe *cqe,
 	}
 
 	if (ctx->verbose) {
+		struct sockaddr_in *addr = io_uring_recvmsg_name(o);
+		struct sockaddr_in6 *addr6 = (void *)addr;
 		char buff[INET6_ADDRSTRLEN + 1];
 		const char *name;
-		struct sockaddr_in *addr = io_uring_recvmsg_name(o);
+		void *paddr;
 
-		name = inet_ntop(ctx->af, &addr->sin_addr, buff, sizeof(buff));
+		if (ctx->af == AF_INET6)
+			paddr = &addr6->sin6_addr;
+		else
+			paddr = &addr->sin_addr;
+
+		name = inet_ntop(ctx->af, paddr, buff, sizeof(buff));
 		if (!name)
 			name = "<INVALID>";
-		fprintf(stderr, "received %u bytes %d from %s:%d\n",
+
+		fprintf(stderr, "received %u bytes %d from [%s]:%d\n",
 			io_uring_recvmsg_payload_length(o, cqe->res, &ctx->msg),
 			o->namelen, name, (int)ntohs(addr->sin_port));
 	}
