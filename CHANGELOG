@@ -14,6 +14,7 @@ liburing-2.4 release
   io_uring_prep_openat2_direct(), io_uring_prep_msg_ring_fd(), and
   io_uring_prep_socket_direct() factor in being called with
   IORING_FILE_INDEX_ALLOC for allocating a direct descriptor.
+- Add io_uring_prep_sendto() function.
 
 liburing-2.3 release
 

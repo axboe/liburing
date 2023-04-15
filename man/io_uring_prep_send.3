@@ -14,6 +14,14 @@ io_uring_prep_send \- prepare a send request
 .BI "                        const void *" buf ","
 .BI "                        size_t " len ","
 .BI "                        int " flags ");"
+.PP
+.BI "void io_uring_prep_sendto(struct io_uring_sqe *" sqe ","
+.BI "                          int " sockfd ","
+.BI "                          const void *" buf ","
+.BI "                          size_t " len ","
+.BI "                          int " flags ","
+.BI "                          const struct sockaddr *" addr ","
+.BI "                          socklen_t " addrlen ");"
 .fi
 .SH DESCRIPTION
 .PP
@@ -43,6 +51,28 @@ This function prepares an async
 .BR send (2)
 request. See that man page for details.
 
+The
+.BR io_uring_prep_sendto (3)
+function prepares a sendto request. The submission queue entry
+.I sqe
+is setup to use the file descriptor
+.I sockfd
+to start sending the data from
+.I buf
+of size
+.I len
+bytes and with modifier flags
+.IR flags .
+The destination address is specified by
+.I addr
+and
+.I addrlen
+and must be a valid address for the socket type.
+
+This function prepares an async
+.BR sendto (2)
+request. See that man page for details.
+
 .SH RETURN VALUE
 None
 .SH ERRORS
@@ -64,3 +94,4 @@ field.
 .BR io_uring_get_sqe (3),
 .BR io_uring_submit (3),
 .BR send (2)
+.BR sendto (2)
