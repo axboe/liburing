@@ -370,20 +370,13 @@ __cold void io_uring_queue_exit(struct io_uring *ring)
 {
 	struct io_uring_sq *sq = &ring->sq;
 	struct io_uring_cq *cq = &ring->cq;
-	size_t sqe_size;
 
-	if (!sq->ring_sz) {
-		sqe_size = sizeof(struct io_uring_sqe);
-		if (ring->flags & IORING_SETUP_SQE128)
-			sqe_size += 64;
-		__sys_munmap(sq->sqes, sqe_size * sq->ring_entries);
+	__sys_close(ring->ring_fd);
+	if (!(ring->int_flags & INT_FLAG_APP_MEM)) {
+		__sys_munmap(sq->sqes,
+			*sq->kring_entries * sizeof(struct io_uring_sqe));
+
 		io_uring_unmap_rings(sq, cq);
-	} else {
-		if (!(ring->int_flags & INT_FLAG_APP_MEM)) {
-			__sys_munmap(sq->sqes,
-				*sq->kring_entries * sizeof(struct io_uring_sqe));
-			io_uring_unmap_rings(sq, cq);
-		}
 	}
 
 	/*
