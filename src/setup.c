@@ -197,11 +197,17 @@ __cold int io_uring_ring_dontfork(struct io_uring *ring)
 /* FIXME */
 static int huge_page_size = 2 * 1024 * 1024;
 
+/*
+ * Returns negative for error, or number of bytes used in the buffer on success
+ */
 static int io_uring_alloc_huge(unsigned entries, struct io_uring_params *p,
-			       struct io_uring_sq *sq, struct io_uring_cq *cq)
+			       struct io_uring_sq *sq, struct io_uring_cq *cq,
+			       void *buf, size_t buf_size)
 {
+	unsigned long page_size = get_page_size();
 	unsigned sq_entries, cq_entries;
 	size_t ring_mem, sqes_mem;
+	unsigned long mem_used = 0;
 	void *ptr;
 	int ret;
 
@@ -210,64 +216,81 @@ static int io_uring_alloc_huge(unsigned entries, struct io_uring_params *p,
 		return ret;
 
 	sqes_mem = sq_entries * sizeof(struct io_uring_sqe);
+	sqes_mem = (sqes_mem + page_size - 1) & ~(page_size - 1);
 	ring_mem = cq_entries * sizeof(struct io_uring_cqe);
 	ring_mem += sq_entries * sizeof(unsigned);
 
-	ptr = __sys_mmap(NULL, huge_page_size, PROT_READ|PROT_WRITE,
-				MAP_SHARED|MAP_ANONYMOUS|MAP_HUGETLB, -1, 0);
-	if (IS_ERR(ptr))
-		return PTR_ERR(ptr);
-
-	sq->sqes = ptr;
-	memset(ptr, 0, huge_page_size);
-	if (sqes_mem + ring_mem <= huge_page_size) {
-		size_t sqes_size = sq_entries * sizeof(struct io_uring_sqe);
-		unsigned long page_size = get_page_size();
-
-		/* everything fits in one huge page */
-		sqes_size = (sqes_size + page_size - 1) & ~(page_size - 1);
-		sq->ring_ptr = (void *) sq->sqes + sqes_size;
-		/* clear ring sizes, we have just one mmap() to undo */
-		cq->ring_sz = 0;
-		sq->ring_sz = 0;
+	if (buf) {
+		if (sqes_mem + ring_mem > buf_size)
+			return -ENOMEM;
+		ptr = buf;
 	} else {
 		ptr = __sys_mmap(NULL, huge_page_size, PROT_READ|PROT_WRITE,
 					MAP_SHARED|MAP_ANONYMOUS|MAP_HUGETLB,
 					-1, 0);
+		if (IS_ERR(ptr))
+			return PTR_ERR(ptr);
+
+		buf_size = huge_page_size;
+	}
+
+	sq->sqes = ptr;
+	memset(ptr, 0, buf_size);
+	if (sqes_mem + ring_mem <= buf_size) {
+		sq->ring_ptr = (void *) sq->sqes + sqes_mem;
+		/* clear ring sizes, we have just one mmap() to undo */
+		cq->ring_sz = 0;
+		sq->ring_sz = 0;
+	} else {
+		ptr = __sys_mmap(NULL, buf_size, PROT_READ|PROT_WRITE,
+					MAP_SHARED|MAP_ANONYMOUS|MAP_HUGETLB,
+					-1, 0);
 		if (IS_ERR(ptr)) {
-			__sys_munmap(sq->sqes, huge_page_size);
+			__sys_munmap(sq->sqes, buf_size);
 			return PTR_ERR(ptr);
 		}
-		memset(ptr, 0, huge_page_size);
+		memset(ptr, 0, buf_size);
 		sq->ring_ptr = ptr;
-		sq->ring_sz = huge_page_size;
+		sq->ring_sz = buf_size;
 		cq->ring_sz = 0;
 	}
+
+	/* add up memory used */
+	mem_used += sqes_mem;
+	mem_used += sq_entries * sizeof(unsigned int);
+	mem_used += cq_entries * sizeof(unsigned int);
+	/* round to full page */
+	mem_used = (mem_used + page_size - 1) & ~(page_size - 1);
 
 	cq->ring_ptr = (void *) sq->ring_ptr;
 	p->sq_off.user_addr = (unsigned long) sq->sqes;
 	p->cq_off.user_addr = (unsigned long) sq->ring_ptr;
-	return 0;
+	return (int) mem_used;
 }
 
-__cold int io_uring_queue_init_params(unsigned entries, struct io_uring *ring,
-				      struct io_uring_params *p)
+static int __io_uring_queue_init_params(unsigned entries, struct io_uring *ring,
+					struct io_uring_params *p, void *buf,
+					size_t buf_size)
 {
-	int fd, ret;
+	int fd, ret = 0;
 	unsigned *sq_array;
 	unsigned sq_entries, index;
 
 	memset(ring, 0, sizeof(*ring));
 
 	if (p->flags & IORING_SETUP_NO_MMAP) {
-		ret = io_uring_alloc_huge(entries, p, &ring->sq, &ring->cq);
-		if (ret)
+		ret = io_uring_alloc_huge(entries, p, &ring->sq, &ring->cq,
+						buf, buf_size);
+		if (ret < 0)
 			return ret;
+		if (buf)
+			ring->int_flags |= INT_FLAG_APP_MEM;
 	}
 
 	fd = __sys_io_uring_setup(entries, p);
 	if (fd < 0) {
-		if (p->flags & IORING_SETUP_NO_MMAP) {
+		if ((p->flags & IORING_SETUP_NO_MMAP) &&
+		    !(ring->int_flags & INT_FLAG_APP_MEM)) {
 			__sys_munmap(ring->sq.sqes, huge_page_size);
 			io_uring_unmap_rings(&ring->sq, &ring->cq);
 		}
@@ -295,7 +318,37 @@ __cold int io_uring_queue_init_params(unsigned entries, struct io_uring *ring,
 	ring->features = p->features;
 	ring->flags = p->flags;
 	ring->ring_fd = ring->enter_ring_fd = fd;
-	return 0;
+	return ret;
+}
+
+/*
+ * Like io_uring_queue_init_params(), except it allows the application to pass
+ * in a pre-allocated memory range that is used for the shared data between
+ * the kernel and the application. This includes the sqes array, and the two
+ * rings. The memory must be contigious, the use case here is that the app
+ * allocates a huge page and passes it in.
+ *
+ * Returns the number of bytes used in the buffer, the app can then reuse
+ * the buffer with the returned offset to put more rings in the same huge
+ * page. Returns -ENOMEM if there's not enough room left in the buffer to
+ * host the ring.
+ */
+int io_uring_queue_init_mem(unsigned entries, struct io_uring *ring,
+			    struct io_uring_params *p,
+			    void *buf, size_t buf_size)
+{
+	/* should already be set... */
+	p->flags |= IORING_SETUP_NO_MMAP;
+	return __io_uring_queue_init_params(entries, ring, p, buf, buf_size);
+}
+
+int io_uring_queue_init_params(unsigned entries, struct io_uring *ring,
+			       struct io_uring_params *p)
+{
+	int ret;
+
+	ret = __io_uring_queue_init_params(entries, ring, p, NULL, 0);
+	return ret >= 0 ? 0 : ret;
 }
 
 /*
@@ -326,10 +379,13 @@ __cold void io_uring_queue_exit(struct io_uring *ring)
 		__sys_munmap(sq->sqes, sqe_size * sq->ring_entries);
 		io_uring_unmap_rings(sq, cq);
 	} else {
-		__sys_munmap(sq->sqes,
+		if (!(ring->int_flags & INT_FLAG_APP_MEM)) {
+			__sys_munmap(sq->sqes,
 				*sq->kring_entries * sizeof(struct io_uring_sqe));
-		io_uring_unmap_rings(sq, cq);
+			io_uring_unmap_rings(sq, cq);
+		}
 	}
+
 	/*
 	 * Not strictly required, but frees up the slot we used now rather
 	 * than at process exit time.
