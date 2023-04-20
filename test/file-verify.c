@@ -381,9 +381,12 @@ static int test(struct io_uring *ring, const char *fname, int buffered,
 			v[i].iov_base = buf[i];
 			v[i].iov_len = CHUNK_SIZE;
 		}
-		ret = io_uring_register_buffers(ring, v, READ_BATCH);
+		ret = t_register_buffers(ring, v, READ_BATCH);
 		if (ret) {
-			fprintf(stderr, "Error buffer reg %d\n", ret);
+			if (ret == T_SETUP_SKIP) {
+				ret = 0;
+				goto free_bufs;
+			}
 			goto err;
 		}
 	}
@@ -477,6 +480,7 @@ static int test(struct io_uring *ring, const char *fname, int buffered,
 done:
 	if (registered)
 		io_uring_unregister_buffers(ring);
+free_bufs:
 	if (vectored) {
 		for (j = 0; j < READ_BATCH; j++)
 			for (i = 0; i < nr_vecs; i++)
