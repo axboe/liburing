@@ -172,6 +172,8 @@ LIBURING_2.4 {
 		io_uring_prep_msg_ring_fd;
 		io_uring_prep_msg_ring_fd_alloc;
 		io_uring_prep_sendto;
+		io_uring_register_napi;
+		io_uring_unregister_napi;
 	local:
 		*;
 };
