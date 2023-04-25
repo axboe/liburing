@@ -14,12 +14,14 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
+#include "helpers.h"
 #include "liburing.h"
 #include "../src/syscall.h"
 
 #define TIMEOUT_MSEC	200
 static int not_supported;
 static int no_modify;
+static int no_multishot;
 
 static void msec_to_ts(struct __kernel_timespec *ts, unsigned int msec)
 {
@@ -1357,12 +1359,17 @@ static int test_timeout_multishot(struct io_uring *ring)
 			goto err;
 		}
 
+		ret = cqe->res;
+		if (ret == -EINVAL) {
+			no_multishot = 1;
+			return T_EXIT_SKIP;
+		}
+
 		if (!(cqe->flags & IORING_CQE_F_MORE)) {
 			fprintf(stderr, "%s: flag not set in cqe\n", __FUNCTION__);
 			goto err;
 		}
 
-		ret = cqe->res;
 		if (ret != -ETIME) {
 			fprintf(stderr, "%s: Timeout: %s\n", __FUNCTION__, strerror(-ret));
 			goto err;
@@ -1426,6 +1433,9 @@ static int test_timeout_multishot_nr(struct io_uring *ring)
 	struct __kernel_timespec ts;
 	int ret;
 
+	if (no_multishot)
+		return T_EXIT_SKIP;
+
 	sqe = io_uring_get_sqe(ring);
 	if (!sqe) {
 		fprintf(stderr, "%s: get sqe failed\n", __FUNCTION__);
@@ -1486,6 +1496,9 @@ static int test_timeout_multishot_overflow(struct io_uring *ring)
 	struct io_uring_sqe *sqe;
 	struct __kernel_timespec ts;
 	int ret;
+
+	if (no_multishot)
+		return T_EXIT_SKIP;
 
 	sqe = io_uring_get_sqe(ring);
 	if (!sqe) {
@@ -1649,13 +1662,13 @@ int main(int argc, char *argv[])
 	}
 
 	ret = test_timeout_multishot(&ring);
-	if (ret) {
+	if (ret && ret != T_EXIT_SKIP) {
 		fprintf(stderr, "test_timeout_multishot failed\n");
 		return ret;
 	}
 
 	ret = test_timeout_multishot_nr(&ring);
-	if (ret) {
+	if (ret && ret != T_EXIT_SKIP) {
 		fprintf(stderr, "test_timeout_multishot_nr failed\n");
 		return ret;
 	}
@@ -1669,7 +1682,7 @@ int main(int argc, char *argv[])
 	}
 
 	ret = test_timeout_multishot_overflow(&ring);
-	if (ret) {
+	if (ret && ret != T_EXIT_SKIP) {
 		fprintf(stderr, "test_timeout_multishot_overflow failed\n");
 		return ret;
 	}
