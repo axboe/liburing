@@ -22,6 +22,7 @@
 /examples/ucontext-cp
 /examples/poll-bench
 /examples/send-zerocopy
+/examples/rsrc-update-bench
 
 /test/*.t
 /test/*.dmesg
