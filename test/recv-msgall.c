@@ -19,7 +19,7 @@
 #define HOST	"127.0.0.1"
 static __be16 bind_port;
 struct recv_data {
-	pthread_mutex_t mutex;
+	pthread_barrier_t barrier;
 	int use_recvmsg;
 	struct msghdr msg;
 };
@@ -122,11 +122,11 @@ static void *recv_fn(void *data)
 
 	ret = t_create_ring_params(1, &ring, &p);
 	if (ret == T_SETUP_SKIP) {
-		pthread_mutex_unlock(&rd->mutex);
+		pthread_barrier_wait(&rd->barrier);
 		ret = 0;
 		goto err;
 	} else if (ret < 0) {
-		pthread_mutex_unlock(&rd->mutex);
+		pthread_barrier_wait(&rd->barrier);
 		goto err;
 	}
 
@@ -135,7 +135,7 @@ static void *recv_fn(void *data)
 		fprintf(stderr, "recv_prep failed: %d\n", ret);
 		goto err;
 	}
-	pthread_mutex_unlock(&rd->mutex);
+	pthread_barrier_wait(&rd->barrier);
 	ret = do_recv(&ring);
 	close(sock);
 	io_uring_queue_exit(&ring);
@@ -219,28 +219,24 @@ err:
 
 static int test(int use_recvmsg)
 {
-	pthread_mutexattr_t attr;
 	pthread_t recv_thread;
 	struct recv_data rd;
 	int ret;
 	void *retval;
 
-	pthread_mutexattr_init(&attr);
-	pthread_mutexattr_setpshared(&attr, 1);
-	pthread_mutex_init(&rd.mutex, &attr);
-	pthread_mutex_lock(&rd.mutex);
+	pthread_barrier_init(&rd.barrier, NULL, 2);
 	rd.use_recvmsg = use_recvmsg;
 
 	ret = pthread_create(&recv_thread, NULL, recv_fn, &rd);
 	if (ret) {
 		fprintf(stderr, "Thread create failed: %d\n", ret);
-		pthread_mutex_unlock(&rd.mutex);
 		return 1;
 	}
 
-	pthread_mutex_lock(&rd.mutex);
+	pthread_barrier_wait(&rd.barrier);
 	do_send();
 	pthread_join(recv_thread, &retval);
+	pthread_barrier_destroy(&rd.barrier);
 	return (intptr_t)retval;
 }
 
