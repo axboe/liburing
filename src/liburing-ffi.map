@@ -120,6 +120,7 @@ LIBURING_2.4 {
 		io_uring_recvmsg_cmsg_firsthdr;
 		io_uring_prep_socket_direct;
 		io_uring_buf_ring_cq_advance;
+		__io_uring_buf_ring_cq_advance;
 		io_uring_prep_mkdir;
 		io_uring_wait_cqe_nr;
 		io_uring_prep_unlink;

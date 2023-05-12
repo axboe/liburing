@@ -1382,6 +1382,14 @@ IOURINGINLINE void io_uring_buf_ring_advance(struct io_uring_buf_ring *br,
 	io_uring_smp_store_release(&br->tail, new_tail);
 }
 
+IOURINGINLINE void __io_uring_buf_ring_cq_advance(struct io_uring *ring,
+						  struct io_uring_buf_ring *br,
+						  int cq_count, int buf_count)
+{
+	br->tail += buf_count;
+	io_uring_cq_advance(ring, cq_count);
+}
+
 /*
  * Make 'count' new buffers visible to the kernel while at the same time
  * advancing the CQ ring seen entries. This can be used when the application
@@ -1393,8 +1401,7 @@ IOURINGINLINE void io_uring_buf_ring_cq_advance(struct io_uring *ring,
 						struct io_uring_buf_ring *br,
 						int count)
 {
-	br->tail += count;
-	io_uring_cq_advance(ring, count);
+	__io_uring_buf_ring_cq_advance(ring, br, count, count);
 }
 
 #ifndef LIBURING_INTERNAL
