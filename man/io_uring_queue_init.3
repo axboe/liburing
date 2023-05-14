@@ -33,12 +33,12 @@ memory shared between the application and the kernel.
 By default, the CQ ring will have twice the number of entries as specified by
 .I entries
 for the SQ ring. This is adequate for regular file or storage workloads, but
-may be too small networked workloads. The SQ ring entries do not impose a limit
-on the number of in-flight requests that the ring can support, it merely limits
-the number that can be submitted to the kernel in one go (batch). if the CQ
-ring overflows, e.g. more entries are generated than fits in the ring before the
-application can reap them, then the ring enters a CQ ring overflow state. This
-is indicated by
+may be too small for networked workloads. The SQ ring entries do not impose a
+limit on the number of in-flight requests that the ring can support, it merely
+limits the number that can be submitted to the kernel in one go (batch). if the
+CQ ring overflows, e.g. more entries are generated than fits in the ring before
+the application can reap them, then the ring enters a CQ ring overflow state.
+This is indicated by
 .B IORING_SQ_CQ_OVERFLOW
 being set in the SQ ring flags. Unless the kernel runs out of available memory,
 entries are not dropped, but it is a much slower completion path and will slow

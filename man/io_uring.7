@@ -299,7 +299,7 @@ describe_io(sqe);
 /* fill the sqe index into the SQ ring array */
 sqring->array[index] = index;
 tail++;
-atomic_store_release(sqring->tail, tail);
+atomic_store_explicit(sqring->tail, tail, memory_order_release);
 .EE
 .in
 .PP
@@ -453,7 +453,7 @@ if (head != atomic_load_acquire(cqring->tail)) {
     /* CQE consumption complete */
     head++;
 }
-atomic_store_release(cqring->head, head);
+atomic_store_explicit(cqring->head, head, memory_order_release);
 .EE
 .in
 .PP

@@ -527,7 +527,7 @@ is the file descriptor returned from
 .BR io_uring_setup (2).
 The addition of
 .I sq_off.array
-to the length of the region accounts for the fact that the ring
+to the length of the region accounts for the fact that the ring is
 located at the end of the data structure.  As an example, the ring
 buffer head pointer can be accessed by adding
 .I sq_off.head
