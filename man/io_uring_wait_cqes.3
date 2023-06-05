@@ -32,7 +32,10 @@ before returning.
 
 The
 .I cqe_ptr
-param is filled in on success.
+param is filled in on success with the first CQE. Callers of this function
+should use
+.BR io_uring_for_each_cqe (3)
+to iterate all available CQEs.
 
 If
 .I ts
