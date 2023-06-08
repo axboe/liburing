@@ -99,7 +99,7 @@ __cold int io_uring_queue_mmap(int fd, struct io_uring_params *p,
 {
 	int ret;
 
-	__uring_memset(ring, 0, sizeof(*ring));
+	memset(ring, 0, sizeof(*ring));
 	ret = io_uring_mmap(fd, p, &ring->sq, &ring->cq);
 	if (!ret) {
 		ring->flags = p->flags;
@@ -183,7 +183,7 @@ __cold int io_uring_queue_init(unsigned entries, struct io_uring *ring,
 {
 	struct io_uring_params p;
 
-	__uring_memset(&p, 0, sizeof(p));
+	memset(&p, 0, sizeof(p));
 	p.flags = flags;
 
 	return io_uring_queue_init_params(entries, ring, &p);
@@ -220,7 +220,7 @@ __cold struct io_uring_probe *io_uring_get_probe_ring(struct io_uring *ring)
 	probe = malloc(len);
 	if (!probe)
 		return NULL;
-	__uring_memset(probe, 0, len);
+	memset(probe, 0, len);
 
 	r = io_uring_register_probe(ring, probe, 256);
 	if (r >= 0)
@@ -312,7 +312,7 @@ __cold ssize_t io_uring_mlock_size_params(unsigned entries,
 	long page_size;
 	ssize_t ret;
 
-	__uring_memset(&lp, 0, sizeof(lp));
+	memset(&lp, 0, sizeof(lp));
 
 	/*
 	 * We only really use this inited ring to see if the kernel is newer
@@ -369,7 +369,7 @@ __cold ssize_t io_uring_mlock_size(unsigned entries, unsigned flags)
 {
 	struct io_uring_params p;
 
-	__uring_memset(&p, 0, sizeof(p));
+	memset(&p, 0, sizeof(p));
 	p.flags = flags;
 	return io_uring_mlock_size_params(entries, &p);
 }
@@ -385,7 +385,7 @@ static struct io_uring_buf_ring *br_setup(struct io_uring *ring,
 	off_t off;
 	int lret;
 
-	__uring_memset(&reg, 0, sizeof(reg));
+	memset(&reg, 0, sizeof(reg));
 	reg.ring_entries = nentries;
 	reg.bgid = bgid;
 	reg.flags = IOU_PBUF_RING_MMAP;
@@ -418,7 +418,7 @@ static struct io_uring_buf_ring *br_setup(struct io_uring *ring,
 	size_t ring_size;
 	int lret;
 
-	__uring_memset(&reg, 0, sizeof(reg));
+	memset(&reg, 0, sizeof(reg));
 	ring_size = nentries * sizeof(struct io_uring_buf);
 	br = __sys_mmap(NULL, ring_size, PROT_READ | PROT_WRITE,
 			MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
