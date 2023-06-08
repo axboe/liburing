@@ -3,6 +3,7 @@
 #define LIBURING_LIB_H
 
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 
 #if defined(__x86_64__) || defined(__i386__)
