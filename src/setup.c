@@ -237,7 +237,6 @@ static int io_uring_alloc_huge(unsigned entries, struct io_uring_params *p,
 	if (buf) {
 		if (mem_used > buf_size)
 			return -ENOMEM;
-		memset(buf, 0, mem_used);
 		ptr = buf;
 	} else {
 		int map_hugetlb = 0;
