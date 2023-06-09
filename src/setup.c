@@ -278,6 +278,14 @@ static int __io_uring_queue_init_params(unsigned entries, struct io_uring *ring,
 
 	memset(ring, 0, sizeof(*ring));
 
+	/*
+	 * The kernel does this check already, but checking it here allows us
+	 * to avoid handling it below.
+	 */
+	if (p->flags & IORING_SETUP_REGISTERED_FD_ONLY
+	    && !(p->flags & IORING_SETUP_NO_MMAP))
+		return -EINVAL;
+
 	if (p->flags & IORING_SETUP_NO_MMAP) {
 		ret = io_uring_alloc_huge(entries, p, &ring->sq, &ring->cq,
 						buf, buf_size);
@@ -317,7 +325,14 @@ static int __io_uring_queue_init_params(unsigned entries, struct io_uring *ring,
 
 	ring->features = p->features;
 	ring->flags = p->flags;
-	ring->ring_fd = ring->enter_ring_fd = fd;
+	ring->enter_ring_fd = fd;
+	if (p->flags & IORING_SETUP_REGISTERED_FD_ONLY) {
+		ring->ring_fd = -1;
+		ring->int_flags |= INT_FLAG_REG_RING | INT_FLAG_REG_REG_RING;
+	} else {
+		ring->ring_fd = fd;
+	}
+
 	return ret;
 }
 
