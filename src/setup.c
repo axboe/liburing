@@ -219,9 +219,11 @@ static int io_uring_alloc_huge(unsigned entries, struct io_uring_params *p,
 	sqes_mem = (sqes_mem + page_size - 1) & ~(page_size - 1);
 	ring_mem = cq_entries * sizeof(struct io_uring_cqe);
 	ring_mem += sq_entries * sizeof(unsigned);
+	mem_used = sqes_mem + ring_mem;
+	mem_used = (mem_used + page_size - 1) & ~(page_size - 1);
 
 	if (buf) {
-		if (sqes_mem + ring_mem > buf_size)
+		if (mem_used > buf_size)
 			return -ENOMEM;
 		ptr = buf;
 	} else {
@@ -236,7 +238,7 @@ static int io_uring_alloc_huge(unsigned entries, struct io_uring_params *p,
 
 	sq->sqes = ptr;
 	memset(ptr, 0, buf_size);
-	if (sqes_mem + ring_mem <= buf_size) {
+	if (mem_used <= buf_size) {
 		sq->ring_ptr = (void *) sq->sqes + sqes_mem;
 		/* clear ring sizes, we have just one mmap() to undo */
 		cq->ring_sz = 0;
@@ -254,13 +256,6 @@ static int io_uring_alloc_huge(unsigned entries, struct io_uring_params *p,
 		sq->ring_sz = buf_size;
 		cq->ring_sz = 0;
 	}
-
-	/* add up memory used */
-	mem_used += sqes_mem;
-	mem_used += sq_entries * sizeof(unsigned int);
-	mem_used += cq_entries * sizeof(unsigned int);
-	/* round to full page */
-	mem_used = (mem_used + page_size - 1) & ~(page_size - 1);
 
 	cq->ring_ptr = (void *) sq->ring_ptr;
 	p->sq_off.user_addr = (unsigned long) sq->sqes;
