@@ -316,6 +316,14 @@ to allocate a huge page.
 If this flag is set, a subsequent attempt to
 .BR mmap (2)
 the io_uring file descriptor will fail.
+.TP
+.B IORING_SETUP_REGISTERED_FD_ONLY
+If this flag is set, io_uring will register the ring file descriptor, and
+return the registered descriptor index, without ever allocating an unregistered
+file descriptor. The caller will need to use
+.B IORING_REGISTER_USE_REGISTERED_RING
+when calling
+.BR io_uring_register (2).
 
 .PP
 If no flags are specified, the io_uring instance is setup for
