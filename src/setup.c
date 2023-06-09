@@ -227,6 +227,7 @@ static int io_uring_alloc_huge(unsigned entries, struct io_uring_params *p,
 	if (buf) {
 		if (mem_used > buf_size)
 			return -ENOMEM;
+		memset(buf, 0, mem_used);
 		ptr = buf;
 	} else {
 		ptr = __sys_mmap(NULL, huge_page_size, PROT_READ|PROT_WRITE,
@@ -239,7 +240,6 @@ static int io_uring_alloc_huge(unsigned entries, struct io_uring_params *p,
 	}
 
 	sq->sqes = ptr;
-	memset(ptr, 0, buf_size);
 	if (mem_used <= buf_size) {
 		sq->ring_ptr = (void *) sq->sqes + sqes_mem;
 		/* clear ring sizes, we have just one mmap() to undo */
@@ -253,7 +253,6 @@ static int io_uring_alloc_huge(unsigned entries, struct io_uring_params *p,
 			__sys_munmap(sq->sqes, buf_size);
 			return PTR_ERR(ptr);
 		}
-		memset(ptr, 0, buf_size);
 		sq->ring_ptr = ptr;
 		sq->ring_sz = buf_size;
 		cq->ring_sz = 0;
