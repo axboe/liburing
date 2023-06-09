@@ -218,6 +218,8 @@ static int io_uring_alloc_huge(unsigned entries, struct io_uring_params *p,
 	sqes_mem = sq_entries * sizeof(struct io_uring_sqe);
 	sqes_mem = (sqes_mem + page_size - 1) & ~(page_size - 1);
 	ring_mem = cq_entries * sizeof(struct io_uring_cqe);
+	if (p->flags & IORING_SETUP_CQE32)
+		ring_mem *= 2;
 	ring_mem += sq_entries * sizeof(unsigned);
 	mem_used = sqes_mem + ring_mem;
 	mem_used = (mem_used + page_size - 1) & ~(page_size - 1);
