@@ -17,7 +17,7 @@ io_uring_for_each_cqe \- iterate pending completion events
 .PP
 The
 .BR io_uring_for_each_cqe (3)
-helper iterates completion events belonging to the
+is a macro helper that iterates completion events belonging to the
 .I ring
 using
 .I head
@@ -34,6 +34,24 @@ events is more efficient than handling each completion separately and
 calling
 .BR io_uring_cqe_seen (3)
 for each of them.
+
+.SH EXAMPLE
+.EX
+void handle_cqes(struct io_uring *ring)
+{
+	struct io_uring_cqe *cqe;
+	unsigned head;
+	unsigned i = 0;
+
+	io_uring_for_each_cqe(ring, head, cqe) {
+		/* handle completion */
+		printf("cqe: %d\\n", cqe->res);
+		i++;
+	}
+
+	io_uring_cq_advance(ring, i);
+}
+.EE
 
 .SH RETURN VALUE
 None
