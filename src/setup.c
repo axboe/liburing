@@ -240,13 +240,18 @@ static int io_uring_alloc_huge(unsigned entries, struct io_uring_params *p,
 		memset(buf, 0, mem_used);
 		ptr = buf;
 	} else {
-		ptr = __sys_mmap(NULL, huge_page_size, PROT_READ|PROT_WRITE,
-					MAP_SHARED|MAP_ANONYMOUS|MAP_HUGETLB,
+		int map_hugetlb = 0;
+		if (sqes_mem <= page_size)
+			buf_size = page_size;
+		else {
+			buf_size = huge_page_size;
+			map_hugetlb = MAP_HUGETLB;
+		}
+		ptr = __sys_mmap(NULL, buf_size, PROT_READ|PROT_WRITE,
+					MAP_SHARED|MAP_ANONYMOUS|map_hugetlb,
 					-1, 0);
 		if (IS_ERR(ptr))
 			return PTR_ERR(ptr);
-
-		buf_size = huge_page_size;
 	}
 
 	sq->sqes = ptr;
@@ -256,11 +261,18 @@ static int io_uring_alloc_huge(unsigned entries, struct io_uring_params *p,
 		cq->ring_sz = 0;
 		sq->ring_sz = 0;
 	} else {
+		int map_hugetlb = 0;
+		if (ring_mem <= page_size)
+			buf_size = page_size;
+		else {
+			buf_size = huge_page_size;
+			map_hugetlb = MAP_HUGETLB;
+		}
 		ptr = __sys_mmap(NULL, buf_size, PROT_READ|PROT_WRITE,
-					MAP_SHARED|MAP_ANONYMOUS|MAP_HUGETLB,
+					MAP_SHARED|MAP_ANONYMOUS|map_hugetlb,
 					-1, 0);
 		if (IS_ERR(ptr)) {
-			__sys_munmap(sq->sqes, buf_size);
+			__sys_munmap(sq->sqes, 1);
 			return PTR_ERR(ptr);
 		}
 		sq->ring_ptr = ptr;
@@ -297,7 +309,7 @@ static int __io_uring_queue_init_params(unsigned entries, struct io_uring *ring,
 	if (fd < 0) {
 		if ((p->flags & IORING_SETUP_NO_MMAP) &&
 		    !(ring->int_flags & INT_FLAG_APP_MEM)) {
-			__sys_munmap(ring->sq.sqes, huge_page_size);
+			__sys_munmap(ring->sq.sqes, 1);
 			io_uring_unmap_rings(&ring->sq, &ring->cq);
 		}
 		return fd;
