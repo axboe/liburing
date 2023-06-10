@@ -195,7 +195,7 @@ __cold int io_uring_ring_dontfork(struct io_uring *ring)
 }
 
 /* FIXME */
-static int huge_page_size = 2 * 1024 * 1024;
+static size_t huge_page_size = 2 * 1024 * 1024;
 
 /*
  * Returns negative for error, or number of bytes used in the buffer on success
@@ -223,6 +223,16 @@ static int io_uring_alloc_huge(unsigned entries, struct io_uring_params *p,
 	ring_mem += sq_entries * sizeof(unsigned);
 	mem_used = sqes_mem + ring_mem;
 	mem_used = (mem_used + page_size - 1) & ~(page_size - 1);
+
+	/*
+	 * A maxed-out number of CQ entries with IORING_SETUP_CQE32 fills a 2MB
+	 * huge page by itself, so the SQ entries won't fit in the same huge
+	 * page. For SQEs, that shouldn't be possible given KERN_MAX_ENTRIES,
+	 * but check that too to future-proof (e.g. against different huge page
+	 * sizes). Bail out early so we don't overrun.
+	 */
+	if (!buf && (sqes_mem > huge_page_size || ring_mem > huge_page_size))
+		return -ENOMEM;
 
 	if (buf) {
 		if (mem_used > buf_size)
