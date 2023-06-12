@@ -17,7 +17,7 @@ override CFLAGS += -Wno-unused-parameter \
 	$(LIBURING_CFLAGS)
 SO_CFLAGS=-fPIC $(CFLAGS)
 L_CFLAGS=$(CFLAGS)
-LINK_FLAGS=
+LINK_FLAGS=-Wl,-z,defs
 LINK_FLAGS+=$(LDFLAGS)
 ENABLE_SHARED ?= 1
 
