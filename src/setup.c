@@ -195,7 +195,7 @@ __cold int io_uring_ring_dontfork(struct io_uring *ring)
 }
 
 /* FIXME */
-static int huge_page_size = 2 * 1024 * 1024;
+static size_t huge_page_size = 2 * 1024 * 1024;
 
 /*
  * Returns negative for error, or number of bytes used in the buffer on success
@@ -218,49 +218,66 @@ static int io_uring_alloc_huge(unsigned entries, struct io_uring_params *p,
 	sqes_mem = sq_entries * sizeof(struct io_uring_sqe);
 	sqes_mem = (sqes_mem + page_size - 1) & ~(page_size - 1);
 	ring_mem = cq_entries * sizeof(struct io_uring_cqe);
+	if (p->flags & IORING_SETUP_CQE32)
+		ring_mem *= 2;
 	ring_mem += sq_entries * sizeof(unsigned);
+	mem_used = sqes_mem + ring_mem;
+	mem_used = (mem_used + page_size - 1) & ~(page_size - 1);
+
+	/*
+	 * A maxed-out number of CQ entries with IORING_SETUP_CQE32 fills a 2MB
+	 * huge page by itself, so the SQ entries won't fit in the same huge
+	 * page. For SQEs, that shouldn't be possible given KERN_MAX_ENTRIES,
+	 * but check that too to future-proof (e.g. against different huge page
+	 * sizes). Bail out early so we don't overrun.
+	 */
+	if (!buf && (sqes_mem > huge_page_size || ring_mem > huge_page_size))
+		return -ENOMEM;
 
 	if (buf) {
-		if (sqes_mem + ring_mem > buf_size)
+		if (mem_used > buf_size)
 			return -ENOMEM;
 		ptr = buf;
 	} else {
-		ptr = __sys_mmap(NULL, huge_page_size, PROT_READ|PROT_WRITE,
-					MAP_SHARED|MAP_ANONYMOUS|MAP_HUGETLB,
+		int map_hugetlb = 0;
+		if (sqes_mem <= page_size)
+			buf_size = page_size;
+		else {
+			buf_size = huge_page_size;
+			map_hugetlb = MAP_HUGETLB;
+		}
+		ptr = __sys_mmap(NULL, buf_size, PROT_READ|PROT_WRITE,
+					MAP_SHARED|MAP_ANONYMOUS|map_hugetlb,
 					-1, 0);
 		if (IS_ERR(ptr))
 			return PTR_ERR(ptr);
-
-		buf_size = huge_page_size;
 	}
 
 	sq->sqes = ptr;
-	memset(ptr, 0, buf_size);
-	if (sqes_mem + ring_mem <= buf_size) {
+	if (mem_used <= buf_size) {
 		sq->ring_ptr = (void *) sq->sqes + sqes_mem;
 		/* clear ring sizes, we have just one mmap() to undo */
 		cq->ring_sz = 0;
 		sq->ring_sz = 0;
 	} else {
+		int map_hugetlb = 0;
+		if (ring_mem <= page_size)
+			buf_size = page_size;
+		else {
+			buf_size = huge_page_size;
+			map_hugetlb = MAP_HUGETLB;
+		}
 		ptr = __sys_mmap(NULL, buf_size, PROT_READ|PROT_WRITE,
-					MAP_SHARED|MAP_ANONYMOUS|MAP_HUGETLB,
+					MAP_SHARED|MAP_ANONYMOUS|map_hugetlb,
 					-1, 0);
 		if (IS_ERR(ptr)) {
-			__sys_munmap(sq->sqes, buf_size);
+			__sys_munmap(sq->sqes, 1);
 			return PTR_ERR(ptr);
 		}
-		memset(ptr, 0, buf_size);
 		sq->ring_ptr = ptr;
 		sq->ring_sz = buf_size;
 		cq->ring_sz = 0;
 	}
-
-	/* add up memory used */
-	mem_used += sqes_mem;
-	mem_used += sq_entries * sizeof(unsigned int);
-	mem_used += cq_entries * sizeof(unsigned int);
-	/* round to full page */
-	mem_used = (mem_used + page_size - 1) & ~(page_size - 1);
 
 	cq->ring_ptr = (void *) sq->ring_ptr;
 	p->sq_off.user_addr = (unsigned long) sq->sqes;
@@ -291,7 +308,7 @@ static int __io_uring_queue_init_params(unsigned entries, struct io_uring *ring,
 	if (fd < 0) {
 		if ((p->flags & IORING_SETUP_NO_MMAP) &&
 		    !(ring->int_flags & INT_FLAG_APP_MEM)) {
-			__sys_munmap(ring->sq.sqes, huge_page_size);
+			__sys_munmap(ring->sq.sqes, 1);
 			io_uring_unmap_rings(&ring->sq, &ring->cq);
 		}
 		return fd;
