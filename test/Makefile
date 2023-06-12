@@ -142,6 +142,7 @@ test_srcs := \
 	recv-msgall.c \
 	recv-msgall-stream.c \
 	recv-multishot.c \
+	reg-fd-only.c \
 	reg-hint.c \
 	reg-reg-ring.c \
 	regbuf-merge.c \
