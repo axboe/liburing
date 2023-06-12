@@ -10,8 +10,9 @@ CPPFLAGS ?=
 override CPPFLAGS += -D_GNU_SOURCE \
 	-Iinclude/ -include ../config-host.h \
 	-D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64
-CFLAGS ?= -g -O3 -Wall -Wextra -fno-stack-protector
+CFLAGS ?= -g -O3 -Wall -Wextra
 override CFLAGS += -Wno-unused-parameter \
+	-fno-stack-protector \
 	-DLIBURING_INTERNAL \
 	$(LIBURING_CFLAGS)
 SO_CFLAGS=-fPIC $(CFLAGS)
