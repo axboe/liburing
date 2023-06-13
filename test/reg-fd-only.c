@@ -17,7 +17,9 @@ int main(int argc, char *argv[])
 		return T_EXIT_SKIP;
 
 	ret = io_uring_queue_init(8, &ring, IORING_SETUP_REGISTERED_FD_ONLY | IORING_SETUP_NO_MMAP);
-	if (ret) {
+	if (ret == -EINVAL)
+		return T_EXIT_SKIP;
+	else if (ret) {
 		fprintf(stderr, "ring setup failed\n");
 		return T_EXIT_FAIL;
 	}
