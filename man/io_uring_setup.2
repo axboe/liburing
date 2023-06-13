@@ -210,7 +210,7 @@ See
 for details on how to enable the ring. Available since 5.10.
 .TP
 .B IORING_SETUP_SUBMIT_ALL
-Normally io_uring stops submitting a batch of request, if one of these requests
+Normally io_uring stops submitting a batch of requests, if one of these requests
 results in an error. This can cause submission of less than what is expected,
 if a request ends in error while being submitted. If the ring is created with
 this flag,
