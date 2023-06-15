@@ -56,6 +56,7 @@ test_srcs := \
 	close-opath.c \
 	connect.c \
 	connect-rep.c \
+	coredump.c \
 	cq-full.c \
 	cq-overflow.c \
 	cq-peek-batch.c \
