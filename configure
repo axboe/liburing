@@ -384,6 +384,27 @@ if compile_prog "" "" "nvme uring cmd"; then
 fi
 print_config "NVMe uring command support" "$nvme_uring_cmd"
 
+##########################################
+# Check futexv support
+futexv="no"
+cat > $TMPC << EOF
+#include <linux/futex.h>
+#include <unistd.h>
+#include <string.h>
+int main(void)
+{
+  struct futex_waitv fw;
+
+  memset(&fw, FUTEX_32, sizeof(fw));
+
+  return sizeof(struct futex_waitv);
+}
+EOF
+if compile_prog "" "" "futexv"; then
+  futexv="yes"
+fi
+print_config "futex waitv support" "$futexv"
+
 #############################################################################
 liburing_nolibc="no"
 if test "$use_libc" != "yes"; then
@@ -460,6 +481,9 @@ if test "$nvme_uring_cmd" = "yes"; then
 fi
 if test "$has_fanotify" = "yes"; then
   output_sym "CONFIG_HAVE_FANOTIFY"
+fi
+if test "$futexv" = "yes"; then
+  output_sym "CONFIG_HAVE_FUTEXV"
 fi
 
 echo "CC=$cc" >> $config_host_mak
@@ -543,7 +567,22 @@ cat >> $compat_h << EOF
 
 EOF
 fi
+if test "$futexv" != "yes"; then
+cat >> $compat_h << EOF
+#include <inttypes.h>
 
+#define FUTEX_32	2
+#define FUTEX_WAITV_MAX	128
+
+struct futex_waitv {
+	uint64_t	val;
+	uint64_t	uaddr;
+	uint32_t	flags;
+	uint32_t	__reserved;
+};
+
+EOF
+fi
 cat >> $compat_h << EOF
 #endif
 EOF
