@@ -16,7 +16,7 @@
 #include "liburing.h"
 #include "helpers.h"
 
-static int test(void)
+static void test(void)
 {
 	struct io_uring_sqe *sqe;
 	struct io_uring ring;
@@ -26,7 +26,7 @@ static int test(void)
 
 	if (pipe(fds) < 0) {
 		perror("pipe");
-		return 1;
+		exit(0);
 	}
 
 	io_uring_queue_init(8, &ring, 0);
