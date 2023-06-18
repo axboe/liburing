@@ -1541,6 +1541,9 @@ occur if the application tries to queue more requests than we have room for in
 the CQ ring, or if the application attempts to wait for more events without
 having reaped the ones already present in the CQ ring.
 .TP
+.B EEXIST
+The thread submitting the work is invalid.
+.TP
 .B EINVAL
 Some bits in the
 .I flags
