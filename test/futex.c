@@ -135,6 +135,9 @@ int main(int argc, char *argv[])
 {
 	int ret;
 
+	if (argc > 1)
+		return T_EXIT_SKIP;
+
 	ret = test(0, 0);
 	if (ret)
 		return T_EXIT_FAIL;
