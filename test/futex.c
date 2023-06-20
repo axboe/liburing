@@ -49,7 +49,8 @@ static void *fwake(void *data)
 	return NULL;
 }
 
-static int __test(struct io_uring *ring, int vectored)
+static int __test(struct io_uring *ring, int vectored, int async,
+		  int async_cancel)
 {
 	struct io_uring_sqe *sqe;
 	struct io_uring_cqe *cqe;
@@ -76,6 +77,8 @@ static int __test(struct io_uring *ring, int vectored)
 		io_uring_prep_futex_waitv(sqe, fw, nfutex, 0, FUTEX_BITSET_MATCH_ANY);
 	else
 		io_uring_prep_futex_wait(sqe, futex, 0, FUTEX_BITSET_MATCH_ANY);
+	if (async)
+		sqe->flags |= IOSQE_ASYNC;
 	sqe->user_data = 1;
 
 	io_uring_submit(ring);
@@ -85,7 +88,8 @@ static int __test(struct io_uring *ring, int vectored)
 
 	sqe = io_uring_get_sqe(ring);
 	io_uring_prep_cancel64(sqe, 1, 0);
-	sqe->flags |= IOSQE_ASYNC;
+	if (async_cancel)
+		sqe->flags |= IOSQE_ASYNC;
 	sqe->user_data = 2;
 
 	io_uring_submit(ring);
@@ -120,7 +124,9 @@ static int test(int flags, int vectored)
 		return ret;
 	
 	for (i = 0; i < LOOPS; i++) {
-		ret = __test(&ring, vectored);
+		int async_cancel = (!i % 2);
+		int async_wait = !(i % 3);
+		ret = __test(&ring, vectored, async_wait, async_cancel);
 		if (ret) {
 			fprintf(stderr, "flags=%x, failed=%d\n", flags, i);
 			break;
