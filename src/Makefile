@@ -10,9 +10,8 @@ CPPFLAGS ?=
 override CPPFLAGS += -D_GNU_SOURCE \
 	-Iinclude/ -include ../config-host.h \
 	-D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64
-CFLAGS ?= -g -O3 -Wall -Wextra
+CFLAGS ?= -g -O3 -Wall -Wextra -fno-stack-protector
 override CFLAGS += -Wno-unused-parameter \
-	-fno-stack-protector \
 	-DLIBURING_INTERNAL \
 	$(LIBURING_CFLAGS)
 SO_CFLAGS=-fPIC $(CFLAGS)
@@ -46,8 +45,8 @@ liburing_srcs := setup.c queue.c register.c syscall.c version.c
 
 ifeq ($(CONFIG_NOLIBC),y)
 	liburing_srcs += nolibc.c
-	override CFLAGS += -nostdlib -nodefaultlibs -ffreestanding -fno-builtin
-	override CPPFLAGS += -nostdlib -nodefaultlibs -ffreestanding -fno-builtin
+	override CFLAGS += -nostdlib -nodefaultlibs -ffreestanding -fno-builtin -fno-stack-protector
+	override CPPFLAGS += -nostdlib -nodefaultlibs -ffreestanding -fno-builtin -fno-stack-protector
 	override LINK_FLAGS += -nostdlib -nodefaultlibs
 endif
 
