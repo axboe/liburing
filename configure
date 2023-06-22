@@ -26,6 +26,8 @@ for opt do
   ;;
   --cxx=*) cxx="$optarg"
   ;;
+  --use-libc) use_libc=yes
+  ;;
   *)
     echo "ERROR: unknown option $opt"
     echo "Try '$0 --help' for more information"
@@ -73,6 +75,7 @@ Options: [defaults in brackets after descriptions]
   --datadir=PATH           install shared data in PATH [$datadir]
   --cc=CMD                 use CMD as the C compiler
   --cxx=CMD                use CMD as the C++ compiler
+  --use-libc               use libc for liburing (useful for hardening)
 EOF
 exit 0
 fi
@@ -382,10 +385,13 @@ fi
 print_config "NVMe uring command support" "$nvme_uring_cmd"
 
 #############################################################################
-#
-# Currently, CONFIG_NOLIBC is only enabled on x86-64, x86 (32-bit) and aarch64.
-#
-cat > $TMPC << EOF
+liburing_nolibc="no"
+if test "$use_libc" != "yes"; then
+
+  #
+  # Currently, CONFIG_NOLIBC only supports x86-64, x86 (32-bit) and aarch64.
+  #
+  cat > $TMPC << EOF
 int main(void){
 #if defined(__x86_64__) || defined(__i386__) || defined(__aarch64__)
   return 0;
@@ -394,10 +400,13 @@ int main(void){
 #endif
 }
 EOF
-if compile_prog "" "" "nolibc support"; then
-  liburing_nolibc="yes"
+
+  if compile_prog "" "" "nolibc"; then
+    liburing_nolibc="yes"
+  fi
 fi
-print_config "nolibc support" "$liburing_nolibc";
+
+print_config "nolibc" "$liburing_nolibc";
 #############################################################################
 
 ####################################################
