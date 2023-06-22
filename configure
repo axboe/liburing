@@ -5,22 +5,6 @@ set -e
 cc=${CC:-gcc}
 cxx=${CXX:-g++}
 
-#
-# TODO(ammarfaizi2): Remove this notice and `--nolibc` option.
-#
-nolibc_deprecated() {
-  echo "";
-  echo "=================================================================";
-  echo "";
-  echo "  --nolibc option is deprecated and has no effect.";
-  echo "  It will be removed in a future liburing release.";
-  echo "";
-  echo "  liburing on x86-64, x86 (32-bit) and aarch64 always use CONFIG_NOLIBC.";
-  echo "";
-  echo "=================================================================";
-  echo "";
-}
-
 for opt do
   optarg=$(expr "x$opt" : 'x[^=]*=\(.*\)' || true)
   case "$opt" in
@@ -41,8 +25,6 @@ for opt do
   --cc=*) cc="$optarg"
   ;;
   --cxx=*) cxx="$optarg"
-  ;;
-  --nolibc) nolibc_deprecated
   ;;
   *)
     echo "ERROR: unknown option $opt"
@@ -91,7 +73,6 @@ Options: [defaults in brackets after descriptions]
   --datadir=PATH           install shared data in PATH [$datadir]
   --cc=CMD                 use CMD as the C compiler
   --cxx=CMD                use CMD as the C++ compiler
-  --nolibc                 build liburing without libc
 EOF
 exit 0
 fi
