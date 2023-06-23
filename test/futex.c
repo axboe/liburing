@@ -137,6 +137,157 @@ static int test(int flags, int vectored)
 	return ret;
 }
 
+static int test_order(int vectored, int async)
+{
+	struct io_uring_sqe *sqe;
+	struct io_uring_cqe *cqe;
+	struct futex_waitv fw;
+	struct io_uring ring;
+	unsigned int *futex;
+	int ret, i;
+
+	ret = io_uring_queue_init(8, &ring, 0);
+	if (ret)
+		return ret;
+
+	futex = malloc(sizeof(*futex));
+	*futex = 0;
+
+	fw.val = 0;
+	fw.uaddr = (unsigned long) futex;
+	fw.flags = FUTEX_32;
+	fw.__reserved = 0;
+
+	/*
+	 * Submit two futex waits
+	 */
+	sqe = io_uring_get_sqe(&ring);
+	if (!vectored)
+		io_uring_prep_futex_wait(sqe, futex, 0, FUTEX_BITSET_MATCH_ANY);
+	else
+		io_uring_prep_futex_waitv(sqe, &fw, 1, 0, FUTEX_BITSET_MATCH_ANY);
+	sqe->user_data = 1;
+
+	sqe = io_uring_get_sqe(&ring);
+	if (!vectored)
+		io_uring_prep_futex_wait(sqe, futex, 0, FUTEX_BITSET_MATCH_ANY);
+	else
+		io_uring_prep_futex_waitv(sqe, &fw, 1, 0, FUTEX_BITSET_MATCH_ANY);
+	sqe->user_data = 2;
+
+	io_uring_submit(&ring);
+
+	/*
+	 * Now submit wake for just one futex
+	 */
+	*futex = 1;
+	sqe = io_uring_get_sqe(&ring);
+	io_uring_prep_futex_wake(sqe, futex, 1, FUTEX_BITSET_MATCH_ANY);
+	sqe->user_data = 100;
+	if (async)
+		sqe->flags |= IOSQE_ASYNC;
+
+	io_uring_submit(&ring);
+
+	/*
+	 * We expect to find completions for the first futex wait, and
+	 * the futex wake. We should not see the last futex wait.
+	 */
+	for (i = 0; i < 2; i++) {
+		ret = io_uring_wait_cqe(&ring, &cqe);
+		if (ret) {
+			fprintf(stderr, "wait %d\n", ret);
+			return 1;
+		}
+		if (cqe->user_data == 1 || cqe->user_data == 100) {
+			io_uring_cqe_seen(&ring, cqe);
+			continue;
+		}
+		fprintf(stderr, "unexpected cqe %lu, res %d\n", (unsigned long) cqe->user_data, cqe->res);
+		return 1;
+	}
+
+	ret = io_uring_peek_cqe(&ring, &cqe);
+	if (ret != -EAGAIN) {
+		fprintf(stderr, "Unexpected cqe available: %d\n", cqe->res);
+		return 1;
+	}
+
+	io_uring_queue_exit(&ring);
+	return 0;
+}
+
+static int test_multi_wake(int vectored)
+{
+	struct io_uring_sqe *sqe;
+	struct io_uring_cqe *cqe;
+	struct futex_waitv fw;
+	struct io_uring ring;
+	unsigned int *futex;
+	int ret, i;
+
+	ret = io_uring_queue_init(8, &ring, 0);
+	if (ret)
+		return ret;
+
+	futex = malloc(sizeof(*futex));
+	*futex = 0;
+
+	fw.val = 0;
+	fw.uaddr = (unsigned long) futex;
+	fw.flags = FUTEX_32;
+	fw.__reserved = 0;
+
+	/*
+	 * Submit two futex waits
+	 */
+	sqe = io_uring_get_sqe(&ring);
+	if (!vectored)
+		io_uring_prep_futex_wait(sqe, futex, 0, FUTEX_BITSET_MATCH_ANY);
+	else
+		io_uring_prep_futex_waitv(sqe, &fw, 1, 0, FUTEX_BITSET_MATCH_ANY);
+	sqe->user_data = 1;
+
+	sqe = io_uring_get_sqe(&ring);
+	if (!vectored)
+		io_uring_prep_futex_wait(sqe, futex, 0, FUTEX_BITSET_MATCH_ANY);
+	else
+		io_uring_prep_futex_waitv(sqe, &fw, 1, 0, FUTEX_BITSET_MATCH_ANY);
+	sqe->user_data = 2;
+
+	io_uring_submit(&ring);
+
+	/*
+	 * Now submit wake for both futexes
+	 */
+	*futex = 1;
+	sqe = io_uring_get_sqe(&ring);
+	io_uring_prep_futex_wake(sqe, futex, 2, FUTEX_BITSET_MATCH_ANY);
+	sqe->user_data = 100;
+
+	io_uring_submit(&ring);
+
+	/*
+	 * We expect to find completions for the both futex waits, and
+	 * the futex wake.
+	 */
+	for (i = 0; i < 3; i++) {
+		ret = io_uring_wait_cqe(&ring, &cqe);
+		if (ret) {
+			fprintf(stderr, "wait %d\n", ret);
+			return 1;
+		}
+		if (cqe->res < 0) {
+			fprintf(stderr, "cqe error %d\n", cqe->res);
+			return 1;
+		}
+		io_uring_cqe_seen(&ring, cqe);
+	}
+
+	io_uring_queue_exit(&ring);
+	return 0;
+}
+
 int main(int argc, char *argv[])
 {
 	int ret;
@@ -145,38 +296,90 @@ int main(int argc, char *argv[])
 		return T_EXIT_SKIP;
 
 	ret = test(0, 0);
-	if (ret)
+	if (ret) {
+		fprintf(stderr, "test 0 0 failed\n");
 		return T_EXIT_FAIL;
+	}
 	if (no_futex)
 		return T_EXIT_SKIP;
 
 	ret = test(0, 1);
-	if (ret)
+	if (ret) {
+		fprintf(stderr, "test 0 1 failed\n");
 		return T_EXIT_FAIL;
+	}
 
 	ret = test(IORING_SETUP_SQPOLL, 0);
-	if (ret)
+	if (ret) {
+		fprintf(stderr, "test sqpoll 0 failed\n");
 		return T_EXIT_FAIL;
+	}
 
 	ret = test(IORING_SETUP_SQPOLL, 1);
-	if (ret)
+	if (ret) {
+		fprintf(stderr, "test sqpoll 1 failed\n");
 		return T_EXIT_FAIL;
+	}
 
 	ret = test(IORING_SETUP_SINGLE_ISSUER | IORING_SETUP_DEFER_TASKRUN, 0);
-	if (ret)
+	if (ret) {
+		fprintf(stderr, "test single coop 0 failed\n");
 		return T_EXIT_FAIL;
+	}
 
 	ret = test(IORING_SETUP_SINGLE_ISSUER | IORING_SETUP_DEFER_TASKRUN, 1);
-	if (ret)
+	if (ret) {
+		fprintf(stderr, "test single coop 1 failed\n");
 		return T_EXIT_FAIL;
+	}
 
 	ret = test(IORING_SETUP_COOP_TASKRUN, 0);
-	if (ret)
+	if (ret) {
+		fprintf(stderr, "test taskrun 0 failed\n");
 		return T_EXIT_FAIL;
+	}
 
 	ret = test(IORING_SETUP_COOP_TASKRUN, 1);
-	if (ret)
+	if (ret) {
+		fprintf(stderr, "test taskrun 1 failed\n");
 		return T_EXIT_FAIL;
+	}
+
+	ret = test_order(0, 0);
+	if (ret) {
+		fprintf(stderr, "test_order 0 0 failed\n");
+		return T_EXIT_FAIL;
+	}
+
+	ret = test_order(1, 0);
+	if (ret) {
+		fprintf(stderr, "test_order 1 0 failed\n");
+		return T_EXIT_FAIL;
+	}
+
+	ret = test_order(0, 1);
+	if (ret) {
+		fprintf(stderr, "test_order 0 1 failed\n");
+		return T_EXIT_FAIL;
+	}
+
+	ret = test_order(1, 1);
+	if (ret) {
+		fprintf(stderr, "test_order 1 1 failed\n");
+		return T_EXIT_FAIL;
+	}
+
+	ret = test_multi_wake(0);
+	if (ret) {
+		fprintf(stderr, "multi_wake 0 failed\n");
+		return T_EXIT_FAIL;
+	}
+
+	ret = test_multi_wake(1);
+	if (ret) {
+		fprintf(stderr, "multi_wake 1 failed\n");
+		return T_EXIT_FAIL;
+	}
 
 	return T_EXIT_PASS;
 }
