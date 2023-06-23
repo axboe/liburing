@@ -74,6 +74,12 @@ the user_data. This is what
 .BR io_uring_prep_cancel_fd (3)
 sets up. Available since 5.19.
 .TP
+.B IORING_ASYNC_CANCEL_FD_FIXED
+Set in conjunction with
+.B IORING_ASYNC_CANCEL_FD ,
+indicating that the file descriptor given is a direct descriptor rather than
+a normal file descriptor. Available since 6.0.
+.TP
 .B IORING_ASYNC_CANCEL_ANY
 Match any request in the ring, regardless of user_data or file descriptor.
 Can be used to cancel any pending request in the ring. Available since 5.19.
