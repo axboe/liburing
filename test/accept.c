@@ -195,7 +195,8 @@ static int start_accept_listen(struct sockaddr_in *addr, int port_off,
 
 	addr->sin_family = AF_INET;
 	addr->sin_addr.s_addr = inet_addr("127.0.0.1");
-	assert(!t_bind_ephemeral_port(fd, addr));
+	ret = t_bind_ephemeral_port(fd, addr);
+	assert(!ret);
 	ret = listen(fd, 128);
 	assert(ret != -1);
 

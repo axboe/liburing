@@ -36,13 +36,15 @@ void *t_malloc(size_t size)
 int t_bind_ephemeral_port(int fd, struct sockaddr_in *addr)
 {
 	socklen_t addrlen;
+	int ret;
 
 	addr->sin_port = 0;
 	if (bind(fd, (struct sockaddr *)addr, sizeof(*addr)))
 		return -errno;
 
 	addrlen = sizeof(*addr);
-	assert(!getsockname(fd, (struct sockaddr *)addr, &addrlen));
+	ret = getsockname(fd, (struct sockaddr *)addr, &addrlen);
+	assert(!ret);
 	assert(addr->sin_port != 0);
 	return 0;
 }
