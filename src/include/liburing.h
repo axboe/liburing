@@ -1217,7 +1217,7 @@ IOURINGINLINE void io_uring_prep_ftruncate(struct io_uring_sqe *sqe,
  */
 IOURINGINLINE unsigned io_uring_sq_ready(const struct io_uring *ring)
 {
-	unsigned khead = *ring->sq.khead;
+	unsigned khead;
 
 	/*
 	 * Without a barrier, we could miss an update and think the SQ wasn't
@@ -1226,6 +1226,8 @@ IOURINGINLINE unsigned io_uring_sq_ready(const struct io_uring *ring)
 	 */
 	if (ring->flags & IORING_SETUP_SQPOLL)
 		khead = io_uring_smp_load_acquire(ring->sq.khead);
+	else
+		khead = *ring->sq.khead;
 
 	/* always use real head, to avoid losing sync for short submit */
 	return ring->sq.sqe_tail - khead;
@@ -1412,7 +1414,7 @@ IOURINGINLINE struct io_uring_sqe *_io_uring_get_sqe(struct io_uring *ring)
 	if (ring->flags & IORING_SETUP_SQE128)
 		shift = 1;
 	if (!(ring->flags & IORING_SETUP_SQPOLL))
-		head = IO_URING_READ_ONCE(*sq->khead);
+		head = *sq->khead;
 	else
 		head = io_uring_smp_load_acquire(sq->khead);
 
