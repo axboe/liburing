@@ -81,7 +81,7 @@ liburing-ffi.a: $(liburing_objs) $(liburing_ffi_objs)
 $(libname): $(liburing_sobjs) liburing.map
 	$(QUIET_CC)$(CC) $(SO_CFLAGS) -shared -Wl,--version-script=liburing.map -Wl,-soname=$(soname) -o $@ $(liburing_sobjs) $(LINK_FLAGS)
 
-$(ffi_libname): $(liburing_ffi_objs) $(liburing_ffi_sobjs) liburing-ffi.map
+$(ffi_libname): $(liburing_ffi_objs) $(liburing_ffi_sobjs) $(liburing_sobjs) liburing-ffi.map
 	$(QUIET_CC)$(CC) $(SO_CFLAGS) -shared -Wl,--version-script=liburing-ffi.map -Wl,-soname=$(ffi_soname) -o $@ $(liburing_sobjs) $(liburing_ffi_sobjs) $(LINK_FLAGS)
 
 install: $(all_targets)

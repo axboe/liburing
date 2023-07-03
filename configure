@@ -468,6 +468,8 @@ echo "CXX=$cxx" >> $config_host_mak
 print_config "CXX" "$cxx"
 
 # generate io_uring_version.h
+# Reset MAKEFLAGS
+MAKEFLAGS=
 MAKE_PRINT_VARS="include Makefile.common\nprint-%: ; @echo \$(\$*)\n"
 VERSION_MAJOR=$(env echo -e "$MAKE_PRINT_VARS" | make -s --no-print-directory -f - print-VERSION_MAJOR)
 VERSION_MINOR=$(env echo -e "$MAKE_PRINT_VARS" | make -s --no-print-directory -f - print-VERSION_MINOR)
