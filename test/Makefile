@@ -225,7 +225,9 @@ all: $(test_targets)
 helpers.o: helpers.c
 	$(QUIET_CC)$(CC) $(CPPFLAGS) $(CFLAGS) -o $@ -c $<
 
-%.t: %.c $(helpers) helpers.h ../src/liburing.a
+LIBURING := $(shell if [ -e ../src/liburing.a ]; then echo ../src/liburing.a; fi)
+
+%.t: %.c $(helpers) helpers.h $(LIBURING)
 	$(QUIET_CC)$(CC) $(CPPFLAGS) $(CFLAGS) -o $@ $< $(helpers) $(LDFLAGS)
 
 #
@@ -234,7 +236,7 @@ helpers.o: helpers.c
 #   cc1plus: warning: command-line option '-Wmissing-prototypes' \
 #   is valid for C/ObjC but not for C++
 #
-%.t: %.cc $(helpers) helpers.h ../src/liburing.a
+%.t: %.cc $(helpers) helpers.h $(LIBURING)
 	$(QUIET_CXX)$(CXX) \
 	$(patsubst -Wmissing-prototypes,,$(CPPFLAGS)) \
 	$(patsubst -Wmissing-prototypes,,$(CXXFLAGS)) \
