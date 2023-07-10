@@ -441,6 +441,108 @@ err:
 	return 1;
 }
 
+static int test5(struct io_uring *ring, int *fd, int fixed)
+{
+	struct io_uring_sqe *sqe;
+	struct io_uring_cqe *cqe;
+	int ret, i, __fd = fd[0];
+	char buf[32];
+
+	if (fixed)
+		__fd = 0;
+
+	if (fixed) {
+		ret = io_uring_register_files(ring, fd, 1);
+		if (ret) {
+			fprintf(stderr, "failed file register %d\n", ret);
+			return 1;
+		}
+	}
+
+	for (i = 0; i < 8; i++) {
+		sqe = io_uring_get_sqe(ring);
+		if (!sqe) {
+			fprintf(stderr, "get sqe failed\n");
+			return 1;
+		}
+
+		io_uring_prep_read(sqe, __fd, buf, sizeof(buf), 0);
+		sqe->user_data = i + 1;
+		if (fixed)
+			sqe->flags |= IOSQE_FIXED_FILE;
+	}
+
+	ret = io_uring_submit(ring);
+	if (ret < 8) {
+		fprintf(stderr, "sqe submit failed: %d\n", ret);
+		return 1;
+	}
+
+	sqe = io_uring_get_sqe(ring);
+	if (!sqe) {
+		fprintf(stderr, "get sqe failed\n");
+		return 1;
+	}
+
+	/*
+	 * Mark CANCEL_ALL to cancel all matching the key, and use
+	 * CANCEL_FD to cancel requests matching the specified fd.
+	 * This should cancel all the pending poll requests on the pipe
+	 * input.
+	 */
+	io_uring_prep_cancel(sqe, 0, IORING_ASYNC_CANCEL_ALL);
+	sqe->cancel_flags |= IORING_ASYNC_CANCEL_OP;
+	sqe->len = IORING_OP_READ;
+	if (fixed)
+		sqe->cancel_flags |= IORING_ASYNC_CANCEL_FD_FIXED;
+	sqe->fd = __fd;
+	sqe->user_data = 100;
+
+	ret = io_uring_submit(ring);
+	if (ret < 1) {
+		fprintf(stderr, "child: sqe submit failed: %d\n", ret);
+		return 1;
+	}
+
+	for (i = 0; i < 9; i++) {
+		if (no_cancel_flags)
+			break;
+		ret = io_uring_wait_cqe(ring, &cqe);
+		if (ret) {
+			fprintf(stderr, "wait=%d\n", ret);
+			return 1;
+		}
+		switch (cqe->user_data) {
+		case 100:
+			if (cqe->res == -EINVAL) {
+				no_cancel_flags = 1;
+				break;
+			}
+			if (cqe->res != 8) {
+				fprintf(stderr, "canceled %d\n", cqe->res);
+				return 1;
+			}
+			break;
+		case 1 ... 8:
+			if (cqe->res != -ECANCELED) {
+				fprintf(stderr, "poll res %d\n", cqe->res);
+				return 1;
+			}
+			break;
+		default:
+			fprintf(stderr, "invalid user_data %lu\n",
+					(unsigned long) cqe->user_data);
+			return 1;
+		}
+		io_uring_cqe_seen(ring, cqe);
+	}
+
+	if (fixed)
+		io_uring_unregister_files(ring);
+
+	return 0;
+}
+
 int main(int argc, char *argv[])
 {
 	struct io_uring ring;
@@ -489,6 +591,12 @@ int main(int argc, char *argv[])
 	ret = test4(&ring, fd);
 	if (ret) {
 		fprintf(stderr, "test4 failed\n");
+		return ret;
+	}
+
+	ret = test5(&ring, fd, 0);
+	if (ret) {
+		fprintf(stderr, "test5 failed\n");
 		return ret;
 	}
 

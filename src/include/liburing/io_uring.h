@@ -302,6 +302,7 @@ enum io_uring_op {
 #define IORING_ASYNC_CANCEL_FD	(1U << 1)
 #define IORING_ASYNC_CANCEL_ANY	(1U << 2)
 #define IORING_ASYNC_CANCEL_FD_FIXED	(1U << 3)
+#define IORING_ASYNC_CANCEL_OP	(1U << 5)
 
 /*
  * send/sendmsg and recv/recvmsg flags (sqe->ioprio)
