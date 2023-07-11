@@ -174,6 +174,54 @@ static int test_ready(struct io_uring *ring)
 }
 
 /*
+ * Test cancelation of pending waitid
+ */
+static int test_cancel(struct io_uring *ring)
+{
+	struct io_uring_sqe *sqe;
+	struct io_uring_cqe *cqe;
+	int ret, i;
+	pid_t pid;
+
+	pid = fork();
+	if (!pid) {
+		child(1);
+		exit(0);
+	}
+
+	sqe = io_uring_get_sqe(ring);
+	io_uring_prep_waitid(sqe, P_PID, pid, NULL, WEXITED, NULL);
+	sqe->user_data = 1;
+
+	io_uring_submit(ring);
+
+	sqe = io_uring_get_sqe(ring);
+	io_uring_prep_cancel64(sqe, 1, 0);
+	sqe->user_data = 2;
+
+	io_uring_submit(ring);
+
+	for (i = 0; i < 2; i++) {
+		ret = io_uring_wait_cqe(ring, &cqe);
+		if (ret) {
+			fprintf(stderr, "cqe wait: %d\n", ret);
+			return T_EXIT_FAIL;
+		}
+		if (cqe->user_data == 1 && cqe->res != -ECANCELED) {
+			fprintf(stderr, "cqe res: %d\n", cqe->res);
+			return T_EXIT_FAIL;
+		}
+		if (cqe->user_data == 2 && cqe->res != 1) {
+			fprintf(stderr, "cqe res: %d\n", cqe->res);
+			return T_EXIT_FAIL;
+		}
+		io_uring_cqe_seen(ring, cqe);
+	}
+
+	return T_EXIT_PASS;
+}
+
+/*
  * Test basic reap of child exit
  */
 static int test(struct io_uring *ring)
@@ -255,6 +303,12 @@ int main(int argc, char *argv[])
 	ret = test_ready(&ring);
 	if (ret == T_EXIT_FAIL) {
 		fprintf(stderr, "test_ready failed\n");
+		return T_EXIT_FAIL;
+	}
+
+	ret = test_cancel(&ring);
+	if (ret == T_EXIT_FAIL) {
+		fprintf(stderr, "test_cancel failed\n");
 		return T_EXIT_FAIL;
 	}
 
