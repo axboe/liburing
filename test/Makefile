@@ -194,6 +194,7 @@ test_srcs := \
 	tty-write-dpoll.c \
 	unlink.c \
 	version.c \
+	waitid.c \
 	wakeup-hang.c \
 	xattr.c \
 	# EOL
