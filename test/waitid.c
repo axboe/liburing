@@ -14,8 +14,7 @@
 static bool no_waitid;
 
 static void io_uring_prep_waitid(struct io_uring_sqe *sqe, int which,
-				 int pid, siginfo_t *infop,
-				 int options, struct rusage *ru)
+				 int pid, siginfo_t *infop, int options)
 {
 	memset(sqe, 0, sizeof(*sqe));
 	sqe->opcode = IORING_OP_WAITID;
@@ -23,7 +22,6 @@ static void io_uring_prep_waitid(struct io_uring_sqe *sqe, int which,
 	sqe->file_index = options;
 	sqe->fd = pid;
 	sqe->addr2 = (unsigned long) infop;
-	sqe->addr = (unsigned long) ru;
 }
 
 static void child(int sleep_time)
@@ -51,7 +49,7 @@ static int test_noexit(struct io_uring *ring)
 	}
 
 	sqe = io_uring_get_sqe(ring);
-	io_uring_prep_waitid(sqe, P_PID, pid, &si, WEXITED, NULL);
+	io_uring_prep_waitid(sqe, P_PID, pid, &si, WEXITED);
 	sqe->flags |= IOSQE_IO_LINK;
 	sqe->user_data = 1;
 
@@ -109,7 +107,7 @@ static int test_double(struct io_uring *ring)
 	}
 
 	sqe = io_uring_get_sqe(ring);
-	io_uring_prep_waitid(sqe, P_PID, p2, &si, WEXITED, NULL);
+	io_uring_prep_waitid(sqe, P_PID, p2, &si, WEXITED);
 
 	io_uring_submit(ring);
 
@@ -150,7 +148,7 @@ static int test_ready(struct io_uring *ring)
 	}
 
 	sqe = io_uring_get_sqe(ring);
-	io_uring_prep_waitid(sqe, P_PID, pid, &si, WEXITED, NULL);
+	io_uring_prep_waitid(sqe, P_PID, pid, &si, WEXITED);
 
 	io_uring_submit(ring);
 
@@ -190,7 +188,7 @@ static int test_cancel(struct io_uring *ring)
 	}
 
 	sqe = io_uring_get_sqe(ring);
-	io_uring_prep_waitid(sqe, P_PID, pid, NULL, WEXITED, NULL);
+	io_uring_prep_waitid(sqe, P_PID, pid, NULL, WEXITED);
 	sqe->user_data = 1;
 
 	io_uring_submit(ring);
@@ -239,7 +237,7 @@ static int test(struct io_uring *ring)
 	}
 
 	sqe = io_uring_get_sqe(ring);
-	io_uring_prep_waitid(sqe, P_PID, pid, &si, WEXITED, NULL);
+	io_uring_prep_waitid(sqe, P_PID, pid, &si, WEXITED);
 
 	io_uring_submit(ring);
 
