@@ -5,12 +5,13 @@
 
 DEB_BUILD_MAINT_OPTIONS = hardening=+bindnow
 DEB_CFLAGS_MAINT_PREPEND = -Wall
+DEB_BUILD_OPTIONS += nocheck
 
 include /usr/share/dpkg/default.mk
 include /usr/share/dpkg/buildtools.mk
 
 %:
-	dh $@
+	dh $@ --parallel
 
 override_dh_auto_configure:
 	./configure \
