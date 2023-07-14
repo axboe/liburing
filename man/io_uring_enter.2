@@ -1242,6 +1242,22 @@ for details on how to setup a context for fixed buffer I/O.
 .in
 .PP
 
+.TP
+.B IORING_OP_WAITID
+Issue the equivalent of a
+.BR waitid(2)
+system call.
+.I len
+must contain the idtype being queried/waited for and
+.I fd
+must contain the 'pid' (or id) being waited for.
+.I file_index
+is the 'options' being set (the child state changes to wait for).
+.I addr2
+is a pointer to siginfo_t, if any, being filled in. See also
+.BR waitid(2)
+for the general description of the related system call. Available since 6.5.
+
 .PP
 The
 .I flags

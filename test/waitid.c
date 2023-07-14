@@ -5,24 +5,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <sys/wait.h>
 #include <string.h>
 
 #include "liburing.h"
 #include "helpers.h"
 
 static bool no_waitid;
-
-static void io_uring_prep_waitid(struct io_uring_sqe *sqe, int which,
-				 int pid, siginfo_t *infop, int options)
-{
-	memset(sqe, 0, sizeof(*sqe));
-	sqe->opcode = IORING_OP_WAITID;
-	sqe->len = which;
-	sqe->file_index = options;
-	sqe->fd = pid;
-	sqe->addr2 = (unsigned long) infop;
-}
 
 static void child(long msleep_time)
 {
