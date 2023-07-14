@@ -21,6 +21,7 @@
 #include <fcntl.h>
 #include <sched.h>
 #include <linux/swab.h>
+#include <sys/wait.h>
 #include "liburing/compat.h"
 #include "liburing/io_uring.h"
 #include "liburing/io_uring_version.h"
@@ -1159,6 +1160,17 @@ IOURINGINLINE void io_uring_prep_cmd_sock(struct io_uring_sqe *sqe,
 	UNUSED(optname);
 	io_uring_prep_rw(IORING_OP_URING_CMD, sqe, fd, NULL, 0, 0);
 	sqe->cmd_op = cmd_op;
+}
+
+IOURINGINLINE void io_uring_prep_waitid(struct io_uring_sqe *sqe,
+					idtype_t idtype,
+					id_t id,
+					siginfo_t *infop,
+					int options)
+{
+	io_uring_prep_rw(IORING_OP_WAITID, sqe, id, NULL, (unsigned) idtype, 0);
+	sqe->file_index = options;
+	sqe->addr2 = (unsigned long) infop;
 }
 
 /*
