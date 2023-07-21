@@ -1174,29 +1174,32 @@ IOURINGINLINE void io_uring_prep_waitid(struct io_uring_sqe *sqe,
 }
 
 IOURINGINLINE void io_uring_prep_futex_wake(struct io_uring_sqe *sqe,
-					    uint32_t *futex, uint32_t val,
-					    uint32_t mask)
+					    uint32_t *futex, uint64_t val,
+					    uint64_t mask)
 {
-	io_uring_prep_rw(IORING_OP_FUTEX_WAKE, sqe, 0, futex, val, 0);
-	sqe->file_index = mask;
+	io_uring_prep_rw(IORING_OP_FUTEX_WAKE, sqe, 0, futex, 0, val);
+	sqe->futex_flags = 2; /* FLAGS_SIZE_32 */
+	sqe->addr3 = mask;
 }
 
 IOURINGINLINE void io_uring_prep_futex_wait(struct io_uring_sqe *sqe,
-					    uint32_t *futex, uint32_t val,
-					    uint32_t mask)
+					    uint32_t *futex, uint64_t val,
+					    uint64_t mask)
 {
-	io_uring_prep_rw(IORING_OP_FUTEX_WAIT, sqe, 0, futex, val, 0);
-	sqe->file_index = mask;
+	io_uring_prep_rw(IORING_OP_FUTEX_WAIT, sqe, 0, futex, 0, val);
+	sqe->futex_flags = 2; /* FLAGS_SIZE_32 */
+	sqe->addr3 = mask;
 }
 
 struct futex_waitv;
 IOURINGINLINE void io_uring_prep_futex_waitv(struct io_uring_sqe *sqe,
 					     struct futex_waitv *futex,
-					     uint32_t nr_futex, uint32_t val,
-					     uint32_t mask)
+					     uint32_t nr_futex, uint64_t val,
+					     uint64_t mask)
 {
-	io_uring_prep_rw(IORING_OP_FUTEX_WAITV, sqe, 0, futex, val, nr_futex);
-	sqe->file_index = mask;
+	io_uring_prep_rw(IORING_OP_FUTEX_WAITV, sqe, 0, futex, nr_futex, val);
+	sqe->futex_flags = 2; /* FLAGS_SIZE_32 */
+	sqe->addr3 = mask;
 }
 
 /*
