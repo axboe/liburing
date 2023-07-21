@@ -131,6 +131,8 @@ static int test(int flags, int vectored)
 			fprintf(stderr, "flags=%x, failed=%d\n", flags, i);
 			break;
 		}
+		if (no_futex)
+			break;
 	}
 
 	io_uring_queue_exit(&ring);
