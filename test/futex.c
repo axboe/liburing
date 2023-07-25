@@ -74,7 +74,7 @@ static int __test(struct io_uring *ring, int vectored, int async,
 
 	sqe = io_uring_get_sqe(ring);
 	if (vectored)
-		io_uring_prep_futex_waitv(sqe, fw, nfutex, 0, FUTEX_BITSET_MATCH_ANY, 0);
+		io_uring_prep_futex_waitv(sqe, fw, nfutex, 0);
 	else
 		io_uring_prep_futex_wait(sqe, futex, 0, FUTEX_BITSET_MATCH_ANY, 0);
 	if (async)
@@ -167,14 +167,14 @@ static int test_order(int vectored, int async)
 	if (!vectored)
 		io_uring_prep_futex_wait(sqe, futex, 0, FUTEX_BITSET_MATCH_ANY, 0);
 	else
-		io_uring_prep_futex_waitv(sqe, &fw, 1, 0, FUTEX_BITSET_MATCH_ANY, 0);
+		io_uring_prep_futex_waitv(sqe, &fw, 1, 0);
 	sqe->user_data = 1;
 
 	sqe = io_uring_get_sqe(&ring);
 	if (!vectored)
 		io_uring_prep_futex_wait(sqe, futex, 0, FUTEX_BITSET_MATCH_ANY, 0);
 	else
-		io_uring_prep_futex_waitv(sqe, &fw, 1, 0, FUTEX_BITSET_MATCH_ANY, 0);
+		io_uring_prep_futex_waitv(sqe, &fw, 1, 0);
 	sqe->user_data = 2;
 
 	io_uring_submit(&ring);
@@ -247,14 +247,14 @@ static int test_multi_wake(int vectored)
 	if (!vectored)
 		io_uring_prep_futex_wait(sqe, futex, 0, FUTEX_BITSET_MATCH_ANY, 0);
 	else
-		io_uring_prep_futex_waitv(sqe, &fw, 1, 0, FUTEX_BITSET_MATCH_ANY, 0);
+		io_uring_prep_futex_waitv(sqe, &fw, 1, 0);
 	sqe->user_data = 1;
 
 	sqe = io_uring_get_sqe(&ring);
 	if (!vectored)
 		io_uring_prep_futex_wait(sqe, futex, 0, FUTEX_BITSET_MATCH_ANY, 0);
 	else
-		io_uring_prep_futex_waitv(sqe, &fw, 1, 0, FUTEX_BITSET_MATCH_ANY, 0);
+		io_uring_prep_futex_waitv(sqe, &fw, 1, 0);
 	sqe->user_data = 2;
 
 	io_uring_submit(&ring);
