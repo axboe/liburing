@@ -1129,6 +1129,20 @@ IOURINGINLINE void io_uring_prep_socket_direct_alloc(struct io_uring_sqe *sqe,
 }
 
 /*
+ * Prepare commands for sockets
+ */
+IOURINGINLINE void io_uring_prep_cmd_sock(struct io_uring_sqe *sqe,
+					  int cmd_op,
+					  int fd,
+					  int level,
+					  int optname,
+					  void *optval,
+					  int optlen)
+{
+	io_uring_prep_rw(IORING_OP_URING_CMD, sqe, fd, NULL, 0, 0);
+}
+
+/*
  * Returns number of unconsumed (if SQPOLL) or unsubmitted entries exist in
  * the SQ ring
  */
