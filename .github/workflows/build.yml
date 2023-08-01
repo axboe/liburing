@@ -106,6 +106,7 @@ jobs:
       run: |
         if [[ "${{matrix.cc_pkg}}" == "clang" ]]; then \
             wget https://apt.llvm.org/llvm.sh -O /tmp/llvm.sh; \
+            sudo apt-get purge --auto-remove llvm python3-lldb-14 llvm-14 -y; \
             sudo bash /tmp/llvm.sh 17; \
             sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-17 400; \
             sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-17 400; \
