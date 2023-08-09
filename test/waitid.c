@@ -258,6 +258,9 @@ int main(int argc, char *argv[])
 	struct io_uring ring;
 	int ret;
 
+	if (argc > 1)
+		return T_EXIT_SKIP;
+
 	io_uring_queue_init(8, &ring, 0);
 
 	ret = test(&ring);
