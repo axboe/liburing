@@ -271,7 +271,7 @@ static int test(struct args *args)
 		 */
 		bool const early_last = args->early_error == ERROR_EARLY_OVERFLOW &&
 					!args->wait_each &&
-					i == N_CQE_OVERFLOW &&
+					i >= N_CQE_OVERFLOW &&
 					!(cqe->flags & IORING_CQE_F_MORE);
 
 		bool const should_be_last =
