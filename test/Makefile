@@ -195,6 +195,7 @@ test_srcs := \
 	unlink.c \
 	version.c \
 	wakeup-hang.c \
+	wq-aff.c \
 	xattr.c \
 	# EOL
 
