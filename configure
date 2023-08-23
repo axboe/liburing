@@ -389,11 +389,11 @@ liburing_nolibc="no"
 if test "$use_libc" != "yes"; then
 
   #
-  # Currently, CONFIG_NOLIBC only supports x86-64, x86 (32-bit) and aarch64.
+  # Currently, CONFIG_NOLIBC only supports x86-64, x86 (32-bit), aarch64 and riscv64.
   #
   cat > $TMPC << EOF
 int main(void){
-#if defined(__x86_64__) || defined(__i386__) || defined(__aarch64__)
+#if defined(__x86_64__) || defined(__i386__) || defined(__aarch64__) || (defined(__riscv) && __riscv_xlen == 64)
   return 0;
 #else
 #error libc is needed
