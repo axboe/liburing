@@ -79,7 +79,6 @@ LIBURING_2.4 {
 		io_uring_register_restrictions;
 		io_uring_setup_buf_ring;
 		io_uring_free_buf_ring;
-		io_uring_queue_init_mem;
 } LIBURING_2.3;
 
 LIBURING_2.5 {

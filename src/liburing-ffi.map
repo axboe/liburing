@@ -172,7 +172,6 @@ LIBURING_2.4 {
 		io_uring_prep_msg_ring_fd;
 		io_uring_prep_msg_ring_fd_alloc;
 		io_uring_prep_sendto;
-		io_uring_queue_init_mem;
 		io_uring_prep_sock_cmd;
 	local:
 		*;
