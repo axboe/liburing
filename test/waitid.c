@@ -12,9 +12,10 @@
 
 static bool no_waitid;
 
-static void child(long msleep_time)
+static void child(long usleep_time)
 {
-	usleep(msleep_time * 1000UL);
+	if (usleep_time)
+		usleep(usleep_time);
 	exit(0);
 }
 
@@ -32,7 +33,7 @@ static int test_noexit(struct io_uring *ring)
 
 	pid = fork();
 	if (!pid) {
-		child(200);
+		child(200000);
 		exit(0);
 	}
 
@@ -83,14 +84,14 @@ static int test_double(struct io_uring *ring)
 	/* p1 will exit shortly */
 	p1 = fork();
 	if (!p1) {
-		child(100);
+		child(100000);
 		exit(0);
 	}
 
 	/* p2 will linger */
 	p2 = fork();
 	if (!p2) {
-		child(200);
+		child(200000);
 		exit(0);
 	}
 
@@ -171,7 +172,7 @@ static int test_cancel(struct io_uring *ring)
 
 	pid = fork();
 	if (!pid) {
-		child(1000);
+		child(20000);
 		exit(0);
 	}
 
