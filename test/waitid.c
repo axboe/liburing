@@ -209,6 +209,64 @@ static int test_cancel(struct io_uring *ring)
 }
 
 /*
+ * Test cancelation of pending waitid, with expected races that either
+ * waitid trigger or cancelation will win.
+ */
+static int test_cancel_race(struct io_uring *ring, int async)
+{
+	struct io_uring_sqe *sqe;
+	struct io_uring_cqe *cqe;
+	int ret, i;
+	pid_t pid;
+
+	for (i = 0; i < 10; i++) {
+		pid = fork();
+		if (!pid) {
+			child(getpid() & 1);
+			exit(0);
+		}
+	}
+
+	sqe = io_uring_get_sqe(ring);
+	io_uring_prep_waitid(sqe, P_ALL, -1, NULL, WEXITED);
+	if (async)
+		sqe->flags |= IOSQE_ASYNC;
+	sqe->user_data = 1;
+
+	io_uring_submit(ring);
+
+	sqe = io_uring_get_sqe(ring);
+	io_uring_prep_cancel64(sqe, 1, 0);
+	sqe->user_data = 2;
+
+	usleep(1);
+
+	io_uring_submit(ring);
+
+	for (i = 0; i < 2; i++) {
+		ret = io_uring_wait_cqe(ring, &cqe);
+		if (ret) {
+			fprintf(stderr, "cqe wait: %d\n", ret);
+			return T_EXIT_FAIL;
+		}
+		if (cqe->user_data == 1 && !(cqe->res == -ECANCELED ||
+					     cqe->res == 0)) {
+			fprintf(stderr, "cqe1 res: %d\n", cqe->res);
+			return T_EXIT_FAIL;
+		}
+		if (cqe->user_data == 2 &&
+		    !(cqe->res == 1 || cqe->res == 0 || cqe->res == -ENOENT ||
+		      cqe->res == -EALREADY)) {
+			fprintf(stderr, "cqe2 res: %d\n", cqe->res);
+			return T_EXIT_FAIL;
+		}
+		io_uring_cqe_seen(ring, cqe);
+	}
+
+	return T_EXIT_PASS;
+}
+
+/*
  * Test basic reap of child exit
  */
 static int test(struct io_uring *ring)
@@ -257,7 +315,7 @@ static int test(struct io_uring *ring)
 int main(int argc, char *argv[])
 {
 	struct io_uring ring;
-	int ret;
+	int ret, i;
 
 	if (argc > 1)
 		return T_EXIT_SKIP;
@@ -300,6 +358,14 @@ int main(int argc, char *argv[])
 	if (ret == T_EXIT_FAIL) {
 		fprintf(stderr, "test_cancel failed\n");
 		return T_EXIT_FAIL;
+	}
+
+	for (i = 0; i < 1000; i++) {
+		ret = test_cancel_race(&ring, i & 1);
+		if (ret == T_EXIT_FAIL) {
+			fprintf(stderr, "test_cancel_race failed\n");
+			return T_EXIT_FAIL;
+		}
 	}
 
 	io_uring_queue_exit(&ring);
