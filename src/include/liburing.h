@@ -723,6 +723,16 @@ IOURINGINLINE void io_uring_prep_read(struct io_uring_sqe *sqe, int fd,
 	io_uring_prep_rw(IORING_OP_READ, sqe, fd, buf, nbytes, offset);
 }
 
+IOURINGINLINE void io_uring_prep_read_multishot(struct io_uring_sqe *sqe,
+						int fd, unsigned nbytes,
+						__u64 offset, int buf_group)
+{
+	io_uring_prep_rw(IORING_OP_READ_MULTISHOT, sqe, fd, NULL, nbytes,
+			 offset);
+	sqe->buf_group = buf_group;
+	sqe->flags |= IOSQE_BUFFER_SELECT;
+}
+
 IOURINGINLINE void io_uring_prep_write(struct io_uring_sqe *sqe, int fd,
 				       const void *buf, unsigned nbytes,
 				       __u64 offset)

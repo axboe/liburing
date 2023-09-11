@@ -73,10 +73,8 @@ static int test(int first_good, int async)
 	}
 
 	sqe = io_uring_get_sqe(&ring);
-	io_uring_prep_read(sqe, fds[0], NULL, BUF_SIZE, 0);
-	sqe->opcode = IORING_OP_READ_MULTISHOT;
-	sqe->buf_group = BUF_BGID;
-	sqe->flags |= IOSQE_BUFFER_SELECT;
+	/* len == 0 means just use the defined provided buffer length */
+	io_uring_prep_read_multishot(sqe, fds[0], 0, 0, BUF_BGID);
 	if (async)
 		sqe->flags |= IOSQE_ASYNC;
 
