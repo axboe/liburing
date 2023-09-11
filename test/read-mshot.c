@@ -20,7 +20,7 @@
 
 #define BR_MASK		(NR_BUFS - 1)
 
-static int no_buf_ring;
+static int no_buf_ring, no_read_mshot;
 
 static int test(int first_good, int async)
 {
@@ -106,6 +106,10 @@ static int test(int first_good, int async)
 			/* expected failure as we try to read one too many */
 			if (cqe->res == -ENOBUFS && i == NR_BUFS)
 				break;
+			if (!i && cqe->res == -EINVAL) {
+				no_read_mshot = 1;
+				break;
+			}
 			fprintf(stderr, "%d: cqe res %d\n", i, cqe->res);
 			return 1;
 		}
@@ -137,7 +141,7 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "test 0 0 failed\n");
 		return T_EXIT_FAIL;
 	}
-	if (no_buf_ring)
+	if (no_buf_ring || no_read_mshot)
 		return T_EXIT_SKIP;
 
 	ret = test(0, 1);
