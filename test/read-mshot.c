@@ -129,6 +129,72 @@ static int test(int first_good, int async)
 	return 0;
 }
 
+static int test_invalid(int async)
+{
+	struct io_uring_buf_ring *br;
+	struct io_uring_params p = { };
+	struct io_uring_sqe *sqe;
+	struct io_uring_cqe *cqe;
+	struct io_uring ring;
+	char fname[32] = ".mshot.%d.XXXXXX";
+	int ret, fd;
+	char *buf;
+
+	p.flags = IORING_SETUP_CQSIZE;
+	p.cq_entries = NR_BUFS;
+	ret = io_uring_queue_init_params(1, &ring, &p);
+	if (ret) {
+		fprintf(stderr, "ring setup failed: %d\n", ret);
+		return 1;
+	}
+
+	fd = mkstemp(fname);
+	if (fd < 0) {
+		perror("mkstemp");
+		return 1;
+	}
+	unlink(fname);
+
+	if (posix_memalign((void **) &buf, 4096, BUF_SIZE))
+		return 1;
+
+	br = io_uring_setup_buf_ring(&ring, 1, BUF_BGID, 0, &ret);
+	if (!br) {
+		fprintf(stderr, "Buffer ring register failed %d\n", ret);
+		return 1;
+	}
+
+	io_uring_buf_ring_add(br, buf, BUF_SIZE, 1, BR_MASK, 0);
+	io_uring_buf_ring_advance(br, 1);
+
+	sqe = io_uring_get_sqe(&ring);
+	/* len == 0 means just use the defined provided buffer length */
+	io_uring_prep_read_multishot(sqe, fd, 0, 0, BUF_BGID);
+	if (async)
+		sqe->flags |= IOSQE_ASYNC;
+
+	ret = io_uring_submit(&ring);
+	if (ret != 1) {
+		fprintf(stderr, "submit: %d\n", ret);
+		return 1;
+	}
+
+	ret = io_uring_wait_cqe(&ring, &cqe);
+	if (ret) {
+		fprintf(stderr, "wait cqe failed %d\n", ret);
+		return 1;
+	}
+	if (cqe->res != -EBADFD) {
+		fprintf(stderr, "Got cqe res %d, wanted -EBADFD\n", cqe->res);
+		return 1;
+	}
+
+	io_uring_cqe_seen(&ring, cqe);
+	io_uring_queue_exit(&ring);
+	free(buf);
+	return 0;
+}
+
 int main(int argc, char *argv[])
 {
 	int ret;
@@ -159,6 +225,18 @@ int main(int argc, char *argv[])
 	ret = test(1, 1);
 	if (ret) {
 		fprintf(stderr, "test 1 1 failed\n");
+		return T_EXIT_FAIL;
+	}
+
+	ret = test_invalid(0);
+	if (ret) {
+		fprintf(stderr, "test_invalid 0 failed\n");
+		return T_EXIT_FAIL;
+	}
+
+	ret = test_invalid(1);
+	if (ret) {
+		fprintf(stderr, "test_invalid 1 failed\n");
 		return T_EXIT_FAIL;
 	}
 
