@@ -20,9 +20,11 @@
 
 #define BR_MASK		(NR_BUFS - 1)
 
+#define NR_OVERFLOW	(NR_BUFS / 4)
+
 static int no_buf_ring, no_read_mshot;
 
-static int test(int first_good, int async)
+static int test(int first_good, int async, int overflow)
 {
 	struct io_uring_buf_ring *br;
 	struct io_uring_params p = { };
@@ -35,7 +37,10 @@ static int test(int first_good, int async)
 	void *ptr;
 
 	p.flags = IORING_SETUP_CQSIZE;
-	p.cq_entries = NR_BUFS;
+	if (!overflow)
+		p.cq_entries = NR_BUFS + 1;
+	else
+		p.cq_entries = NR_OVERFLOW;
 	ret = io_uring_queue_init_params(1, &ring, &p);
 	if (ret) {
 		fprintf(stderr, "ring setup failed: %d\n", ret);
@@ -118,8 +123,16 @@ static int test(int first_good, int async)
 			return 1;
 		}
 		if (!(cqe->flags & IORING_CQE_F_MORE)) {
+			/* we expect this on overflow */
+			if (overflow && (i - 1 == NR_OVERFLOW))
+				break;
 			fprintf(stderr, "no more cqes\n");
-			break;
+			return 1;
+		}
+		/* should've overflown! */
+		if (overflow && i > NR_OVERFLOW) {
+			fprintf(stderr, "Expected overflow!\n");
+			return 1;
 		}
 		io_uring_cqe_seen(&ring, cqe);
 	}
@@ -202,29 +215,53 @@ int main(int argc, char *argv[])
 	if (argc > 1)
 		return T_EXIT_SKIP;
 
-	ret = test(0, 0);
+	ret = test(0, 0, 0);
 	if (ret) {
-		fprintf(stderr, "test 0 0 failed\n");
+		fprintf(stderr, "test 0 0 0 failed\n");
 		return T_EXIT_FAIL;
 	}
 	if (no_buf_ring || no_read_mshot)
 		return T_EXIT_SKIP;
 
-	ret = test(0, 1);
+	ret = test(0, 1, 0);
 	if (ret) {
-		fprintf(stderr, "test 0 1 failed\n");
+		fprintf(stderr, "test 0 1 0, failed\n");
 		return T_EXIT_FAIL;
 	}
 
-	ret = test(1, 0);
+	ret = test(1, 0, 0);
 	if (ret) {
-		fprintf(stderr, "test 1 0 failed\n");
+		fprintf(stderr, "test 1 0 0 failed\n");
 		return T_EXIT_FAIL;
 	}
 
-	ret = test(1, 1);
+	ret = test(0, 0, 1);
 	if (ret) {
-		fprintf(stderr, "test 1 1 failed\n");
+		fprintf(stderr, "test 0 0 1 failed\n");
+		return T_EXIT_FAIL;
+	}
+
+	ret = test(0, 1, 1);
+	if (ret) {
+		fprintf(stderr, "test 0 1 1 failed\n");
+		return T_EXIT_FAIL;
+	}
+
+	ret = test(1, 0, 1);
+	if (ret) {
+		fprintf(stderr, "test 1 0 1, failed\n");
+		return T_EXIT_FAIL;
+	}
+
+	ret = test(1, 0, 1);
+	if (ret) {
+		fprintf(stderr, "test 1 0 1 failed\n");
+		return T_EXIT_FAIL;
+	}
+
+	ret = test(1, 1, 1);
+	if (ret) {
+		fprintf(stderr, "test 1 1 1 failed\n");
 		return T_EXIT_FAIL;
 	}
 
