@@ -691,6 +691,13 @@ Insufficient kernel resources are available.
 .B IORING_SETUP_SQPOLL
 was specified, but the effective user ID of the caller did not have sufficient
 privileges.
+.TP
+.B EPERM
+.I /proc/sys/kernel/io_uring_disabled
+has the value 2, or it has the value 1 and the calling process does not hold the
+.B CAP_SYS_ADMIN
+capability or is not a member of
+.I /proc/sys/kernel/io_uring_group.
 .SH SEE ALSO
 .BR io_uring_register (2),
 .BR io_uring_enter (2)
