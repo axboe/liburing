@@ -16,6 +16,21 @@
 #define LOOPS	500
 #define NFUTEX	8
 
+#ifndef FUTEX2_SIZE_U8
+#define FUTEX2_SIZE_U8		0x00
+#define FUTEX2_SIZE_U16		0x01
+#define FUTEX2_SIZE_U32		0x02
+#define FUTEX2_SIZE_U64		0x03
+#define FUTEX2_NUMA		0x04
+			/*	0x08 */
+			/*	0x10 */
+			/*	0x20 */
+			/*	0x40 */
+#define FUTEX2_PRIVATE		FUTEX_PRIVATE_FLAG
+
+#define FUTEX2_SIZE_MASK	0x03
+#endif
+
 static int no_futex;
 
 static void *fwake(void *data)
@@ -68,7 +83,7 @@ static int __test(struct io_uring *ring, int vectored, int async,
 	for (i = 0; i < nfutex; i++) {
 		fw[i].val = 0;
 		fw[i].uaddr = (unsigned long) &futex[i];
-		fw[i].flags = FUTEX_32;
+		fw[i].flags = FUTEX2_SIZE_U32;
 		fw[i].__reserved = 0;
 	}
 
@@ -106,6 +121,12 @@ static int __test(struct io_uring *ring, int vectored, int async,
 			break;
 		}
 		io_uring_cqe_seen(ring, cqe);
+	}
+
+	ret = io_uring_peek_cqe(ring, &cqe);
+	if (!ret) {
+		fprintf(stderr, "peek found cqe!\n");
+		return 1;
 	}
 
 	for (i = 0; i < nfutex; i++)
@@ -157,7 +178,7 @@ static int test_order(int vectored, int async)
 
 	fw.val = 0;
 	fw.uaddr = (unsigned long) futex;
-	fw.flags = FUTEX_32;
+	fw.flags = FUTEX2_SIZE_U32;
 	fw.__reserved = 0;
 
 	/*
@@ -237,7 +258,7 @@ static int test_multi_wake(int vectored)
 
 	fw.val = 0;
 	fw.uaddr = (unsigned long) futex;
-	fw.flags = FUTEX_32;
+	fw.flags = FUTEX2_SIZE_U32;
 	fw.__reserved = 0;
 
 	/*
@@ -286,6 +307,145 @@ static int test_multi_wake(int vectored)
 		io_uring_cqe_seen(&ring, cqe);
 	}
 
+	ret = io_uring_peek_cqe(&ring, &cqe);
+	if (!ret) {
+		fprintf(stderr, "peek found cqe!\n");
+		return 1;
+	}
+
+	io_uring_queue_exit(&ring);
+	return 0;
+}
+
+/*
+ * Test that waking 0 futexes returns 0
+ */
+static int test_wake_zero(void)
+{
+	struct io_uring_sqe *sqe;
+	struct io_uring_cqe *cqe;
+	struct io_uring ring;
+	unsigned int *futex;
+	int ret;
+
+	ret = io_uring_queue_init(8, &ring, 0);
+	if (ret)
+		return ret;
+
+	futex = malloc(sizeof(*futex));
+	*futex = 0;
+
+	sqe = io_uring_get_sqe(&ring);
+	sqe->user_data = 1;
+	io_uring_prep_futex_wait(sqe, futex, 0, FUTEX_BITSET_MATCH_ANY, 0);
+
+	io_uring_submit(&ring);
+
+	sqe = io_uring_get_sqe(&ring);
+	sqe->user_data = 2;
+	io_uring_prep_futex_wake(sqe, futex, 0, FUTEX_BITSET_MATCH_ANY, 0);
+
+	io_uring_submit(&ring);
+
+	ret = io_uring_wait_cqe(&ring, &cqe);
+
+	/*
+	 * Should get zero res and it should be the wake
+	 */
+	if (cqe->res || cqe->user_data != 2) {
+		fprintf(stderr, "cqe res %d, data %ld\n", cqe->res, (long) cqe->user_data);
+		return 1;
+	}
+	io_uring_cqe_seen(&ring, cqe);
+
+	/*
+	 * Should not have the wait complete
+	 */
+	ret = io_uring_peek_cqe(&ring, &cqe);
+	if (!ret) {
+		fprintf(stderr, "peek found cqe!\n");
+		return 1;
+	}
+
+	io_uring_queue_exit(&ring);
+	return 0;
+}
+
+/*
+ * Test invalid wait/wake/waitv flags
+ */
+static int test_invalid(void)
+{
+	struct io_uring_sqe *sqe;
+	struct io_uring_cqe *cqe;
+	struct futex_waitv fw;
+	struct io_uring ring;
+	unsigned int *futex;
+	int ret;
+
+	ret = io_uring_queue_init(8, &ring, 0);
+	if (ret)
+		return ret;
+
+	futex = malloc(sizeof(*futex));
+	*futex = 0;
+
+	sqe = io_uring_get_sqe(&ring);
+	sqe->user_data = 1;
+	io_uring_prep_futex_wait(sqe, futex, 0, FUTEX_BITSET_MATCH_ANY, 0x1000);
+
+	io_uring_submit(&ring);
+
+	ret = io_uring_wait_cqe(&ring, &cqe);
+
+	/*
+	 * Should get zero res and it should be the wake
+	 */
+	if (cqe->res != -EINVAL) {
+		fprintf(stderr, "wait cqe res %d\n", cqe->res);
+		return 1;
+	}
+	io_uring_cqe_seen(&ring, cqe);
+
+	sqe = io_uring_get_sqe(&ring);
+	sqe->user_data = 1;
+	io_uring_prep_futex_wake(sqe, futex, 0, FUTEX_BITSET_MATCH_ANY, 0x1000);
+
+	io_uring_submit(&ring);
+
+	ret = io_uring_wait_cqe(&ring, &cqe);
+
+	/*
+	 * Should get zero res and it should be the wake
+	 */
+	if (cqe->res != -EINVAL) {
+		fprintf(stderr, "wake cqe res %d\n", cqe->res);
+		return 1;
+	}
+	io_uring_cqe_seen(&ring, cqe);
+
+	fw.val = 0;
+	fw.uaddr = (unsigned long) futex;
+	fw.flags = FUTEX2_SIZE_U32 | 0x1000;
+	fw.__reserved = 0;
+
+	sqe = io_uring_get_sqe(&ring);
+	sqe->user_data = 1;
+	io_uring_prep_futex_waitv(sqe, &fw, 1, 0);
+
+	io_uring_submit(&ring);
+
+	ret = io_uring_wait_cqe(&ring, &cqe);
+
+	/*
+	 * Should get zero res and it should be the wake
+	 */
+	if (cqe->res != -EINVAL) {
+		fprintf(stderr, "waitv cqe res %d\n", cqe->res);
+		return 1;
+	}
+	io_uring_cqe_seen(&ring, cqe);
+
 	io_uring_queue_exit(&ring);
 	return 0;
 }
@@ -308,6 +468,18 @@ int main(int argc, char *argv[])
 	ret = test(0, 1);
 	if (ret) {
 		fprintf(stderr, "test 0 1 failed\n");
+		return T_EXIT_FAIL;
+	}
+
+	ret = test_wake_zero();
+	if (ret) {
+		fprintf(stderr, "wake 0 failed\n");
+		return T_EXIT_FAIL;
+	}
+
+	ret = test_invalid();
+	if (ret) {
+		fprintf(stderr, "test invalid failed\n");
 		return T_EXIT_FAIL;
 	}
 
