@@ -87,6 +87,19 @@ bool t_probe_defer_taskrun(void);
 
 unsigned __io_uring_flush_sq(struct io_uring *ring);
 
+int __io_uring_queue_init_params(unsigned entries, struct io_uring *ring,
+				 struct io_uring_params *p, void *buf,
+				 size_t buf_size);
+
+static inline int t_io_uring_init_sqarray(unsigned entries, struct io_uring *ring,
+					struct io_uring_params *p)
+{
+	int ret;
+
+	ret = __io_uring_queue_init_params(entries, ring, p, NULL, 0);
+	return ret >= 0 ? 0 : ret;
+}
+
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
 
 void t_error(int status, int errnum, const char *format, ...);
