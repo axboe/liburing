@@ -1166,9 +1166,10 @@ IOURINGINLINE void io_uring_prep_waitid(struct io_uring_sqe *sqe,
 					idtype_t idtype,
 					id_t id,
 					siginfo_t *infop,
-					int options)
+					int options, unsigned int flags)
 {
 	io_uring_prep_rw(IORING_OP_WAITID, sqe, id, NULL, (unsigned) idtype, 0);
+	sqe->waitid_flags = flags;
 	sqe->file_index = options;
 	sqe->addr2 = (unsigned long) infop;
 }

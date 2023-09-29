@@ -38,7 +38,7 @@ static int test_noexit(struct io_uring *ring)
 	}
 
 	sqe = io_uring_get_sqe(ring);
-	io_uring_prep_waitid(sqe, P_PID, pid, &si, WEXITED);
+	io_uring_prep_waitid(sqe, P_PID, pid, &si, WEXITED, 0);
 	sqe->flags |= IOSQE_IO_LINK;
 	sqe->user_data = 1;
 
@@ -96,7 +96,7 @@ static int test_double(struct io_uring *ring)
 	}
 
 	sqe = io_uring_get_sqe(ring);
-	io_uring_prep_waitid(sqe, P_PID, p2, &si, WEXITED);
+	io_uring_prep_waitid(sqe, P_PID, p2, &si, WEXITED, 0);
 
 	io_uring_submit(ring);
 
@@ -137,7 +137,7 @@ static int test_ready(struct io_uring *ring)
 	}
 
 	sqe = io_uring_get_sqe(ring);
-	io_uring_prep_waitid(sqe, P_PID, pid, &si, WEXITED);
+	io_uring_prep_waitid(sqe, P_PID, pid, &si, WEXITED, 0);
 
 	io_uring_submit(ring);
 
@@ -177,7 +177,7 @@ static int test_cancel(struct io_uring *ring)
 	}
 
 	sqe = io_uring_get_sqe(ring);
-	io_uring_prep_waitid(sqe, P_PID, pid, NULL, WEXITED);
+	io_uring_prep_waitid(sqe, P_PID, pid, NULL, WEXITED, 0);
 	sqe->user_data = 1;
 
 	io_uring_submit(ring);
@@ -228,7 +228,7 @@ static int test_cancel_race(struct io_uring *ring, int async)
 	}
 
 	sqe = io_uring_get_sqe(ring);
-	io_uring_prep_waitid(sqe, P_ALL, -1, NULL, WEXITED);
+	io_uring_prep_waitid(sqe, P_ALL, -1, NULL, WEXITED, 0);
 	if (async)
 		sqe->flags |= IOSQE_ASYNC;
 	sqe->user_data = 1;
@@ -284,7 +284,7 @@ static int test(struct io_uring *ring)
 	}
 
 	sqe = io_uring_get_sqe(ring);
-	io_uring_prep_waitid(sqe, P_PID, pid, &si, WEXITED);
+	io_uring_prep_waitid(sqe, P_PID, pid, &si, WEXITED, 0);
 
 	io_uring_submit(ring);
 
