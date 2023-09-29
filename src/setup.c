@@ -76,7 +76,8 @@ static void io_uring_setup_ring_pointers(struct io_uring_params *p,
 	sq->kring_entries = sq->ring_ptr + p->sq_off.ring_entries;
 	sq->kflags = sq->ring_ptr + p->sq_off.flags;
 	sq->kdropped = sq->ring_ptr + p->sq_off.dropped;
-	sq->array = sq->ring_ptr + p->sq_off.array;
+	if (!(p->flags & IORING_SETUP_NO_SQARRAY))
+		sq->array = sq->ring_ptr + p->sq_off.array;
 
 	cq->khead = cq->ring_ptr + p->cq_off.head;
 	cq->ktail = cq->ring_ptr + p->cq_off.tail;
@@ -220,7 +221,8 @@ static int io_uring_alloc_huge(unsigned entries, struct io_uring_params *p,
 	ring_mem = cq_entries * sizeof(struct io_uring_cqe);
 	if (p->flags & IORING_SETUP_CQE32)
 		ring_mem *= 2;
-	ring_mem += sq_entries * sizeof(unsigned);
+	if (!(p->flags & IORING_SETUP_NO_SQARRAY))
+		ring_mem += sq_entries * sizeof(unsigned);
 	mem_used = sqes_mem + ring_mem;
 	mem_used = (mem_used + page_size - 1) & ~(page_size - 1);
 
@@ -335,11 +337,13 @@ static int __io_uring_queue_init_params(unsigned entries, struct io_uring *ring,
 	/*
 	 * Directly map SQ slots to SQEs
 	 */
-	sq_array = ring->sq.array;
 	sq_entries = ring->sq.ring_entries;
-	for (index = 0; index < sq_entries; index++)
-		sq_array[index] = index;
 
+	if (!(p->flags & IORING_SETUP_NO_SQARRAY)) {
+		sq_array = ring->sq.array;
+		for (index = 0; index < sq_entries; index++)
+			sq_array[index] = index;
+	}
 	ring->features = p->features;
 	ring->flags = p->flags;
 	ring->enter_ring_fd = fd;
