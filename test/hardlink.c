@@ -12,36 +12,34 @@
 #include "liburing.h"
 #include "helpers.h"
 
-
-static int do_linkat(struct io_uring *ring, const char *oldname, const char *newname, int flags)
+static int do_linkat(struct io_uring *ring, const char *oldname,
+		     const char *newname, int flags)
 {
-	int ret;
 	struct io_uring_sqe *sqe;
 	struct io_uring_cqe *cqe;
+	int ret;
 
 	sqe = io_uring_get_sqe(ring);
 	if (!sqe) {
 		fprintf(stderr, "sqe get failed\n");
-		goto err;
+		return 1;
 	}
 	io_uring_prep_linkat(sqe, AT_FDCWD, oldname, AT_FDCWD, newname, flags);
 
 	ret = io_uring_submit(ring);
 	if (ret != 1) {
 		fprintf(stderr, "submit failed: %d\n", ret);
-		goto err;
+		return 1;
 	}
 
 	ret = io_uring_wait_cqes(ring, &cqe, 1, 0, 0);
 	if (ret) {
 		fprintf(stderr, "wait_cqe failed: %d\n", ret);
-		goto err;
+		return 1;
 	}
 	ret = cqe->res;
 	io_uring_cqe_seen(ring, cqe);
 	return ret;
-err:
-	return 1;
 }
 
 static int files_linked_ok(const char* fn1, const char *fn2)
@@ -72,8 +70,8 @@ int main(int argc, char *argv[])
 	static const char target[] = "io_uring-linkat-test-target";
 	static const char linkname[] = "io_uring-linkat-test-link";
 	static const char symlinkname[] = "io_uring-linkat-test-symlink";
-	int ret;
 	struct io_uring ring;
+	int ret;
 
 	if (argc > 1)
 		return T_EXIT_SKIP;
@@ -120,10 +118,6 @@ int main(int argc, char *argv[])
 
 	ret = do_linkat(&ring, symlinkname, linkname, AT_SYMLINK_FOLLOW);
 	if (ret < 0) {
-		if (ret == -EBADF || ret == -EINVAL) {
-			fprintf(stdout, "linkat with flags not supported, skipping\n");
-			goto skip;
-		}
 		fprintf(stderr, "linkat: %s\n", strerror(-ret));
 		goto err2;
 	} else if (ret) {
