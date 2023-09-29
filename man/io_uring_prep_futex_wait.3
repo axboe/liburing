@@ -78,10 +78,15 @@ Instead it returns the negated
 directly in the CQE
 .I res
 field.
+.SH NOTES
+Unlike the sync futex syscalls that wait on a futex, io_uring does not support
+passing in a timeout for the request. Instead, applications are encouraged
+to use a linked timeout to abort the futex request at a given time, if desired.
 .SH SEE ALSO
 .BR io_uring_get_sqe (3),
 .BR io_uring_submit (3),
-.B$ io_uring_prep_futex_waitv (3),
-.B$ io_uring_prep_futex_wake (3),
+.BR io_uring_prep_futex_waitv (3),
+.BR io_uring_prep_futex_wake (3),
+.BR io_uring_prep_link_timeout (3),
 .BR futex (2)
 .BR futex2 (2)
