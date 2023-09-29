@@ -13,7 +13,7 @@
 #include "helpers.h"
 
 
-static int do_linkat(struct io_uring *ring, const char *oldname, const char *newname)
+static int do_linkat(struct io_uring *ring, const char *oldname, const char *newname, int flags)
 {
 	int ret;
 	struct io_uring_sqe *sqe;
@@ -24,7 +24,7 @@ static int do_linkat(struct io_uring *ring, const char *oldname, const char *new
 		fprintf(stderr, "sqe get failed\n");
 		goto err;
 	}
-	io_uring_prep_linkat(sqe, AT_FDCWD, oldname, AT_FDCWD, newname, 0);
+	io_uring_prep_linkat(sqe, AT_FDCWD, oldname, AT_FDCWD, newname, flags);
 
 	ret = io_uring_submit(ring);
 	if (ret != 1) {
@@ -71,6 +71,7 @@ int main(int argc, char *argv[])
 {
 	static const char target[] = "io_uring-linkat-test-target";
 	static const char linkname[] = "io_uring-linkat-test-link";
+	static const char symlinkname[] = "io_uring-linkat-test-symlink";
 	int ret;
 	struct io_uring ring;
 
@@ -94,44 +95,71 @@ int main(int argc, char *argv[])
 	}
 	close(ret);
 
-	ret = do_linkat(&ring, target, linkname);
+	ret = symlink(target, symlinkname);
+	if (ret < 0) {
+		perror("open");
+		goto err1;
+	}
+
+	ret = do_linkat(&ring, target, linkname, 0);
 	if (ret < 0) {
 		if (ret == -EBADF || ret == -EINVAL) {
 			fprintf(stdout, "linkat not supported, skipping\n");
 			goto skip;
 		}
 		fprintf(stderr, "linkat: %s\n", strerror(-ret));
-		goto err1;
+		goto err2;
 	} else if (ret) {
-		goto err1;
+		goto err2;
 	}
 
 	if (!files_linked_ok(linkname, target))
-		goto err2;
+		goto err3;
 
-	ret = do_linkat(&ring, target, linkname);
+	unlinkat(AT_FDCWD, linkname, 0);
+
+	ret = do_linkat(&ring, symlinkname, linkname, AT_SYMLINK_FOLLOW);
+	if (ret < 0) {
+		if (ret == -EBADF || ret == -EINVAL) {
+			fprintf(stdout, "linkat with flags not supported, skipping\n");
+			goto skip;
+		}
+		fprintf(stderr, "linkat: %s\n", strerror(-ret));
+		goto err2;
+	} else if (ret) {
+		goto err2;
+	}
+
+	if (!files_linked_ok(symlinkname, target))
+		goto err3;
+
+	ret = do_linkat(&ring, target, linkname, 0);
 	if (ret != -EEXIST) {
 		fprintf(stderr, "test_linkat linkname already exists failed: %d\n", ret);
-		goto err2;
+		goto err3;
 	}
 
-	ret = do_linkat(&ring, target, "surely/this/does/not/exist");
+	ret = do_linkat(&ring, target, "surely/this/does/not/exist", 0);
 	if (ret != -ENOENT) {
 		fprintf(stderr, "test_linkat no parent failed: %d\n", ret);
-		goto err2;
+		goto err3;
 	}
 
+	unlinkat(AT_FDCWD, symlinkname, 0);
 	unlinkat(AT_FDCWD, linkname, 0);
 	unlinkat(AT_FDCWD, target, 0);
 	io_uring_queue_exit(&ring);
 	return T_EXIT_PASS;
 skip:
+	unlinkat(AT_FDCWD, symlinkname, 0);
 	unlinkat(AT_FDCWD, linkname, 0);
 	unlinkat(AT_FDCWD, target, 0);
 	io_uring_queue_exit(&ring);
 	return T_EXIT_SKIP;
-err2:
+err3:
 	unlinkat(AT_FDCWD, linkname, 0);
+err2:
+	unlinkat(AT_FDCWD, symlinkname, 0);
 err1:
 	unlinkat(AT_FDCWD, target, 0);
 err:
