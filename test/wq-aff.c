@@ -135,7 +135,9 @@ int main(int argc, char *argv[])
 		return T_EXIT_SKIP;
 
 	ret = test(1);
-	if (ret) {
+	if (ret == T_EXIT_SKIP) {
+		return T_EXIT_SKIP;
+	} else if (ret != T_EXIT_PASS) {
 		fprintf(stderr, "test sqpoll failed\n");
 		return T_EXIT_FAIL;
 	}
