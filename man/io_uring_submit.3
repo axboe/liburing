@@ -26,7 +26,12 @@ and prepares the SQE using one of the provided helpers, it can be submitted with
 .SH RETURN VALUE
 On success
 .BR io_uring_submit (3)
-returns the number of submitted submission queue entries. On failure it returns
+returns the number of submitted submission queue entries, if SQPOLL is not used.
+If SQPOLL is used, the return value may report a higher number of submitted
+entries than actually submitted. If the the user requires accurate information
+about how many submission queue entries have been successfully submitted, while
+using SQPOLL, the user must fall back to repeatedly submitting a single submission
+queue entry. On failure it returns
 .BR -errno .
 .SH NOTES
 For any request that passes in data in a struct, that data must remain
