@@ -63,11 +63,17 @@ Available since 5.19.
 .SH RETURN VALUE
 On success
 .BR io_uring_setup_buf_ring (3)
-returns a pointer to the buffe ring. On failure it returns
+returns a pointer to the buffer ring. On failure it returns
 .BR NULL
 and sets
 .I *ret
 to -errno.
+.SH NOTES
+Note that even if the kernel supports this feature, registering a provided
+buffer ring may still fail with
+.B -EINVAL
+if the host is a 32-bit architecture and the memory being passed in resides in
+high memory.
 .SH SEE ALSO
 .BR io_uring_register_buf_ring (3),
 .BR io_uring_buf_ring_init (3),
