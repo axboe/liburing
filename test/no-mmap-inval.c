@@ -19,6 +19,7 @@ int main(int argc, char *argv[])
 		.cq_entries	= 4,
 		.flags		= IORING_SETUP_NO_MMAP,
 	};
+	struct io_uring ring;
 	int ret;
 
 	if (argc > 1)
@@ -26,7 +27,7 @@ int main(int argc, char *argv[])
 
 	p.cq_off.user_addr = (unsigned long long) (uintptr_t) valloc(8192);
 
-	ret = io_uring_setup(2, &p);
+	ret = io_uring_queue_init_params(2, &ring, &p);
 	if (ret == -EINVAL) {
 		/*  kernel doesn't support SETUP_NO_MMAP */
 		return T_EXIT_SKIP;
