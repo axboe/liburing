@@ -10,6 +10,7 @@ extern "C" {
 #endif
 
 #include "liburing.h"
+#include "../src/setup.h"
 #include <arpa/inet.h>
 
 enum t_setup_ret {
@@ -86,10 +87,6 @@ enum t_setup_ret t_register_buffers(struct io_uring *ring,
 bool t_probe_defer_taskrun(void);
 
 unsigned __io_uring_flush_sq(struct io_uring *ring);
-
-int __io_uring_queue_init_params(unsigned entries, struct io_uring *ring,
-				 struct io_uring_params *p, void *buf,
-				 size_t buf_size);
 
 static inline int t_io_uring_init_sqarray(unsigned entries, struct io_uring *ring,
 					struct io_uring_params *p)
