@@ -113,6 +113,7 @@ test_srcs := \
 	msg-ring-flags.c \
 	msg-ring-overflow.c \
 	multicqes_drain.c \
+	no-mmap-inval.c \
 	nolibc.c \
 	nop-all-sizes.c \
 	nop.c \
