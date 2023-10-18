@@ -1139,7 +1139,6 @@ IOURINGINLINE void io_uring_prep_socket_direct_alloc(struct io_uring_sqe *sqe,
 	__io_uring_set_target_fixed_file(sqe, IORING_FILE_INDEX_ALLOC - 1);
 }
 
-
 #define UNUSED(x) (void)(x)
 
 /*
@@ -1172,6 +1171,36 @@ IOURINGINLINE void io_uring_prep_waitid(struct io_uring_sqe *sqe,
 	sqe->waitid_flags = flags;
 	sqe->file_index = options;
 	sqe->addr2 = (unsigned long) infop;
+}
+
+IOURINGINLINE void io_uring_prep_futex_wake(struct io_uring_sqe *sqe,
+					    uint32_t *futex, uint64_t val,
+					    uint64_t mask, uint32_t futex_flags,
+					    unsigned int flags)
+{
+	io_uring_prep_rw(IORING_OP_FUTEX_WAKE, sqe, futex_flags, futex, 0, val);
+	sqe->futex_flags = flags;
+	sqe->addr3 = mask;
+}
+
+IOURINGINLINE void io_uring_prep_futex_wait(struct io_uring_sqe *sqe,
+					    uint32_t *futex, uint64_t val,
+					    uint64_t mask, uint32_t futex_flags,
+					    unsigned int flags)
+{
+	io_uring_prep_rw(IORING_OP_FUTEX_WAIT, sqe, futex_flags, futex, 0, val);
+	sqe->futex_flags = flags;
+	sqe->addr3 = mask;
+}
+
+struct futex_waitv;
+IOURINGINLINE void io_uring_prep_futex_waitv(struct io_uring_sqe *sqe,
+					     struct futex_waitv *futex,
+					     uint32_t nr_futex,
+					     unsigned int flags)
+{
+	io_uring_prep_rw(IORING_OP_FUTEX_WAITV, sqe, 0, futex, nr_futex, 0);
+	sqe->futex_flags = flags;
 }
 
 /*
