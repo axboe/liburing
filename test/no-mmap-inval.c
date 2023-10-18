@@ -24,7 +24,7 @@ int main(int argc, char *argv[])
 	if (argc > 1)
 		return T_EXIT_SKIP;
 
-	p.cq_off.user_addr = (unsigned long long) valloc(8192);
+	p.cq_off.user_addr = (unsigned long long) (uintptr_t) valloc(8192);
 
 	ret = io_uring_setup(2, &p);
 	if (ret != -EFAULT) {
