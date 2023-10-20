@@ -293,7 +293,7 @@ int main(int argc, char *argv[])
 	int err;
 
 	if (argc > 1)
-		return 0;
+		return T_EXIT_SKIP;
 
 	/* Simply io_uring ring creation */
 	ring = create_ring();
