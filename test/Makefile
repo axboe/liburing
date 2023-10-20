@@ -169,6 +169,7 @@ test_srcs := \
 	skip-cqe.c \
 	socket.c \
 	socket-io-cmd.c \
+	socket-getsetsock-cmd.c \
 	socket-rw.c \
 	socket-rw-eagain.c \
 	socket-rw-offset.c \
