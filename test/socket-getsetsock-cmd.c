@@ -278,7 +278,7 @@ static int run_setsockopt_test(struct io_uring *ring, struct fds *sockfds)
 }
 
 /* Send data throughts the sockets */
-void send_data(struct fds *s)
+static void send_data(struct fds *s)
 {
 	int written_bytes;
 	/* Send data sing the sockstruct->send */
