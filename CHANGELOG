@@ -1,3 +1,7 @@
+liburing-2.5 release
+
+- Add getsockopt and setsockopt socket commands
+
 liburing-2.4 release
 
 - Add io_uring_{major,minor,check}_version() functions.
