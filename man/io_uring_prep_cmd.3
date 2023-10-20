@@ -72,6 +72,38 @@ Negative return value means an error.
 For more information about this command, please check
 .BR unix(7).
 
+.TP
+.B SOCKET_URING_OP_GETSOCKOPT
+Command to get options for the socket referred to by the socket file descriptor
+.I fd.
+The arguments are similar to the
+.BR getsockopt(2)
+system call.
+
+The
+.BR SOCKET_URING_OP_GETSOCKOPT
+command is limited to
+.BR SOL_SOCKET
+.I level.
+
+Differently from the
+.BR getsockopt(2)
+system call, the updated
+.I optlen
+value is returned in the CQE
+.I res
+field, on success. On failure, the CQE
+.I res
+contains a negative error number.
+
+.TP
+.B SOCKET_URING_OP_SETSOCKOPT
+Command to set options for the socket referred to by the socket file descriptor
+.I fd.
+The arguments are similar to the
+.BR setsockopt(2)
+system call.
+
 .SH NOTES
 The memory block pointed by
 .I optval
