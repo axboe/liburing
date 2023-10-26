@@ -69,7 +69,7 @@ int main(int argc, char *argv[])
 		io_uring_prep_readv(sqe, fd, &iovecs[i], 1, offset);
 		offset += iovecs[i].iov_len;
 		i++;
-		if (offset > sb.st_size)
+		if (offset >= sb.st_size)
 			break;
 	} while (1);
 
