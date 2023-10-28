@@ -305,9 +305,9 @@ Available since 6.1.
 By default, io_uring allocates kernel memory that callers must subsequently
 .BR mmap (2).
 If this flag is set, io_uring instead uses caller-allocated buffers;
-.I p->cq_off.user_data
+.I p->cq_off.user_addr
 must point to the memory for the sq/cq rings, and
-.I p->sq_off.user_data
+.I p->sq_off.user_addr
 must point to the memory for the sqes.
 Each allocation must be contiguous memory.
 Typically, callers should allocate this memory by using
@@ -316,6 +316,7 @@ to allocate a huge page.
 If this flag is set, a subsequent attempt to
 .BR mmap (2)
 the io_uring file descriptor will fail.
+Available since 6.5.
 .TP
 .B IORING_SETUP_REGISTERED_FD_ONLY
 If this flag is set, io_uring will register the ring file descriptor, and
@@ -521,7 +522,8 @@ struct io_sqring_offsets {
     __u32 flags;
     __u32 dropped;
     __u32 array;
-    __u32 resv[3];
+    __u32 resv1;
+    __u64 user_addr;
 };
 .EE
 .in
@@ -617,7 +619,8 @@ struct io_cqring_offsets {
     __u32 overflow;
     __u32 cqes;
     __u32 flags;
-    __u32 resv[3];
+    __u32 resv1;
+    __u64 user_addr;
 };
 .EE
 .in
