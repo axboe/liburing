@@ -1,3 +1,7 @@
+liburing-2.6 release
+
+- Add getsockopt and setsockopt socket commands
+
 liburing-2.5 release
 
 - Add support for io_uring_prep_cmd_sock()

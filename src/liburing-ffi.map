@@ -180,4 +180,9 @@ LIBURING_2.5 {
 	global:
 		io_uring_queue_init_mem;
 		io_uring_prep_sock_cmd;
+		io_uring_prep_read_multishot;
+		io_uring_prep_waitid;
+		io_uring_prep_futex_wake;
+		io_uring_prep_futex_wait;
+		io_uring_prep_futex_waitv;
 } LIBURING_2.4;

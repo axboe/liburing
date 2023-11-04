@@ -93,6 +93,7 @@ test_srcs := \
 	fpos.c \
 	fsnotify.c \
 	fsync.c \
+	futex.c \
 	hardlink.c \
 	io-cancel.c \
 	iopoll.c \
@@ -140,6 +141,7 @@ test_srcs := \
 	pollfree.c \
 	probe.c \
 	read-before-exit.c \
+	read-mshot.c \
 	read-write.c \
 	recv-msgall.c \
 	recv-msgall-stream.c \
@@ -167,6 +169,7 @@ test_srcs := \
 	skip-cqe.c \
 	socket.c \
 	socket-io-cmd.c \
+	socket-getsetsock-cmd.c \
 	socket-rw.c \
 	socket-rw-eagain.c \
 	socket-rw-offset.c \
@@ -194,6 +197,7 @@ test_srcs := \
 	tty-write-dpoll.c \
 	unlink.c \
 	version.c \
+	waitid.c \
 	wakeup-hang.c \
 	wq-aff.c \
 	xattr.c \
