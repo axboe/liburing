@@ -120,7 +120,7 @@ static int __test(struct io_uring *ring, int vectored, int async,
 
 		if (cqe->res == -EINVAL || cqe->res == -EOPNOTSUPP) {
 			no_futex = 1;
-			break;
+			return 0;
 		}
 		io_uring_cqe_seen(ring, cqe);
 	}
