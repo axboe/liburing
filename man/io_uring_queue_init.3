@@ -48,7 +48,7 @@ the ring enters a CQ ring overflow state. Otherwise it drops the CQEs and
 increments
 .I cq.koverflow
 in
-.I stuct io_uring
+.I struct io_uring
 with the number of CQEs dropped. The overflow state is indicated by
 .B IORING_SQ_CQ_OVERFLOW
 being set in the SQ ring flags. Unless the kernel runs out of available memory,
