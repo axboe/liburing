@@ -45,7 +45,7 @@ if [ "$cur_ver" != "$version-1" ]; then
 	$DCH -D $distro --force-distribution -b -v "$version-1" "new version"
 fi
 
-# Create tar archieve
+# Create tar archive
 cd ../
 tar cvzf ${outfile}.tar.gz ${outfile}
 ln -s ${outfile}.tar.gz ${orgfile}.orig.tar.gz

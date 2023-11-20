@@ -380,7 +380,7 @@ static int io_uring_queue_init_try_nosqarr(unsigned entries, struct io_uring *ri
  * Like io_uring_queue_init_params(), except it allows the application to pass
  * in a pre-allocated memory range that is used for the shared data between
  * the kernel and the application. This includes the sqes array, and the two
- * rings. The memory must be contigious, the use case here is that the app
+ * rings. The memory must be contiguous, the use case here is that the app
  * allocates a huge page and passes it in.
  *
  * Returns the number of bytes used in the buffer, the app can then reuse
