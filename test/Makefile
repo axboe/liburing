@@ -88,6 +88,7 @@ test_srcs := \
 	file-update.c \
 	file-verify.c \
 	fixed-buf-iter.c \
+	fixed-buf-merge.c \
 	fixed-link.c \
 	fixed-reuse.c \
 	fpos.c \
