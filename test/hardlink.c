@@ -68,6 +68,7 @@ static int files_linked_ok(const char* fn1, const char *fn2)
 int main(int argc, char *argv[])
 {
 	static const char target[] = "io_uring-linkat-test-target";
+	static const char emptyname[] = "io_uring-linkat-test-empty";
 	static const char linkname[] = "io_uring-linkat-test-link";
 	static const char symlinkname[] = "io_uring-linkat-test-symlink";
 	struct io_uring ring;
@@ -90,6 +91,25 @@ int main(int argc, char *argv[])
 	if (write(fd, "linktest", 8) != 8) {
 		close(fd);
 		goto out;
+	}
+	if(geteuid()) {
+		fprintf(stdout, "not root, skipping AT_EMPTY_PATH test\n");
+	} else {
+		ret = do_linkat(&ring, fd, "", emptyname, AT_EMPTY_PATH);
+		if (ret < 0) {
+			if (ret == -EBADF || ret == -EINVAL) {
+				fprintf(stdout, "linkat not supported, skipping\n");
+				exit_status = T_EXIT_SKIP;
+				goto out;
+			}
+			fprintf(stderr, "linkat: %s\n", strerror(-ret));
+			goto out;
+		} else if (ret) {
+			goto out;
+		}
+		if (!files_linked_ok(emptyname, target))
+			goto out;
+		unlinkat(AT_FDCWD, emptyname, 0);
 	}
 	close(fd);
 
@@ -143,6 +163,7 @@ int main(int argc, char *argv[])
 out:
 	unlinkat(AT_FDCWD, symlinkname, 0);
 	unlinkat(AT_FDCWD, linkname, 0);
+	unlinkat(AT_FDCWD, emptyname, 0);
 	unlinkat(AT_FDCWD, target, 0);
 	io_uring_queue_exit(&ring);
 	return exit_status;
