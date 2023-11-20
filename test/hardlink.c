@@ -71,7 +71,7 @@ int main(int argc, char *argv[])
 	static const char linkname[] = "io_uring-linkat-test-link";
 	static const char symlinkname[] = "io_uring-linkat-test-symlink";
 	struct io_uring ring;
-	int ret, exit_status = T_EXIT_FAIL;
+	int ret, fd, exit_status = T_EXIT_FAIL;
 
 	if (argc > 1)
 		return T_EXIT_SKIP;
@@ -82,16 +82,16 @@ int main(int argc, char *argv[])
 		return ret;
 	}
 
-	ret = open(target, O_CREAT | O_RDWR | O_EXCL, 0600);
+	ret = fd = open(target, O_CREAT | O_RDWR | O_EXCL, 0600);
 	if (ret < 0) {
 		perror("open");
 		goto out;
 	}
-	if (write(ret, "linktest", 8) != 8) {
-		close(ret);
+	if (write(fd, "linktest", 8) != 8) {
+		close(fd);
 		goto out;
 	}
-	close(ret);
+	close(fd);
 
 	ret = symlink(target, symlinkname);
 	if (ret < 0) {
