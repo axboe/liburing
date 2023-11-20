@@ -12,7 +12,7 @@
 #include "liburing.h"
 #include "helpers.h"
 
-static int do_linkat(struct io_uring *ring, const char *oldname,
+static int do_linkat(struct io_uring *ring, int olddirfd, const char *oldname,
 		     const char *newname, int flags)
 {
 	struct io_uring_sqe *sqe;
@@ -24,7 +24,7 @@ static int do_linkat(struct io_uring *ring, const char *oldname,
 		fprintf(stderr, "sqe get failed\n");
 		return 1;
 	}
-	io_uring_prep_linkat(sqe, AT_FDCWD, oldname, AT_FDCWD, newname, flags);
+	io_uring_prep_linkat(sqe, olddirfd, oldname, AT_FDCWD, newname, flags);
 
 	ret = io_uring_submit(ring);
 	if (ret != 1) {
@@ -99,7 +99,7 @@ int main(int argc, char *argv[])
 		goto out;
 	}
 
-	ret = do_linkat(&ring, target, linkname, 0);
+	ret = do_linkat(&ring, AT_FDCWD, target, linkname, 0);
 	if (ret < 0) {
 		if (ret == -EBADF || ret == -EINVAL) {
 			fprintf(stdout, "linkat not supported, skipping\n");
@@ -117,7 +117,7 @@ int main(int argc, char *argv[])
 
 	unlinkat(AT_FDCWD, linkname, 0);
 
-	ret = do_linkat(&ring, symlinkname, linkname, AT_SYMLINK_FOLLOW);
+	ret = do_linkat(&ring, AT_FDCWD, symlinkname, linkname, AT_SYMLINK_FOLLOW);
 	if (ret < 0) {
 		fprintf(stderr, "linkat: %s\n", strerror(-ret));
 		goto out;
@@ -128,13 +128,13 @@ int main(int argc, char *argv[])
 	if (!files_linked_ok(symlinkname, target))
 		goto out;
 
-	ret = do_linkat(&ring, target, linkname, 0);
+	ret = do_linkat(&ring, AT_FDCWD, target, linkname, 0);
 	if (ret != -EEXIST) {
 		fprintf(stderr, "test_linkat linkname already exists failed: %d\n", ret);
 		goto out;
 	}
 
-	ret = do_linkat(&ring, target, "surely/this/does/not/exist", 0);
+	ret = do_linkat(&ring, AT_FDCWD, target, "surely/this/does/not/exist", 0);
 	if (ret != -ENOENT) {
 		fprintf(stderr, "test_linkat no parent failed: %d\n", ret);
 		goto out;
