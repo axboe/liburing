@@ -71,7 +71,7 @@ int main(int argc, char *argv[])
 	static const char linkname[] = "io_uring-linkat-test-link";
 	static const char symlinkname[] = "io_uring-linkat-test-symlink";
 	struct io_uring ring;
-	int ret;
+	int ret, exit_status = T_EXIT_FAIL;
 
 	if (argc > 1)
 		return T_EXIT_SKIP;
@@ -85,78 +85,65 @@ int main(int argc, char *argv[])
 	ret = open(target, O_CREAT | O_RDWR | O_EXCL, 0600);
 	if (ret < 0) {
 		perror("open");
-		goto err;
+		goto out;
 	}
 	if (write(ret, "linktest", 8) != 8) {
 		close(ret);
-		goto err1;
+		goto out;
 	}
 	close(ret);
 
 	ret = symlink(target, symlinkname);
 	if (ret < 0) {
 		perror("open");
-		goto err1;
+		goto out;
 	}
 
 	ret = do_linkat(&ring, target, linkname, 0);
 	if (ret < 0) {
 		if (ret == -EBADF || ret == -EINVAL) {
 			fprintf(stdout, "linkat not supported, skipping\n");
-			goto skip;
+			exit_status = T_EXIT_SKIP;
+			goto out;
 		}
 		fprintf(stderr, "linkat: %s\n", strerror(-ret));
-		goto err2;
+		goto out;
 	} else if (ret) {
-		goto err2;
+		goto out;
 	}
 
 	if (!files_linked_ok(linkname, target))
-		goto err3;
+		goto out;
 
 	unlinkat(AT_FDCWD, linkname, 0);
 
 	ret = do_linkat(&ring, symlinkname, linkname, AT_SYMLINK_FOLLOW);
 	if (ret < 0) {
 		fprintf(stderr, "linkat: %s\n", strerror(-ret));
-		goto err2;
+		goto out;
 	} else if (ret) {
-		goto err2;
+		goto out;
 	}
 
 	if (!files_linked_ok(symlinkname, target))
-		goto err3;
+		goto out;
 
 	ret = do_linkat(&ring, target, linkname, 0);
 	if (ret != -EEXIST) {
 		fprintf(stderr, "test_linkat linkname already exists failed: %d\n", ret);
-		goto err3;
+		goto out;
 	}
 
 	ret = do_linkat(&ring, target, "surely/this/does/not/exist", 0);
 	if (ret != -ENOENT) {
 		fprintf(stderr, "test_linkat no parent failed: %d\n", ret);
-		goto err3;
+		goto out;
 	}
-
+	exit_status = T_EXIT_PASS;
+out:
 	unlinkat(AT_FDCWD, symlinkname, 0);
 	unlinkat(AT_FDCWD, linkname, 0);
 	unlinkat(AT_FDCWD, target, 0);
 	io_uring_queue_exit(&ring);
-	return T_EXIT_PASS;
-skip:
-	unlinkat(AT_FDCWD, symlinkname, 0);
-	unlinkat(AT_FDCWD, linkname, 0);
-	unlinkat(AT_FDCWD, target, 0);
-	io_uring_queue_exit(&ring);
-	return T_EXIT_SKIP;
-err3:
-	unlinkat(AT_FDCWD, linkname, 0);
-err2:
-	unlinkat(AT_FDCWD, symlinkname, 0);
-err1:
-	unlinkat(AT_FDCWD, target, 0);
-err:
-	io_uring_queue_exit(&ring);
-	return T_EXIT_FAIL;
+	return exit_status;
 }
