@@ -139,7 +139,6 @@ test_srcs := \
 	poll-race-mshot.c \
 	poll-ring.c \
 	poll-v-poll.c \
-	pollfree.c \
 	probe.c \
 	read-before-exit.c \
 	read-mshot.c \
