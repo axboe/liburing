@@ -1202,6 +1202,12 @@ IOURINGINLINE void io_uring_prep_fixed_fd_install(struct io_uring_sqe *sqe,
 	sqe->install_fd_flags = flags;
 }
 
+IOURINGINLINE void io_uring_prep_ftruncate(struct io_uring_sqe *sqe,
+				       int fd, loff_t len)
+{
+	io_uring_prep_rw(IORING_OP_FTRUNCATE, sqe, fd, 0, 0, len);
+}
+
 /*
  * Returns number of unconsumed (if SQPOLL) or unsubmitted entries exist in
  * the SQ ring
