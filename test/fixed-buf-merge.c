@@ -88,6 +88,7 @@ int main(int argc, char *argv[])
 	io_uring_queue_exit(&ring);
 	close(fd);
 	free(to_free);
+	unlink(filename);
 	return T_EXIT_PASS;
 err_unlink:
 	unlink(filename);
