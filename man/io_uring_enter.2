@@ -1346,7 +1346,7 @@ linked timeout has the flag set, it's guaranteed to not post a CQE.
 
 The semantics are chosen to accommodate several use cases. First, when all but
 the last request of a normal link without linked timeouts are marked with the
-flag, only one CQE per lin is posted. Additionally, it enables suppression of
+flag, only one CQE per link is posted. Additionally, it enables suppression of
 CQEs in cases where the side effects of a successfully executed operation is
 enough for userspace to know the state of the system. One such example would
 be writing to a synchronisation file.
