@@ -1,6 +1,13 @@
 liburing-2.6 release
 
 - Add getsockopt and setsockopt socket commands
+- Add test cases to test/hardlink
+- Man page fixes
+- Add futex support, and test cases
+- Add waitid support, and test cases
+- Add read multishot, and test cases
+- Add support for IORING_SETUP_NO_SQARRAY
+- Use IORING_SETUP_NO_SQARRAY as the default
 
 liburing-2.5 release
 
