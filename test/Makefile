@@ -52,6 +52,7 @@ test_srcs := \
 	b19062a56726.c \
 	b5837bd5311d.c \
 	buf-ring.c \
+	buf-ring-nommap.c \
 	ce593a6c480a.c \
 	close-opath.c \
 	connect.c \
