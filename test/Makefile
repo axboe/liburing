@@ -53,6 +53,7 @@ test_srcs := \
 	b5837bd5311d.c \
 	buf-ring.c \
 	buf-ring-nommap.c \
+	buf-ring-put.c \
 	ce593a6c480a.c \
 	close-opath.c \
 	connect.c \
