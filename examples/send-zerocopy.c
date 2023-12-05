@@ -452,7 +452,6 @@ out_fail:
 	io_uring_queue_exit(&ring);
 }
 
-
 static void *do_test(void *arg)
 {
 	struct thread_data *td = arg;
@@ -467,8 +466,24 @@ static void *do_test(void *arg)
 
 static void usage(const char *filepath)
 {
-	t_error(1, 0, "Usage: %s [-n<N>] [-z<val>] [-s<payload size>] "
-		    "(-4|-6) [-t<time s>] -D<dst_ip> udp", filepath);
+	printf("Usage:\t%s <protocol> <ip-version> -D<addr> [options]\n", filepath);
+	printf("\t%s <protocol> <ip-version> -R [options]\n\n", filepath);
+
+	printf("  -4\t\tUse IPv4\n");
+	printf("  -6\t\tUse IPv4\n");
+	printf("  -D <address>\tDestination address\n");
+	printf("  -p <port>\tServer port to listen on/connect to\n");
+	printf("  -s <size>\tBytes per request\n");
+	printf("  -s <size>\tBytes per request\n");
+	printf("  -n <nr>\tNumber of parallel requests\n");
+	printf("  -z <mode>\tZerocopy mode, 0 to disable, enabled otherwise\n");
+	printf("  -b <mode>\tUse registered buffers\n");
+	printf("  -l <mode>\tUse huge pages\n");
+	printf("  -d\t\tUse defer taskrun\n");
+	printf("  -C <cpu>\tPin to the specified CPU\n");
+	printf("  -T <nr>\tNumber of threads to use for sending\n");
+	printf("  -R\t\tPlay the server role\n");
+	printf("  -t <seconds>\tTime in seconds\n");
 }
 
 static void parse_opts(int argc, char **argv)
@@ -480,8 +495,10 @@ static void parse_opts(int argc, char **argv)
 	int c;
 	char *daddr = NULL;
 
-	if (argc <= 1)
+	if (argc <= 1) {
 		usage(argv[0]);
+		exit(0);
+	}
 
 	cfg_payload_len = max_payload_len;
 
