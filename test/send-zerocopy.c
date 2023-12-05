@@ -278,6 +278,10 @@ static int create_socketpair_ip(struct sockaddr_storage *addr,
 #ifdef SO_ZEROCOPY
 		int val = 1;
 
+		/*
+		 * NOTE: apps must not set SO_ZEROCOPY when using io_uring zc.
+		 * It's only here to test interactions with MSG_ZEROCOPY.
+		 */
 		if (setsockopt(*sock_client, SOL_SOCKET, SO_ZEROCOPY, &val, sizeof(val))) {
 			perror("setsockopt zc");
 			return 1;
