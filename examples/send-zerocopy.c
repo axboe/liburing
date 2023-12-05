@@ -52,6 +52,7 @@ struct thread_data {
 	int idx;
 	unsigned long long packets;
 	unsigned long long bytes;
+	unsigned long long dt_ms;
 	struct sockaddr_storage dst_addr;
 	int fd;
 };
@@ -315,10 +316,11 @@ static void do_tx(struct thread_data *td, int domain, int type, int protocol)
 	const int notif_slack = 128;
 	struct io_uring ring;
 	struct iovec iov;
-	uint64_t tstop;
+	uint64_t tstart;
 	int i, fd, ret;
 	int compl_cqes = 0;
 	int ring_flags = IORING_SETUP_COOP_TASKRUN | IORING_SETUP_SINGLE_ISSUER;
+	unsigned loop = 0;
 
 	if (cfg_defer_taskrun)
 		ring_flags |= IORING_SETUP_DEFER_TASKRUN;
@@ -357,7 +359,7 @@ static void do_tx(struct thread_data *td, int domain, int type, int protocol)
 
 	pthread_barrier_wait(&barrier);
 
-	tstop = gettimeofday_ms() + cfg_runtime_ms;
+	tstart = gettimeofday_ms();
 	do {
 		struct io_uring_sqe *sqe;
 		struct io_uring_cqe *cqe;
@@ -419,7 +421,9 @@ static void do_tx(struct thread_data *td, int domain, int type, int protocol)
 			}
 			io_uring_cqe_seen(&ring, cqe);
 		}
-	} while (gettimeofday_ms() < tstop);
+	} while ((++loop % 16 != 0) || gettimeofday_ms() < tstart + cfg_runtime_ms);
+
+	td->dt_ms = gettimeofday_ms() - tstart;
 
 out_fail:
 	shutdown(fd, SHUT_RDWR);
@@ -536,6 +540,7 @@ static void parse_opts(int argc, char **argv)
 
 int main(int argc, char **argv)
 {
+	unsigned long long tsum = 0;
 	unsigned long long packets = 0, bytes = 0;
 	struct thread_data *td;
 	const char *cfg_test;
@@ -586,13 +591,18 @@ int main(int argc, char **argv)
 		pthread_join(td->thread, &res);
 		packets += td->packets;
 		bytes += td->bytes;
+		tsum += td->dt_ms;
 	}
+	tsum = tsum / cfg_nr_threads;
 
-	fprintf(stderr, "packets=%llu (MB=%llu), rps=%llu (MB/s=%llu)\n",
-		packets, bytes >> 20,
-		packets / (cfg_runtime_ms / 1000),
-		(bytes >> 20) / (cfg_runtime_ms / 1000));
-
+	if (!tsum) {
+		fprintf(stderr, "The run is too short, can't gather stats\n");
+	} else {
+		fprintf(stderr, "packets=%llu (MB=%llu), rps=%llu (MB/s=%llu)\n",
+			packets, bytes >> 20,
+			packets * 1000 / tsum,
+			(bytes >> 20) * 1000 / tsum);
+	}
 	pthread_barrier_destroy(&barrier);
 	return 0;
 }
