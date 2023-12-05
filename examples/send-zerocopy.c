@@ -596,9 +596,9 @@ int main(int argc, char **argv)
 	tsum = tsum / cfg_nr_threads;
 
 	if (!tsum) {
-		fprintf(stderr, "The run is too short, can't gather stats\n");
+		printf("The run is too short, can't gather stats\n");
 	} else {
-		fprintf(stderr, "packets=%llu (MB=%llu), rps=%llu (MB/s=%llu)\n",
+		printf("packets=%llu (MB=%llu), rps=%llu (MB/s=%llu)\n",
 			packets, bytes >> 20,
 			packets * 1000 / tsum,
 			(bytes >> 20) * 1000 / tsum);
