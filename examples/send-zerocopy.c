@@ -39,6 +39,7 @@
 #include <sys/wait.h>
 #include <sys/mman.h>
 #include <linux/mman.h>
+#include <signal.h>
 
 #include "liburing.h"
 
@@ -81,6 +82,16 @@ static char payload_buf[IP_MAXPACKET] __attribute__((aligned(4096)));
 static char *payload;
 static struct thread_data threads[MAX_THREADS];
 static pthread_barrier_t barrier;
+
+static bool should_stop = false;
+
+static void sigint_handler(int sig)
+{
+	/* kill if should_stop can't unblock threads fast enough */
+	if (should_stop)
+		_exit(-1);
+	should_stop = true;
+}
 
 /*
  * Implementation of error(3), prints an error message and exits.
@@ -421,6 +432,8 @@ static void do_tx(struct thread_data *td, int domain, int type, int protocol)
 			}
 			io_uring_cqe_seen(&ring, cqe);
 		}
+		if (should_stop)
+			break;
 	} while ((++loop % 16 != 0) || gettimeofday_ms() < tstart + cfg_runtime_ms);
 
 	td->dt_ms = gettimeofday_ms() - tstart;
@@ -581,6 +594,9 @@ int main(int argc, char **argv)
 
 	if (cfg_rx)
 		do_setup_rx(cfg_family, cfg_type, 0);
+
+	if (!cfg_rx)
+		signal(SIGINT, sigint_handler);
 
 	for (i = 0; i < cfg_nr_threads; i++)
 		pthread_create(&threads[i].thread, NULL,
