@@ -85,7 +85,7 @@ static pthread_barrier_t barrier;
 
 static bool should_stop = false;
 
-static void sigint_handler(int sig)
+static void sigint_handler(__attribute__((__unused__)) int sig)
 {
 	/* kill if should_stop can't unblock threads fast enough */
 	if (should_stop)
