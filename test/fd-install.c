@@ -183,7 +183,14 @@ static int test_working(struct io_uring *ring)
 	io_uring_submit(ring);
 
 	/* put some data in the pipe */
-	write(fds[1], "Hello", 5);
+	ret = write(fds[1], "Hello", 5);
+	if (ret < 0) {
+		perror("write");
+		return T_EXIT_FAIL;
+	} else if (ret != 5) {
+		fprintf(stderr, "short write %d\n", ret);
+		return T_EXIT_FAIL;
+	}
 
 	ret = io_uring_wait_cqe(ring, &cqe);
 	if (ret) {
@@ -218,7 +225,14 @@ static int test_working(struct io_uring *ring)
 	fds[0] = cqe->res;
 	io_uring_cqe_seen(ring, cqe);
 
-	write(fds[1], "Hello", 5);
+	ret = write(fds[1], "Hello", 5);
+	if (ret < 0) {
+		perror("write");
+		return T_EXIT_FAIL;
+	} else if (ret != 5) {
+		fprintf(stderr, "short write %d\n", ret);
+		return T_EXIT_FAIL;
+	}
 
 	/* normal pipe read should now work with new fd */
 	ret = read(fds[0], buf, sizeof(buf));
@@ -243,7 +257,14 @@ static int test_working(struct io_uring *ring)
 	}
 	io_uring_cqe_seen(ring, cqe);
 
-	write(fds[1], "Hello", 5);
+	ret = write(fds[1], "Hello", 5);
+	if (ret < 0) {
+		perror("write");
+		return T_EXIT_FAIL;
+	} else if (ret != 5) {
+		fprintf(stderr, "short write %d\n", ret);
+		return T_EXIT_FAIL;
+	}
 
 	/* normal pipe read should still work with new fd */
 	ret = read(fds[0], buf, sizeof(buf));
@@ -259,7 +280,14 @@ static int test_working(struct io_uring *ring)
 	io_uring_submit(ring);
 
 	/* put some data in the pipe */
-	write(fds[1], "Hello", 5);
+	ret = write(fds[1], "Hello", 5);
+	if (ret < 0) {
+		perror("write");
+		return T_EXIT_FAIL;
+	} else if (ret != 5) {
+		fprintf(stderr, "short write %d\n", ret);
+		return T_EXIT_FAIL;
+	}
 
 	ret = io_uring_wait_cqe(ring, &cqe);
 	if (ret) {

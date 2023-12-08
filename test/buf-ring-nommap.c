@@ -85,7 +85,14 @@ int main(int argc, char *argv[])
 
 	io_uring_submit(&ring);
 
-	write(fds[1], "Hello", 5);
+	ret = write(fds[1], "Hello", 5);
+	if (ret < 0) {
+		perror("write");
+		return T_EXIT_FAIL;
+	} else if (ret != 5) {
+		fprintf(stderr, "short write %d\n", ret);
+		return T_EXIT_FAIL;
+	}
 
 	ret = io_uring_wait_cqe(&ring, &cqe);
 	if (ret) {
