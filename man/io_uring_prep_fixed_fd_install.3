@@ -26,12 +26,13 @@ with the specified
 .I file_flags
 file installation flags, and the
 .I flags
-request specific flags.
+request specific flags into the normal process file table.
 
 One use case of direct/fixed file descriptors is to turn a regular file
-descriptor into a direct one. This helper provides a way to go the other way,
+descriptor into a direct one, reducing the overhead of any request that
+needs to access this file. This helper provides a way to go the other way,
 turning a direct descriptor into a regular file descriptor that can then
-subsequently be used by other system calls that take regular file descriptors.
+subsequently be used by regular system calls that take a normal file descriptor.
 This can be handy if no regular file descriptor exists for this direct
 descriptor. Either because it was instantiated directly as a fixed descriptor,
 or because the regular file was closed with
