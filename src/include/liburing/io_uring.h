@@ -384,6 +384,13 @@ enum {
 #define IORING_MSG_RING_FLAGS_PASS	(1U << 1)
 
 /*
+ * IORING_OP_FIXED_FD_INSTALL flags (sqe->install_fd_flags)
+ *
+ * IORING_FIXED_FD_NO_CLOEXEC	Don't mark the fd as O_CLOEXEC
+ */
+#define IORING_FIXED_FD_NO_CLOEXEC	(1U << 0)
+
+/*
  * IO completion data structure (Completion Queue Entry)
  */
 struct io_uring_cqe {

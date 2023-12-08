@@ -1202,10 +1202,9 @@ IOURINGINLINE void io_uring_prep_futex_waitv(struct io_uring_sqe *sqe,
 
 IOURINGINLINE void io_uring_prep_fixed_fd_install(struct io_uring_sqe *sqe,
 						  int fd,
-						  unsigned int file_flags,
 						  unsigned int flags)
 {
-	io_uring_prep_rw(IORING_OP_FIXED_FD_INSTALL, sqe, fd, NULL, file_flags, 0);
+	io_uring_prep_rw(IORING_OP_FIXED_FD_INSTALL, sqe, fd, NULL, 0, 0);
 	sqe->flags = IOSQE_FIXED_FILE;
 	sqe->install_fd_flags = flags;
 }

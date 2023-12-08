@@ -34,9 +34,9 @@ static int test_flags(struct io_uring *ring)
 		return T_EXIT_FAIL;
 	}
 
-	/* check that setting some O_* flag fails */
+	/* check that setting an invalid flag fails */
 	sqe = io_uring_get_sqe(ring);
-	io_uring_prep_fixed_fd_install(sqe, 0, O_APPEND, 0);
+	io_uring_prep_fixed_fd_install(sqe, 0, 1U << 17);
 	io_uring_submit(ring);
 
 	ret = io_uring_wait_cqe(ring, &cqe);
@@ -50,9 +50,9 @@ static int test_flags(struct io_uring *ring)
 	}
 	io_uring_cqe_seen(ring, cqe);
 
-	/* check that O_CLOEXEC is accepted */
+	/* check that IORING_FIXED_FD_NO_CLOEXEC is accepted */
 	sqe = io_uring_get_sqe(ring);
-	io_uring_prep_fixed_fd_install(sqe, 0, O_CLOEXEC, 0);
+	io_uring_prep_fixed_fd_install(sqe, 0, IORING_FIXED_FD_NO_CLOEXEC);
 	io_uring_submit(ring);
 
 	ret = io_uring_wait_cqe(ring, &cqe);
@@ -94,7 +94,7 @@ static int test_not_fixed(struct io_uring *ring)
 	}
 
 	sqe = io_uring_get_sqe(ring);
-	io_uring_prep_fixed_fd_install(sqe, 0, 0, 0);
+	io_uring_prep_fixed_fd_install(sqe, 0, 0);
 	sqe->flags &= ~IOSQE_FIXED_FILE;
 	io_uring_submit(ring);
 
@@ -125,7 +125,7 @@ static int test_bad_fd(struct io_uring *ring, int some_fd)
 	int ret;
 
 	sqe = io_uring_get_sqe(ring);
-	io_uring_prep_fixed_fd_install(sqe, some_fd, 0, 0);
+	io_uring_prep_fixed_fd_install(sqe, some_fd, 0);
 	io_uring_submit(ring);
 
 	ret = io_uring_wait_cqe(ring, &cqe);
@@ -205,7 +205,7 @@ static int test_working(struct io_uring *ring)
 
 	/* fixed pipe read worked, now re-install as a regular fd */
 	sqe = io_uring_get_sqe(ring);
-	io_uring_prep_fixed_fd_install(sqe, 0, 0, 0);
+	io_uring_prep_fixed_fd_install(sqe, 0, 0);
 	io_uring_submit(ring);
 
 	ret = io_uring_wait_cqe(ring, &cqe);
