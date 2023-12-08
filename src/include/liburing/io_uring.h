@@ -71,6 +71,7 @@ struct io_uring_sqe {
 		__u32		uring_cmd_flags;
 		__u32		waitid_flags;
 		__u32		futex_flags;
+		__u32		install_fd_flags;
 	};
 	__u64	user_data;	/* data to be passed back at completion time */
 	/* pack this to avoid bogus arm OABI complaints */
@@ -253,6 +254,7 @@ enum io_uring_op {
 	IORING_OP_FUTEX_WAIT,
 	IORING_OP_FUTEX_WAKE,
 	IORING_OP_FUTEX_WAITV,
+	IORING_OP_FIXED_FD_INSTALL,
 
 	/* this goes last, obviously */
 	IORING_OP_LAST,

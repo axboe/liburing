@@ -82,6 +82,7 @@ test_srcs := \
 	fadvise.c \
 	fallocate.c \
 	fc2a85cb02ef.c \
+	fd-install.c \
 	fd-pass.c \
 	file-register.c \
 	files-exit-hang-poll.c \

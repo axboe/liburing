@@ -8,6 +8,8 @@ liburing-2.6 release
 - Add read multishot, and test cases
 - Add support for IORING_SETUP_NO_SQARRAY
 - Use IORING_SETUP_NO_SQARRAY as the default
+- Add support for IORING_OP_FIXED_FD_INSTALL
+- Add io_uring_prep_fixed_fd_install() helper
 
 liburing-2.5 release
 
