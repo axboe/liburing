@@ -17,6 +17,8 @@
 #define USERDATA 0x1234
 #define MSG "foobarbaz"
 
+static int no_io_cmd;
+
 struct fds {
 	int tx;
 	int rx;
@@ -83,7 +85,7 @@ static ssize_t send_data(struct fds *s, char *str)
 static int run_test(bool stream)
 {
 	struct fds sockfds;
-	size_t bytes_in, bytes_out;
+	ssize_t bytes_in, bytes_out;
 	struct io_uring ring;
 	size_t written_bytes;
 	int error;
@@ -104,9 +106,17 @@ static int run_test(bool stream)
 
 	error = create_sqe_and_submit(&ring, sockfds.rx,
 				      SOCKET_URING_OP_SIOCINQ);
-	bytes_in = receive_cqe(&ring);
 	if (error)
 		return T_EXIT_FAIL;
+	bytes_in = receive_cqe(&ring);
+	if (bytes_in < 0) {
+		if (bytes_in == -EINVAL) {
+			no_io_cmd = 1;
+			return T_EXIT_SKIP;
+		}
+		fprintf(stderr, "Bad return value %ld\n", (long) bytes_in);
+		return T_EXIT_FAIL;
+	}
 
 	error = create_sqe_and_submit(&ring, sockfds.tx,
 				      SOCKET_URING_OP_SIOCOUTQ);
@@ -204,6 +214,8 @@ int main(int argc, char *argv[])
 	err = run_test(true);
 	if (err)
 		return err;
+	if (no_io_cmd)
+		return T_EXIT_SKIP;
 
 	/* Test SOCK_DGRAM */
 	err = run_test(false);

@@ -19,6 +19,8 @@
 #define USERDATA 0xff42ff
 #define MSG "foobarbaz"
 
+static int no_sock_opt;
+
 struct fds {
 	int tx;
 	int rx;
@@ -149,8 +151,10 @@ static int run_get_peername(struct io_uring *ring, struct fds *sockfds)
 
 	/* Wait for the CQE */
 	err = receive_cqe(ring);
-	if (err == -EOPNOTSUPP)
+	if (err == -EOPNOTSUPP || err == -EINVAL) {
+		no_sock_opt = 1;
 		return T_EXIT_SKIP;
+	}
 
 	if (err < 0) {
 		fprintf(stderr, "%s: Error in the CQE: %d\n", __func__, err);
@@ -180,9 +184,7 @@ static int run_getsockopt_test(struct io_uring *ring, struct fds *sockfds)
 		return err;
 
 	fprintf(stderr, "Testing getsockopt SO_RCVBUF\n");
-	err = run_get_rcvbuf(ring, sockfds);
-
-	return err;
+	return run_get_rcvbuf(ring, sockfds);
 }
 
 /*
@@ -312,6 +314,8 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "Failed to run test: %d\n", err);
 		return err;
 	}
+	if (no_sock_opt)
+		return T_EXIT_SKIP;
 
 	err = run_setsockopt_test(&ring, &sockfds);
 	if (err) {
