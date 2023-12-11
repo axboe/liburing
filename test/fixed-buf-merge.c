@@ -9,6 +9,7 @@
 #include <string.h>
 #include <fcntl.h>
 #include <stdlib.h>
+#include <unistd.h>
 
 #include "liburing.h"
 #include "helpers.h"
