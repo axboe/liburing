@@ -47,7 +47,7 @@ ifeq ($(CONFIG_NOLIBC),y)
 	liburing_srcs += nolibc.c
 	override CFLAGS += -nostdlib -nodefaultlibs -ffreestanding -fno-builtin -fno-stack-protector
 	override CPPFLAGS += -nostdlib -nodefaultlibs -ffreestanding -fno-builtin -fno-stack-protector
-	override LINK_FLAGS += -nostdlib -nodefaultlibs -lgcc
+	override LINK_FLAGS += -nostdlib -nodefaultlibs $(libgcc_link_flag)
 endif
 
 override CPPFLAGS += -MT "$@" -MMD -MP -MF "$@.d"

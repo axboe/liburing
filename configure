@@ -202,6 +202,15 @@ print_and_output_mak "relativelibdir" "$relativelibdir"
 print_and_output_mak "mandir" "$mandir"
 print_and_output_mak "datadir" "$datadir"
 
+####################################################
+# Check for correct compiler runtime library to link with
+libgcc_link_flag="-lgcc"
+if $cc -print-libgcc-file-name >/dev/null 2>&1; then
+  libgcc_link_flag="$($cc $CFLAGS $LDFLAGS -print-libgcc-file-name)"
+fi
+print_and_output_mak "libgcc_link_flag" "$libgcc_link_flag"
+####################################################
+
 ##########################################
 # check for compiler -Wstringop-overflow
 stringop_overflow="no"
