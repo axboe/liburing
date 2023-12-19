@@ -14,9 +14,6 @@ all:
 .PHONY: all install default clean test
 .PHONY: FORCE cscope
 
-partcheck: all
-	@echo "make partcheck => TODO add tests with out kernel support"
-
 runtests: all
 	@$(MAKE) -C test runtests
 runtests-loop: all
