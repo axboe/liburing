@@ -20,12 +20,14 @@ int main(int argc, char *argv[])
 		.flags		= IORING_SETUP_NO_MMAP,
 	};
 	struct io_uring ring;
+	void *addr;
 	int ret;
 
 	if (argc > 1)
 		return T_EXIT_SKIP;
 
-	p.cq_off.user_addr = (unsigned long long) (uintptr_t) valloc(8192);
+	t_posix_memalign(&addr, sysconf(_SC_PAGESIZE), 8192);
+	p.cq_off.user_addr = (unsigned long long) (uintptr_t) addr;
 
 	ret = io_uring_queue_init_params(2, &ring, &p);
 	if (ret == -EINVAL) {
