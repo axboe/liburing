@@ -15,6 +15,7 @@
 #include "helpers.h"
 
 #define BUF_SIZE	32
+#define BUF_SIZE_FIRST	17
 #define NR_BUFS		64
 #define BUF_BGID	1
 
@@ -142,8 +143,7 @@ static int test(int first_good, int async, int overflow)
 	struct io_uring ring;
 	int ret, fds[2], i;
 	char tmp[32];
-	char *buf;
-	void *ptr;
+	void *ptr[NR_BUFS];
 
 	p.flags = IORING_SETUP_CQSIZE;
 	if (!overflow)
@@ -161,9 +161,6 @@ static int test(int first_good, int async, int overflow)
 		return 1;
 	}
 
-	if (posix_memalign((void **) &buf, 4096, NR_BUFS * BUF_SIZE))
-		return 1;
-
 	br = io_uring_setup_buf_ring(&ring, NR_BUFS, BUF_BGID, 0, &ret);
 	if (!br) {
 		if (ret == -EINVAL) {
@@ -174,10 +171,12 @@ static int test(int first_good, int async, int overflow)
 		return 1;
 	}
 
-	ptr = buf;
 	for (i = 0; i < NR_BUFS; i++) {
-		io_uring_buf_ring_add(br, buf, BUF_SIZE, i + 1, BR_MASK, i);
-		buf += BUF_SIZE;
+		unsigned size = i <= 1 ? BUF_SIZE_FIRST : BUF_SIZE;
+		ptr[i] = malloc(size);
+		if (!ptr[i])
+			return 1;
+		io_uring_buf_ring_add(br, ptr[i], size, i + 1, BR_MASK, i);
 	}
 	io_uring_buf_ring_advance(br, NR_BUFS);
 
@@ -205,7 +204,7 @@ static int test(int first_good, int async, int overflow)
 		sprintf(tmp, "this is buffer %d\n", i + 1);
 		ret = write(fds[1], tmp, strlen(tmp));
 		if (ret != strlen(tmp)) {
-			printf("write ret %d\n", ret);
+			fprintf(stderr, "write ret %d\n", ret);
 			return 1;
 		}
 	}
@@ -226,7 +225,11 @@ static int test(int first_good, int async, int overflow)
 			}
 			fprintf(stderr, "%d: cqe res %d\n", i, cqe->res);
 			return 1;
+		} else if (i > 9 && cqe->res <= 17) {
+			fprintf(stderr, "truncated message %d %d\n", i, cqe->res);
+			return 1;
 		}
+
 		if (!(cqe->flags & IORING_CQE_F_BUFFER)) {
 			fprintf(stderr, "no buffer selected\n");
 			return 1;
@@ -247,7 +250,8 @@ static int test(int first_good, int async, int overflow)
 	}
 
 	io_uring_queue_exit(&ring);
-	free(ptr);
+	for (i = 0; i < NR_BUFS; i++)
+		free(ptr[i]);
 	return 0;
 }
 
