@@ -40,7 +40,7 @@ By default, the CQ ring will have twice the number of entries as specified by
 for the SQ ring. This is adequate for regular file or storage workloads, but
 may be too small for networked workloads. The SQ ring entries do not impose a
 limit on the number of in-flight requests that the ring can support, it merely
-limits the number that can be submitted to the kernel in one go (batch). if the
+limits the number that can be submitted to the kernel in one go (batch). If the
 CQ ring overflows, e.g. more entries are generated than fits in the ring before
 the application can reap them, then if the kernel supports
 .B IORING_FEAT_NODROP
