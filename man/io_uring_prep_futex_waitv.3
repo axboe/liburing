@@ -11,10 +11,10 @@ io_uring_prep_futex_waitv \- prepare a futex waitv request
 .B #include <unistd.h>
 .B #include <liburing.h>
 .PP
-.BI "void io_uring_prep_futex_wait(struct io_uring_sqe *" sqe ","
-.BI "                              struct futex_waitv *" futexv ","
-.BI "                              uint32_t " nr_futex ","
-.BI "                              unsigned int " flags ");"
+.BI "void io_uring_prep_futex_waitv(struct io_uring_sqe *" sqe ","
+.BI "                               struct futex_waitv *" futexv ","
+.BI "                               uint32_t " nr_futex ","
+.BI "                               unsigned int " flags ");"
 .fi
 .SH DESCRIPTION
 .PP
@@ -32,9 +32,9 @@ is the number of futexes in that array.
 must be set to the io_uring specific futex flags.
 
 Unlike
-.BR io_uring_prep_futex (3) ,
+.BR io_uring_prep_futex_wait (3),
 the desired bitset mask and values are passed in
-.I futexv .
+.IR futexv .
 
 .I flags
 are currently unused and hence

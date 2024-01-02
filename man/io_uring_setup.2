@@ -180,19 +180,19 @@ and may be rounded up to the next power-of-two.
 If this flag is specified, and if
 .IR entries
 exceeds
-.B IORING_MAX_ENTRIES ,
+.BR IORING_MAX_ENTRIES ,
 then
 .IR entries
 will be clamped at
-.B IORING_MAX_ENTRIES .
+.BR IORING_MAX_ENTRIES .
 If the flag
-.BR IORING_SETUP_SQPOLL
+.B IORING_SETUP_CQSIZE
 is set, and if the value of
 .IR "struct io_uring_params.cq_entries"
 exceeds
-.B IORING_MAX_CQ_ENTRIES ,
+.BR IORING_MAX_CQ_ENTRIES ,
 then it will be clamped at
-.B IORING_MAX_CQ_ENTRIES .
+.BR IORING_MAX_CQ_ENTRIES .
 .TP
 .B IORING_SETUP_ATTACH_WQ
 This flag should be set in conjunction with
