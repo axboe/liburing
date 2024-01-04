@@ -67,6 +67,7 @@ test_srcs := \
 	d77a67ed5f27.c \
 	defer.c \
 	defer-taskrun.c \
+	defer-tw-timeout.c \
 	double-poll-crash.c \
 	drop-submit.c \
 	eeed8b54e0df.c \
