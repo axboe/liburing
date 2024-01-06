@@ -80,7 +80,7 @@ static int test_poll(struct io_uring *ring)
 	return T_EXIT_PASS;
 }
 
-static int test_file(struct io_uring *ring, const char *__fname)
+static int test_file(struct io_uring *ring, char *__fname)
 {
 	struct io_uring_cqe *cqe;
 	struct io_uring_sqe *sqe;
@@ -93,6 +93,8 @@ static int test_file(struct io_uring *ring, const char *__fname)
 		fname = filename;
 		sprintf(fname, ".defer-tw-timeout.%d", getpid());
 		t_create_file(fname, 128*1024);
+	} else {
+		fname = __fname;
 	}
 
 	fd = open(fname, O_RDONLY | O_DIRECT);
@@ -143,8 +145,8 @@ static int test_file(struct io_uring *ring, const char *__fname)
 
 int main(int argc, char *argv[])
 {
-	const char *fname = NULL;
 	struct io_uring ring;
+	char *fname = NULL;
 	int ret;
 
 	ret = io_uring_queue_init(8, &ring, IORING_SETUP_SINGLE_ISSUER | IORING_SETUP_DEFER_TASKRUN);
