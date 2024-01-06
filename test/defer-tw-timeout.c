@@ -80,29 +80,36 @@ static int test_poll(struct io_uring *ring)
 	return T_EXIT_PASS;
 }
 
-static int test_file(struct io_uring *ring)
+static int test_file(struct io_uring *ring, const char *__fname)
 {
 	struct io_uring_cqe *cqe;
 	struct io_uring_sqe *sqe;
 	struct __kernel_timespec ts;
-	char fname[64];
+	char filename[64], *fname;
 	int fd, ret, i;
 	void *buf;
 
-	sprintf(fname, ".defer-tw-timeout.%d", getpid());
-	t_create_file(fname, 128*1024);
+	if (!__fname) {
+		fname = filename;
+		sprintf(fname, ".defer-tw-timeout.%d", getpid());
+		t_create_file(fname, 128*1024);
+	}
 
 	fd = open(fname, O_RDONLY | O_DIRECT);
 	if (fd < 0) {
 		perror("open");
-		unlink(fname);
+		if (!__fname)
+			unlink(fname);
 		return T_EXIT_FAIL;
 	}
 
-	unlink(fname);
+	if (!__fname)
+		unlink(fname);
 
-	if (posix_memalign(&buf, 4096, 4096))
+	if (posix_memalign(&buf, 4096, 4096)) {
+		close(fd);
 		return T_EXIT_FAIL;
+	}
 
 	sqe = io_uring_get_sqe(ring);
 	io_uring_prep_read(sqe, fd, buf, 4096, 0);
@@ -113,6 +120,7 @@ static int test_file(struct io_uring *ring)
 	ret = io_uring_submit_and_wait_timeout(ring, &cqe, 2, &ts, NULL);
 	if (ret != 1) {
 		fprintf(stderr, "unexpected wait ret %d\n", ret);
+		close(fd);
 		return T_EXIT_FAIL;
 	}
 
@@ -125,32 +133,34 @@ static int test_file(struct io_uring *ring)
 
 	if (i != 1) {
 		fprintf(stderr, "Got %d request, expected 1\n", i);
+		close(fd);
 		return T_EXIT_FAIL;
 	}
 
+	close(fd);
 	return T_EXIT_PASS;
 }
 
 int main(int argc, char *argv[])
 {
+	const char *fname = NULL;
 	struct io_uring ring;
 	int ret;
-
-	if (argc > 1)
-		return T_EXIT_SKIP;
 
 	ret = io_uring_queue_init(8, &ring, IORING_SETUP_SINGLE_ISSUER | IORING_SETUP_DEFER_TASKRUN);
 	if (ret == -EINVAL)
 		return T_EXIT_SKIP;
 
-	ret = test_file(&ring);
+	if (argc > 1)
+		fname = argv[1];
+
+	ret = test_file(&ring, fname);
 	if (ret != T_EXIT_PASS)
 		return ret;
 
 	ret = test_poll(&ring);
 	if (ret != T_EXIT_PASS)
 		return ret;
-
 
 	return T_EXIT_PASS;
 }
