@@ -183,6 +183,12 @@ int io_uring_submit_and_wait_timeout(struct io_uring *ring,
 				     unsigned wait_nr,
 				     struct __kernel_timespec *ts,
 				     sigset_t *sigmask);
+int io_uring_submit_and_wait_min_timeout(struct io_uring *ring,
+					 struct io_uring_cqe **cqe_ptr,
+					 unsigned wait_nr,
+					 struct __kernel_timespec *ts,
+					 unsigned min_wait,
+					 sigset_t *sigmask);
 
 int io_uring_register_buffers(struct io_uring *ring, const struct iovec *iovecs,
 			      unsigned nr_iovecs);

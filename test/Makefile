@@ -119,6 +119,7 @@ test_srcs := \
 	link_drain.c \
 	link-timeout.c \
 	madvise.c \
+	min-timeout.c \
 	mkdir.c \
 	msg-ring.c \
 	msg-ring-fd.c \
