@@ -156,6 +156,7 @@ test_srcs := \
 	register-restrictions.c \
 	rename.c \
 	ringbuf-read.c \
+	ringbuf-status.c \
 	ring-leak2.c \
 	ring-leak.c \
 	rsrc_tags.c \
