@@ -29,15 +29,27 @@ completion events, or until the timeout
 .I ts
 expires. The completion events are stored in the
 .I cqe_ptr
-array. The
-.I sigmask
-specifies the set of signals to block. The prevailing signal mask is restored
-before returning. If non-zero,
+array. If non-zero,
 .I min_wait_usec
 denotes a timeout for the
 .I wait_nr
 batch.
 
+The
+.I sigmask
+specifies the set of signals to block. If set, it is equivalent to atomically
+executing the following calls:
+.PP
+.in +4n
+.EX
+sigset_t origmask;
+
+pthread_sigmask(SIG_SETMASK, &sigmask, &origmask);
+ret = io_uring_submit_and_wait_min_timeout(ring, cqe, wait_nr, ts, min_wait, NULL);
+pthread_sigmask(SIG_SETMASK, &origmask, NULL);
+.EE
+.in
+.PP
 This works like
 .BR io_uring_submit_and_wait_timeout (3)
 with the twist that it applies a minimum timeout for the requested batch size
