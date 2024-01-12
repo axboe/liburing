@@ -31,6 +31,11 @@ After the caller has submitted a request with
 the application can retrieve the completion with
 .BR io_uring_wait_cqe (3).
 
+Ideally used with a ring setup with
+.BR IORING_SETUP_SINGLE_ISSUER | IORING_SETUP_DEFER_TASKRUN
+as that will greatly reduce the number of context switches that an application
+will see waiting on multiple requests.
+
 .SH RETURN VALUE
 On success
 .BR io_uring_wait_cqe_nr (3)
@@ -39,5 +44,6 @@ returns 0 and the cqe_ptr param is filled in. On failure it returns
 The return value indicates the result of waiting for a CQE, and it has no
 relation to the CQE result itself.
 .SH SEE ALSO
+.BR io_uring_queue_init_params (3),
 .BR io_uring_submit (3),
 .BR io_uring_wait_cqes (3)
