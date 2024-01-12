@@ -518,6 +518,12 @@ If this flag is set, then io_uring supports calling
 using a registered ring fd, via
 .BR IORING_REGISTER_USE_REGISTERED_RING .
 Available since kernel 6.3.
+.TP
+.B IORING_FEAT_MIN_TIMEOUT
+If this flag is set, then io_uring supports passing in a minimum batch wait
+timeout. See
+.BR io_uring_submit_and_wait_min_timeout (3)
+for more details.
 
 .PP
 The rest of the fields in the
