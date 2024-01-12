@@ -28,11 +28,23 @@ completion events, or until the timeout
 .I ts
 expires. The completion events are stored in the
 .I cqe_ptr
-array. The
+array.
+.PP
+The
 .I sigmask
-specifies the set of signals to block. The prevailing signal mask is restored
-before returning.
+specifies the set of signals to block. If set, it is equivalent to atomically
+executing the following calls:
+.PP
+.in +4n
+.EX
+sigset_t origmask;
 
+pthread_sigmask(SIG_SETMASK, &sigmask, &origmask);
+ret = io_uring_submit_and_wait_timeout(ring, cqe, wait_nr, ts, NULL);
+pthread_sigmask(SIG_SETMASK, &origmask, NULL);
+.EE
+.in
+.PP
 After the caller retrieves a submission queue entry (SQE) with
 .BR io_uring_get_sqe (3)
 and prepares the SQE, it can be submitted with
