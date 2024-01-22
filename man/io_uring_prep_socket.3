@@ -57,7 +57,7 @@ argument should be set to the slot that should be used for this socket.
 The
 .BR io_uring_prep_socket_direct_alloc (3)
 helper works just like
-.BR io_uring_prep_socket_alloc (3),
+.BR io_uring_prep_socket_direct (3),
 except it allocates a new direct descriptor rather than pass a free slot in. It
 is equivalent to using
 .BR io_uring_prep_socket_direct (3)
