@@ -310,6 +310,10 @@ static int test_invalid(int async)
 		fprintf(stderr, "wait cqe failed %d\n", ret);
 		return 1;
 	}
+	if (cqe->flags & IORING_CQE_F_MORE) {
+		fprintf(stderr, "MORE flag set unexpected %d\n", cqe->flags);
+		return 1;
+	}
 	if (cqe->res != -EBADFD) {
 		fprintf(stderr, "Got cqe res %d, wanted -EBADFD\n", cqe->res);
 		return 1;
