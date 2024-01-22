@@ -24,11 +24,14 @@ helper prepares an IO read multishot request. The submission queue entry
 is setup to use the file descriptor
 .I fd
 to start reading
-.I nbytes
 into a buffer from the provided buffer group with ID
 .I buf_group
 at the specified
 .IR offset .
+
+.I nbytes
+must be set to zero, as the size read will be given by the size of the
+buffers in the indicated buffer group IO.
 
 On files that are not capable of seeking, the offset must be 0 or -1.
 
