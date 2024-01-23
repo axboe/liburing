@@ -306,6 +306,58 @@ static int test_working(struct io_uring *ring)
 	return T_EXIT_PASS;
 }
 
+static int test_creds(struct io_uring *ring)
+{
+	struct io_uring_sqe *sqe;
+	struct io_uring_cqe *cqe;
+	int cred_id, ret, fds[2];
+
+	if (pipe(fds) < 0) {
+		perror("pipe");
+		return T_EXIT_FAIL;
+	}
+
+	ret = io_uring_register_files(ring, &fds[0], 1);
+	if (ret) {
+		fprintf(stderr, "failed register files %d\n", ret);
+		return T_EXIT_FAIL;
+	}
+
+	cred_id = io_uring_register_personality(ring);
+	if (cred_id < 0) {
+		fprintf(stderr, "Failed registering creds: %d\n", cred_id);
+		return T_EXIT_FAIL;
+	}
+
+	/* check that asking for creds fails */
+	sqe = io_uring_get_sqe(ring);
+	io_uring_prep_fixed_fd_install(sqe, 0, 0);
+	sqe->personality = cred_id;
+	io_uring_submit(ring);
+
+	ret = io_uring_wait_cqe(ring, &cqe);
+	if (ret) {
+		fprintf(stderr, "wait cqe %d\n", ret);
+		return T_EXIT_FAIL;
+	}
+	if (cqe->res > 0) {
+		fprintf(stderr, "install succeeded with creds\n");
+		return T_EXIT_FAIL;
+	}
+	if (cqe->res != -EPERM) {
+		fprintf(stderr, "unexpected cqe res %d\n", cqe->res);
+		return T_EXIT_FAIL;
+	}
+	io_uring_cqe_seen(ring, cqe);
+	io_uring_cqe_seen(ring, cqe);
+
+	close(fds[0]);
+	close(fds[1]);
+	io_uring_unregister_files(ring);
+	io_uring_unregister_personality(ring, cred_id);
+	return T_EXIT_PASS;
+}
+
 int main(int argc, char *argv[])
 {
 	struct io_uring ring;
@@ -354,6 +406,13 @@ int main(int argc, char *argv[])
 	if (ret != T_EXIT_PASS) {
 		if (ret == T_EXIT_FAIL)
 			fprintf(stderr, "test_flags failed\n");
+		return ret;
+	}
+
+	ret = test_creds(&ring);
+	if (ret != T_EXIT_PASS) {
+		if (ret == T_EXIT_FAIL)
+			fprintf(stderr, "test_creds failed\n");
 		return ret;
 	}
 	
