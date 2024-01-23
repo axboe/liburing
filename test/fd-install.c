@@ -306,7 +306,7 @@ static int test_working(struct io_uring *ring)
 	return T_EXIT_PASS;
 }
 
-static int test_creds(struct io_uring *ring)
+static int test_creds(struct io_uring *ring, int async)
 {
 	struct io_uring_sqe *sqe;
 	struct io_uring_cqe *cqe;
@@ -332,6 +332,8 @@ static int test_creds(struct io_uring *ring)
 	/* check that asking for creds fails */
 	sqe = io_uring_get_sqe(ring);
 	io_uring_prep_fixed_fd_install(sqe, 0, 0);
+	if (async)
+		sqe->flags |= IOSQE_ASYNC;
 	sqe->personality = cred_id;
 	io_uring_submit(ring);
 
@@ -409,10 +411,17 @@ int main(int argc, char *argv[])
 		return ret;
 	}
 
-	ret = test_creds(&ring);
+	ret = test_creds(&ring, 0);
 	if (ret != T_EXIT_PASS) {
 		if (ret == T_EXIT_FAIL)
-			fprintf(stderr, "test_creds failed\n");
+			fprintf(stderr, "test_creds 0 failed\n");
+		return ret;
+	}
+
+	ret = test_creds(&ring, 1);
+	if (ret != T_EXIT_PASS) {
+		if (ret == T_EXIT_FAIL)
+			fprintf(stderr, "test_creds 1 failed\n");
 		return ret;
 	}
 	
