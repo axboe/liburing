@@ -19,6 +19,44 @@
 #define ONE_GIG_SIZE ((loff_t)1024 * 1024 * 1024)
 #define HALF_GIG_SIZE ((loff_t)512 * 1024 * 1024)
 
+static int test_truncate(struct io_uring *ring, int fd)
+{
+	struct io_uring_cqe *cqe;
+	struct io_uring_sqe *sqe;
+	int ret = -1;
+
+	sqe = io_uring_get_sqe(ring);
+	if (!sqe) {
+		fprintf(stderr, "get sqe failed\n");
+		goto err;
+	}
+
+	memset(sqe, 0, sizeof(*sqe));
+
+	io_uring_prep_rw(IORING_OP_FTRUNCATE, sqe, fd, "fail", 0, 4);
+
+	ret = io_uring_submit(ring);
+	if (ret <= 0) {
+		fprintf(stderr, "sqe submit failed: %d\n", ret);
+		goto err;
+	}
+
+	ret = io_uring_wait_cqe(ring, &cqe);
+	if (ret < 0) {
+		fprintf(stderr, "wait completion %d\n", ret);
+		goto err;
+	}
+	ret = cqe->res;
+	io_uring_cqe_seen(ring, cqe);
+	if (ret != -EINVAL) {
+		fprintf(stderr, "unexpected truncate res %d\n", ret);
+		goto err;
+	}
+
+err:
+	return ret;
+}
+
 static int test_ftruncate(struct io_uring *ring, int fd, loff_t len)
 {
 	struct io_uring_cqe *cqe;
@@ -125,6 +163,10 @@ int main(int argc, char *argv[])
 			goto err;
 		}
 	}
+
+	ret = test_truncate(&ring, fd);
+	if (ret < 0)
+		goto err;
 
 out:
 	close(fd);
