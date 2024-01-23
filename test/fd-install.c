@@ -17,7 +17,7 @@
 static int no_fd_install;
 
 /* test that O_CLOEXEC is accepted, and others are not */
-static int test_flags(struct io_uring *ring)
+static int test_flags(struct io_uring *ring, int async)
 {
 	struct io_uring_sqe *sqe;
 	struct io_uring_cqe *cqe;
@@ -53,6 +53,8 @@ static int test_flags(struct io_uring *ring)
 	/* check that IORING_FIXED_FD_NO_CLOEXEC is accepted */
 	sqe = io_uring_get_sqe(ring);
 	io_uring_prep_fixed_fd_install(sqe, 0, IORING_FIXED_FD_NO_CLOEXEC);
+	if (async)
+		sqe->flags |= IOSQE_ASYNC;
 	io_uring_submit(ring);
 
 	ret = io_uring_wait_cqe(ring, &cqe);
@@ -404,10 +406,17 @@ int main(int argc, char *argv[])
 		return ret;
 	}
 
-	ret = test_flags(&ring);
+	ret = test_flags(&ring, 0);
 	if (ret != T_EXIT_PASS) {
 		if (ret == T_EXIT_FAIL)
-			fprintf(stderr, "test_flags failed\n");
+			fprintf(stderr, "test_flags 0 failed\n");
+		return ret;
+	}
+
+	ret = test_flags(&ring, 1);
+	if (ret != T_EXIT_PASS) {
+		if (ret == T_EXIT_FAIL)
+			fprintf(stderr, "test_flags 1 failed\n");
 		return ret;
 	}
 
