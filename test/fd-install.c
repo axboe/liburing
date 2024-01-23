@@ -77,6 +77,62 @@ static int test_flags(struct io_uring *ring, int async)
 	return T_EXIT_PASS;
 }
 
+static int test_linked(struct io_uring *ring)
+{
+	struct io_uring_sqe *sqe;
+	struct io_uring_cqe *cqe;
+	int ret, fds[2], fd, i;
+
+	if (pipe(fds) < 0) {
+		perror("pipe");
+		return T_EXIT_FAIL;
+	}
+
+	ret = io_uring_register_files(ring, &fds[0], 1);
+	if (ret) {
+		fprintf(stderr, "failed register files %d\n", ret);
+		return T_EXIT_FAIL;
+	}
+
+	sqe = io_uring_get_sqe(ring);
+	io_uring_prep_nop(sqe);
+	sqe->flags |= IOSQE_IO_LINK;
+	sqe->user_data = 1;
+
+	sqe = io_uring_get_sqe(ring);
+	io_uring_prep_fixed_fd_install(sqe, 0, 0);
+	sqe->user_data = 2;
+
+	ret = io_uring_submit(ring);
+	if (ret != 2) {
+		fprintf(stderr, "submit: %d\n", ret);
+		return T_EXIT_FAIL;
+	}
+
+	fd = -1;
+	for (i = 0; i < 2; i++) {
+		ret = io_uring_wait_cqe(ring, &cqe);
+		if (ret) {
+			fprintf(stderr, "wait cqe %d\n", ret);
+			return T_EXIT_FAIL;
+		}
+		if (cqe->res < 0) {
+			fprintf(stderr, "unexpected cqe res %d\n", cqe->res);
+			return T_EXIT_FAIL;
+		}
+		if (cqe->user_data == 2)
+			fd = cqe->res;
+		io_uring_cqe_seen(ring, cqe);
+	}
+
+	close(fds[0]);
+	close(fds[1]);
+	if (fd != -1)
+		close(fd);
+	io_uring_unregister_files(ring);
+	return T_EXIT_PASS;
+}
+
 /* test not setting IOSQE_FIXED_FILE */
 static int test_not_fixed(struct io_uring *ring)
 {
@@ -353,7 +409,6 @@ static int test_creds(struct io_uring *ring, int async)
 		return T_EXIT_FAIL;
 	}
 	io_uring_cqe_seen(ring, cqe);
-	io_uring_cqe_seen(ring, cqe);
 
 	close(fds[0]);
 	close(fds[1]);
@@ -370,7 +425,7 @@ int main(int argc, char *argv[])
 	if (argc > 1)
 		return T_EXIT_SKIP;
 
-	ret = io_uring_queue_init(1, &ring, 0);
+	ret = io_uring_queue_init(4, &ring, 0);
 	if (ret) {
 		fprintf(stderr, "ring setup failed: %d\n", ret);
 		return T_EXIT_FAIL;
@@ -431,6 +486,13 @@ int main(int argc, char *argv[])
 	if (ret != T_EXIT_PASS) {
 		if (ret == T_EXIT_FAIL)
 			fprintf(stderr, "test_creds 1 failed\n");
+		return ret;
+	}
+
+	ret = test_linked(&ring);
+	if (ret != T_EXIT_PASS) {
+		if (ret == T_EXIT_FAIL)
+			fprintf(stderr, "test_linked failed\n");
 		return ret;
 	}
 	
