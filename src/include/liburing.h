@@ -1463,7 +1463,7 @@ IOURINGINLINE void __io_uring_buf_ring_cq_advance(struct io_uring *ring,
 						  struct io_uring_buf_ring *br,
 						  int cq_count, int buf_count)
 {
-	br->tail += buf_count;
+	io_uring_buf_ring_advance(br, buf_count);
 	io_uring_cq_advance(ring, cq_count);
 }
 
