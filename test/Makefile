@@ -145,6 +145,7 @@ test_srcs := \
 	probe.c \
 	read-before-exit.c \
 	read-mshot.c \
+	read-mshot-empty.c \
 	read-write.c \
 	recv-msgall.c \
 	recv-msgall-stream.c \
