@@ -71,6 +71,9 @@ int main(int argc, char *argv[])
 	int i, ret, fds[2];
 	void *buf, *tret;
 
+	if (argc > 1)
+		return T_EXIT_SKIP;
+
 	if (pipe(fds) < 0) {
 		perror("pipe");
 		return T_EXIT_FAIL;
