@@ -278,7 +278,7 @@ int main(int argc, char *argv[])
 	struct __kernel_timespec ts;
 	struct io_uring_params params;
 	struct io_uring_napi napi;
-	int flag;
+	int flag, ret;
 
 	memset(&opt, 0, sizeof(struct options));
 
@@ -366,9 +366,10 @@ int main(int argc, char *argv[])
 		params.sq_thread_idle = 50;
 	}
 
-	if (io_uring_queue_init_params(RINGSIZE, &ctx.ring, &params) < 0) {
+	ret = io_uring_queue_init_params(RINGSIZE, &ctx.ring, &params);
+	if (ret) {
 		fprintf(stderr, "io_uring_queue_init_params() failed: (%d) %s\n",
-			errno, strerror(errno));
+			ret, strerror(-ret));
 		exit(1);
 	}
 
@@ -376,7 +377,11 @@ int main(int argc, char *argv[])
 		napi.prefer_busy_poll = opt.prefer_busy_poll;
 		napi.busy_poll_to = opt.timeout;
 
-		io_uring_register_napi(&ctx.ring, &napi);
+		ret = io_uring_register_napi(&ctx.ring, &napi);
+		if (ret) {
+			fprintf(stderr, "io_uring_register_napi: %d\n", ret);
+			exit(1);
+		}
 	}
 
 	if (opt.busy_loop)
@@ -413,8 +418,13 @@ int main(int argc, char *argv[])
 
 		do {
 			res = io_uring_submit_and_wait_timeout(&ctx.ring, &cqe, 1, tsPtr, NULL);
-		}
-		while (res < 0 && errno == ETIME);
+			if (res >= 0)
+				break;
+			else if (res == -ETIME)
+				continue;
+			fprintf(stderr, "submit_and_wait: %d\n", res);
+			exit(1);
+		} while (1);
 
 		io_uring_for_each_cqe(&ctx.ring, head, cqe) {
 			++num_completed;
@@ -431,7 +441,9 @@ int main(int argc, char *argv[])
 out:
 	// Clean up.
 	if (opt.timeout || opt.prefer_busy_poll) {
-		io_uring_unregister_napi(&ctx.ring, &napi);
+		ret = io_uring_unregister_napi(&ctx.ring, &napi);
+		if (ret)
+			fprintf(stderr, "io_uring_unregister_napi: %d\n", ret);
 		if (opt.timeout          != napi.busy_poll_to ||
 		    opt.prefer_busy_poll != napi.prefer_busy_poll) {
 			fprintf(stderr, "Expected busy poll to = %d, got %d\n",
@@ -440,7 +452,9 @@ out:
 				opt.prefer_busy_poll, napi.prefer_busy_poll);
 		}
 	} else {
-		io_uring_unregister_napi(&ctx.ring, NULL);
+		ret = io_uring_unregister_napi(&ctx.ring, NULL);
+		if (ret)
+			fprintf(stderr, "io_uring_unregister_napi: %d\n", ret);
 	}
 	io_uring_queue_exit(&ctx.ring);
 

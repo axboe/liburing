@@ -168,7 +168,6 @@ static void reportNapi(struct ctx *ctx)
 
 static void sendPing(struct ctx *ctx)
 {
-
 	struct io_uring_sqe *sqe = io_uring_get_sqe(&ctx->ring);
 
 	io_uring_prep_sendmsg(sqe, ctx->sockfd, &ctx->msg, 0);
@@ -177,6 +176,8 @@ static void sendPing(struct ctx *ctx)
 
 static void receivePing(struct ctx *ctx)
 {
+	struct io_uring_sqe *sqe;
+
 	bzero(&ctx->msg, sizeof(struct msghdr));
 	ctx->msg.msg_name    = &ctx->saddr;
 	ctx->msg.msg_namelen = sizeof(struct sockaddr_in6);
@@ -185,7 +186,7 @@ static void receivePing(struct ctx *ctx)
 	ctx->msg.msg_iov     = &ctx->iov;
 	ctx->msg.msg_iovlen  = 1;
 
-	struct io_uring_sqe *sqe = io_uring_get_sqe(&ctx->ring);
+	sqe = io_uring_get_sqe(&ctx->ring);
 	io_uring_prep_recvmsg(sqe, ctx->sockfd, &ctx->msg, 0);
 	sqe->user_data = encodeUserData(IOURING_RECVMSG, ctx->sockfd);
 }
@@ -231,6 +232,7 @@ int main(int argc, char *argv[])
 	struct __kernel_timespec ts;
 	struct io_uring_params params;
 	struct io_uring_napi napi;
+	int ret;
 
 	memset(&opt, 0, sizeof(struct options));
 
@@ -321,9 +323,10 @@ int main(int argc, char *argv[])
 		params.sq_thread_idle = 50;
 	}
 
-	if (io_uring_queue_init_params(RINGSIZE, &ctx.ring, &params) < 0) {
+	ret = io_uring_queue_init_params(RINGSIZE, &ctx.ring, &params);
+	if (ret) {
 		fprintf(stderr, "io_uring_queue_init_params() failed: (%d) %s\n",
-			errno, strerror(errno));
+			ret, strerror(-ret));
 		exit(1);
 	}
 
@@ -331,7 +334,11 @@ int main(int argc, char *argv[])
 		napi.prefer_busy_poll = opt.prefer_busy_poll;
 		napi.busy_poll_to = opt.timeout;
 
-		io_uring_register_napi(&ctx.ring, &napi);
+		ret = io_uring_register_napi(&ctx.ring, &napi);
+		if (ret) {
+			fprintf(stderr, "io_uring_register_napi: %d\n", ret);
+			exit(1);
+		}
 	}
 
 	if (opt.busy_loop)
@@ -362,25 +369,31 @@ int main(int argc, char *argv[])
 
 		do {
 			res = io_uring_submit_and_wait_timeout(&ctx.ring, &cqe, 1, tsPtr, NULL);
-		}
-		while (res < 0 && errno == ETIME);
+			if (res >= 0)
+				break;
+			else if (res == -ETIME)
+				continue;
+			fprintf(stderr, "submit_and_wait: %d\n", res);
+			exit(1);
+		} while (1);
 
 		io_uring_for_each_cqe(&ctx.ring, head, cqe) {
 			++num_completed;
 			completion(&ctx, cqe);
 		}
 
-		if (num_completed) {
+		if (num_completed)
 			io_uring_cq_advance(&ctx.ring, num_completed);
-		}
 	}
 
 	// Clean up.
-	if (opt.timeout || opt.prefer_busy_poll)
-		io_uring_unregister_napi(&ctx.ring, &napi);
+	if (opt.timeout || opt.prefer_busy_poll) {
+		ret = io_uring_unregister_napi(&ctx.ring, &napi);
+		if (ret)
+			fprintf(stderr, "io_uring_unregister_napi: %d\n", ret);
+	}
 
 	io_uring_queue_exit(&ctx.ring);
 	close(ctx.sockfd);
-
 	return 0;
 }
