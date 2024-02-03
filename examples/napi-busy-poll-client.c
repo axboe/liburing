@@ -33,7 +33,10 @@ enum {
 struct ctx
 {
 	struct io_uring ring;
-	struct sockaddr_in6 saddr;
+	union {
+		struct sockaddr_in6 saddr6;
+		struct sockaddr_in saddr;
+	};
 
 	int sockfd;
 	int buffer_len;
@@ -57,6 +60,7 @@ struct options
 	bool sq_poll;
 	bool busy_loop;
 	bool prefer_busy_poll;
+	bool ipv6;
 
 	char port[PORTNOLEN];
 	char addr[ADDRLEN];
@@ -79,7 +83,7 @@ static void printUsage(const char *name)
 {
 	fprintf(stderr,
 	"Usage: %s [-l|--listen] [-a|--address ip_address] [-p|--port port-no] [-s|--sqpoll]"
-	" [-b|--busy] [-n|--num pings] [-t|--timeout busy-poll-timeout] [-u||--prefer] [-h|--help]\n"
+	" [-b|--busy] [-n|--num pings] [-t|--timeout busy-poll-timeout] [-u||--prefer] [-6] [-h|--help]\n"
 	"--address\n"
 	"-a        : remote or local ipv6 address\n"
 	"--busy\n"
@@ -94,6 +98,7 @@ static void printUsage(const char *name)
 	"-t        : Configure NAPI busy poll timeout"
 	"--prefer\n"
 	"-u        : prefer NAPI busy poll\n"
+	"-6        : use IPV6\n"
 	"--help\n"
 	"-h        : Display this usage message\n\n",
 	name);
@@ -278,12 +283,12 @@ int main(int argc, char *argv[])
 	struct __kernel_timespec ts;
 	struct io_uring_params params;
 	struct io_uring_napi napi;
-	int flag, ret;
+	int flag, ret, af;
 
 	memset(&opt, 0, sizeof(struct options));
 
 	// Process flags.
-	while ((flag = getopt_long(argc, argv, ":hsbua:n:p:t:", longopts, NULL)) != -1) {
+	while ((flag = getopt_long(argc, argv, ":hsbua:n:p:t:6", longopts, NULL)) != -1) {
 		switch (flag) {
 		case 'a':
 			strcpy(opt.addr, optarg);
@@ -310,6 +315,9 @@ int main(int argc, char *argv[])
 		case 'u':
 			opt.prefer_busy_poll = true;
 			break;
+		case '6':
+			opt.ipv6 = true;
+			break;
 		case ':':
 			printError("Missing argument", optopt);
 			printUsage(argv[0]);
@@ -334,10 +342,21 @@ int main(int argc, char *argv[])
 		exit(1);
 	}
 
-	ctx.saddr.sin6_port   = htons(atoi(opt.port));
-	ctx.saddr.sin6_family = AF_INET6;
+	if (opt.ipv6) {
+		af = AF_INET6;
+		ctx.saddr6.sin6_port   = htons(atoi(opt.port));
+		ctx.saddr6.sin6_family = AF_INET6;
+	} else {
+		af = AF_INET;
+		ctx.saddr.sin_port   = htons(atoi(opt.port));
+		ctx.saddr.sin_family = AF_INET;
+	}
 
-	if (inet_pton(AF_INET6, opt.addr, &ctx.saddr.sin6_addr) <= 0) {
+	if (opt.ipv6)
+		ret = inet_pton(af, opt.addr, &ctx.saddr6.sin6_addr);
+	else
+		ret = inet_pton(af, opt.addr, &ctx.saddr.sin_addr);
+	if (ret <= 0) {
 		fprintf(stderr, "inet_pton error for %s\n", optarg);
 		printUsage(argv[0]);
 		exit(1);
@@ -346,12 +365,16 @@ int main(int argc, char *argv[])
 	// Connect to server.
 	fprintf(stdout, "Connecting to %s... (port=%s) to send %d pings\n", opt.addr, opt.port, opt.num_pings - 1);
 
-	if ((ctx.sockfd = socket(AF_INET6, SOCK_DGRAM, 0)) < 0) {
+	if ((ctx.sockfd = socket(af, SOCK_DGRAM, 0)) < 0) {
 		fprintf(stderr, "socket() failed: (%d) %s\n", errno, strerror(errno));
 		exit(1);
 	}
 
-	if (connect(ctx.sockfd, (struct sockaddr *)&ctx.saddr, sizeof(struct sockaddr_in6)) < 0) {
+	if (opt.ipv6)
+		ret = connect(ctx.sockfd, (struct sockaddr *)&ctx.saddr6, sizeof(struct sockaddr_in6));
+	else
+		ret = connect(ctx.sockfd, (struct sockaddr *)&ctx.saddr, sizeof(struct sockaddr_in));
+	if (ret < 0) {
 		fprintf(stderr, "connect() failed: (%d) %s\n", errno, strerror(errno));
 		exit(1);
 	}
