@@ -1,3 +1,17 @@
+/* SPDX-License-Identifier: MIT */
+/*
+ * Simple ping/pong client which can use the io_uring NAPI support.
+ *
+ * Needs to be run as root because it sets SCHED_FIFO scheduling class,
+ * but will work without that.
+ *
+ * Example:
+ *
+ * sudo examples/napi-busy-poll-client -a 192.168.2.2 -n100000 -p4444 \
+ *	-b -t10 -u
+ *
+ * send and receive 100k packets, using NAPI.
+ */
 #include <ctype.h>
 #include <errno.h>
 #include <float.h>
@@ -180,7 +194,6 @@ static void sendPing(struct ctx *ctx)
 	struct io_uring_sqe *sqe = io_uring_get_sqe(&ctx->ring);
 
 	clock_gettime(CLOCK_REALTIME, (struct timespec *)ctx->buffer);
-
 	io_uring_prep_send(sqe, ctx->sockfd, ctx->buffer, sizeof(struct timespec), 0);
 	sqe->user_data = encodeUserData(IOURING_SEND, ctx->sockfd);
 }
@@ -479,10 +492,9 @@ out:
 		if (ret)
 			fprintf(stderr, "io_uring_unregister_napi: %d\n", ret);
 	}
-	io_uring_queue_exit(&ctx.ring);
 
+	io_uring_queue_exit(&ctx.ring);
 	free(ctx.rtt);
 	close(ctx.sockfd);
-
 	return 0;
 }

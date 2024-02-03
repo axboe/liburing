@@ -1,3 +1,17 @@
+/* SPDX-License-Identifier: MIT */
+/*
+ * Simple ping/pong backend which can use the io_uring NAPI support.
+ *
+ * Needs to be run as root because it sets SCHED_FIFO scheduling class,
+ * but will work without that.
+ *
+ * Example:
+ *
+ * sudo examples/napi-busy-poll-server -l -a 192.168.2.2 -n100000 \
+ *	-p4444 -t10 -b -u
+ *
+ * will respond to 100k packages, using NAPI.
+ */
 #include <ctype.h>
 #include <errno.h>
 #include <getopt.h>
@@ -374,7 +388,6 @@ int main(int argc, char *argv[])
 		tsPtr = &ts;
 	else
 		tsPtr = NULL;
-
 
 	// Use realtime scheduler.
 	setProcessScheduler();
