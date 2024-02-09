@@ -158,10 +158,8 @@ int main(int argc, char *argv[])
 		} else if (ret)
 			goto err;
 
-		if (get_file_size(fd, &size) || size != test_sizes[i]) {
-			fprintf(stderr, "size not %lu\n", size);
+		if (get_file_size(fd, &size) || size != test_sizes[i])
 			goto err;
-		}
 	}
 
 	ret = test_truncate(&ring, fd);
