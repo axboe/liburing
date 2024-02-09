@@ -10,6 +10,7 @@ liburing-2.6 release
 - Use IORING_SETUP_NO_SQARRAY as the default
 - Add support for IORING_OP_FIXED_FD_INSTALL
 - Add io_uring_prep_fixed_fd_install() helper
+- Support for napi busy polling
 
 liburing-2.5 release
 

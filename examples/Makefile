@@ -19,6 +19,8 @@ example_srcs := \
 	io_uring-test.c \
 	io_uring-udp.c \
 	link-cp.c \
+	napi-busy-poll-client.c \
+	napi-busy-poll-server.c \
 	poll-bench.c \
 	send-zerocopy.c \
 	rsrc-update-bench.c
