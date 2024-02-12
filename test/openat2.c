@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MIT */
 /*
- * Description: run various openat(2) tests
+ * Description: run various openat2(2) tests
  *
  */
 #include <errno.h>
