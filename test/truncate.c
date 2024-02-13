@@ -164,8 +164,9 @@ int main(int argc, char *argv[])
 		if (get_file_size(fd, &size))
 			goto err;
 		if (size != test_sizes[i]) {
-			fprintf(stderr, "fail %d size=%lu, %lu\n", i, size,
-				test_sizes[i]);
+			fprintf(stderr, "fail %d size=%llu, %llu\n", i,
+				(unsigned long long) size,
+				(unsigned long long) test_sizes[i]);
 			goto err;
 		}
 	}
