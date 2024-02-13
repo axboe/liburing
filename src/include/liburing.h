@@ -173,6 +173,12 @@ unsigned io_uring_peek_batch_cqe(struct io_uring *ring,
 int io_uring_wait_cqes(struct io_uring *ring, struct io_uring_cqe **cqe_ptr,
 		       unsigned wait_nr, struct __kernel_timespec *ts,
 		       sigset_t *sigmask);
+int io_uring_wait_cqes_min_timeout(struct io_uring *ring,
+				   struct io_uring_cqe **cqe_ptr,
+				   unsigned wait_nr,
+				   struct __kernel_timespec *ts,
+				   unsigned int min_ts_usec,
+				   sigset_t *sigmask);
 int io_uring_wait_cqe_timeout(struct io_uring *ring,
 			      struct io_uring_cqe **cqe_ptr,
 			      struct __kernel_timespec *ts);

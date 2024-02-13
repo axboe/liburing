@@ -234,6 +234,7 @@ static int io_uring_wait_cqes_new(struct io_uring *ring,
 				  struct io_uring_cqe **cqe_ptr,
 				  unsigned wait_nr,
 				  struct __kernel_timespec *ts,
+				  unsigned int min_wait_usec,
 				  sigset_t *sigmask)
 {
 	struct io_uring_getevents_arg arg = {
@@ -248,6 +249,9 @@ static int io_uring_wait_cqes_new(struct io_uring *ring,
 		.has_ts		= ts != NULL,
 		.arg		= &arg
 	};
+
+	if (min_wait_usec && ring->features & IORING_FEAT_MIN_TIMEOUT)
+		arg.min_wait_usec = min_wait_usec;
 
 	return _io_uring_get_cqe(ring, cqe_ptr, &data);
 }
@@ -301,13 +305,23 @@ int io_uring_wait_cqes(struct io_uring *ring, struct io_uring_cqe **cqe_ptr,
 	if (ts) {
 		if (ring->features & IORING_FEAT_EXT_ARG)
 			return io_uring_wait_cqes_new(ring, cqe_ptr, wait_nr,
-							ts, sigmask);
+							ts, 0, sigmask);
 		to_submit = __io_uring_submit_timeout(ring, wait_nr, ts);
 		if (to_submit < 0)
 			return to_submit;
 	}
 
 	return __io_uring_get_cqe(ring, cqe_ptr, to_submit, wait_nr, sigmask);
+}
+
+int io_uring_wait_cqes_min_timeout(struct io_uring *ring,
+				   struct io_uring_cqe **cqe_ptr,
+				   unsigned wait_nr,
+				   struct __kernel_timespec *ts,
+				   unsigned int min_wait_usec, sigset_t *sigmask)
+{
+	return io_uring_wait_cqes_new(ring, cqe_ptr, wait_nr, ts, min_wait_usec,
+					sigmask);
 }
 
 static int __io_uring_submit_and_wait_timeout(struct io_uring *ring,
