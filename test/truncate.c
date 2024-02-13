@@ -28,7 +28,7 @@ static int test_truncate(struct io_uring *ring, int fd)
 	sqe = io_uring_get_sqe(ring);
 	if (!sqe) {
 		fprintf(stderr, "get sqe failed\n");
-		goto err;
+		return T_EXIT_FAIL;
 	}
 
 	memset(sqe, 0, sizeof(*sqe));
@@ -38,23 +38,21 @@ static int test_truncate(struct io_uring *ring, int fd)
 	ret = io_uring_submit(ring);
 	if (ret <= 0) {
 		fprintf(stderr, "sqe submit failed: %d\n", ret);
-		goto err;
+		return T_EXIT_FAIL;
 	}
 
 	ret = io_uring_wait_cqe(ring, &cqe);
 	if (ret < 0) {
 		fprintf(stderr, "wait completion %d\n", ret);
-		goto err;
+		return T_EXIT_FAIL;
 	}
 	ret = cqe->res;
 	io_uring_cqe_seen(ring, cqe);
-	if (ret != -EINVAL) {
-		fprintf(stderr, "unexpected truncate res %d\n", ret);
-		goto err;
-	}
+	if (ret == -EINVAL)
+		return T_EXIT_PASS;
 
-err:
-	return ret;
+	fprintf(stderr, "unexpected truncate res %d\n", ret);
+	return T_EXIT_FAIL;
 }
 
 static int test_ftruncate(struct io_uring *ring, int fd, loff_t len)
@@ -95,16 +93,20 @@ static int get_file_size(int fd, loff_t *size)
 {
 	struct stat st;
 
-	if (fstat(fd, &st) < 0)
+	if (fstat(fd, &st) < 0) {
+		perror("fstat");
 		return -1;
+	}
 	if (S_ISREG(st.st_mode)) {
 		*size = st.st_size;
 		return 0;
 	} else if (S_ISBLK(st.st_mode)) {
 		unsigned long long bytes;
 
-		if (ioctl(fd, BLKGETSIZE64, &bytes) != 0)
+		if (ioctl(fd, BLKGETSIZE64, &bytes) != 0) {
+			perror("ioctl");
 			return -1;
+		}
 
 		*size = bytes;
 		return 0;
@@ -155,15 +157,21 @@ int main(int argc, char *argv[])
 			}
 			fprintf(stderr, "ftruncate: %s\n", strerror(-ret));
 			goto err;
-		} else if (ret)
+		} else if (ret) {
+			fprintf(stderr, "unexpected cqe->res %d\n", ret);
 			goto err;
-
-		if (get_file_size(fd, &size) || size != test_sizes[i])
+		}
+		if (get_file_size(fd, &size))
 			goto err;
+		if (size != test_sizes[i]) {
+			fprintf(stderr, "fail %d size=%lu, %lu\n", i, size,
+				test_sizes[i]);
+			goto err;
+		}
 	}
 
 	ret = test_truncate(&ring, fd);
-	if (ret < 0)
+	if (ret != T_EXIT_PASS)
 		goto err;
 
 out:
