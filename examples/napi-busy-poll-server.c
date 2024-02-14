@@ -263,7 +263,7 @@ int main(int argc, char *argv[])
 	memset(&opt, 0, sizeof(struct options));
 
 	// Process flags.
-	while ((flag = getopt_long(argc, argv, ":lhsbua:n:p:t:6d:", longopts, NULL)) != -1) {
+	while ((flag = getopt_long(argc, argv, ":lhs:bua:n:p:t:6d:", longopts, NULL)) != -1) {
 		switch (flag) {
 		case 'a':
 			strcpy(opt.addr, optarg);
@@ -285,7 +285,7 @@ int main(int argc, char *argv[])
 			strcpy(opt.port, optarg);
 			break;
 		case 's':
-			opt.sq_poll = true;
+			opt.sq_poll = !!atoi(optarg);
 			break;
 		case 't':
 			opt.timeout = atoi(optarg);
