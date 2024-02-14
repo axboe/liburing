@@ -311,6 +311,9 @@ static int test_loop(struct io_uring *ring,
 				multishot ? "Multishot" : "",
 				i, s_fd[i]);
 			goto err;
+		} else if (s_fd[i] == 195 && args.overflow) {
+			fprintf(stderr, "Broken overflow handling\n");
+			goto err;
 		}
 
 		if (multishot && fixed) {
