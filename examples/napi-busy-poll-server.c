@@ -70,6 +70,7 @@ struct options
 	__u32 timeout;
 
 	bool listen;
+	bool defer_tw;
 	bool sq_poll;
 	bool busy_loop;
 	bool prefer_busy_poll;
@@ -262,7 +263,7 @@ int main(int argc, char *argv[])
 	memset(&opt, 0, sizeof(struct options));
 
 	// Process flags.
-	while ((flag = getopt_long(argc, argv, ":lhsbua:n:p:t:6", longopts, NULL)) != -1) {
+	while ((flag = getopt_long(argc, argv, ":lhsbua:n:p:t:6d:", longopts, NULL)) != -1) {
 		switch (flag) {
 		case 'a':
 			strcpy(opt.addr, optarg);
@@ -294,6 +295,9 @@ int main(int argc, char *argv[])
 			break;
 		case '6':
 			opt.ipv6 = true;
+			break;
+		case 'd':
+			opt.defer_tw = !!atoi(optarg);
 			break;
 		case ':':
 			printError("Missing argument", optopt);
@@ -361,9 +365,14 @@ int main(int argc, char *argv[])
 	memset(&ts, 0, sizeof(ts));
 	memset(&napi, 0, sizeof(napi));
 
-	if (opt.sq_poll) {
+	params.flags = IORING_SETUP_SINGLE_ISSUER;
+	if (opt.defer_tw) {
+		params.flags |= IORING_SETUP_DEFER_TASKRUN;
+	} else if (opt.sq_poll) {
 		params.flags = IORING_SETUP_SQPOLL;
 		params.sq_thread_idle = 50;
+	} else {
+		params.flags |= IORING_SETUP_COOP_TASKRUN;
 	}
 
 	ret = io_uring_queue_init_params(RINGSIZE, &ctx.ring, &params);
