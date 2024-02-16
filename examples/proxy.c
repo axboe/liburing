@@ -110,7 +110,7 @@ struct conn {
 
 	struct sockaddr_in addr;
 
-	int rcv, snd, bgid_switch, mshot_resubmit;
+	int rcv, snd, shrt, bgid_switch, mshot_resubmit;
 
 	unsigned long rps;
 	unsigned long bytes;
@@ -218,7 +218,7 @@ static void show_stats(void)
 		if (!c->rps)
 			continue;
 
-		printf("Conn %d/(in_fd=%d, out_fd=%d): rps=%lu (rcv=%u, snd=%u, switch=%u, mshot_resubmit=%d), kb=%lu\n", c->tid, c->in_fd, c->out_fd, c->rps, c->rcv, c->snd, c->bgid_switch, c->mshot_resubmit, c->bytes >> 10);
+		printf("Conn %d/(in_fd=%d, out_fd=%d): rps=%lu (rcv=%u, snd=%u, switch=%u, mshot_resubmit=%d, short=%d), kb=%lu\n", c->tid, c->in_fd, c->out_fd, c->rps, c->rcv, c->snd, c->bgid_switch, c->mshot_resubmit, c->shrt, c->bytes >> 10);
 	}
 }
 
@@ -485,7 +485,7 @@ static int handle_cqe(struct io_uring *ring, struct io_uring_cqe *cqe)
 		}
 
 		if (cqe->res != buf_size)
-			printf("res %d, buf_size %d\n", cqe->res, buf_size);
+			c->shrt++;
 
 		bid = (user_data >> BID_SHIFT) & BID_MASK;
 		bgid = (user_data >> BGID_SHIFT) & BGID_MASK;
