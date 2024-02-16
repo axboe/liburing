@@ -8,12 +8,14 @@
  * Act as a proxy, listening on port 4444, and send data to 192.168.2.6 on port
  * 4445. Use multishot receive, DEFER_TASKRUN, and fixed files
  *
- * 	./proxy -m1 -d1 -f1 -h 192.168.2.6 -r4444 -p4445
+ * 	./proxy -m1 -d1 -f1 -H 192.168.2.6 -r4444 -p4445
  *
  * Act a sink, listening on port 4445, using multishot receive, DEFER_TASKRUN,
  * and fixed files:
  *
  * 	./proxy -m1 -d1 -s1 -f1 -p4445
+ *
+ * Run with -h to see a list of options, and their defaults.
  *
  * (C) Jens Axboe <axboe@kernel.dk> 2024
  *
