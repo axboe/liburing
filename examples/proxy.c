@@ -404,7 +404,7 @@ static int handle_cqe(struct io_uring *ring, struct io_uring_cqe *cqe)
 			need_submit = 0;
 		} else {
 			sqe = get_sqe(ring);
-			io_uring_prep_send(sqe, c->out_fd, ptr, buf_size, 0);
+			io_uring_prep_send(sqe, c->out_fd, ptr, res, 0);
 			user_data = SEND_DATA | ((uint64_t) bid << BID_SHIFT) | c->tid;
 			user_data |= ((uint64_t) bgid) << BGID_SHIFT;
 			io_uring_sqe_set_data64(sqe, user_data);
