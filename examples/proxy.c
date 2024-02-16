@@ -10,6 +10,12 @@
  *
  * 	./proxy -m1 -d1 -f1 -H 192.168.2.6 -r4444 -p4445
  *
+ * Act as a bi-directional proxy, listening on port 8884, and send data back
+ * and forth between host and 192.168.2.6 on port 22. Use multishot receive,
+ * DEFER_TASKRUN, fixed files, and buffers of size 1500.
+ *
+ * 	./proxy -m1 -d1 -f1 -B1 -b1500 -H 192.168.2.6 -r22 -p8888
+ *
  * Act a sink, listening on port 4445, using multishot receive, DEFER_TASKRUN,
  * and fixed files:
  *
@@ -48,7 +54,9 @@
 #define	__SOCK		2ULL
 #define	__CONNECT	3ULL
 #define	__RECV		4ULL
-#define	__SEND		5ULL
+#define __RECV_IN	5ULL
+#define __RECV_OUT	6ULL
+#define	__SEND		7ULL
 
 /*
  * Goes from accept new connection -> create socket, connect to end
@@ -58,6 +66,8 @@
 #define	SOCK_DATA	(__SOCK << OP_SHIFT)
 #define	CONNECT_DATA	(__CONNECT << OP_SHIFT)
 #define	RECV_DATA	(__RECV << OP_SHIFT)
+#define	RECV_IN_DATA	(__RECV_IN << OP_SHIFT)
+#define	RECV_OUT_DATA	(__RECV_OUT << OP_SHIFT)
 #define	SEND_DATA	(__SEND << OP_SHIFT)
 
 static int start_bgid = 1;
@@ -75,6 +85,7 @@ static char *host = "192.168.2.6";
 static int send_port = 4445;
 static int receive_port = 4444;
 static int buf_size = 32;
+static int bidi;
 
 static int nr_bufs = 256;
 static int br_mask;
@@ -241,7 +252,8 @@ static struct io_uring_sqe *get_sqe(struct io_uring *ring)
 	return sqe;
 }
 
-static void submit_receive(struct io_uring *ring, struct conn *c)
+static void __submit_receive(struct io_uring *ring, struct conn *c, int fd,
+			     uint64_t type)
 {
 	struct conn_buf_ring *cbr = c->cur_br;
 	struct io_uring_sqe *sqe;
@@ -249,17 +261,28 @@ static void submit_receive(struct io_uring *ring, struct conn *c)
 
 	sqe = get_sqe(ring);
 	if (mshot)
-		io_uring_prep_recv_multishot(sqe, c->in_fd, NULL, 0, 0);
+		io_uring_prep_recv_multishot(sqe, fd, NULL, 0, 0);
 	else
-		io_uring_prep_recv(sqe, c->in_fd, NULL, 0, 0);
+		io_uring_prep_recv(sqe, fd, NULL, 0, 0);
 
-	user_data = RECV_DATA | c->tid;
+	user_data = type | c->tid;
 	user_data |= ((uint64_t) cbr->bgid << BGID_SHIFT);
 	io_uring_sqe_set_data64(sqe, user_data);
 	sqe->buf_group = cbr->bgid;
 	sqe->flags |= IOSQE_BUFFER_SELECT;
 	if (fixed_files)
 		sqe->flags |= IOSQE_FIXED_FILE;
+}
+
+static void submit_receive(struct io_uring *ring, struct conn *c)
+{
+	__submit_receive(ring, c, c->in_fd, RECV_DATA);
+}
+
+static void submit_bidi_receive(struct io_uring *ring, struct conn *c)
+{
+	__submit_receive(ring, c, c->in_fd, RECV_IN_DATA);
+	__submit_receive(ring, c, c->out_fd, RECV_OUT_DATA);
 }
 
 /*
@@ -276,6 +299,85 @@ static void handle_enobufs(struct io_uring *ring, struct conn *c)
 	c->cur_br = &c->brs[c->cur_br_index];
 
 	submit_receive(ring, c);
+}
+
+static int handle_receive(struct io_uring *ring, struct conn *c,
+			  struct io_uring_cqe *cqe, int *need_submit,
+			  int in_fd, int out_fd, uint64_t type)
+{
+	uint64_t user_data = io_uring_cqe_get_data64(cqe);
+	struct conn_buf_ring *cbr;
+	struct io_uring_sqe *sqe;
+	int bid, bgid, do_recv = !mshot;
+	int res = cqe->res;
+	void *ptr;
+
+	if (res < 0) {
+		if (res == -ENOBUFS) {
+			handle_enobufs(ring, c);
+			*need_submit = 1;
+			return 0;
+		} else {
+			fprintf(stderr, "recv error %s\n", strerror(-res));
+			return 1;
+		}
+	}
+
+	c->rcv++;
+
+	if (!(cqe->flags & IORING_CQE_F_BUFFER)) {
+		fprintf(stderr, "no buffer assigned\n");
+		return 1;
+	}
+
+	/*
+	 * If multishot terminates, just submit a new one.
+	 */
+	if (mshot && !(cqe->flags & IORING_CQE_F_MORE)) {
+		c->mshot_resubmit++;
+		do_recv = 1;
+	}
+
+	bid = cqe->flags >> IORING_CQE_BUFFER_SHIFT;
+	bgid = (user_data >> BGID_SHIFT) & BGID_MASK;
+	assert(bid < nr_bufs);
+	cbr = &c->brs[bgid - c->start_bgid];
+	ptr = cbr->buf + bid * buf_size;
+
+	/*
+	 * If we're a sink, we're done here. Just replenish the buffer back
+	 * to the pool. For proxy mode, we will send the data to the other
+	 * end and the buffer will be replenished once the send is done with
+	 * it.
+	 */
+	if (is_sink) {
+		io_uring_buf_ring_add(cbr->br, ptr, buf_size, bid, br_mask, 0);
+		io_uring_buf_ring_advance(cbr->br, 1);
+		*need_submit = 0;
+	} else {
+		sqe = get_sqe(ring);
+		io_uring_prep_send(sqe, out_fd, ptr, res, 0);
+		user_data = SEND_DATA | ((uint64_t) bid << BID_SHIFT) | c->tid;
+		user_data |= ((uint64_t) bgid) << BGID_SHIFT;
+		io_uring_sqe_set_data64(sqe, user_data);
+		if (fixed_files)
+			sqe->flags |= IOSQE_FIXED_FILE;
+	}
+
+	c->rps++;
+	c->bytes += res;
+
+	/*
+	 * If we're not doing multishot receive, or if multishot receive
+	 * terminated, we need to submit a new receive request as this one
+	 * has completed. Multishot will stay armed.
+	 */
+	if (do_recv) {
+		__submit_receive(ring, c, in_fd, type);
+		*need_submit = 1;
+	}
+
+	return 0;
 }
 
 static int handle_cqe(struct io_uring *ring, struct io_uring_cqe *cqe)
@@ -352,78 +454,22 @@ static int handle_cqe(struct io_uring *ring, struct io_uring_cqe *cqe)
 			return 1;
 		}
 
-		submit_receive(ring, c);
+		if (bidi)
+			submit_bidi_receive(ring, c);
+		else
+			submit_receive(ring, c);
 		break;
 		}
 	case __RECV: {
-		struct conn_buf_ring *cbr;
-		int bid, bgid, do_recv = !mshot;
-		void *ptr;
-
-		if (cqe->res < 0) {
-			if (cqe->res == -ENOBUFS) {
-				handle_enobufs(ring, c);
-				need_submit = 1;
-				break;
-			} else {
-				fprintf(stderr, "recv error %s\n", strerror(-res));
-				return 1;
-			}
+		handle_receive(ring, c, cqe, &need_submit, c->in_fd, c->out_fd, RECV_DATA);
+		break;
 		}
-
-		c->rcv++;
-
-		if (!(cqe->flags & IORING_CQE_F_BUFFER)) {
-			fprintf(stderr, "no buffer assigned\n");
-			return 1;
+	case __RECV_IN: {
+		handle_receive(ring, c, cqe, &need_submit, c->in_fd, c->out_fd, RECV_IN_DATA);
+		break;
 		}
-
-		/*
-		 * If multishot terminates, just submit a new one.
-		 */
-		if (mshot && !(cqe->flags & IORING_CQE_F_MORE)) {
-			c->mshot_resubmit++;
-			do_recv = 1;
-		}
-
-		bid = cqe->flags >> IORING_CQE_BUFFER_SHIFT;
-		bgid = (user_data >> BGID_SHIFT) & BGID_MASK;
-		assert(bid < nr_bufs);
-		cbr = &c->brs[bgid - c->start_bgid];
-		ptr = cbr->buf + bid * buf_size;
-
-		/*
-		 * If we're a sink, we're done here. Just replenish the buffer back
-		 * to the pool. For proxy mode, we will send the data to the other
-		 * end and the buffer will be replenished once the send is done with
-		 * it.
-		 */
-		if (is_sink) {
-			io_uring_buf_ring_add(cbr->br, ptr, buf_size, bid, br_mask, 0);
-			io_uring_buf_ring_advance(cbr->br, 1);
-			need_submit = 0;
-		} else {
-			sqe = get_sqe(ring);
-			io_uring_prep_send(sqe, c->out_fd, ptr, res, 0);
-			user_data = SEND_DATA | ((uint64_t) bid << BID_SHIFT) | c->tid;
-			user_data |= ((uint64_t) bgid) << BGID_SHIFT;
-			io_uring_sqe_set_data64(sqe, user_data);
-			if (fixed_files)
-				sqe->flags |= IOSQE_FIXED_FILE;
-		}
-	
-		c->rps++;
-		c->bytes += cqe->res;
-
-		/*
-		 * If we're not doing multishot receive, or if multishot receive
-		 * terminated, we need to submit a new receive request as this one
-		 * has completed. Multishot will stay armed.
-		 */
-		if (do_recv) {
-			submit_receive(ring, c);
-			need_submit = 1;
-		}
+	case __RECV_OUT: {
+		handle_receive(ring, c, cqe, &need_submit, c->out_fd, c->in_fd, RECV_OUT_DATA);
 		break;
 		}
 	case __SEND: {
@@ -472,6 +518,7 @@ static void usage(const char *name)
 	printf("\t-n:\t\tNumber of provided buffers (%d)\n", nr_bufs);
 	printf("\t-s:\t\tAct only as a sink (%d)\n", is_sink);
 	printf("\t-f:\t\tUse only fixed files (%d)\n", fixed_files);
+	printf("\t-B:\t\tUse bi-directiona mode (%d)\n", bidi);
 	printf("\t-h:\t\tHost to connect to (%s)\n", host);
 	printf("\t-r:\t\tPort to receive on (%d)\n", receive_port);
 	printf("\t-p:\t\tPort to connect to (%d)\n", send_port);
@@ -485,7 +532,7 @@ int main(int argc, char *argv[])
 	struct sigaction sa = { };
 	int opt, ret, fd;
 
-	while ((opt = getopt(argc, argv, "m:d:S:s:b:f:H:r:p:n:h?")) != -1) {
+	while ((opt = getopt(argc, argv, "m:d:S:s:b:f:H:r:p:n:B:h?")) != -1) {
 		switch (opt) {
 		case 'm':
 			mshot = !!atoi(optarg);
@@ -516,6 +563,9 @@ int main(int argc, char *argv[])
 			break;
 		case 'p':
 			send_port = atoi(optarg);
+			break;
+		case 'B':
+			bidi = !!atoi(optarg);
 			break;
 		case 'h':
 		default:
