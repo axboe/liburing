@@ -23,7 +23,8 @@ example_srcs := \
 	napi-busy-poll-server.c \
 	poll-bench.c \
 	send-zerocopy.c \
-	rsrc-update-bench.c
+	rsrc-update-bench.c \
+	proxy.c
 
 all_targets :=
 
