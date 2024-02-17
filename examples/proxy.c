@@ -53,9 +53,8 @@
 #define	__SOCK		2ULL
 #define	__CONNECT	3ULL
 #define	__RECV		4ULL
-#define __RECV_IN	5ULL
-#define __RECV_OUT	6ULL
-#define	__SEND		7ULL
+#define __RECV_OUT	5ULL
+#define	__SEND		6ULL
 
 /*
  * Goes from accept new connection -> create socket, connect to end
@@ -65,7 +64,6 @@
 #define	SOCK_DATA	(__SOCK << OP_SHIFT)
 #define	CONNECT_DATA	(__CONNECT << OP_SHIFT)
 #define	RECV_DATA	(__RECV << OP_SHIFT)
-#define	RECV_IN_DATA	(__RECV_IN << OP_SHIFT)
 #define	RECV_OUT_DATA	(__RECV_OUT << OP_SHIFT)
 #define	SEND_DATA	(__SEND << OP_SHIFT)
 
@@ -286,7 +284,7 @@ static void submit_receive(struct io_uring *ring, struct conn *c)
 
 static void submit_bidi_receive(struct io_uring *ring, struct conn *c)
 {
-	__submit_receive(ring, c, c->in_fd, RECV_IN_DATA);
+	__submit_receive(ring, c, c->in_fd, RECV_DATA);
 	__submit_receive(ring, c, c->out_fd, RECV_OUT_DATA);
 }
 
@@ -476,10 +474,6 @@ static int handle_cqe(struct io_uring *ring, struct io_uring_cqe *cqe)
 		}
 	case __RECV: {
 		handle_receive(ring, c, cqe, &need_submit, c->in_fd, c->out_fd, RECV_DATA);
-		break;
-		}
-	case __RECV_IN: {
-		handle_receive(ring, c, cqe, &need_submit, c->in_fd, c->out_fd, RECV_IN_DATA);
 		break;
 		}
 	case __RECV_OUT: {
