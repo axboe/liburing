@@ -1045,7 +1045,6 @@ int main(int argc, char *argv[])
 		if (nr_conns)
 			to_wait = nr_conns;
 
-		to_wait = 1;
 		io_uring_submit_and_wait_timeout(&ring, &cqe, to_wait, &ts, NULL);
 
 		io_uring_for_each_cqe(&ring, head, cqe) {
