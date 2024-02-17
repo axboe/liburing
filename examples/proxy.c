@@ -532,7 +532,7 @@ static void __queue_send(struct io_uring *ring, struct conn *c, int fd,
 /*
  * Submit any deferred sends (see comment for defer_send()).
  */
-static bool submit_deferred_send(struct io_uring *ring, struct conn *c,
+static void submit_deferred_send(struct io_uring *ring, struct conn *c,
 				 struct conn_dir *cd)
 {
 	struct pending_send *ps;
@@ -540,7 +540,7 @@ static bool submit_deferred_send(struct io_uring *ring, struct conn *c,
 	if (list_empty(&cd->send_list)) {
 		if (verbose)
 			printf("%d: defer send %p empty\n", c->tid, cd);
-		return false;
+		return;
 	}
 
 	if (verbose)
@@ -550,7 +550,6 @@ static bool submit_deferred_send(struct io_uring *ring, struct conn *c,
 	list_del(&ps->list);
 	__queue_send(ring, c, ps->fd, ps->data, ps->len, ps->bgid, ps->bid);
 	free(ps);
-	return true;
 }
 
 /*
@@ -596,23 +595,19 @@ static void defer_send(struct conn *c, struct conn_dir *cd, void *data,
 	list_add_tail(&ps->list, &cd->send_list);
 }
 
-static bool queue_send(struct io_uring *ring, struct conn *c, void *data,
+static void queue_send(struct io_uring *ring, struct conn *c, void *data,
 		       int len, int bgid, int bid, int out_fd)
 {
 	struct conn_dir *cd = fd_to_conn_dir(c, out_fd);
 
-	if (cd->pending_sends) {
+	if (cd->pending_sends)
 		defer_send(c, cd, data, len, bgid, bid, out_fd);
-		return false;
-	}
-
-	__queue_send(ring, c, out_fd, data, len, bgid, bid);
-	return true;
+	else
+		__queue_send(ring, c, out_fd, data, len, bgid, bid);
 }
 
 static int handle_receive(struct io_uring *ring, struct conn *c,
-			  struct io_uring_cqe *cqe, int *need_submit,
-			  int in_fd, int out_fd)
+			  struct io_uring_cqe *cqe, int in_fd, int out_fd)
 {
 	struct conn_dir *cd = fd_to_conn_dir(c, in_fd);
 	struct conn_buf_ring *cbr;
@@ -623,7 +618,6 @@ static int handle_receive(struct io_uring *ring, struct conn *c,
 	if (res < 0) {
 		if (res == -ENOBUFS) {
 			handle_enobufs(ring, c, cd, in_fd);
-			*need_submit = 1;
 			return 0;
 		} else {
 			fprintf(stderr, "recv error %s\n", strerror(-res));
@@ -673,9 +667,8 @@ static int handle_receive(struct io_uring *ring, struct conn *c,
 	if (is_sink) {
 		io_uring_buf_ring_add(cbr->br, ptr, buf_size, bid, br_mask, 0);
 		io_uring_buf_ring_advance(cbr->br, 1);
-		*need_submit = 0;
 	} else {
-		*need_submit = queue_send(ring, c, ptr, res, bgid, bid, out_fd);
+		queue_send(ring, c, ptr, res, bgid, bid, out_fd);
 	}
 
 	c->rps++;
@@ -686,10 +679,8 @@ static int handle_receive(struct io_uring *ring, struct conn *c,
 	 * terminated, we need to submit a new receive request as this one
 	 * has completed. Multishot will stay armed.
 	 */
-	if (do_recv) {
+	if (do_recv)
 		__submit_receive(ring, c, in_fd);
-		*need_submit = 1;
-	}
 
 	return 0;
 }
@@ -698,7 +689,7 @@ static int handle_cqe(struct io_uring *ring, struct io_uring_cqe *cqe)
 {
 	struct io_uring_sqe *sqe;
 	int res = cqe->res;
-	int ret = 0, need_submit = 1;
+	int ret = 0;
 
 	switch (cqe_to_op(cqe)) {
 	case __ACCEPT: {
@@ -792,13 +783,10 @@ static int handle_cqe(struct io_uring *ring, struct io_uring_cqe *cqe)
 		struct conn *c = cqe_to_conn(cqe);
 		int fd = cqe_to_fd(cqe);
 
-		if (fd == c->in_fd) {
-			ret = handle_receive(ring, c, cqe, &need_submit,
-						c->in_fd, c->out_fd);
-		} else {
-			ret = handle_receive(ring, c, cqe, &need_submit,
-						c->out_fd, c->in_fd);
-		}
+		if (fd == c->in_fd)
+			ret = handle_receive(ring, c, cqe, c->in_fd, c->out_fd);
+		else
+			ret = handle_receive(ring, c, cqe, c->out_fd, c->in_fd);
 		break;
 		}
 	case __SEND: {
@@ -835,8 +823,6 @@ static int handle_cqe(struct io_uring *ring, struct io_uring_cqe *cqe)
 		io_uring_buf_ring_add(cbr->br, ptr, buf_size, bid, br_mask, 0);
 		io_uring_buf_ring_advance(cbr->br, 1);
 
-		need_submit = 0;
-
 		cd->pending_sends--;
 
 		if (verbose) {
@@ -848,7 +834,7 @@ static int handle_cqe(struct io_uring *ring, struct io_uring_cqe *cqe)
 			if (!res)
 				close_cd(cd);
 			else
-				need_submit = submit_deferred_send(ring, c, cd);
+				submit_deferred_send(ring, c, cd);
 		}
 		break;
 		}
@@ -874,9 +860,6 @@ static int handle_cqe(struct io_uring *ring, struct io_uring_cqe *cqe)
 		ret = 1;
 		break;
 	}
-
-	if (need_submit)
-		io_uring_submit(ring);
 
 	return ret;
 }
@@ -1037,7 +1020,6 @@ int main(int argc, char *argv[])
 	else
 		io_uring_prep_multishot_accept(sqe, fd, NULL, NULL, 0);
 	__encode_userdata(sqe, 0, 0, 0, 0, fd);
-	io_uring_submit(&ring);
 
 	while (1) {
 		struct __kernel_timespec ts = {
@@ -1054,7 +1036,7 @@ int main(int argc, char *argv[])
 			to_wait = nr_conns;
 
 		to_wait = 1;
-		io_uring_wait_cqes(&ring, &cqe, to_wait, &ts, NULL);
+		io_uring_submit_and_wait_timeout(&ring, &cqe, to_wait, &ts, NULL);
 
 		io_uring_for_each_cqe(&ring, head, cqe) {
 			if (handle_cqe(&ring, cqe))
