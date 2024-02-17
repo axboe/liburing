@@ -118,7 +118,7 @@ static int get_file_size(int fd, loff_t *size)
 int main(int argc, char *argv[])
 {
 	struct io_uring ring;
-	char path[32] = "./XXXXXX";
+	char path[32] = ".truncate.XXXXXX";
 	int ret;
 	int fd;
 	int i;
@@ -176,9 +176,11 @@ int main(int argc, char *argv[])
 		goto err;
 
 out:
+	unlink(path);
 	close(fd);
 	return T_EXIT_PASS;
 err:
+	unlink(path);
 	close(fd);
 	return T_EXIT_FAIL;
 }
