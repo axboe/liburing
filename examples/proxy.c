@@ -258,7 +258,7 @@ static void __submit_receive(struct io_uring *ring, struct conn *c, int fd,
 	uint64_t user_data;
 
 	if (verbose) {
-		printf("%d: submit receive fd=%d, type=%lu\n", c->tid, fd,
+		printf("%d: submit receive fd=%d, type=%lx\n", c->tid, fd,
 						(unsigned long) type);
 	}
 
