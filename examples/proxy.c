@@ -502,7 +502,7 @@ static void __close_conn(struct io_uring *ring, struct conn *c)
 	io_uring_submit(ring);
 }
 
-static void close_conn(struct conn *c, struct conn_dir *cd)
+static void close_cd(struct conn_dir *cd)
 {
 	if (cd->pending_sends)
 		return;
@@ -636,7 +636,7 @@ static int handle_receive(struct io_uring *ring, struct conn *c,
 
 	if (!(cqe->flags & IORING_CQE_F_BUFFER)) {
 		if (!res) {
-			close_conn(c, cd);
+			close_cd(cd);
 			return 0;
 		}
 		fprintf(stderr, "no buffer assigned, res=%d\n", res);
@@ -846,7 +846,7 @@ static int handle_cqe(struct io_uring *ring, struct io_uring_cqe *cqe)
 
 		if (!cd->pending_sends) {
 			if (!res)
-				close_conn(c, cd);
+				close_cd(cd);
 			else
 				need_submit = submit_deferred_send(ring, c, cd);
 		}
