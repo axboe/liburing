@@ -82,7 +82,7 @@ static int mshot = 1;
 static int sqpoll;
 static int defer_tw = 1;
 static int is_sink;
-static int fixed_files;
+static int fixed_files = 1;
 static char *host = "192.168.2.6";
 static int send_port = 4445;
 static int receive_port = 4444;
@@ -725,6 +725,18 @@ static int handle_cqe(struct io_uring *ring, struct io_uring_cqe *cqe)
 			break;
 		}
 
+		/*
+		 * If fixed_files is set, proxy will use fixed files for any
+		 * new file descriptors it instantiates. Fixd files, or fixed
+		 * descriptors, are io_uring private file descriptors. They
+		 * cannot be accessed outside of io_uring. io_uring holds a
+		 * fixed reference to them, which means that we do not need to
+		 * grab per-request references to them. Particularly for
+		 * threaded applications, grabbing and dropping file references
+		 * for each operation can be costly as the file table is shared.
+		 * This generally shows up as fget/fput related overhead in
+		 * any workload profiles.
+		 */
 		sqe = get_sqe(ring);
 		if (fixed_files) {
 			io_uring_prep_socket_direct_alloc(sqe, AF_INET,
@@ -1005,12 +1017,23 @@ int main(int argc, char *argv[])
 	}
 
 	if (fixed_files) {
+		/*
+		 * If fixed files are used, we need to allocate a fixed file
+		 * table upfront where new direct descriptors can be managed.
+		 */
 		ret = io_uring_register_files_sparse(&ring, 4096);
 		if (ret) {
 			fprintf(stderr, "file register: %d\n", ret);
 			return 1;
 		}
 
+		/*
+		 * If fixed files are used, we also register the ring fd. See
+		 * comment near io_uring_prep_socket_direct_alloc() further
+		 * down. This avoids the fget/fput overhead associated with
+		 * the io_uring_enter(2) system call itself, which is used to
+		 * submit and wait on events.
+		 */
 		ret = io_uring_register_ring_fd(&ring);
 		if (ret != 1) {
 			fprintf(stderr, "ring register: %d\n", ret);
@@ -1024,6 +1047,18 @@ int main(int argc, char *argv[])
 			mshot, sqpoll, defer_tw, fixed_files, is_sink,
 			buf_size, nr_bufs, host, send_port, receive_port);
 
+	/*
+	 * proxy provides a way to use either multishot receive or not, but
+	 * for accept, we always use multishot. A multishot accept request
+	 * needs only be armed once, and then it'll trigger a completion and
+	 * post a CQE whenever a new connection is accepted. No need to do
+	 * anything else, unless the multishot accept terminates. This happens
+	 * if it encounters an error. Applications should check for
+	 * IORING_CQE_F_MORE in cqe->flags - this tells you if more completions
+	 * are expected from this request or not. Non-multishot never have
+	 * this set, where multishot will always have this set unless an error
+	 * occurs.
+	 */
 	sqe = get_sqe(&ring);
 	if (fixed_files)
 		io_uring_prep_multishot_accept_direct(sqe, fd, NULL, NULL, 0);
