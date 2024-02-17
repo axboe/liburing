@@ -36,7 +36,6 @@
 #include <sys/socket.h>
 #include <time.h>
 #include <unistd.h>
-#include <assert.h>
 #include <liburing.h>
 
 /*
@@ -86,6 +85,7 @@ static int send_port = 4445;
 static int receive_port = 4444;
 static int buf_size = 32;
 static int bidi;
+static int verbose;
 
 static int nr_bufs = 256;
 static int br_mask;
@@ -259,6 +259,11 @@ static void __submit_receive(struct io_uring *ring, struct conn *c, int fd,
 	struct io_uring_sqe *sqe;
 	uint64_t user_data;
 
+	if (verbose) {
+		printf("%d: submit receive fd=%d, type=%lu\n", c->tid, fd,
+						(unsigned long) type);
+	}
+
 	sqe = get_sqe(ring);
 	if (mshot)
 		io_uring_prep_recv_multishot(sqe, fd, NULL, 0, 0);
@@ -298,6 +303,9 @@ static void handle_enobufs(struct io_uring *ring, struct conn *c)
 	c->cur_br_index ^= 1;
 	c->cur_br = &c->brs[c->cur_br_index];
 
+	if (verbose)
+		printf("%d: enobufs: switch to bgid %d\n", c->tid, c->cur_br->bgid);
+
 	submit_receive(ring, c);
 }
 
@@ -323,12 +331,12 @@ static int handle_receive(struct io_uring *ring, struct conn *c,
 		}
 	}
 
-	c->rcv++;
-
 	if (!(cqe->flags & IORING_CQE_F_BUFFER)) {
-		fprintf(stderr, "no buffer assigned\n");
+		fprintf(stderr, "no buffer assigned, res=%d\n", res);
 		return 1;
 	}
+
+	c->rcv++;
 
 	/*
 	 * If multishot terminates, just submit a new one.
@@ -340,7 +348,10 @@ static int handle_receive(struct io_uring *ring, struct conn *c,
 
 	bid = cqe->flags >> IORING_CQE_BUFFER_SHIFT;
 	bgid = (user_data >> BGID_SHIFT) & BGID_MASK;
-	assert(bid < nr_bufs);
+
+	if (verbose)
+		printf("%d: recv: bid=%d, bgid=%d, res=%d\n", c->tid, bid, bgid, res);
+
 	cbr = &c->brs[bgid - c->start_bgid];
 	ptr = cbr->buf + bid * buf_size;
 
@@ -429,6 +440,9 @@ static int handle_cqe(struct io_uring *ring, struct io_uring_cqe *cqe)
 			return 1;
 		}
 
+		if (verbose)
+			printf("%d: sock: res=%d\n", c->tid, res);
+
 		c->out_fd = res;
 		memset(&c->addr, 0, sizeof(c->addr));
 		c->addr.sin_family = AF_INET;
@@ -489,6 +503,10 @@ static int handle_cqe(struct io_uring *ring, struct io_uring_cqe *cqe)
 
 		bid = (user_data >> BID_SHIFT) & BID_MASK;
 		bgid = (user_data >> BGID_SHIFT) & BGID_MASK;
+
+		if (verbose)
+			printf("%d: send: bid=%d, bgid=%d, res=%d\n", c->tid, bid, bgid, res);
+
 		bgid -= c->start_bgid;
 		cbr = &c->brs[bgid];
 		ptr = cbr->buf + bid * buf_size;
@@ -522,6 +540,7 @@ static void usage(const char *name)
 	printf("\t-h:\t\tHost to connect to (%s)\n", host);
 	printf("\t-r:\t\tPort to receive on (%d)\n", receive_port);
 	printf("\t-p:\t\tPort to connect to (%d)\n", send_port);
+	printf("\t-V:\t\tIncrease verbosity (%d)\n", verbose);
 }
 
 int main(int argc, char *argv[])
@@ -532,7 +551,7 @@ int main(int argc, char *argv[])
 	struct sigaction sa = { };
 	int opt, ret, fd;
 
-	while ((opt = getopt(argc, argv, "m:d:S:s:b:f:H:r:p:n:B:h?")) != -1) {
+	while ((opt = getopt(argc, argv, "m:d:S:s:b:f:H:r:p:n:B:Vh?")) != -1) {
 		switch (opt) {
 		case 'm':
 			mshot = !!atoi(optarg);
@@ -567,11 +586,19 @@ int main(int argc, char *argv[])
 		case 'B':
 			bidi = !!atoi(optarg);
 			break;
+		case 'V':
+			verbose++;
+			break;
 		case 'h':
 		default:
 			usage(argv[0]);
 			return 1;
 		}
+	}
+
+	if (bidi && is_sink) {
+		fprintf(stderr, "Can't be both bidi proxy and sink\n");
+		return 1;
 	}
 
 	br_mask = nr_bufs - 1;
