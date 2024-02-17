@@ -198,6 +198,11 @@ static int setup_listening_socket(int port)
  * on receive, we'll switch to the other ring and re-arm. If this happens
  * frequently (see switch= stat), then the ring sizes are likely too small.
  * Use -nXX to make them bigger.
+ *
+ * The alternative here would be to use the older style provided buffers,
+ * where you simply setup a buffer group and use SQEs with
+ * io_urign_prep_provide_buffers() to add to the pool. But that approach is
+ * slower and has been deprecated by using the faster ring provided buffers.
  */
 static int setup_buffer_ring(struct io_uring *ring, struct conn *c, int index)
 {
@@ -315,9 +320,9 @@ static void sig_int(int __attribute__((__unused__)) sig)
 
 /*
  * Special cased for SQPOLL only, as we don't control when SQEs are consumed if
- * that is used. Hence we may need to wait for the SQPOLL thread to keep up until
- * we can get a new SQE. All other cases will break immediately, with a fresh
- * SQE.
+ * that is used. Hence we may need to wait for the SQPOLL thread to keep up
+ * until we can get a new SQE. All other cases will break immediately, with a
+ * fresh SQE.
  */
 static struct io_uring_sqe *get_sqe(struct io_uring *ring)
 {
@@ -337,6 +342,15 @@ static struct io_uring_sqe *get_sqe(struct io_uring *ring)
 	return sqe;
 }
 
+/*
+ * Packs the information that we will need at completion time into the
+ * sqe->user_data field, which is passed back in the completion in
+ * cqe->user_data. Some apps would need more space than this, and in fact
+ * I'd love to pack the requested IO size in here, and it's not uncommon to
+ * see apps use this field as just a cookie to either index a data structure
+ * at completion time, or even just put the pointer to the associated
+ * structure into this field.
+ */
 static void __encode_userdata(struct io_uring_sqe *sqe, int tid, int op,
 			    int bgid, int bid, int fd)
 {
@@ -358,45 +372,35 @@ static void encode_userdata(struct io_uring_sqe *sqe, struct conn *c, int op,
 
 static int cqe_to_op(struct io_uring_cqe *cqe)
 {
-	struct userdata ud = {
-		.val = cqe->user_data
-	};
+	struct userdata ud = { .val = cqe->user_data };
 
 	return ud.op_tid >> OP_SHIFT;
 }
 
 static struct conn *cqe_to_conn(struct io_uring_cqe *cqe)
 {
-	struct userdata ud = {
-		.val = cqe->user_data
-	};
+	struct userdata ud = { .val = cqe->user_data };
 
 	return &conns[ud.op_tid & TID_MASK];
 }
 
 static int cqe_to_bgid(struct io_uring_cqe *cqe)
 {
-	struct userdata ud = {
-		.val = cqe->user_data
-	};
+	struct userdata ud = { .val = cqe->user_data };
 
 	return ud.bgid;
 }
 
 static int cqe_to_bid(struct io_uring_cqe *cqe)
 {
-	struct userdata ud = {
-		.val = cqe->user_data
-	};
+	struct userdata ud = { .val = cqe->user_data };
 
 	return ud.bid;
 }
 
 static int cqe_to_fd(struct io_uring_cqe *cqe)
 {
-	struct userdata ud = {
-		.val = cqe->user_data
-	};
+	struct userdata ud = { .val = cqe->user_data };
 
 	return ud.fd;
 }
@@ -816,6 +820,12 @@ static int handle_cqe(struct io_uring *ring, struct io_uring_cqe *cqe)
 			printf("%d: send: bid=%d, bgid=%d, res=%d\n", c->tid,
 								bid, bgid, res);
 
+		/*
+		 * Find the provided buffer that the receive consumed, and
+		 * which we then used for the send, and add it back to the
+		 * pool so it can get picked by another receive. Once the send
+		 * is done, we're done with it.
+		 */
 		bgid -= c->start_bgid;
 		cbr = &c->brs[bgid];
 		ptr = cbr->buf + bid * buf_size;
