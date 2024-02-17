@@ -994,19 +994,66 @@ int main(int argc, char *argv[])
 	sa.sa_flags = SA_RESTART;
 	sigaction(SIGINT, &sa, NULL);
 
+	/*
+	 * By default, set us up with a big CQ ring. Not strictly needed
+	 * here, but it's very important to never overflow the CQ ring.
+	 * Events will not be dropped if this happens, but it does slow
+	 * the application down in dealing with overflown events.
+	 *
+	 * Set SINGLE_ISSUER, which tells the kernel that only one thread
+	 * is doing IO submissions. This enables certain optimizations in
+	 * the kernel.
+	 */
 	memset(&params, 0, sizeof(params));
 	params.flags |= IORING_SETUP_SINGLE_ISSUER | IORING_SETUP_CLAMP;
 	params.flags |= IORING_SETUP_CQSIZE;
 	params.cq_entries = 131072;
+
+	/*
+	 * DEFER_TASKRUN decouples async event reaping and retrying from
+	 * regular system calls. If this isn't set, then io_uring uses
+	 * normal task_work for this. task_work is always being run on any
+	 * exit to userspace. Real applications do more than just call IO
+	 * related system calls, and hence we can be running this work way
+	 * too often. Using DEFER_TASKRUN defers any task_work running to
+	 * when the application enters the kernel anyway to wait on new
+	 * events. It's generally the preferred and recommended way to setup
+	 * a ring.
+	 */
 	if (defer_tw) {
 		params.flags |= IORING_SETUP_DEFER_TASKRUN;
 		sqpoll = 0;
 	}
+
+	/*
+	 * SQPOLL offloads any request submission and retry operations to a
+	 * dedicated thread. This enables an application to do IO without
+	 * ever having to enter the kernel itself. The SQPOLL thread will
+	 * stay busy as long as there's work to do, and go to sleep if
+	 * sq_thread_idle msecs have passed. If it's running, submitting new
+	 * IO just needs to make them visible to the SQPOLL thread, it needs
+	 * not enter the kernel. For submission, the application will only
+	 * enter the kernel if the SQPOLL has been idle long enough that it
+	 * has gone to sleep.
+	 *
+	 * Waiting on events still need to enter the kernel, if none are
+	 * available. The application may also use io_uring_peek_cqe() to
+	 * check for new events without entering the kernel, as completions
+	 * will be continually produced to the CQ ring by the SQPOLL thread
+	 * as they occur.
+	 */
 	if (sqpoll) {
 		params.flags |= IORING_SETUP_SQPOLL;
 		params.sq_thread_idle = 1000;
 		defer_tw = 0;
 	}
+
+	/*
+	 * If neither DEFER_TASKRUN or SQPOLL is used, set COOP_TASKRUN. This
+	 * avoids heavy signal based notifications, which can force an
+	 * application to enter the kernel and process it as soon as they
+	 * occur.
+	 */
 	if (!sqpoll && !defer_tw)
 		params.flags |= IORING_SETUP_COOP_TASKRUN;
 
@@ -1088,6 +1135,13 @@ int main(int argc, char *argv[])
 			++i;
 		}
 
+		/*
+		 * Advance the CQ ring for seen events when we've processed
+		 * all of them in this loop. This can also be done with
+		 * io_uring_cqe_seen() in each handler above, which just marks
+		 * that single CQE as seen. However, it's more efficient to
+		 * mark a batch as seen when we're done with that batch.
+		 */
 		if (i)
 			io_uring_cq_advance(&ring, i);
 		else
