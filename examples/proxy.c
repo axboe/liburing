@@ -154,6 +154,11 @@ struct conn {
 #define MAX_CONNS	1024
 static struct conn conns[MAX_CONNS];
 
+#define vlog(str, ...) do {							\
+	if (verbose)							\
+		printf(str, ##__VA_ARGS__);				\
+} while (0)
+
 static int setup_listening_socket(int port)
 {
 	struct sockaddr_in srv_addr = { };
@@ -408,8 +413,7 @@ static void __submit_receive(struct io_uring *ring, struct conn *c, int fd)
 	struct conn_buf_ring *cbr = c->cur_br;
 	struct io_uring_sqe *sqe;
 
-	if (verbose)
-		printf("%d: submit receive fd=%d\n", c->tid, fd);
+	vlog("%d: submit receive fd=%d\n", c->tid, fd);
 
 	/*
 	 * For both recv and multishot receive, we use the ring provided
@@ -465,10 +469,7 @@ static void handle_enobufs(struct io_uring *ring, struct conn *c,
 	c->cur_br_index ^= 1;
 	c->cur_br = &c->brs[c->cur_br_index];
 
-	if (verbose) {
-		printf("%d: enobufs: switch to bgid %d\n", c->tid,
-							c->cur_br->bgid);
-	}
+	vlog("%d: enobufs: switch to bgid %d\n", c->tid, c->cur_br->bgid);
 
 	__submit_receive(ring, c, fd);
 }
@@ -579,10 +580,7 @@ static void __queue_send(struct io_uring *ring, struct conn *c, int fd,
 	struct conn_dir *cd = fd_to_conn_dir(c, fd);
 	struct io_uring_sqe *sqe;
 
-	if (verbose) {
-		printf("%d: send %d to fd %d (%p, bgid %d, bid %d)\n", c->tid,
-				len, fd, data, bgid, bid);
-	}
+	vlog("%d: send %d to fd %d (%p, bgid %d, bid %d)\n", c->tid, len, fd, data, bgid, bid);
 
 	sqe = get_sqe(ring);
 	io_uring_prep_send(sqe, fd, data, len, MSG_WAITALL | MSG_NOSIGNAL);
@@ -601,13 +599,11 @@ static void submit_deferred_send(struct io_uring *ring, struct conn *c,
 	struct pending_send *ps;
 
 	if (list_empty(&cd->send_list)) {
-		if (verbose)
-			printf("%d: defer send %p empty\n", c->tid, cd);
+		vlog("%d: defer send %p empty\n", c->tid, cd);
 		return;
 	}
 
-	if (verbose)
-		printf("%d: queueing deferred send %p\n", c->tid, cd);
+	vlog("%d: queueing deferred send %p\n", c->tid, cd);
 
 	ps = list_first_entry(&cd->send_list, struct pending_send, list);
 	list_del(&ps->list);
@@ -643,11 +639,8 @@ static void defer_send(struct conn *c, struct conn_dir *cd, void *data,
 {
 	struct pending_send *ps = malloc(sizeof(*ps));
 
-	if (verbose) {
-		printf("%d: defer send %d to fd %d (%p, bgid %d, bid %d)\n",
-			c->tid, len, out_fd, data, bgid, bid);
-		printf("%d: pending %d, %p\n", c->tid, cd->pending_sends, cd);
-	}
+	vlog("%d: defer send %d to fd %d (%p, bgid %d, bid %d)\n", c->tid, len, out_fd, data, bgid, bid);
+	vlog("%d: pending %d, %p\n", c->tid, cd->pending_sends, cd);
 
 	cd->snd_busy++;
 	ps->fd = out_fd;
@@ -758,8 +751,7 @@ static int handle_sock(struct io_uring *ring, struct io_uring_cqe *cqe)
 		return 1;
 	}
 
-	if (verbose)
-		printf("%d: sock: res=%d\n", c->tid, cqe->res);
+	vlog("%d: sock: res=%d\n", c->tid, cqe->res);
 
 	c->out_fd = cqe->res;
 
@@ -857,10 +849,7 @@ static int __handle_recv(struct io_uring *ring, struct conn *c,
 	bid = cqe->flags >> IORING_CQE_BUFFER_SHIFT;
 	bgid = cqe_to_bgid(cqe);
 
-	if (verbose) {
-		printf("%d: recv: bid=%d, bgid=%d, res=%d\n", c->tid, bid, bgid,
-								cqe->res);
-	}
+	vlog("%d: recv: bid=%d, bgid=%d, res=%d\n", c->tid, bid, bgid, cqe->res);
 
 	cbr = &c->brs[bgid - c->start_bgid];
 	ptr = cbr->buf + bid * buf_size;
@@ -925,8 +914,7 @@ static int handle_send(struct io_uring *ring, struct io_uring_cqe *cqe)
 	bid = cqe_to_bid(cqe);
 	bgid = cqe_to_bgid(cqe);
 
-	if (verbose)
-		printf("%d: send: bid=%d, bgid=%d, res=%d\n", c->tid, bid, bgid, cqe->res);
+	vlog("%d: send: bid=%d, bgid=%d, res=%d\n", c->tid, bid, bgid, cqe->res);
 
 	/*
 	 * Find the provided buffer that the receive consumed, and
@@ -943,8 +931,7 @@ static int handle_send(struct io_uring *ring, struct io_uring_cqe *cqe)
 
 	cd->pending_sends--;
 
-	if (verbose)
-		printf("%d: pending sends %d\n", c->tid, cd->pending_sends);
+	vlog("%d: pending sends %d\n", c->tid, cd->pending_sends);
 
 	if (!cd->pending_sends) {
 		if (!cqe->res)
@@ -1017,10 +1004,7 @@ static int handle_cancel(struct io_uring *ring, struct io_uring_cqe *cqe)
 
 	c->pending_cancels--;
 
-	if (verbose) {
-		printf("%d: got cancel fd %d, refs %d\n", c->tid, fd,
-							c->pending_cancels);
-	}
+	vlog("%d: got cancel fd %d, refs %d\n", c->tid, fd, c->pending_cancels);
 
 	if (!c->pending_cancels) {
 		queue_shutdown_close(ring, c, c->in_fd);
