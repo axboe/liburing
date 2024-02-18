@@ -660,34 +660,45 @@ static void submit_deferred_send(struct io_uring *ring, struct conn *c,
  *
  * Something to think about on the kernel side...
  */
-static void defer_send(struct conn *c, struct conn_dir *cd, void *data,
-		       int len, int bgid, int bid, int out_fd)
+static void defer_send(struct io_uring *ring, struct conn *c,
+		       struct conn_dir *cd, struct io_uring_cqe *cqe, int bid,
+		       int out_fd)
 {
-	struct pending_send *ps = malloc(sizeof(*ps));
+	void *data = get_buf(ring, c, cqe_to_bgid(cqe), bid);
+	struct pending_send *ps;
 
-	vlog("%d: defer send %d to fd %d (%p, bgid %d, bid %d)\n", c->tid, len, out_fd, data, bgid, bid);
+	vlog("%d: defer send %d to fd %d (%p, bgid %d, bid %d)\n", c->tid,
+					cqe->res, out_fd, data,
+					cqe_to_bgid(cqe), bid);
 	vlog("%d: pending %d, %p\n", c->tid, cd->pending_sends, cd);
 
 	cd->snd_busy++;
+	ps = malloc(sizeof(*ps));
 	ps->fd = out_fd;
-	ps->bgid = bgid;
+	ps->bgid = cqe_to_bgid(cqe);
 	ps->bid = bid;
-	ps->len = len;
+	ps->len = cqe->res;
 	ps->data = data;
 	list_add_tail(&ps->list, &cd->send_list);
 }
 
+/*
+ * Queue a send based on the data received in this cqe, which came from
+ * a completed receive operation.
+ */
 static void queue_send(struct io_uring *ring, struct conn *c,
 		       struct io_uring_cqe *cqe, int bid, int out_fd)
 {
 	struct conn_dir *cd = fd_to_conn_dir(c, out_fd);
 	int bgid = cqe_to_bgid(cqe);
-	void *data = get_buf(ring, c, bgid, bid);
 
-	if (cd->pending_sends)
-		defer_send(c, cd, data, cqe->res, bgid, bid, out_fd);
-	else
+	if (cd->pending_sends) {
+		defer_send(ring, c, cd, cqe, bid, out_fd);
+	} else {
+		void *data = get_buf(ring, c, bgid, bid);
+
 		__queue_send(ring, c, out_fd, data, cqe->res, bgid, bid);
+	}
 }
 
 static int handle_accept(struct io_uring *ring, struct io_uring_cqe *cqe)
