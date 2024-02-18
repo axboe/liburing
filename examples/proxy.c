@@ -54,7 +54,8 @@ enum {
 	__RECV		= 4,
 	__SEND		= 5,
 	__SHUTDOWN	= 6,
-	__CLOSE		= 7,
+	__CANCEL	= 7,
+	__CLOSE		= 8,
 };
 
 static int start_bgid = 1;
@@ -126,6 +127,7 @@ struct conn {
 	int in_fd, out_fd;
 	int start_bgid;
 	int cur_br_index;
+	int pending_cancels;
 	int flags;
 
 	unsigned long rps;
@@ -464,6 +466,27 @@ static void queue_shutdown_close(struct io_uring *ring, struct conn *c, int fd)
 	encode_userdata(sqe2, c, __CLOSE, 0, 0, fd);
 }
 
+static void queue_cancel(struct io_uring *ring, struct conn *c)
+{
+	struct io_uring_sqe *sqe;
+	int flags = 0;
+
+	if (fixed_files)
+		flags |= IORING_ASYNC_CANCEL_FD_FIXED;
+
+	sqe = get_sqe(ring);
+	io_uring_prep_cancel_fd(sqe, c->in_fd, flags);
+	encode_userdata(sqe, c, __CANCEL, 0, 0, c->in_fd);
+	c->pending_cancels++;
+
+	if (c->out_fd != -1) {
+		sqe = get_sqe(ring);
+		io_uring_prep_cancel_fd(sqe, c->in_fd, flags);
+		encode_userdata(sqe, c, __CANCEL, 0, 0, c->in_fd);
+		c->pending_cancels++;
+	}
+}
+
 static int pending_shutdown(struct conn *c)
 {
 	return c->cd[0].pending_shutdown + c->cd[1].pending_shutdown;
@@ -473,8 +496,7 @@ static void __close_conn(struct io_uring *ring, struct conn *c)
 {
 	printf("Client %d: queueing shutdown\n", c->tid);
 
-	queue_shutdown_close(ring, c, c->in_fd);
-	queue_shutdown_close(ring, c, c->out_fd);
+	queue_cancel(ring, c);
 	io_uring_submit(ring);
 }
 
@@ -676,12 +698,12 @@ static int handle_accept(struct io_uring *ring, struct io_uring_cqe *cqe)
 	}
 
 	c = &conns[nr_conns];
-	c->tid = nr_conns;
+	c->tid = nr_conns++;
 	c->in_fd = cqe->res;
+	c->out_fd = -1;
 
-	printf("New client: id=%d, in=%d\n", nr_conns, c->in_fd);
+	printf("New client: id=%d, in=%d\n", c->tid, c->in_fd);
 
-	nr_conns++;
 	setup_buffer_rings(ring, c);
 	init_list_head(&c->cd[0].send_list);
 	init_list_head(&c->cd[1].send_list);
@@ -920,6 +942,28 @@ static int handle_close(struct io_uring *ring, struct io_uring_cqe *cqe)
 	return 0;
 }
 
+static int handle_cancel(struct io_uring *ring, struct io_uring_cqe *cqe)
+{
+	struct conn *c = cqe_to_conn(cqe);
+	int fd = cqe_to_fd(cqe);
+
+	c->pending_cancels--;
+
+	if (verbose) {
+		printf("%d: got cancel fd %d, refs %d\n", c->tid, fd,
+							c->pending_cancels);
+	}
+
+	if (!c->pending_cancels) {
+		queue_shutdown_close(ring, c, c->in_fd);
+		if (c->out_fd != -1)
+			queue_shutdown_close(ring, c, c->out_fd);
+		io_uring_submit(ring);
+	}
+
+	return 0;
+}
+
 /*
  * Called for each CQE that we receive. Decode the request type that it
  * came from, and call the appropriate handler.
@@ -943,6 +987,9 @@ static int handle_cqe(struct io_uring *ring, struct io_uring_cqe *cqe)
 		break;
 	case __SEND:
 		ret = handle_send(ring, cqe);
+		break;
+	case __CANCEL:
+		ret = handle_cancel(ring, cqe);
 		break;
 	case __SHUTDOWN:
 		ret = handle_shutdown(ring, cqe);

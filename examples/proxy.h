@@ -17,8 +17,8 @@ struct userdata {
 	};
 };
 
-#define OP_SHIFT	(13)
-#define TID_MASK	((1U << 13) - 1)
+#define OP_SHIFT	(12)
+#define TID_MASK	((1U << 12) - 1)
 
 /*
  * Packs the information that we will need at completion time into the
