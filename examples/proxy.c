@@ -487,6 +487,8 @@ static void queue_cancel(struct io_uring *ring, struct conn *c)
 		encode_userdata(sqe, c, __CANCEL, 0, 0, c->in_fd);
 		c->pending_cancels++;
 	}
+
+	io_uring_submit(ring);
 }
 
 static int pending_shutdown(struct conn *c)
