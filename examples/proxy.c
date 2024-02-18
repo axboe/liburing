@@ -76,6 +76,8 @@ static int bidi;
 static int ipv6;
 static int napi;
 static int napi_timeout;
+static int wait_batch = 1;
+static int wait_usec = 1000000;
 static int verbose;
 
 static int nr_bufs = 256;
@@ -1059,6 +1061,8 @@ static void usage(const char *name)
 	printf("\t-S:\t\tUse SQPOLL (%d)\n", sqpoll);
 	printf("\t-b:\t\tSend/receive buf size (%d)\n", buf_size);
 	printf("\t-n:\t\tNumber of provided buffers (pow2) (%d)\n", nr_bufs);
+	printf("\t-w:\t\tNumber of CQEs to wait for each loop (%d)\n", wait_batch);
+	printf("\t-t:\t\tTimeout for waiting on CQEs (usec) (%d)\n", wait_usec);
 	printf("\t-s:\t\tAct only as a sink (%d)\n", is_sink);
 	printf("\t-f:\t\tUse only fixed files (%d)\n", fixed_files);
 	printf("\t-B:\t\tUse bi-directional mode (%d)\n", bidi);
@@ -1093,6 +1097,7 @@ static void check_for_close(struct io_uring *ring)
  */
 static int event_loop(struct io_uring *ring, int fd)
 {
+	struct __kernel_timespec active_ts, idle_ts = { .tv_sec = 1, };
 	struct io_uring_sqe *sqe;
 
 	/*
@@ -1114,19 +1119,41 @@ static int event_loop(struct io_uring *ring, int fd)
 		io_uring_prep_multishot_accept(sqe, fd, NULL, NULL, 0);
 	__encode_userdata(sqe, 0, __ACCEPT, 0, 0, fd);
 
+	if (wait_usec > 1000000) {
+		active_ts.tv_sec = wait_usec / 1000000;
+		wait_usec -= active_ts.tv_sec * 1000000;
+	}
+	active_ts.tv_nsec = wait_usec * 1000;
+
 	while (1) {
-		struct __kernel_timespec ts = {
-			.tv_sec = 1,
-		};
+		struct __kernel_timespec *ts = &idle_ts;
 		struct io_uring_cqe *cqe;
 		unsigned int head;
 		int flags, i, to_wait;
 
+		/*
+		 * If wait_batch is set higher than 1, then we'll wait on
+		 * that amount of CQEs to be posted each loop. If used with
+		 * DEFER_TASKRUN, this can provide a substantial reduction
+		 * in context switch rate as the task isn't woken until the
+		 * requested number of events can be returned.
+		 *
+		 * Can be used with -t to set a wait_usec timeout as well.
+		 * For example, if an application can deal with 250 usec
+		 * of wait latencies, it can set -w8 -t250 which will cause
+		 * io_uring to return when either 8 events have been received,
+		 * or if 250 usec of waiting has passed.
+		 *
+		 * If we don't have any open connections, wait on just 1
+		 * always.
+		 */
 		to_wait = 1;
-		if (open_conns)
-			to_wait = open_conns;
+		if (open_conns) {
+			ts = &active_ts;
+			to_wait = open_conns * wait_batch;
+		}
 
-		io_uring_submit_and_wait_timeout(ring, &cqe, to_wait, &ts, NULL);
+		io_uring_submit_and_wait_timeout(ring, &cqe, to_wait, ts, NULL);
 
 		i = flags = 0;
 		io_uring_for_each_cqe(ring, head, cqe) {
@@ -1168,7 +1195,7 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-	while ((opt = getopt(argc, argv, "m:d:S:s:b:f:H:r:p:n:B:N:T:6Vh?")) != -1) {
+	while ((opt = getopt(argc, argv, "m:d:S:s:b:f:H:r:p:n:B:N:T:w:t:6Vh?")) != -1) {
 		switch (opt) {
 		case 'm':
 			mshot = !!atoi(optarg);
@@ -1184,6 +1211,12 @@ int main(int argc, char *argv[])
 			break;
 		case 'n':
 			nr_bufs = atoi(optarg);
+			break;
+		case 'w':
+			wait_batch = atoi(optarg);
+			break;
+		case 't':
+			wait_usec = atoi(optarg);
 			break;
 		case 's':
 			is_sink = !!atoi(optarg);
