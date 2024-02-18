@@ -41,6 +41,7 @@
 
 #include "proxy.h"
 #include "list.h"
+#include "helpers.h"
 
 static int start_bgid = 1;
 static int nr_conns;
@@ -209,55 +210,6 @@ static struct error_handler error_handlers[] = {
 	{ .name = "CANCEL",	.error_fn = NULL, },
 	{ .name = "CLOSE",	.error_fn = NULL, },
 };
-
-static int setup_listening_socket(int port)
-{
-	struct sockaddr_in srv_addr = { };
-	struct sockaddr_in6 srv_addr6 = { };
-	int fd, enable, ret, domain;
-
-	if (ipv6)
-		domain = AF_INET6;
-	else
-		domain = AF_INET;
-
-	fd = socket(domain, SOCK_STREAM, 0);
-	if (fd == -1) {
-		perror("socket()");
-		return -1;
-	}
-
-	enable = 1;
-	ret = setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int));
-	if (ret < 0) {
-		perror("setsockopt(SO_REUSEADDR)");
-		return -1;
-	}
-
-	if (ipv6) {
-		srv_addr6.sin6_family = AF_INET6;
-		srv_addr6.sin6_port = htons(port);
-		srv_addr6.sin6_addr = in6addr_any;
-		ret = bind(fd, (const struct sockaddr *)&srv_addr6, sizeof(srv_addr6));
-	} else {
-		srv_addr.sin_family = AF_INET;
-		srv_addr.sin_port = htons(port);
-		srv_addr.sin_addr.s_addr = htonl(INADDR_ANY);
-		ret = bind(fd, (const struct sockaddr *)&srv_addr, sizeof(srv_addr));
-	}
-
-	if (ret < 0) {
-		perror("bind()");
-		return -1;
-	}
-
-	if (listen(fd, 1024) < 0) {
-		perror("listen()");
-		return -1;
-	}
-
-	return fd;
-}
 
 /*
  * Setup 2 ring provided buffer rings for each connection. If we get -ENOBUFS
@@ -1338,7 +1290,7 @@ int main(int argc, char *argv[])
 
 	br_mask = nr_bufs - 1;
 
-	fd = setup_listening_socket(receive_port);
+	fd = setup_listening_socket(receive_port, ipv6);
 	if (is_sink)
 		send_port = -1;
 

@@ -32,16 +32,20 @@ all_targets :=
 ifdef CONFIG_HAVE_UCONTEXT
 	example_srcs += ucontext-cp.c
 endif
-all_targets += ucontext-cp
+all_targets += ucontext-cp helpers.o
 
 example_targets := $(patsubst %.c,%,$(patsubst %.cc,%,$(example_srcs)))
 all_targets += $(example_targets)
 
+helpers = helpers.o
 
 all: $(example_targets)
 
-%: %.c ../src/liburing.a
-	$(QUIET_CC)$(CC) $(CPPFLAGS) $(CFLAGS) -o $@ $< $(LDFLAGS)
+helpers.o: helpers.c
+	$(QUIET_CC)$(CC) $(CPPFLAGS) $(CFLAGS) -o $@ -c $<
+
+%: %.c $(helpers) ../src/liburing.a
+	$(QUIET_CC)$(CC) $(CPPFLAGS) $(CFLAGS) -o $@ $< $(helpers) $(LDFLAGS)
 
 clean:
 	@rm -f $(all_targets)
