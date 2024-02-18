@@ -699,216 +699,248 @@ static int handle_receive(struct io_uring *ring, struct conn *c,
 	return 0;
 }
 
-static int handle_cqe(struct io_uring *ring, struct io_uring_cqe *cqe)
+static int handle_accept(struct io_uring *ring, struct io_uring_cqe *cqe)
 {
 	struct io_uring_sqe *sqe;
-	int res = cqe->res;
-	int ret = 0;
+	struct conn *c;
+
+	if (cqe->res < 0) {
+		fprintf(stderr, "accept error %s\n", strerror(-cqe->res));
+		return 1;
+	}
+
+	if (nr_conns == MAX_CONNS) {
+		fprintf(stderr, "max clients reached %d\n", nr_conns);
+		return 1;
+	}
+
+	c = &conns[nr_conns];
+	c->tid = nr_conns;
+	c->in_fd = cqe->res;
+
+	printf("New client: id=%d, in=%d\n", nr_conns, c->in_fd);
+
+	nr_conns++;
+	setup_buffer_rings(ring, c);
+	init_list_head(&c->cd[0].send_list);
+	init_list_head(&c->cd[1].send_list);
+
+	if (is_sink) {
+		submit_receive(ring, c);
+		return 0;
+	}
+
+	/*
+	 * If fixed_files is set, proxy will use fixed files for any
+	 * new file descriptors it instantiates. Fixd files, or fixed
+	 * descriptors, are io_uring private file descriptors. They
+	 * cannot be accessed outside of io_uring. io_uring holds a
+	 * fixed reference to them, which means that we do not need to
+	 * grab per-request references to them. Particularly for
+	 * threaded applications, grabbing and dropping file references
+	 * for each operation can be costly as the file table is shared.
+	 * This generally shows up as fget/fput related overhead in
+	 * any workload profiles.
+	 *
+	 * Fixed descriptors are passed in via the 'fd' field just
+	 * like regular descriptors, and then marked as such by
+	 * setting the IOSQE_FIXED_FILE flag in the sqe->flags field.
+	 * Some helpers do that automatically, like the below, others
+	 * will need it set manually if they don't have a *direct*()
+	 * helper.
+	 *
+	 * For operations that instantiate them, like the opening of
+	 * a direct socket, the application may either ask the kernel
+	 * to find a free one (as is done below), or the application
+	 * may manage the space itself and pass in an index for a
+	 * currently free slot in the table. If the kernel is asked
+	 * to allocate a free direct descriptor, note that io_uring
+	 * does not abide by the POSIX mandated "lowest free must be
+	 * returned". It may return any free descriptor of its
+	 * choosing.
+	 */
+	sqe = get_sqe(ring);
+	if (fixed_files)
+		io_uring_prep_socket_direct_alloc(sqe, AF_INET, SOCK_STREAM, 0, 0);
+	else
+		io_uring_prep_socket(sqe, AF_INET, SOCK_STREAM, 0, 0);
+	encode_userdata(sqe, c, __SOCK, 0, 0, 0);
+	return 0;
+}
+
+static int handle_sock(struct io_uring *ring, struct io_uring_cqe *cqe)
+{
+	struct conn *c = cqe_to_conn(cqe);
+	struct io_uring_sqe *sqe;
+	int ret;
+
+	if (cqe->res < 0) {
+		fprintf(stderr, "socket error %s\n", strerror(-cqe->res));
+		return 1;
+	}
+
+	if (verbose)
+		printf("%d: sock: res=%d\n", c->tid, cqe->res);
+
+	c->out_fd = cqe->res;
+	memset(&c->addr, 0, sizeof(c->addr));
+	c->addr.sin_family = AF_INET;
+	c->addr.sin_port = htons(send_port);
+	ret = inet_pton(AF_INET, host, (struct sockaddr *) &c->addr.sin_addr);
+	if (ret <= 0) {
+		if (!ret)
+			fprintf(stderr, "host not in right format\n");
+		else
+			perror("inet_pton");
+		return 1;
+	}
+
+	sqe = get_sqe(ring);
+	io_uring_prep_connect(sqe, c->out_fd, (struct sockaddr *) &c->addr,
+				sizeof(c->addr));
+	encode_userdata(sqe, c, __CONNECT, 0, 0, c->out_fd);
+	if (fixed_files)
+		sqe->flags |= IOSQE_FIXED_FILE;
+	return 0;
+}
+
+static int handle_connect(struct io_uring *ring, struct io_uring_cqe *cqe)
+{
+	struct conn *c = cqe_to_conn(cqe);
+
+	if (cqe->res < 0) {
+		fprintf(stderr, "connect error %s\n", strerror(-cqe->res));
+		return 1;
+	}
+
+	if (bidi)
+		submit_bidi_receive(ring, c);
+	else
+		submit_receive(ring, c);
+
+	return 0;
+}
+
+static int handle_recv(struct io_uring *ring, struct io_uring_cqe *cqe)
+{
+	struct conn *c = cqe_to_conn(cqe);
+	int fd = cqe_to_fd(cqe);
+
+	if (fd == c->in_fd)
+		return handle_receive(ring, c, cqe, c->in_fd, c->out_fd);
+
+	return handle_receive(ring, c, cqe, c->out_fd, c->in_fd);
+}
+
+static int handle_send(struct io_uring *ring, struct io_uring_cqe *cqe)
+{
+	struct conn *c = cqe_to_conn(cqe);
+	struct conn_buf_ring *cbr;
+	int fd = cqe_to_fd(cqe);
+	struct conn_dir *cd = fd_to_conn_dir(c, fd);
+	int bid, bgid;
+	void *ptr;
+
+	if (cqe->res < 0) {
+		fprintf(stderr, "send error %s\n", strerror(-cqe->res));
+		return 1;
+	}
+
+	cd->snd++;
+	cd->out_bytes += cqe->res;
+
+	if (cqe->res != buf_size)
+		cd->snd_shrt++;
+
+	bid = cqe_to_bid(cqe);
+	bgid = cqe_to_bgid(cqe);
+
+	if (verbose)
+		printf("%d: send: bid=%d, bgid=%d, res=%d\n", c->tid, bid, bgid, cqe->res);
+
+	/*
+	 * Find the provided buffer that the receive consumed, and
+	 * which we then used for the send, and add it back to the
+	 * pool so it can get picked by another receive. Once the send
+	 * is done, we're done with it.
+	 */
+	bgid -= c->start_bgid;
+	cbr = &c->brs[bgid];
+	ptr = cbr->buf + bid * buf_size;
+
+	io_uring_buf_ring_add(cbr->br, ptr, buf_size, bid, br_mask, 0);
+	io_uring_buf_ring_advance(cbr->br, 1);
+
+	cd->pending_sends--;
+
+	if (verbose)
+		printf("%d: pending sends %d\n", c->tid, cd->pending_sends);
+
+	if (!cd->pending_sends) {
+		if (!cqe->res)
+			close_cd(cd);
+		else
+			submit_deferred_send(ring, c, cd);
+	}
+
+	return 0;
+}
+
+/*
+ * Final stage of a connection, the shutdown and close has finished. Mark
+ * it as disconnected and let the main loop reap it.
+ */
+static int handle_shutdown(struct io_uring *ring, struct io_uring_cqe *cqe)
+{
+	struct conn *c = cqe_to_conn(cqe);
+	int fd = cqe_to_fd(cqe);
+
+	c->flags |= CONN_F_DISCONNECTED;
+
+	printf("Closed client: id=%d, in_fd=%d, out_fd=%d\n", c->tid, c->in_fd, c->out_fd);
+	if (fd == c->in_fd)
+		c->in_fd = -1;
+	else if (fd == c->out_fd)
+		c->out_fd = -1;
+
+	if (c->in_fd == -1 && c->out_fd == -1) {
+		__show_stats(c);
+		free_buffer_rings(ring, c);
+	}
+
+	return 0;
+}
+
+/*
+ * Called for each CQE that we receive. Decode the request type that it
+ * came from, and call the appropriate handler.
+ */
+static int handle_cqe(struct io_uring *ring, struct io_uring_cqe *cqe)
+{
+	int ret;
 
 	switch (cqe_to_op(cqe)) {
-	case __ACCEPT: {
-		struct conn *c;
-
-		if (res < 0) {
-			fprintf(stderr, "accept error %s\n", strerror(-res));
-			return 1;
-		}
-
-		if (nr_conns == MAX_CONNS) {
-			fprintf(stderr, "max clients reached %d\n", nr_conns);
-			return 1;
-		}
-
-		c = &conns[nr_conns];
-		c->tid = nr_conns;
-		c->in_fd = res;
-
-		printf("New client: id=%d, in=%d\n", nr_conns, c->in_fd);
-
-		nr_conns++;
-		setup_buffer_rings(ring, c);
-		init_list_head(&c->cd[0].send_list);
-		init_list_head(&c->cd[1].send_list);
-
-		if (is_sink) {
-			submit_receive(ring, c);
-			break;
-		}
-
-		/*
-		 * If fixed_files is set, proxy will use fixed files for any
-		 * new file descriptors it instantiates. Fixd files, or fixed
-		 * descriptors, are io_uring private file descriptors. They
-		 * cannot be accessed outside of io_uring. io_uring holds a
-		 * fixed reference to them, which means that we do not need to
-		 * grab per-request references to them. Particularly for
-		 * threaded applications, grabbing and dropping file references
-		 * for each operation can be costly as the file table is shared.
-		 * This generally shows up as fget/fput related overhead in
-		 * any workload profiles.
-		 *
-		 * Fixed descriptors are passed in via the 'fd' field just
-		 * like regular descriptors, and then marked as such by
-		 * setting the IOSQE_FIXED_FILE flag in the sqe->flags field.
-		 * Some helpers do that automatically, like the below, others
-		 * will need it set manually if they don't have a *direct*()
-		 * helper.
-		 *
-		 * For operations that instantiate them, like the opening of
-		 * a direct socket, the application may either ask the kernel
-		 * to find a free one (as is done below), or the application
-		 * may manage the space itself and pass in an index for a
-		 * currently free slot in the table. If the kernel is asked
-		 * to allocate a free direct descriptor, note that io_uring
-		 * does not abide by the POSIX mandated "lowest free must be
-		 * returned". It may return any free descriptor of its
-		 * choosing.
-		 */
-		sqe = get_sqe(ring);
-		if (fixed_files) {
-			io_uring_prep_socket_direct_alloc(sqe, AF_INET,
-							  SOCK_STREAM, 0, 0);
-		} else {
-			io_uring_prep_socket(sqe, AF_INET, SOCK_STREAM, 0, 0);
-		}
-		encode_userdata(sqe, c, __SOCK, 0, 0, 0);
+	case __ACCEPT:
+		ret = handle_accept(ring, cqe);
 		break;
-		}
-	case __SOCK: {
-		struct conn *c = cqe_to_conn(cqe);
-
-		if (res < 0) {
-			fprintf(stderr, "socket error %s\n", strerror(-res));
-			return 1;
-		}
-
-		if (verbose)
-			printf("%d: sock: res=%d\n", c->tid, res);
-
-		c->out_fd = res;
-		memset(&c->addr, 0, sizeof(c->addr));
-		c->addr.sin_family = AF_INET;
-		c->addr.sin_port = htons(send_port);
-		ret = inet_pton(AF_INET, host,
-				(struct sockaddr *) &c->addr.sin_addr);
-		if (ret <= 0) {
-			if (!ret)
-				fprintf(stderr, "host not in right format\n");
-			else
-				perror("inet_pton");
-			return 1;
-		}
-		sqe = get_sqe(ring);
-		io_uring_prep_connect(sqe, c->out_fd,
-				     (struct sockaddr *) &c->addr,
-				     sizeof(c->addr));
-		encode_userdata(sqe, c, __CONNECT, 0, 0, c->out_fd);
-		if (fixed_files)
-			sqe->flags |= IOSQE_FIXED_FILE;
-		ret = 0;
+	case __SOCK:
+		ret = handle_sock(ring, cqe);
 		break;
-		}
-	case __CONNECT: {
-		struct conn *c = cqe_to_conn(cqe);
-
-		if (res < 0) {
-			fprintf(stderr, "connect error %s\n", strerror(-res));
-			return 1;
-		}
-
-		if (bidi)
-			submit_bidi_receive(ring, c);
-		else
-			submit_receive(ring, c);
+	case __CONNECT:
+		ret = handle_connect(ring, cqe);
 		break;
-		}
-	case __RECV: {
-		struct conn *c = cqe_to_conn(cqe);
-		int fd = cqe_to_fd(cqe);
-
-		if (fd == c->in_fd)
-			ret = handle_receive(ring, c, cqe, c->in_fd, c->out_fd);
-		else
-			ret = handle_receive(ring, c, cqe, c->out_fd, c->in_fd);
+	case __RECV:
+		ret = handle_recv(ring, cqe);
 		break;
-		}
-	case __SEND: {
-		struct conn *c = cqe_to_conn(cqe);
-		struct conn_buf_ring *cbr;
-		int fd = cqe_to_fd(cqe);
-		struct conn_dir *cd = fd_to_conn_dir(c, fd);
-		int bid, bgid;
-		void *ptr;
-
-		if (res < 0) {
-			fprintf(stderr, "send error %s\n", strerror(-res));
-			return 1;
-		}
-
-		cd->snd++;
-		cd->out_bytes += res;
-
-		if (res != buf_size) {
-			cd->snd_shrt++;
-		}
-
-		bid = cqe_to_bid(cqe);
-		bgid = cqe_to_bgid(cqe);
-
-		if (verbose)
-			printf("%d: send: bid=%d, bgid=%d, res=%d\n", c->tid,
-								bid, bgid, res);
-
-		/*
-		 * Find the provided buffer that the receive consumed, and
-		 * which we then used for the send, and add it back to the
-		 * pool so it can get picked by another receive. Once the send
-		 * is done, we're done with it.
-		 */
-		bgid -= c->start_bgid;
-		cbr = &c->brs[bgid];
-		ptr = cbr->buf + bid * buf_size;
-
-		io_uring_buf_ring_add(cbr->br, ptr, buf_size, bid, br_mask, 0);
-		io_uring_buf_ring_advance(cbr->br, 1);
-
-		cd->pending_sends--;
-
-		if (verbose) {
-			printf("%d: pending sends %d\n", c->tid,
-							cd->pending_sends);
-		}
-
-		if (!cd->pending_sends) {
-			if (!res)
-				close_cd(cd);
-			else
-				submit_deferred_send(ring, c, cd);
-		}
+	case __SEND:
+		ret = handle_send(ring, cqe);
 		break;
-		}
-	case __SHUTDOWN: {
-		struct conn *c = cqe_to_conn(cqe);
-		int fd = cqe_to_fd(cqe);
-
-		c->flags |= CONN_F_DISCONNECTED;
-
-		printf("Closed client: id=%d, in_fd=%d, out_fd=%d\n", c->tid,
-						c->in_fd, c->out_fd);
-		if (fd == c->in_fd)
-			c->in_fd = -1;
-		else if (fd == c->out_fd)
-			c->out_fd = -1;
-		if (c->in_fd == -1 && c->out_fd == -1) {
-			__show_stats(c);
-			free_buffer_rings(ring, c);
-		}
+	case __SHUTDOWN:
+		ret = handle_shutdown(ring, cqe);
 		break;
-		}
 	default:
 		fprintf(stderr, "bad user data %lx\n", (long) cqe->user_data);
-		ret = 1;
-		break;
+		return 1;
 	}
 
 	return ret;
