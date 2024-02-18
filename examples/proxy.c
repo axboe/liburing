@@ -61,6 +61,8 @@ enum {
 static int start_bgid = 1;
 
 static int nr_conns;
+static int open_conns;
+
 static int mshot = 1;
 static int sqpoll;
 static int defer_tw = 1;
@@ -702,6 +704,8 @@ static int handle_accept(struct io_uring *ring, struct io_uring_cqe *cqe)
 	c->in_fd = cqe->res;
 	c->out_fd = -1;
 
+	open_conns++;
+
 	printf("New client: id=%d, in=%d\n", c->tid, c->in_fd);
 
 	setup_buffer_rings(ring, c);
@@ -936,6 +940,7 @@ static int handle_close(struct io_uring *ring, struct io_uring_cqe *cqe)
 
 	if (c->in_fd == -1 && c->out_fd == -1) {
 		__show_stats(c);
+		open_conns--;
 		free_buffer_rings(ring, c);
 	}
 
@@ -1077,8 +1082,8 @@ static int event_loop(struct io_uring *ring, int fd)
 		int to_wait;
 
 		to_wait = 1;
-		if (nr_conns)
-			to_wait = nr_conns;
+		if (open_conns)
+			to_wait = open_conns;
 
 		io_uring_submit_and_wait_timeout(ring, &cqe, to_wait, &ts, NULL);
 
