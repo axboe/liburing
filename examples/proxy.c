@@ -59,8 +59,6 @@ enum {
 
 static int start_bgid = 1;
 
-#define MAX_CONNS	1024
-
 static int nr_conns;
 static int mshot = 1;
 static int sqpoll;
@@ -77,14 +75,6 @@ static int verbose;
 
 static int nr_bufs = 256;
 static int br_mask;
-
-#define NR_BUF_RINGS	2
-
-struct conn_buf_ring {
-	struct io_uring_buf_ring *br;
-	void *buf;
-	int bgid;
-};
 
 struct pending_send {
 	struct list_head list;
@@ -120,6 +110,14 @@ enum {
 	CONN_F_STATS_SHOWN	= 4,
 };
 
+#define NR_BUF_RINGS	2
+
+struct conn_buf_ring {
+	struct io_uring_buf_ring *br;
+	void *buf;
+	int bgid;
+};
+
 struct conn {
 	struct conn_buf_ring brs[NR_BUF_RINGS];
 	struct conn_buf_ring *cur_br;
@@ -140,6 +138,7 @@ struct conn {
 	};
 };
 
+#define MAX_CONNS	1024
 static struct conn conns[MAX_CONNS];
 
 static int setup_listening_socket(int port)
