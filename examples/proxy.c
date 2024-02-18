@@ -1099,6 +1099,7 @@ static int event_loop(struct io_uring *ring, int fd)
 {
 	struct __kernel_timespec active_ts, idle_ts = { .tv_sec = 1, };
 	struct io_uring_sqe *sqe;
+	int flags;
 
 	/*
 	 * proxy provides a way to use either multishot receive or not, but
@@ -1125,11 +1126,12 @@ static int event_loop(struct io_uring *ring, int fd)
 	}
 	active_ts.tv_nsec = wait_usec * 1000;
 
+	flags = 0;
 	while (1) {
 		struct __kernel_timespec *ts = &idle_ts;
 		struct io_uring_cqe *cqe;
 		unsigned int head;
-		int flags, i, to_wait;
+		int i, to_wait;
 
 		/*
 		 * If wait_batch is set higher than 1, then we'll wait on
@@ -1148,7 +1150,7 @@ static int event_loop(struct io_uring *ring, int fd)
 		 * always.
 		 */
 		to_wait = 1;
-		if (open_conns) {
+		if (open_conns && !flags) {
 			ts = &active_ts;
 			to_wait = open_conns * wait_batch;
 		}
