@@ -508,6 +508,27 @@ static int pending_shutdown(struct conn *c)
 	return c->cd[0].pending_shutdown + c->cd[1].pending_shutdown;
 }
 
+static bool should_shutdown(struct conn *c)
+{
+	int i;
+
+	if (!pending_shutdown(c))
+		return false;
+	if (is_sink)
+		return true;
+	if (!bidi)
+		return c->cd[0].rcv == c->cd[1].snd;
+
+	for (i = 0; i < 2; i++) {
+		if (c->cd[0].rcv != c->cd[1].snd)
+			return false;
+		if (c->cd[1].rcv != c->cd[0].snd)
+			return false;
+	}
+
+	return true;
+}
+
 static void __close_conn(struct io_uring *ring, struct conn *c)
 {
 	printf("Client %d: queueing shutdown\n", c->tid);
@@ -540,7 +561,7 @@ static void __queue_send(struct io_uring *ring, struct conn *c, int fd,
 	}
 
 	sqe = get_sqe(ring);
-	io_uring_prep_send(sqe, fd, data, len, MSG_WAITALL);
+	io_uring_prep_send(sqe, fd, data, len, MSG_WAITALL | MSG_NOSIGNAL);
 	encode_userdata(sqe, c, __SEND, bgid, bid, fd);
 	if (fixed_files)
 		sqe->flags |= IOSQE_FIXED_FILE;
@@ -1055,7 +1076,7 @@ static void check_for_close(struct io_uring *ring)
 
 		if (c->flags & (CONN_F_DISCONNECTING | CONN_F_DISCONNECTED))
 			continue;
-		if (pending_shutdown(c)) {
+		if (should_shutdown(c)) {
 			__close_conn(ring, c);
 			c->flags |= CONN_F_DISCONNECTING;
 		}
