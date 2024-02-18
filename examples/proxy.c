@@ -89,6 +89,7 @@ static int send_port = 4445;
 static int receive_port = 4444;
 static int buf_size = 32;
 static int bidi;
+static int ipv6;
 static int verbose;
 
 static int nr_bufs = 256;
@@ -144,24 +145,32 @@ struct conn {
 	int in_fd, out_fd;
 	int start_bgid;
 	int cur_br_index;
+	int flags;
 
 	unsigned long rps;
 
 	struct conn_dir cd[2];
 
-	int flags;
-
-	struct sockaddr_in addr;
+	union {
+		struct sockaddr_in addr;
+		struct sockaddr_in6 addr6;
+	};
 };
 
 static struct conn conns[MAX_CONNS];
 
 static int setup_listening_socket(int port)
 {
-	struct sockaddr_in srv_addr;
-	int fd, enable, ret;
+	struct sockaddr_in srv_addr = { };
+	struct sockaddr_in6 srv_addr6 = { };
+	int fd, enable, ret, domain;
 
-	fd = socket(PF_INET, SOCK_STREAM, 0);
+	if (ipv6)
+		domain = AF_INET6;
+	else
+		domain = AF_INET;
+
+	fd = socket(domain, SOCK_STREAM, 0);
 	if (fd == -1) {
 		perror("socket()");
 		return -1;
@@ -174,12 +183,18 @@ static int setup_listening_socket(int port)
 		return -1;
 	}
 
-	memset(&srv_addr, 0, sizeof(srv_addr));
-	srv_addr.sin_family = AF_INET;
-	srv_addr.sin_port = htons(port);
-	srv_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+	if (ipv6) {
+		srv_addr6.sin6_family = AF_INET6;
+		srv_addr6.sin6_port = htons(port);
+		srv_addr6.sin6_addr = in6addr_any;
+		ret = bind(fd, (const struct sockaddr *)&srv_addr6, sizeof(srv_addr6));
+	} else {
+		srv_addr.sin_family = AF_INET;
+		srv_addr.sin_port = htons(port);
+		srv_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+		ret = bind(fd, (const struct sockaddr *)&srv_addr, sizeof(srv_addr));
+	}
 
-	ret = bind(fd, (const struct sockaddr *)&srv_addr, sizeof(srv_addr));
 	if (ret < 0) {
 		perror("bind()");
 		return -1;
@@ -719,6 +734,7 @@ static int handle_accept(struct io_uring *ring, struct io_uring_cqe *cqe)
 {
 	struct io_uring_sqe *sqe;
 	struct conn *c;
+	int domain;
 
 	if (cqe->res < 0) {
 		fprintf(stderr, "accept error %s\n", strerror(-cqe->res));
@@ -745,6 +761,11 @@ static int handle_accept(struct io_uring *ring, struct io_uring_cqe *cqe)
 		submit_receive(ring, c);
 		return 0;
 	}
+
+	if (ipv6)
+		domain = AF_INET6;
+	else
+		domain = AF_INET;
 
 	/*
 	 * If fixed_files is set, proxy will use fixed files for any
@@ -777,9 +798,9 @@ static int handle_accept(struct io_uring *ring, struct io_uring_cqe *cqe)
 	 */
 	sqe = get_sqe(ring);
 	if (fixed_files)
-		io_uring_prep_socket_direct_alloc(sqe, AF_INET, SOCK_STREAM, 0, 0);
+		io_uring_prep_socket_direct_alloc(sqe, domain, SOCK_STREAM, 0, 0);
 	else
-		io_uring_prep_socket(sqe, AF_INET, SOCK_STREAM, 0, 0);
+		io_uring_prep_socket(sqe, domain, SOCK_STREAM, 0, 0);
 	encode_userdata(sqe, c, __SOCK, 0, 0, 0);
 	return 0;
 }
@@ -799,10 +820,18 @@ static int handle_sock(struct io_uring *ring, struct io_uring_cqe *cqe)
 		printf("%d: sock: res=%d\n", c->tid, cqe->res);
 
 	c->out_fd = cqe->res;
-	memset(&c->addr, 0, sizeof(c->addr));
-	c->addr.sin_family = AF_INET;
-	c->addr.sin_port = htons(send_port);
-	ret = inet_pton(AF_INET, host, (struct sockaddr *) &c->addr.sin_addr);
+
+	if (ipv6) {
+		memset(&c->addr6, 0, sizeof(c->addr6));
+		c->addr6.sin6_family = AF_INET6;
+		c->addr6.sin6_port = htons(send_port);
+		ret = inet_pton(AF_INET6, host, &c->addr6.sin6_addr);
+	} else {
+		memset(&c->addr, 0, sizeof(c->addr));
+		c->addr.sin_family = AF_INET;
+		c->addr.sin_port = htons(send_port);
+		ret = inet_pton(AF_INET, host, &c->addr.sin_addr);
+	}
 	if (ret <= 0) {
 		if (!ret)
 			fprintf(stderr, "host not in right format\n");
@@ -812,8 +841,15 @@ static int handle_sock(struct io_uring *ring, struct io_uring_cqe *cqe)
 	}
 
 	sqe = get_sqe(ring);
-	io_uring_prep_connect(sqe, c->out_fd, (struct sockaddr *) &c->addr,
-				sizeof(c->addr));
+	if (ipv6) {
+		io_uring_prep_connect(sqe, c->out_fd,
+					(struct sockaddr *) &c->addr6,
+					sizeof(c->addr6));
+	} else {
+		io_uring_prep_connect(sqe, c->out_fd,
+					(struct sockaddr *) &c->addr,
+					sizeof(c->addr));
+	}
 	encode_userdata(sqe, c, __CONNECT, 0, 0, c->out_fd);
 	if (fixed_files)
 		sqe->flags |= IOSQE_FIXED_FILE;
@@ -1007,6 +1043,7 @@ static void usage(const char *name)
 	printf("\t-h:\t\tHost to connect to (%s)\n", host);
 	printf("\t-r:\t\tPort to receive on (%d)\n", receive_port);
 	printf("\t-p:\t\tPort to connect to (%d)\n", send_port);
+	printf("\t-6:\t\tUse IPv6 (%d)\n", ipv6);
 	printf("\t-V:\t\tIncrease verbosity (%d)\n", verbose);
 }
 
@@ -1034,7 +1071,7 @@ int main(int argc, char *argv[])
 	struct sigaction sa = { };
 	int opt, ret, fd;
 
-	while ((opt = getopt(argc, argv, "m:d:S:s:b:f:H:r:p:n:B:Vh?")) != -1) {
+	while ((opt = getopt(argc, argv, "m:d:S:s:b:f:H:r:p:n:B:6Vh?")) != -1) {
 		switch (opt) {
 		case 'm':
 			mshot = !!atoi(optarg);
@@ -1068,6 +1105,9 @@ int main(int argc, char *argv[])
 			break;
 		case 'B':
 			bidi = !!atoi(optarg);
+			break;
+		case '6':
+			ipv6 = true;
 			break;
 		case 'V':
 			verbose++;
