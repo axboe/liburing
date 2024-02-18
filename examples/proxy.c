@@ -1039,7 +1039,7 @@ static void usage(const char *name)
 	printf("\t-s:\t\tAct only as a sink (%d)\n", is_sink);
 	printf("\t-f:\t\tUse only fixed files (%d)\n", fixed_files);
 	printf("\t-B:\t\tUse bi-directional mode (%d)\n", bidi);
-	printf("\t-h:\t\tHost to connect to (%s)\n", host);
+	printf("\t-H:\t\tHost to connect to (%s)\n", host);
 	printf("\t-r:\t\tPort to receive on (%d)\n", receive_port);
 	printf("\t-p:\t\tPort to connect to (%d)\n", send_port);
 	printf("\t-6:\t\tUse IPv6 (%d)\n", ipv6);
