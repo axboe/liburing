@@ -995,9 +995,76 @@ static void check_for_close(struct io_uring *ring)
 	}
 }
 
-int main(int argc, char *argv[])
+/*
+ * Main event loop, Submit our multishot accept request, and then just loop
+ * around handling incoming events.
+ */
+static int event_loop(struct io_uring *ring, int fd)
 {
 	struct io_uring_sqe *sqe;
+
+	/*
+	 * proxy provides a way to use either multishot receive or not, but
+	 * for accept, we always use multishot. A multishot accept request
+	 * needs only be armed once, and then it'll trigger a completion and
+	 * post a CQE whenever a new connection is accepted. No need to do
+	 * anything else, unless the multishot accept terminates. This happens
+	 * if it encounters an error. Applications should check for
+	 * IORING_CQE_F_MORE in cqe->flags - this tells you if more completions
+	 * are expected from this request or not. Non-multishot never have
+	 * this set, where multishot will always have this set unless an error
+	 * occurs.
+	 */
+	sqe = get_sqe(ring);
+	if (fixed_files)
+		io_uring_prep_multishot_accept_direct(sqe, fd, NULL, NULL, 0);
+	else
+		io_uring_prep_multishot_accept(sqe, fd, NULL, NULL, 0);
+	__encode_userdata(sqe, 0, 0, 0, 0, fd);
+
+	while (1) {
+		struct __kernel_timespec ts = {
+			.tv_sec = 0,
+			.tv_nsec = 100000000ULL,
+		};
+		struct io_uring_cqe *cqe;
+		unsigned int head;
+		unsigned int i = 0;
+		int to_wait;
+
+		to_wait = 1;
+		if (nr_conns)
+			to_wait = nr_conns;
+
+		io_uring_submit_and_wait_timeout(ring, &cqe, to_wait, &ts, NULL);
+
+		io_uring_for_each_cqe(ring, head, cqe) {
+			if (handle_cqe(ring, cqe))
+				return 1;
+			++i;
+		}
+
+		/*
+		 * Advance the CQ ring for seen events when we've processed
+		 * all of them in this loop. This can also be done with
+		 * io_uring_cqe_seen() in each handler above, which just marks
+		 * that single CQE as seen. However, it's more efficient to
+		 * mark a batch as seen when we're done with that batch.
+		 */
+		if (i)
+			io_uring_cq_advance(ring, i);
+		else
+			check_for_close(ring);
+	}
+
+	return 0;
+}
+
+/*
+ * Options parsing the ring / net setup
+ */
+int main(int argc, char *argv[])
+{
 	struct io_uring ring;
 	struct io_uring_params params;
 	struct sigaction sa = { };
@@ -1178,59 +1245,5 @@ int main(int argc, char *argv[])
 			mshot, sqpoll, defer_tw, fixed_files, is_sink,
 			buf_size, nr_bufs, host, send_port, receive_port);
 
-	/*
-	 * proxy provides a way to use either multishot receive or not, but
-	 * for accept, we always use multishot. A multishot accept request
-	 * needs only be armed once, and then it'll trigger a completion and
-	 * post a CQE whenever a new connection is accepted. No need to do
-	 * anything else, unless the multishot accept terminates. This happens
-	 * if it encounters an error. Applications should check for
-	 * IORING_CQE_F_MORE in cqe->flags - this tells you if more completions
-	 * are expected from this request or not. Non-multishot never have
-	 * this set, where multishot will always have this set unless an error
-	 * occurs.
-	 */
-	sqe = get_sqe(&ring);
-	if (fixed_files)
-		io_uring_prep_multishot_accept_direct(sqe, fd, NULL, NULL, 0);
-	else
-		io_uring_prep_multishot_accept(sqe, fd, NULL, NULL, 0);
-	__encode_userdata(sqe, 0, 0, 0, 0, fd);
-
-	while (1) {
-		struct __kernel_timespec ts = {
-			.tv_sec = 0,
-			.tv_nsec = 100000000ULL,
-		};
-		struct io_uring_cqe *cqe;
-		unsigned int head;
-		unsigned int i = 0;
-		int to_wait;
-
-		to_wait = 1;
-		if (nr_conns)
-			to_wait = nr_conns;
-
-		io_uring_submit_and_wait_timeout(&ring, &cqe, to_wait, &ts, NULL);
-
-		io_uring_for_each_cqe(&ring, head, cqe) {
-			if (handle_cqe(&ring, cqe))
-				return 1;
-			++i;
-		}
-
-		/*
-		 * Advance the CQ ring for seen events when we've processed
-		 * all of them in this loop. This can also be done with
-		 * io_uring_cqe_seen() in each handler above, which just marks
-		 * that single CQE as seen. However, it's more efficient to
-		 * mark a batch as seen when we're done with that batch.
-		 */
-		if (i)
-			io_uring_cq_advance(&ring, i);
-		else
-			check_for_close(&ring);
-	}
-
-	return 0;
+	return event_loop(&ring, fd);
 }
