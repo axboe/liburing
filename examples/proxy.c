@@ -411,7 +411,7 @@ static struct conn_dir *fd_to_conn_dir(struct conn *c, int fd)
 /*
  * Given a bgid/bid, return the buffer associated with it.
  */
-static void *get_buf(struct io_uring *ring, struct conn *c, int bgid, int bid)
+static void *get_buf(struct conn *c, int bgid, int bid)
 {
 	struct conn_buf_ring *cbr = &c->brs[bgid - c->start_bgid];
 
@@ -588,8 +588,7 @@ static void close_cd(struct conn *c, struct conn_dir *cd)
  * We're done with this buffer, add it back to our pool so the kernel is
  * free to use it again.
  */
-static void replenish_buffer(struct io_uring *ring, struct conn *c,
-			     struct io_uring_cqe *cqe, int bid)
+static void replenish_buffer(struct conn *c, struct io_uring_cqe *cqe, int bid)
 {
 	struct conn_buf_ring *cbr = &c->brs[cqe_to_bgid(cqe) - c->start_bgid];
 	void *this_buf;
@@ -660,11 +659,10 @@ static void submit_deferred_send(struct io_uring *ring, struct conn *c,
  *
  * Something to think about on the kernel side...
  */
-static void defer_send(struct io_uring *ring, struct conn *c,
-		       struct conn_dir *cd, struct io_uring_cqe *cqe, int bid,
-		       int out_fd)
+static void defer_send(struct conn *c, struct conn_dir *cd,
+		       struct io_uring_cqe *cqe, int bid, int out_fd)
 {
-	void *data = get_buf(ring, c, cqe_to_bgid(cqe), bid);
+	void *data = get_buf(c, cqe_to_bgid(cqe), bid);
 	struct pending_send *ps;
 
 	vlog("%d: defer send %d to fd %d (%p, bgid %d, bid %d)\n", c->tid,
@@ -693,9 +691,9 @@ static void queue_send(struct io_uring *ring, struct conn *c,
 	int bgid = cqe_to_bgid(cqe);
 
 	if (cd->pending_sends) {
-		defer_send(ring, c, cd, cqe, bid, out_fd);
+		defer_send(c, cd, cqe, bid, out_fd);
 	} else {
-		void *data = get_buf(ring, c, bgid, bid);
+		void *data = get_buf(c, bgid, bid);
 
 		__queue_send(ring, c, out_fd, data, cqe->res, bgid, bid);
 	}
@@ -894,7 +892,7 @@ static int __handle_recv(struct io_uring *ring, struct conn *c,
 	 * it.
 	 */
 	if (is_sink)
-		replenish_buffer(ring, c, cqe, bid);
+		replenish_buffer(c, cqe, bid);
 	else
 		queue_send(ring, c, cqe, bid, out_fd);
 
@@ -948,7 +946,7 @@ static int handle_send(struct io_uring *ring, struct io_uring_cqe *cqe)
 	 * pool so it can get picked by another receive. Once the send
 	 * is done, we're done with it.
 	 */
-	replenish_buffer(ring, c, cqe, cqe_to_bid(cqe));
+	replenish_buffer(c, cqe, cqe_to_bid(cqe));
 
 	cd->pending_sends--;
 
