@@ -63,6 +63,9 @@ static int nr_conns;
 static int open_conns;
 static long page_size;
 
+static unsigned long event_loops;
+static unsigned long events;
+
 static int mshot = 1;
 static int sqpoll;
 static int defer_tw = 1;
@@ -320,17 +323,30 @@ static void __show_stats(struct conn *c)
 
 static void show_stats(void)
 {
+	float events_per_loop = 0.0;
+	static int stats_shown;
 	int i;
+
+	if (stats_shown)
+		return;
+
+	if (events)
+		events_per_loop = (float) events / (float) event_loops;
+
+	printf("Event loops: %lu, events %lu, events per loop %.2f\n", event_loops,
+							events, events_per_loop);
 
 	for (i = 0; i < MAX_CONNS; i++) {
 		struct conn *c = &conns[i];
 
 		__show_stats(c);
 	}
+	stats_shown = 1;
 }
 
 static void sig_int(int __attribute__((__unused__)) sig)
 {
+	printf("\n");
 	show_stats();
 	exit(1);
 }
@@ -1176,6 +1192,9 @@ static int event_loop(struct io_uring *ring, int fd)
 			io_uring_cq_advance(ring, i);
 		if (!i || (flags & (CONN_F_PENDING_SHUTDOWN)))
 			check_for_close(ring);
+
+		event_loops++;
+		events += i;
 	}
 
 	return 0;
