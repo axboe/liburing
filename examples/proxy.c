@@ -418,6 +418,16 @@ static void __submit_receive(struct io_uring *ring, struct conn *c, int fd)
 	if (verbose)
 		printf("%d: submit receive fd=%d\n", c->tid, fd);
 
+	/*
+	 * For both recv and multishot receive, we use the ring provided
+	 * buffers. These are handed to the application ahead of time, and
+	 * are consumed when a receive triggers. Note that the address and
+	 * length of the receive are set to NULL/0, and we assign the
+	 * sqe->buf_group to tell the kernel which buffer group ID to pick
+	 * a buffer from. Finally, IOSQE_BUFFER_SELECT is set to tell the
+	 * kernel that we want a buffer picked for this request, we are not
+	 * passing one in with the request.
+	 */
 	sqe = get_sqe(ring);
 	if (mshot)
 		io_uring_prep_recv_multishot(sqe, fd, NULL, 0, 0);
@@ -736,6 +746,23 @@ static int handle_cqe(struct io_uring *ring, struct io_uring_cqe *cqe)
 		 * for each operation can be costly as the file table is shared.
 		 * This generally shows up as fget/fput related overhead in
 		 * any workload profiles.
+		 *
+		 * Fixed descriptors are passed in via the 'fd' field just
+		 * like regular descriptors, and then marked as such by
+		 * setting the IOSQE_FIXED_FILE flag in the sqe->flags field.
+		 * Some helpers do that automatically, like the below, others
+		 * will need it set manually if they don't have a *direct*()
+		 * helper.
+		 *
+		 * For operations that instantiate them, like the opening of
+		 * a direct socket, the application may either ask the kernel
+		 * to find a free one (as is done below), or the application
+		 * may manage the space itself and pass in an index for a
+		 * currently free slot in the table. If the kernel is asked
+		 * to allocate a free direct descriptor, note that io_uring
+		 * does not abide by the POSIX mandated "lowest free must be
+		 * returned". It may return any free descriptor of its
+		 * choosing.
 		 */
 		sqe = get_sqe(ring);
 		if (fixed_files) {
