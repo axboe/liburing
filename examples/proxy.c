@@ -48,13 +48,13 @@
  * disconnects, we transition to shutdown and then close.
  */
 enum {
-	__ACCEPT	= 0,
-	__SOCK		= 1,
-	__CONNECT	= 2,
-	__RECV		= 3,
-	__SEND		= 4,
-	__SHUTDOWN	= 5,
-	__CLOSE		= 6,
+	__ACCEPT	= 1,
+	__SOCK		= 2,
+	__CONNECT	= 3,
+	__RECV		= 4,
+	__SEND		= 5,
+	__SHUTDOWN	= 6,
+	__CLOSE		= 7,
 };
 
 static int start_bgid = 1;
@@ -1018,7 +1018,7 @@ static int event_loop(struct io_uring *ring, int fd)
 		io_uring_prep_multishot_accept_direct(sqe, fd, NULL, NULL, 0);
 	else
 		io_uring_prep_multishot_accept(sqe, fd, NULL, NULL, 0);
-	__encode_userdata(sqe, 0, 0, 0, 0, fd);
+	__encode_userdata(sqe, 0, __ACCEPT, 0, 0, fd);
 
 	while (1) {
 		struct __kernel_timespec ts = {
