@@ -862,6 +862,13 @@ static int __handle_recv(struct io_uring *ring, struct conn *c,
 		cd->rcv_shrt++;
 	}
 
+	/*
+	 * Not having a buffer attached should only happen if we get a zero
+	 * sized receive, because the other end closed the connection. It
+	 * cannot happen otherwise, as all our receives are using provided
+	 * buffers and hence it's not possible to return a CQE with a non-zero
+	 * result and not have a buffer attached.
+	 */
 	if (!(cqe->flags & IORING_CQE_F_BUFFER)) {
 		if (!cqe->res) {
 			close_cd(c, cd);
