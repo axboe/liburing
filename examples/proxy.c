@@ -589,28 +589,26 @@ static int handle_receive(struct io_uring *ring, struct conn *c,
 	struct conn_dir *cd = fd_to_conn_dir(c, in_fd);
 	struct conn_buf_ring *cbr;
 	int bid, bgid, do_recv = !mshot;
-	int res = cqe->res;
 	void *ptr;
 
-	if (res < 0) {
-		if (res == -ENOBUFS) {
+	if (cqe->res < 0) {
+		if (cqe->res == -ENOBUFS) {
 			handle_enobufs(ring, c, cd, in_fd);
 			return 0;
 		} else {
-			fprintf(stderr, "recv error %s\n", strerror(-res));
+			fprintf(stderr, "recv error %s\n", strerror(-cqe->res));
 			return 1;
 		}
+	} else if (cqe->res != buf_size) {
+		cd->rcv_shrt++;
 	}
 
-	if (res != buf_size)
-		cd->rcv_shrt++;
-
 	if (!(cqe->flags & IORING_CQE_F_BUFFER)) {
-		if (!res) {
+		if (!cqe->res) {
 			close_cd(cd);
 			return 0;
 		}
-		fprintf(stderr, "no buffer assigned, res=%d\n", res);
+		fprintf(stderr, "no buffer assigned, res=%d\n", cqe->res);
 		return 1;
 	}
 
@@ -629,7 +627,7 @@ static int handle_receive(struct io_uring *ring, struct conn *c,
 
 	if (verbose) {
 		printf("%d: recv: bid=%d, bgid=%d, res=%d\n", c->tid, bid, bgid,
-								res);
+								cqe->res);
 	}
 
 	cbr = &c->brs[bgid - c->start_bgid];
@@ -645,11 +643,11 @@ static int handle_receive(struct io_uring *ring, struct conn *c,
 		io_uring_buf_ring_add(cbr->br, ptr, buf_size, bid, br_mask, 0);
 		io_uring_buf_ring_advance(cbr->br, 1);
 	} else {
-		queue_send(ring, c, ptr, res, bgid, bid, out_fd);
+		queue_send(ring, c, ptr, cqe->res, bgid, bid, out_fd);
 	}
 
 	c->rps++;
-	cd->in_bytes += res;
+	cd->in_bytes += cqe->res;
 
 	/*
 	 * If we're not doing multishot receive, or if multishot receive
