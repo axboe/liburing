@@ -42,22 +42,6 @@
 #include "proxy.h"
 #include "list.h"
 
-/*
- * Goes from accept new connection -> create socket, connect to end
- * point, prepare recv, on receive do send (unless sink). If either ends
- * disconnects, we transition to shutdown and then close.
- */
-enum {
-	__ACCEPT	= 1,
-	__SOCK		= 2,
-	__CONNECT	= 3,
-	__RECV		= 4,
-	__SEND		= 5,
-	__SHUTDOWN	= 6,
-	__CANCEL	= 7,
-	__CLOSE		= 8,
-};
-
 static int start_bgid = 1;
 static int nr_conns;
 static int open_conns;
@@ -158,6 +142,73 @@ static struct conn conns[MAX_CONNS];
 	if (verbose)							\
 		printf(str, ##__VA_ARGS__);				\
 } while (0)
+
+static struct conn *cqe_to_conn(struct io_uring_cqe *cqe)
+{
+	struct userdata ud = { .val = cqe->user_data };
+
+	return &conns[ud.op_tid & TID_MASK];
+}
+
+static struct conn_dir *fd_to_conn_dir(struct conn *c, int fd)
+{
+	return &c->cd[fd != c->in_fd];
+}
+
+/*
+ * Goes from accept new connection -> create socket, connect to end
+ * point, prepare recv, on receive do send (unless sink). If either ends
+ * disconnects, we transition to shutdown and then close.
+ */
+enum {
+	__ACCEPT	= 1,
+	__SOCK		= 2,
+	__CONNECT	= 3,
+	__RECV		= 4,
+	__SEND		= 5,
+	__SHUTDOWN	= 6,
+	__CANCEL	= 7,
+	__CLOSE		= 8,
+};
+
+struct error_handler {
+	const char *name;
+	int (*error_fn)(struct error_handler *, struct io_uring *, struct io_uring_cqe *);
+};
+
+static int recv_error(struct error_handler *err, struct io_uring *ring,
+		      struct io_uring_cqe *cqe);
+
+static int default_error(struct error_handler *err, struct io_uring *ring,
+			 struct io_uring_cqe *cqe)
+{
+	struct conn *c = cqe_to_conn(cqe);
+
+	fprintf(stderr, "%d: %s error %s\n", c->tid, err->name, strerror(-cqe->res));
+	fprintf(stderr, "fd=%d, bgid=%d, bid=%d\n", cqe_to_fd(cqe),
+					cqe_to_bgid(cqe), cqe_to_bid(cqe));
+	return 1;
+}
+
+/*
+ * Move error handling out of the normal handling path, cleanly seperating
+ * them. If an opcode doesn't need any error handling, set it to NULL. If
+ * it wants to stop the connection at that point and not do anything else,
+ * then the default handler can be used. Only receive has proper error
+ * handling, as we can get -ENOBUFS which is not a fatal condition. It just
+ * means we need to replenish buffers / switch buffer group IDs.
+ */
+static struct error_handler error_handlers[] = {
+	{ .name = "NULL",	.error_fn = NULL, },
+	{ .name = "ACCEPT",	.error_fn = default_error, },
+	{ .name = "SOCK",	.error_fn = default_error, },
+	{ .name = "CONNECT",	.error_fn = default_error, },
+	{ .name = "RECV",	.error_fn = recv_error, },
+	{ .name = "SEND",	.error_fn = default_error, },
+	{ .name = "SHUTDOWN",	.error_fn = NULL, },
+	{ .name = "CANCEL",	.error_fn = NULL, },
+	{ .name = "CLOSE",	.error_fn = NULL, },
+};
 
 static int setup_listening_socket(int port)
 {
@@ -394,18 +445,6 @@ static void encode_userdata(struct io_uring_sqe *sqe, struct conn *c, int op,
 			    int bgid, int bid, int fd)
 {
 	__encode_userdata(sqe, c->tid, op, bgid, bid, fd);
-}
-
-static struct conn *cqe_to_conn(struct io_uring_cqe *cqe)
-{
-	struct userdata ud = { .val = cqe->user_data };
-
-	return &conns[ud.op_tid & TID_MASK];
-}
-
-static struct conn_dir *fd_to_conn_dir(struct conn *c, int fd)
-{
-	return &c->cd[fd != c->in_fd];
 }
 
 /*
@@ -705,11 +744,6 @@ static int handle_accept(struct io_uring *ring, struct io_uring_cqe *cqe)
 	struct conn *c;
 	int domain;
 
-	if (cqe->res < 0) {
-		fprintf(stderr, "accept error %s\n", strerror(-cqe->res));
-		return 1;
-	}
-
 	if (nr_conns == MAX_CONNS) {
 		fprintf(stderr, "max clients reached %d\n", nr_conns);
 		return 1;
@@ -783,11 +817,6 @@ static int handle_sock(struct io_uring *ring, struct io_uring_cqe *cqe)
 	struct io_uring_sqe *sqe;
 	int ret;
 
-	if (cqe->res < 0) {
-		fprintf(stderr, "socket error %s\n", strerror(-cqe->res));
-		return 1;
-	}
-
 	vlog("%d: sock: res=%d\n", c->tid, cqe->res);
 
 	c->out_fd = cqe->res;
@@ -831,11 +860,6 @@ static int handle_connect(struct io_uring *ring, struct io_uring_cqe *cqe)
 {
 	struct conn *c = cqe_to_conn(cqe);
 
-	if (cqe->res < 0) {
-		fprintf(stderr, "connect error %s\n", strerror(-cqe->res));
-		return 1;
-	}
-
 	if (bidi)
 		submit_bidi_receive(ring, c);
 	else
@@ -849,18 +873,6 @@ static int __handle_recv(struct io_uring *ring, struct conn *c,
 {
 	struct conn_dir *cd = fd_to_conn_dir(c, in_fd);
 	int bid, do_recv = !mshot;
-
-	if (cqe->res < 0) {
-		if (cqe->res == -ENOBUFS) {
-			handle_enobufs(ring, c, cd, in_fd);
-			return 0;
-		} else {
-			fprintf(stderr, "recv error %s\n", strerror(-cqe->res));
-			return 1;
-		}
-	} else if (cqe->res != buf_size) {
-		cd->rcv_shrt++;
-	}
 
 	/*
 	 * Not having a buffer attached should only happen if we get a zero
@@ -879,6 +891,9 @@ static int __handle_recv(struct io_uring *ring, struct conn *c,
 	}
 
 	cd->rcv++;
+
+	if (cqe->res != buf_size)
+		cd->rcv_shrt++;
 
 	/*
 	 * If multishot terminates, just submit a new one.
@@ -927,16 +942,29 @@ static int handle_recv(struct io_uring *ring, struct io_uring_cqe *cqe)
 	return __handle_recv(ring, c, cqe, c->out_fd, c->in_fd);
 }
 
+static int recv_error(struct error_handler *err, struct io_uring *ring,
+		      struct io_uring_cqe *cqe)
+{
+	struct conn *c = cqe_to_conn(cqe);
+	int in_fd, fd = cqe_to_fd(cqe);
+
+	if (cqe->res != -ENOBUFS)
+		return default_error(err, ring, cqe);
+
+	if (fd == c->in_fd)
+		in_fd = c->in_fd;
+	else
+		in_fd = c->out_fd;
+
+	handle_enobufs(ring, c, fd_to_conn_dir(c, in_fd), in_fd);
+	return 0;
+}
+
 static int handle_send(struct io_uring *ring, struct io_uring_cqe *cqe)
 {
 	struct conn *c = cqe_to_conn(cqe);
 	int fd = cqe_to_fd(cqe);
 	struct conn_dir *cd = fd_to_conn_dir(c, fd);
-
-	if (cqe->res < 0) {
-		fprintf(stderr, "send error %s\n", strerror(-cqe->res));
-		return 1;
-	}
 
 	cd->snd++;
 	cd->out_bytes += cqe->res;
@@ -1049,6 +1077,19 @@ static int handle_cancel(struct io_uring *ring, struct io_uring_cqe *cqe)
 static int handle_cqe(struct io_uring *ring, struct io_uring_cqe *cqe)
 {
 	int ret;
+
+	/*
+	 * Unlikely, but there's an error in this CQE. If an error handler
+	 * is defined, call it, and that will deal with it. If no error
+	 * handler is defined, the opcode handler either doesn't care or will
+	 * handle it on its own.
+	 */
+	if (cqe->res < 0) {
+		struct error_handler *err = &error_handlers[cqe_to_op(cqe)];
+
+		if (err->error_fn)
+			return err->error_fn(err, ring, cqe);
+	}
 
 	switch (cqe_to_op(cqe)) {
 	case __ACCEPT:
