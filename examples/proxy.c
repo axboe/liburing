@@ -519,7 +519,6 @@ static void queue_shutdown_close(struct io_uring *ring, struct conn *c, int fd)
 	sqe1 = get_sqe(ring);
 	sqe2 = get_sqe(ring);
 
-	sqe1 = get_sqe(ring);
 	io_uring_prep_shutdown(sqe1, fd, SHUT_RDWR);
 	if (fixed_files)
 		sqe1->flags |= IOSQE_FIXED_FILE;
