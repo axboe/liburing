@@ -119,6 +119,7 @@ enum {
 	CONN_F_DISCONNECTED	= 2,
 	CONN_F_PENDING_SHUTDOWN	= 4,
 	CONN_F_STATS_SHOWN	= 8,
+	CONN_F_END_TIME		= 16,
 };
 
 #define NR_BUF_RINGS	2
@@ -285,6 +286,9 @@ static void __show_stats(struct conn *c)
 
 	if (c->flags & CONN_F_STATS_SHOWN)
 		return;
+
+	if (!(c->flags & CONN_F_END_TIME))
+		gettimeofday(&c->end_time, NULL);
 
 	msec = (c->end_time.tv_sec - c->start_time.tv_sec) * 1000;
 	msec += (c->end_time.tv_usec - c->start_time.tv_usec) / 1000;
@@ -565,7 +569,7 @@ static void close_cd(struct conn *c, struct conn_dir *cd)
 	cd->pending_shutdown = 1;
 	if (!(c->flags & CONN_F_PENDING_SHUTDOWN)) {
 		gettimeofday(&c->end_time, NULL);
-		c->flags |= CONN_F_PENDING_SHUTDOWN;
+		c->flags |= CONN_F_PENDING_SHUTDOWN | CONN_F_END_TIME;
 	}
 }
 
