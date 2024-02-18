@@ -133,6 +133,7 @@ struct conn_dir {
 enum {
 	CONN_F_DISCONNECTING	= 1,
 	CONN_F_DISCONNECTED	= 2,
+	CONN_F_STATS_SHOWN	= 4,
 };
 
 struct conn {
@@ -149,8 +150,6 @@ struct conn {
 	struct conn_dir cd[2];
 
 	int flags;
-
-	int stats_shown;
 
 	struct sockaddr_in addr;
 };
@@ -274,7 +273,7 @@ static void __show_stats(struct conn *c)
 	struct conn_dir *cd;
 	int i;
 
-	if (c->stats_shown)
+	if (c->flags & CONN_F_STATS_SHOWN)
 		return;
 
 	printf("Conn %d/(in_fd=%d, out_fd=%d): rps=%lu\n", c->tid, c->in_fd,
@@ -296,7 +295,7 @@ static void __show_stats(struct conn *c)
 			cd->out_bytes, cd->out_bytes >> 10);
 	}
 
-	c->stats_shown = 1;
+	c->flags |= CONN_F_STATS_SHOWN;
 }
 
 static void show_stats(void)
