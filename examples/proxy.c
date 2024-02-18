@@ -408,6 +408,16 @@ static struct conn_dir *fd_to_conn_dir(struct conn *c, int fd)
 	return &c->cd[fd != c->in_fd];
 }
 
+/*
+ * Given a bgid/bid, return the buffer associated with it.
+ */
+static void *get_buf(struct io_uring *ring, struct conn *c, int bgid, int bid)
+{
+	struct conn_buf_ring *cbr = &c->brs[bgid - c->start_bgid];
+
+	return cbr->buf + bid * buf_size;
+}
+
 static void __submit_receive(struct io_uring *ring, struct conn *c, int fd)
 {
 	struct conn_buf_ring *cbr = c->cur_br;
@@ -574,6 +584,22 @@ static void close_cd(struct conn *c, struct conn_dir *cd)
 	}
 }
 
+/*
+ * We're done with this buffer, add it back to our pool so the kernel is
+ * free to use it again.
+ */
+static void replenish_buffer(struct io_uring *ring, struct conn *c,
+			     struct io_uring_cqe *cqe, int bid)
+{
+	struct conn_buf_ring *cbr = &c->brs[cqe_to_bgid(cqe) - c->start_bgid];
+	void *this_buf;
+
+	this_buf = cbr->buf + bid * buf_size;
+
+	io_uring_buf_ring_add(cbr->br, this_buf, buf_size, bid, br_mask, 0);
+	io_uring_buf_ring_advance(cbr->br, 1);
+}
+
 static void __queue_send(struct io_uring *ring, struct conn *c, int fd,
 			 void *data, int len, int bgid, int bid)
 {
@@ -651,15 +677,17 @@ static void defer_send(struct conn *c, struct conn_dir *cd, void *data,
 	list_add_tail(&ps->list, &cd->send_list);
 }
 
-static void queue_send(struct io_uring *ring, struct conn *c, void *data,
-		       int len, int bgid, int bid, int out_fd)
+static void queue_send(struct io_uring *ring, struct conn *c,
+		       struct io_uring_cqe *cqe, int bid, int out_fd)
 {
 	struct conn_dir *cd = fd_to_conn_dir(c, out_fd);
+	int bgid = cqe_to_bgid(cqe);
+	void *data = get_buf(ring, c, bgid, bid);
 
 	if (cd->pending_sends)
-		defer_send(c, cd, data, len, bgid, bid, out_fd);
+		defer_send(c, cd, data, cqe->res, bgid, bid, out_fd);
 	else
-		__queue_send(ring, c, out_fd, data, len, bgid, bid);
+		__queue_send(ring, c, out_fd, data, cqe->res, bgid, bid);
 }
 
 static int handle_accept(struct io_uring *ring, struct io_uring_cqe *cqe)
@@ -811,9 +839,7 @@ static int __handle_recv(struct io_uring *ring, struct conn *c,
 			 struct io_uring_cqe *cqe, int in_fd, int out_fd)
 {
 	struct conn_dir *cd = fd_to_conn_dir(c, in_fd);
-	struct conn_buf_ring *cbr;
-	int bid, bgid, do_recv = !mshot;
-	void *ptr;
+	int bid, do_recv = !mshot;
 
 	if (cqe->res < 0) {
 		if (cqe->res == -ENOBUFS) {
@@ -847,12 +873,8 @@ static int __handle_recv(struct io_uring *ring, struct conn *c,
 	}
 
 	bid = cqe->flags >> IORING_CQE_BUFFER_SHIFT;
-	bgid = cqe_to_bgid(cqe);
 
-	vlog("%d: recv: bid=%d, bgid=%d, res=%d\n", c->tid, bid, bgid, cqe->res);
-
-	cbr = &c->brs[bgid - c->start_bgid];
-	ptr = cbr->buf + bid * buf_size;
+	vlog("%d: recv: bid=%d, bgid=%d, res=%d\n", c->tid, bid, cqe_to_bgid(cqe), cqe->res);
 
 	/*
 	 * If we're a sink, we're done here. Just replenish the buffer back
@@ -860,12 +882,10 @@ static int __handle_recv(struct io_uring *ring, struct conn *c,
 	 * end and the buffer will be replenished once the send is done with
 	 * it.
 	 */
-	if (is_sink) {
-		io_uring_buf_ring_add(cbr->br, ptr, buf_size, bid, br_mask, 0);
-		io_uring_buf_ring_advance(cbr->br, 1);
-	} else {
-		queue_send(ring, c, ptr, cqe->res, bgid, bid, out_fd);
-	}
+	if (is_sink)
+		replenish_buffer(ring, c, cqe, bid);
+	else
+		queue_send(ring, c, cqe, bid, out_fd);
 
 	cd->in_bytes += cqe->res;
 
@@ -894,11 +914,8 @@ static int handle_recv(struct io_uring *ring, struct io_uring_cqe *cqe)
 static int handle_send(struct io_uring *ring, struct io_uring_cqe *cqe)
 {
 	struct conn *c = cqe_to_conn(cqe);
-	struct conn_buf_ring *cbr;
 	int fd = cqe_to_fd(cqe);
 	struct conn_dir *cd = fd_to_conn_dir(c, fd);
-	int bid, bgid;
-	void *ptr;
 
 	if (cqe->res < 0) {
 		fprintf(stderr, "send error %s\n", strerror(-cqe->res));
@@ -911,10 +928,8 @@ static int handle_send(struct io_uring *ring, struct io_uring_cqe *cqe)
 	if (cqe->res != buf_size)
 		cd->snd_shrt++;
 
-	bid = cqe_to_bid(cqe);
-	bgid = cqe_to_bgid(cqe);
-
-	vlog("%d: send: bid=%d, bgid=%d, res=%d\n", c->tid, bid, bgid, cqe->res);
+	vlog("%d: send: bid=%d, bgid=%d, res=%d\n", c->tid, cqe_to_bid(cqe),
+						cqe_to_bgid(cqe), cqe->res);
 
 	/*
 	 * Find the provided buffer that the receive consumed, and
@@ -922,12 +937,7 @@ static int handle_send(struct io_uring *ring, struct io_uring_cqe *cqe)
 	 * pool so it can get picked by another receive. Once the send
 	 * is done, we're done with it.
 	 */
-	bgid -= c->start_bgid;
-	cbr = &c->brs[bgid];
-	ptr = cbr->buf + bid * buf_size;
-
-	io_uring_buf_ring_add(cbr->br, ptr, buf_size, bid, br_mask, 0);
-	io_uring_buf_ring_advance(cbr->br, 1);
+	replenish_buffer(ring, c, cqe, cqe_to_bid(cqe));
 
 	cd->pending_sends--;
 
