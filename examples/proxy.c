@@ -74,6 +74,8 @@ static int receive_port = 4444;
 static int buf_size = 32;
 static int bidi;
 static int ipv6;
+static int napi;
+static int napi_timeout;
 static int verbose;
 
 static int nr_bufs = 256;
@@ -1064,6 +1066,8 @@ static void usage(const char *name)
 	printf("\t-r:\t\tPort to receive on (%d)\n", receive_port);
 	printf("\t-p:\t\tPort to connect to (%d)\n", send_port);
 	printf("\t-6:\t\tUse IPv6 (%d)\n", ipv6);
+	printf("\t-N:\t\tUse NAPI polling (%d)\n", napi);
+	printf("\t-T:\t\tNAPI timeout (usec) (%d)\n", napi_timeout);
 	printf("\t-V:\t\tIncrease verbosity (%d)\n", verbose);
 }
 
@@ -1164,7 +1168,7 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-	while ((opt = getopt(argc, argv, "m:d:S:s:b:f:H:r:p:n:B:6Vh?")) != -1) {
+	while ((opt = getopt(argc, argv, "m:d:S:s:b:f:H:r:p:n:B:N:T:6Vh?")) != -1) {
 		switch (opt) {
 		case 'm':
 			mshot = !!atoi(optarg);
@@ -1198,6 +1202,12 @@ int main(int argc, char *argv[])
 			break;
 		case 'B':
 			bidi = !!atoi(optarg);
+			break;
+		case 'N':
+			napi = !!atoi(optarg);
+			break;
+		case 'T':
+			napi_timeout = atoi(optarg);
 			break;
 		case '6':
 			ipv6 = true;
@@ -1333,11 +1343,27 @@ int main(int argc, char *argv[])
 		}
 	}
 
+	if (napi) {
+		struct io_uring_napi n = {
+			.prefer_busy_poll = napi > 1 ? 1 : 0,
+			.busy_poll_to = napi_timeout,
+		};
+
+		ret = io_uring_register_napi(&ring, &n);
+		if (ret) {
+			fprintf(stderr, "io_uring_register_napi: %d\n", ret);
+			if (ret != -EINVAL)
+				return 1;
+			fprintf(stderr, "NAPI not available, turned off\n");
+		}
+	}
+
 	printf("Backend: multishot=%d, sqpoll=%d, defer_tw=%d, fixed_files=%d "
 		"is_sink=%d, buf_size=%d, nr_bufs=%d, host=%s, send_port=%d "
-		"receive_port=%d\n",
+		"receive_port=%d, napi=%d, napi_timeout=%d\n",
 			mshot, sqpoll, defer_tw, fixed_files, is_sink,
-			buf_size, nr_bufs, host, send_port, receive_port);
+			buf_size, nr_bufs, host, send_port, receive_port,
+			napi, napi_timeout);
 
 	return event_loop(&ring, fd);
 }
