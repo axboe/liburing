@@ -893,7 +893,8 @@ static int handle_cqe(struct io_uring *ring, struct io_uring_cqe *cqe)
 
 		c->flags |= CONN_F_DISCONNECTED;
 
-		printf("Closed client: id=%d, in=%d\n", nr_conns, fd);
+		printf("Closed client: id=%d, in_fd=%d, out_fd=%d\n", c->tid,
+						c->in_fd, c->out_fd);
 		if (fd == c->in_fd)
 			c->in_fd = -1;
 		else if (fd == c->out_fd)
