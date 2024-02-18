@@ -59,9 +59,9 @@ enum {
 };
 
 static int start_bgid = 1;
-
 static int nr_conns;
 static int open_conns;
+static long page_size;
 
 static int mshot = 1;
 static int sqpoll;
@@ -214,7 +214,7 @@ static int setup_buffer_ring(struct io_uring *ring, struct conn *c, int index)
 
 	cbr->bgid = c->start_bgid + index;
 
-	if (posix_memalign(&cbr->buf, 4096, buf_size * nr_bufs)) {
+	if (posix_memalign(&cbr->buf, page_size, buf_size * nr_bufs)) {
 		perror("posix memalign");
 		return 1;
 	}
@@ -1136,6 +1136,12 @@ int main(int argc, char *argv[])
 	struct io_uring_params params;
 	struct sigaction sa = { };
 	int opt, ret, fd;
+
+	page_size = sysconf(_SC_PAGESIZE);
+	if (page_size < 0) {
+		perror("sysconf(_SC_PAGESIZE)");
+		return 1;
+	}
 
 	while ((opt = getopt(argc, argv, "m:d:S:s:b:f:H:r:p:n:B:6Vh?")) != -1) {
 		switch (opt) {
