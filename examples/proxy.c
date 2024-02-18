@@ -110,7 +110,8 @@ struct conn_dir {
 enum {
 	CONN_F_DISCONNECTING	= 1,
 	CONN_F_DISCONNECTED	= 2,
-	CONN_F_STATS_SHOWN	= 4,
+	CONN_F_PENDING_SHUTDOWN	= 4,
+	CONN_F_STATS_SHOWN	= 8,
 };
 
 #define NR_BUF_RINGS	2
@@ -504,12 +505,13 @@ static void __close_conn(struct io_uring *ring, struct conn *c)
 	io_uring_submit(ring);
 }
 
-static void close_cd(struct conn_dir *cd)
+static void close_cd(struct conn *c, struct conn_dir *cd)
 {
 	if (cd->pending_sends)
 		return;
 
 	cd->pending_shutdown = 1;
+	c->flags |= CONN_F_PENDING_SHUTDOWN;
 }
 
 static void __queue_send(struct io_uring *ring, struct conn *c, int fd,
@@ -630,7 +632,7 @@ static int handle_receive(struct io_uring *ring, struct conn *c,
 
 	if (!(cqe->flags & IORING_CQE_F_BUFFER)) {
 		if (!cqe->res) {
-			close_cd(cd);
+			close_cd(c, cd);
 			return 0;
 		}
 		fprintf(stderr, "no buffer assigned, res=%d\n", cqe->res);
@@ -887,7 +889,7 @@ static int handle_send(struct io_uring *ring, struct io_uring_cqe *cqe)
 
 	if (!cd->pending_sends) {
 		if (!cqe->res)
-			close_cd(cd);
+			close_cd(c, cd);
 		else
 			submit_deferred_send(ring, c, cd);
 	}
@@ -1075,13 +1077,11 @@ static int event_loop(struct io_uring *ring, int fd)
 
 	while (1) {
 		struct __kernel_timespec ts = {
-			.tv_sec = 0,
-			.tv_nsec = 100000000ULL,
+			.tv_sec = 1,
 		};
 		struct io_uring_cqe *cqe;
 		unsigned int head;
-		unsigned int i = 0;
-		int to_wait;
+		int flags, i, to_wait;
 
 		to_wait = 1;
 		if (open_conns)
@@ -1089,9 +1089,11 @@ static int event_loop(struct io_uring *ring, int fd)
 
 		io_uring_submit_and_wait_timeout(ring, &cqe, to_wait, &ts, NULL);
 
+		i = flags = 0;
 		io_uring_for_each_cqe(ring, head, cqe) {
 			if (handle_cqe(ring, cqe))
 				return 1;
+			flags |= cqe_to_conn(cqe)->flags;
 			++i;
 		}
 
@@ -1104,7 +1106,7 @@ static int event_loop(struct io_uring *ring, int fd)
 		 */
 		if (i)
 			io_uring_cq_advance(ring, i);
-		else
+		if (!i || (flags & (CONN_F_PENDING_SHUTDOWN)))
 			check_for_close(ring);
 	}
 
