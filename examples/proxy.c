@@ -133,9 +133,9 @@ struct conn {
 	int pending_cancels;
 	int flags;
 
-	unsigned long rps;
-
 	struct conn_dir cd[2];
+
+	struct timeval start_time, end_time;
 
 	union {
 		struct sockaddr_in addr;
@@ -272,14 +272,28 @@ static void free_buffer_rings(struct io_uring *ring, struct conn *c)
 
 static void __show_stats(struct conn *c)
 {
+	unsigned long msec, qps;
 	struct conn_dir *cd;
 	int i;
 
 	if (c->flags & CONN_F_STATS_SHOWN)
 		return;
 
-	printf("Conn %d/(in_fd=%d, out_fd=%d): rps=%lu\n", c->tid, c->in_fd,
-							c->out_fd, c->rps);
+	msec = (c->end_time.tv_sec - c->start_time.tv_sec) * 1000;
+	msec += (c->end_time.tv_usec - c->start_time.tv_usec) / 1000;
+
+	qps = 0;
+	for (i = 0; i < 2; i++)
+		qps += c->cd[i].rcv + c->cd[i].snd;
+
+	if (!qps)
+		return;
+
+	if (msec)
+		qps = (qps * 1000) / msec;
+
+	printf("Conn %d/(in_fd=%d, out_fd=%d): qps=%lu, msec=%lu\n", c->tid,
+					c->in_fd, c->out_fd, qps, msec);
 
 	for (i = 0; i < 2; i++) {
 		cd = &c->cd[i];
@@ -306,9 +320,6 @@ static void show_stats(void)
 
 	for (i = 0; i < MAX_CONNS; i++) {
 		struct conn *c = &conns[i];
-
-		if (!c->rps)
-			continue;
 
 		__show_stats(c);
 	}
@@ -511,7 +522,10 @@ static void close_cd(struct conn *c, struct conn_dir *cd)
 		return;
 
 	cd->pending_shutdown = 1;
-	c->flags |= CONN_F_PENDING_SHUTDOWN;
+	if (!(c->flags & CONN_F_PENDING_SHUTDOWN)) {
+		gettimeofday(&c->end_time, NULL);
+		c->flags |= CONN_F_PENDING_SHUTDOWN;
+	}
 }
 
 static void __queue_send(struct io_uring *ring, struct conn *c, int fd,
@@ -673,7 +687,6 @@ static int handle_receive(struct io_uring *ring, struct conn *c,
 		queue_send(ring, c, ptr, cqe->res, bgid, bid, out_fd);
 	}
 
-	c->rps++;
 	cd->in_bytes += cqe->res;
 
 	/*
@@ -707,6 +720,7 @@ static int handle_accept(struct io_uring *ring, struct io_uring_cqe *cqe)
 	c->tid = nr_conns++;
 	c->in_fd = cqe->res;
 	c->out_fd = -1;
+	gettimeofday(&c->start_time, NULL);
 
 	open_conns++;
 
