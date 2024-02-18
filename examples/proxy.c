@@ -180,7 +180,8 @@ struct error_handler {
 static int recv_error(struct error_handler *err, struct io_uring *ring,
 		      struct io_uring_cqe *cqe);
 
-static int default_error(struct error_handler *err, struct io_uring *ring,
+static int default_error(struct error_handler *err,
+			 struct io_uring __attribute__((__unused__)) *ring,
 			 struct io_uring_cqe *cqe)
 {
 	struct conn *c = cqe_to_conn(cqe);
