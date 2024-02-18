@@ -44,7 +44,7 @@
 /*
  * Goes from accept new connection -> create socket, connect to end
  * point, prepare recv, on receive do send (unless sink). If either ends
- * disconnects, we transition to shutdown.
+ * disconnects, we transition to shutdown and then close.
  */
 enum {
 	__ACCEPT	= 0,
@@ -53,6 +53,7 @@ enum {
 	__RECV		= 3,
 	__SEND		= 4,
 	__SHUTDOWN	= 5,
+	__CLOSE		= 6,
 };
 
 /*
@@ -493,19 +494,29 @@ static void handle_enobufs(struct io_uring *ring, struct conn *c,
  */
 static void queue_shutdown_close(struct io_uring *ring, struct conn *c, int fd)
 {
-	struct io_uring_sqe *sqe;
+	struct io_uring_sqe *sqe1, *sqe2;
 
-	sqe = get_sqe(ring);
-	io_uring_prep_shutdown(sqe, fd, SHUT_RDWR);
+	/*
+	 * On the off chance that we run out of SQEs after the first one,
+	 * grab two upfront. This it to prevent our link not working if
+	 * get_sqe() ends up doing submissions to free up an SQE, as links
+	 * are not valid across separate submissions.
+	 */
+	sqe1 = get_sqe(ring);
+	sqe2 = get_sqe(ring);
+
+	sqe1 = get_sqe(ring);
+	io_uring_prep_shutdown(sqe1, fd, SHUT_RDWR);
 	if (fixed_files)
-		sqe->flags |= IOSQE_FIXED_FILE;
-	sqe->flags |= IOSQE_IO_LINK | IOSQE_CQE_SKIP_SUCCESS;
-	sqe = get_sqe(ring);
+		sqe1->flags |= IOSQE_FIXED_FILE;
+	sqe1->flags |= IOSQE_IO_LINK | IOSQE_CQE_SKIP_SUCCESS;
+	encode_userdata(sqe1, c, __SHUTDOWN, 0, 0, fd);
+
 	if (fixed_files)
-		io_uring_prep_close_direct(sqe, fd);
+		io_uring_prep_close_direct(sqe2, fd);
 	else
-		io_uring_prep_close(sqe, fd);
-	encode_userdata(sqe, c, __SHUTDOWN, 0, 0, fd);
+		io_uring_prep_close(sqe2, fd);
+	encode_userdata(sqe2, c, __CLOSE, 0, 0, fd);
 }
 
 static int pending_shutdown(struct conn *c)
@@ -893,10 +904,38 @@ static int handle_send(struct io_uring *ring, struct io_uring_cqe *cqe)
 }
 
 /*
+ * We don't expect to get here, as we marked it with skipping posting a
+ * CQE if it was successful. If it does trigger, than means it fails and
+ * that our close has not been done. Log the shutdown error and issue a new
+ * separate close.
+ */
+static int handle_shutdown(struct io_uring *ring, struct io_uring_cqe *cqe)
+{
+	struct conn *c = cqe_to_conn(cqe);
+	struct io_uring_sqe *sqe;
+	int fd = cqe_to_fd(cqe);
+
+	fprintf(stderr, "Got shutdown notication on fd %d\n", fd);
+
+	if (!cqe->res)
+		fprintf(stderr, "Unexpected success shutdown CQE\n");
+	else if (cqe->res < 0)
+		fprintf(stderr, "Shutdown got %s\n", strerror(-cqe->res));
+
+	sqe = get_sqe(ring);
+	if (fixed_files)
+		io_uring_prep_close_direct(sqe, fd);
+	else
+		io_uring_prep_close(sqe, fd);
+	encode_userdata(sqe, c, __CLOSE, 0, 0, fd);
+	return 0;
+}
+
+/*
  * Final stage of a connection, the shutdown and close has finished. Mark
  * it as disconnected and let the main loop reap it.
  */
-static int handle_shutdown(struct io_uring *ring, struct io_uring_cqe *cqe)
+static int handle_close(struct io_uring *ring, struct io_uring_cqe *cqe)
 {
 	struct conn *c = cqe_to_conn(cqe);
 	int fd = cqe_to_fd(cqe);
@@ -943,6 +982,9 @@ static int handle_cqe(struct io_uring *ring, struct io_uring_cqe *cqe)
 		break;
 	case __SHUTDOWN:
 		ret = handle_shutdown(ring, cqe);
+		break;
+	case __CLOSE:
+		ret = handle_close(ring, cqe);
 		break;
 	default:
 		fprintf(stderr, "bad user data %lx\n", (long) cqe->user_data);
