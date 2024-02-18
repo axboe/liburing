@@ -9,18 +9,18 @@
  * Act as a proxy, listening on port 4444, and send data to 192.168.2.6 on port
  * 4445. Use multishot receive, DEFER_TASKRUN, and fixed files
  *
- * 	./proxy -m1 -d1 -f1 -H 192.168.2.6 -r4444 -p4445
+ * 	./proxy -m1 -d1 -f1 -r4444 -H 192.168.2.6 -p4445
  *
- * Act as a bi-directional proxy, listening on port 8884, and send data back
+ * Act as a bi-directional proxy, listening on port 8888, and send data back
  * and forth between host and 192.168.2.6 on port 22. Use multishot receive,
  * DEFER_TASKRUN, fixed files, and buffers of size 1500.
  *
- * 	./proxy -m1 -d1 -f1 -B1 -b1500 -H 192.168.2.6 -r22 -p8888
+ * 	./proxy -m1 -d1 -f1 -B1 -b1500 -r8888 -H 192.168.2.6 -p22
  *
  * Act a sink, listening on port 4445, using multishot receive, DEFER_TASKRUN,
  * and fixed files:
  *
- * 	./proxy -m1 -d1 -s1 -f1 -p4445
+ * 	./proxy -m1 -d1 -s1 -f1 -r4445
  *
  * Run with -h to see a list of options, and their defaults.
  *
@@ -1271,12 +1271,9 @@ int main(int argc, char *argv[])
 
 	br_mask = nr_bufs - 1;
 
-	if (is_sink) {
-		fd = setup_listening_socket(send_port);
-		receive_port = -1;
-	} else {
-		fd = setup_listening_socket(receive_port);
-	}
+	fd = setup_listening_socket(receive_port);
+	if (is_sink)
+		send_port = -1;
 
 	if (fd == -1)
 		return 1;
