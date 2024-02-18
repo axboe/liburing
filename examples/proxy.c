@@ -407,7 +407,7 @@ static int cqe_to_fd(struct io_uring_cqe *cqe)
 
 static struct conn_dir *fd_to_conn_dir(struct conn *c, int fd)
 {
-	return &c->cd[fd == c->in_fd];
+	return &c->cd[fd != c->in_fd];
 }
 
 static void __submit_receive(struct io_uring *ring, struct conn *c, int fd)
