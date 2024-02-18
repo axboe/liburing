@@ -624,82 +624,6 @@ static void queue_send(struct io_uring *ring, struct conn *c, void *data,
 		__queue_send(ring, c, out_fd, data, len, bgid, bid);
 }
 
-static int handle_receive(struct io_uring *ring, struct conn *c,
-			  struct io_uring_cqe *cqe, int in_fd, int out_fd)
-{
-	struct conn_dir *cd = fd_to_conn_dir(c, in_fd);
-	struct conn_buf_ring *cbr;
-	int bid, bgid, do_recv = !mshot;
-	void *ptr;
-
-	if (cqe->res < 0) {
-		if (cqe->res == -ENOBUFS) {
-			handle_enobufs(ring, c, cd, in_fd);
-			return 0;
-		} else {
-			fprintf(stderr, "recv error %s\n", strerror(-cqe->res));
-			return 1;
-		}
-	} else if (cqe->res != buf_size) {
-		cd->rcv_shrt++;
-	}
-
-	if (!(cqe->flags & IORING_CQE_F_BUFFER)) {
-		if (!cqe->res) {
-			close_cd(c, cd);
-			return 0;
-		}
-		fprintf(stderr, "no buffer assigned, res=%d\n", cqe->res);
-		return 1;
-	}
-
-	cd->rcv++;
-
-	/*
-	 * If multishot terminates, just submit a new one.
-	 */
-	if (mshot && !(cqe->flags & IORING_CQE_F_MORE)) {
-		cd->mshot_resubmit++;
-		do_recv = 1;
-	}
-
-	bid = cqe->flags >> IORING_CQE_BUFFER_SHIFT;
-	bgid = cqe_to_bgid(cqe);
-
-	if (verbose) {
-		printf("%d: recv: bid=%d, bgid=%d, res=%d\n", c->tid, bid, bgid,
-								cqe->res);
-	}
-
-	cbr = &c->brs[bgid - c->start_bgid];
-	ptr = cbr->buf + bid * buf_size;
-
-	/*
-	 * If we're a sink, we're done here. Just replenish the buffer back
-	 * to the pool. For proxy mode, we will send the data to the other
-	 * end and the buffer will be replenished once the send is done with
-	 * it.
-	 */
-	if (is_sink) {
-		io_uring_buf_ring_add(cbr->br, ptr, buf_size, bid, br_mask, 0);
-		io_uring_buf_ring_advance(cbr->br, 1);
-	} else {
-		queue_send(ring, c, ptr, cqe->res, bgid, bid, out_fd);
-	}
-
-	cd->in_bytes += cqe->res;
-
-	/*
-	 * If we're not doing multishot receive, or if multishot receive
-	 * terminated, we need to submit a new receive request as this one
-	 * has completed. Multishot will stay armed.
-	 */
-	if (do_recv)
-		__submit_receive(ring, c, in_fd);
-
-	return 0;
-}
-
 static int handle_accept(struct io_uring *ring, struct io_uring_cqe *cqe)
 {
 	struct io_uring_sqe *sqe;
@@ -846,15 +770,91 @@ static int handle_connect(struct io_uring *ring, struct io_uring_cqe *cqe)
 	return 0;
 }
 
+static int __handle_recv(struct io_uring *ring, struct conn *c,
+			 struct io_uring_cqe *cqe, int in_fd, int out_fd)
+{
+	struct conn_dir *cd = fd_to_conn_dir(c, in_fd);
+	struct conn_buf_ring *cbr;
+	int bid, bgid, do_recv = !mshot;
+	void *ptr;
+
+	if (cqe->res < 0) {
+		if (cqe->res == -ENOBUFS) {
+			handle_enobufs(ring, c, cd, in_fd);
+			return 0;
+		} else {
+			fprintf(stderr, "recv error %s\n", strerror(-cqe->res));
+			return 1;
+		}
+	} else if (cqe->res != buf_size) {
+		cd->rcv_shrt++;
+	}
+
+	if (!(cqe->flags & IORING_CQE_F_BUFFER)) {
+		if (!cqe->res) {
+			close_cd(c, cd);
+			return 0;
+		}
+		fprintf(stderr, "no buffer assigned, res=%d\n", cqe->res);
+		return 1;
+	}
+
+	cd->rcv++;
+
+	/*
+	 * If multishot terminates, just submit a new one.
+	 */
+	if (mshot && !(cqe->flags & IORING_CQE_F_MORE)) {
+		cd->mshot_resubmit++;
+		do_recv = 1;
+	}
+
+	bid = cqe->flags >> IORING_CQE_BUFFER_SHIFT;
+	bgid = cqe_to_bgid(cqe);
+
+	if (verbose) {
+		printf("%d: recv: bid=%d, bgid=%d, res=%d\n", c->tid, bid, bgid,
+								cqe->res);
+	}
+
+	cbr = &c->brs[bgid - c->start_bgid];
+	ptr = cbr->buf + bid * buf_size;
+
+	/*
+	 * If we're a sink, we're done here. Just replenish the buffer back
+	 * to the pool. For proxy mode, we will send the data to the other
+	 * end and the buffer will be replenished once the send is done with
+	 * it.
+	 */
+	if (is_sink) {
+		io_uring_buf_ring_add(cbr->br, ptr, buf_size, bid, br_mask, 0);
+		io_uring_buf_ring_advance(cbr->br, 1);
+	} else {
+		queue_send(ring, c, ptr, cqe->res, bgid, bid, out_fd);
+	}
+
+	cd->in_bytes += cqe->res;
+
+	/*
+	 * If we're not doing multishot receive, or if multishot receive
+	 * terminated, we need to submit a new receive request as this one
+	 * has completed. Multishot will stay armed.
+	 */
+	if (do_recv)
+		__submit_receive(ring, c, in_fd);
+
+	return 0;
+}
+
 static int handle_recv(struct io_uring *ring, struct io_uring_cqe *cqe)
 {
 	struct conn *c = cqe_to_conn(cqe);
 	int fd = cqe_to_fd(cqe);
 
 	if (fd == c->in_fd)
-		return handle_receive(ring, c, cqe, c->in_fd, c->out_fd);
+		return __handle_recv(ring, c, cqe, c->in_fd, c->out_fd);
 
-	return handle_receive(ring, c, cqe, c->out_fd, c->in_fd);
+	return __handle_recv(ring, c, cqe, c->out_fd, c->in_fd);
 }
 
 static int handle_send(struct io_uring *ring, struct io_uring_cqe *cqe)
