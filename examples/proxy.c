@@ -323,6 +323,13 @@ static void sig_int(int __attribute__((__unused__)) sig)
  * that is used. Hence we may need to wait for the SQPOLL thread to keep up
  * until we can get a new SQE. All other cases will break immediately, with a
  * fresh SQE.
+ *
+ * If we grossly undersized our SQ ring, getting a NULL sqe can happen even
+ * for the !SQPOLL case if we're handling a lot of CQEs in our event loop
+ * and multishot isn't used. We can do io_uring_submit() to flush what we
+ * have here. Only caveat here is that if linked requests are used, SQEs
+ * would need to be allocated upfront as a link chain is only valid within
+ * a single submission cycle.
  */
 static struct io_uring_sqe *get_sqe(struct io_uring *ring)
 {
@@ -332,11 +339,10 @@ static struct io_uring_sqe *get_sqe(struct io_uring *ring)
 		sqe = io_uring_get_sqe(ring);
 		if (sqe)
 			break;
-		if (!sqpoll) {
-			fprintf(stderr, "bug in sq handling\n");
-			exit(1);
-		}
-		io_uring_sqring_wait(ring);
+		if (!sqpoll)
+			io_uring_submit(ring);
+		else
+			io_uring_sqring_wait(ring);
 	} while (1);
 
 	return sqe;
@@ -1117,7 +1123,12 @@ int main(int argc, char *argv[])
 	if (!sqpoll && !defer_tw)
 		params.flags |= IORING_SETUP_COOP_TASKRUN;
 
-	ret = io_uring_queue_init_params(MAX_CONNS * 2, &ring, &params);
+	/*
+	 * The SQ ring size need not be larger than any batch of requests
+	 * that need to be prepared before submit. Normally in a loop we'd
+	 * only need a few, if any, particularly if multishot is used.
+	 */
+	ret = io_uring_queue_init_params(128, &ring, &params);
 	if (ret) {
 		fprintf(stderr, "%s\n", strerror(-ret));
 		return 1;
