@@ -562,7 +562,7 @@ static void close_cd(struct conn *c, struct conn_dir *cd)
  * We're done with this buffer, add it back to our pool so the kernel is
  * free to use it again.
  */
-static void replenish_buffer(struct conn *c, struct io_uring_cqe *cqe, int bid)
+static void replenish_buffer(struct conn *c, int bid)
 {
 	struct conn_buf_ring *cbr = &c->br;
 	void *this_buf;
@@ -574,7 +574,7 @@ static void replenish_buffer(struct conn *c, struct io_uring_cqe *cqe, int bid)
 }
 
 static void __queue_send(struct io_uring *ring, struct conn *c, int fd,
-			 void *data, int len, int bid)
+			 void *data, int bid, int len)
 {
 	struct conn_dir *cd = fd_to_conn_dir(c, fd);
 	struct io_uring_sqe *sqe;
@@ -606,7 +606,7 @@ static void submit_deferred_send(struct io_uring *ring, struct conn *c,
 
 	ps = list_first_entry(&cd->send_list, struct pending_send, list);
 	list_del(&ps->list);
-	__queue_send(ring, c, ps->fd, ps->data, ps->len, ps->bid);
+	__queue_send(ring, c, ps->fd, ps->data, ps->bid, ps->len);
 	free(ps);
 }
 
@@ -633,21 +633,21 @@ static void submit_deferred_send(struct io_uring *ring, struct conn *c,
  *
  * Something to think about on the kernel side...
  */
-static void defer_send(struct conn *c, struct conn_dir *cd,
-		       struct io_uring_cqe *cqe, int bid, int out_fd)
+static void defer_send(struct conn *c, struct conn_dir *cd, int bid, int len,
+		       int out_fd)
 {
 	void *data = get_buf(c, bid);
 	struct pending_send *ps;
 
-	vlog("%d: defer send %d to fd %d (%p, bid %d)\n", c->tid,
-					cqe->res, out_fd, data, bid);
+	vlog("%d: defer send %d to fd %d (%p, bid %d)\n", c->tid, len, out_fd,
+					data, bid);
 	vlog("%d: pending %d, %p\n", c->tid, cd->pending_sends, cd);
 
 	cd->snd_busy++;
 	ps = malloc(sizeof(*ps));
 	ps->fd = out_fd;
 	ps->bid = bid;
-	ps->len = cqe->res;
+	ps->len = len;
 	ps->data = data;
 	list_add_tail(&ps->list, &cd->send_list);
 }
@@ -656,17 +656,17 @@ static void defer_send(struct conn *c, struct conn_dir *cd,
  * Queue a send based on the data received in this cqe, which came from
  * a completed receive operation.
  */
-static void queue_send(struct io_uring *ring, struct conn *c,
-		       struct io_uring_cqe *cqe, int bid, int out_fd)
+static void queue_send(struct io_uring *ring, struct conn *c, int bid, int len,
+		       int out_fd)
 {
 	struct conn_dir *cd = fd_to_conn_dir(c, out_fd);
 
 	if (cd->pending_sends) {
-		defer_send(c, cd, cqe, bid, out_fd);
+		defer_send(c, cd, bid, len, out_fd);
 	} else {
 		void *data = get_buf(c, bid);
 
-		__queue_send(ring, c, out_fd, data, cqe->res, bid);
+		__queue_send(ring, c, out_fd, data, bid, len);
 	}
 }
 
@@ -844,9 +844,9 @@ static int __handle_recv(struct io_uring *ring, struct conn *c,
 	 * it.
 	 */
 	if (is_sink)
-		replenish_buffer(c, cqe, bid);
+		replenish_buffer(c, bid);
 	else
-		queue_send(ring, c, cqe, bid, out_fd);
+		queue_send(ring, c, bid, cqe->res, out_fd);
 
 	cd->in_bytes += cqe->res;
 
@@ -944,7 +944,7 @@ static int handle_send(struct io_uring *ring, struct io_uring_cqe *cqe)
 	 * pool so it can get picked by another receive. Once the send
 	 * is done, we're done with it.
 	 */
-	replenish_buffer(c, cqe, cqe_to_bid(cqe));
+	replenish_buffer(c, cqe_to_bid(cqe));
 
 	cd->pending_sends--;
 
