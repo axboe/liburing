@@ -66,6 +66,7 @@ static int napi;
 static int napi_timeout;
 static int wait_batch = 1;
 static int wait_usec = 1000000;
+static int use_msg;
 static int verbose;
 
 static int nr_bufs = 256;
@@ -385,8 +386,18 @@ static void __submit_receive(struct io_uring *ring, struct conn *c, int fd)
 {
 	struct conn_buf_ring *cbr = &c->br;
 	struct io_uring_sqe *sqe;
+	struct msghdr msg;
+	struct iovec iov;
 
 	vlog("%d: submit receive fd=%d\n", c->tid, fd);
+
+	if (use_msg) {
+		memset(&msg, 0, sizeof(msg));
+		iov.iov_base = NULL;
+		iov.iov_len = 0;
+		msg.msg_iov = &iov;
+		msg.msg_iovlen = 1;
+	}
 
 	/*
 	 * For both recv and multishot receive, we use the ring provided
@@ -401,9 +412,15 @@ static void __submit_receive(struct io_uring *ring, struct conn *c, int fd)
 	sqe = get_sqe(ring);
 	if (mshot) {
 		fd_to_conn_dir(c, fd)->mshot_submit++;
-		io_uring_prep_recv_multishot(sqe, fd, NULL, 0, 0);
+		if (use_msg)
+			io_uring_prep_recv_multishot(sqe, fd, NULL, 0, 0);
+		else
+			io_uring_prep_recv_multishot(sqe, fd, NULL, 0, 0);
 	} else {
-		io_uring_prep_recv(sqe, fd, NULL, 0, 0);
+		if (use_msg)
+			io_uring_prep_recvmsg(sqe, fd, &msg, 0);
+		else
+			io_uring_prep_recv(sqe, fd, NULL, 0, 0);
 	}
 
 	encode_userdata(sqe, c, __RECV, 0, fd);
@@ -411,6 +428,10 @@ static void __submit_receive(struct io_uring *ring, struct conn *c, int fd)
 	sqe->flags |= IOSQE_BUFFER_SELECT;
 	if (fixed_files)
 		sqe->flags |= IOSQE_FIXED_FILE;
+
+	/* must submit to avoid msg/iov going out-of-scope */
+	if (use_msg)
+		io_uring_submit(ring);
 }
 
 /*
@@ -578,15 +599,30 @@ static void __queue_send(struct io_uring *ring, struct conn *c, int fd,
 {
 	struct conn_dir *cd = fd_to_conn_dir(c, fd);
 	struct io_uring_sqe *sqe;
+	struct iovec iov;
+	struct msghdr msg;
 
 	vlog("%d: send %d to fd %d (%p, bid %d)\n", c->tid, len, fd, data, bid);
 
 	sqe = get_sqe(ring);
-	io_uring_prep_send(sqe, fd, data, len, MSG_WAITALL | MSG_NOSIGNAL);
+	if (use_msg) {
+		memset(&msg, 0, sizeof(msg));
+		iov.iov_base = data;
+		iov.iov_len = len;
+		msg.msg_iov = &iov;
+		msg.msg_iovlen = 1;
+		io_uring_prep_sendmsg(sqe, fd, &msg, MSG_WAITALL | MSG_NOSIGNAL);
+	} else {
+		io_uring_prep_send(sqe, fd, data, len, MSG_WAITALL | MSG_NOSIGNAL);
+	}
 	encode_userdata(sqe, c, __SEND, bid, fd);
 	if (fixed_files)
 		sqe->flags |= IOSQE_FIXED_FILE;
 	cd->pending_sends++;
+
+	/* must submit to avoid msg/iov going out-of-scope */
+	if (use_msg)
+		io_uring_submit(ring);
 }
 
 /*
@@ -1111,6 +1147,7 @@ static void usage(const char *name)
 	printf("\t-6:\t\tUse IPv6 (%d)\n", ipv6);
 	printf("\t-N:\t\tUse NAPI polling (%d)\n", napi);
 	printf("\t-T:\t\tNAPI timeout (usec) (%d)\n", napi_timeout);
+	printf("\t-M:\t\tUse send/recvmsg (%d)\n", use_msg);
 	printf("\t-V:\t\tIncrease verbosity (%d)\n", verbose);
 }
 
@@ -1239,7 +1276,7 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-	while ((opt = getopt(argc, argv, "m:d:S:s:b:f:H:r:p:n:B:N:T:w:t:6Vh?")) != -1) {
+	while ((opt = getopt(argc, argv, "m:d:S:s:b:f:H:r:p:n:B:N:T:w:t:M:6Vh?")) != -1) {
 		switch (opt) {
 		case 'm':
 			mshot = !!atoi(optarg);
@@ -1289,6 +1326,9 @@ int main(int argc, char *argv[])
 		case '6':
 			ipv6 = true;
 			break;
+		case 'M':
+			use_msg = !!atoi(optarg);
+			break;
 		case 'V':
 			verbose++;
 			break;
@@ -1302,6 +1342,10 @@ int main(int argc, char *argv[])
 	if (bidi && is_sink) {
 		fprintf(stderr, "Can't be both bidi proxy and sink\n");
 		return 1;
+	}
+	if (use_msg && sqpoll) {
+		fprintf(stderr, "SQPOLL with msg variants disabled\n");
+		use_msg = 0;
 	}
 
 	br_mask = nr_bufs - 1;
@@ -1434,10 +1478,10 @@ int main(int argc, char *argv[])
 
 	printf("Backend: multishot=%d, sqpoll=%d, defer_tw=%d, fixed_files=%d "
 		"is_sink=%d, buf_size=%d, nr_bufs=%d, host=%s, send_port=%d "
-		"receive_port=%d, napi=%d, napi_timeout=%d\n",
+		"receive_port=%d, napi=%d, napi_timeout=%d, msg=%d\n",
 			mshot, sqpoll, defer_tw, fixed_files, is_sink,
 			buf_size, nr_bufs, host, send_port, receive_port,
-			napi, napi_timeout);
+			napi, napi_timeout, use_msg);
 
 	return event_loop(&ring, fd);
 }
