@@ -690,18 +690,14 @@ static void __queue_send(struct io_uring *ring, struct conn *c, int fd,
 	sqe = get_sqe(ring);
 	if (use_msg) {
 		memset(&msg, 0, sizeof(msg));
-		if (!send_ring) {
-			iov.iov_base = data;
-			iov.iov_len = len;
-			msg.msg_iov = &iov;
-			msg.msg_iovlen = 1;
-		}
+		iov.iov_base = data;
+		iov.iov_len = len;
+		msg.msg_iov = &iov;
+		msg.msg_iovlen = 1;
 		io_uring_prep_sendmsg(sqe, fd, &msg, MSG_WAITALL | MSG_NOSIGNAL);
 	} else {
-		if (send_ring) {
+		if (send_ring)
 			data = NULL;
-			len = 0;
-		}
 		io_uring_prep_send(sqe, fd, data, len, MSG_WAITALL | MSG_NOSIGNAL);
 	}
 	encode_userdata(sqe, c, __SEND, bid, fd);
