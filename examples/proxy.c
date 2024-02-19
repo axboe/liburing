@@ -43,6 +43,15 @@
 #include "list.h"
 #include "helpers.h"
 
+/*
+ * Flag the kernel can use to tell us it supports sends with provided buffers.
+ * We can use this to eliminate the need to serialize our sends, as each send
+ * will pick a buffer in FIFO order if we can use provided buffers.
+ */
+#ifndef IORING_FEAT_SEND_BUFS
+#define IORING_FEAT_SEND_BUFS	(1U << 14)
+#endif
+
 static int cur_bgid = 1;
 static int nr_conns;
 static int open_conns;
@@ -67,6 +76,7 @@ static int napi_timeout;
 static int wait_batch = 1;
 static int wait_usec = 1000000;
 static int use_msg;
+static int send_ring = -1;
 static int verbose;
 
 static int nr_bufs = 256;
@@ -117,7 +127,8 @@ struct conn_buf_ring {
 };
 
 struct conn {
-	struct conn_buf_ring br;
+	struct conn_buf_ring in_br;
+	struct conn_buf_ring out_br;
 
 	int tid;
 	int in_fd, out_fd;
@@ -209,6 +220,22 @@ static struct error_handler error_handlers[] = {
 	{ .name = "CLOSE",	.error_fn = NULL, },
 };
 
+static void free_buffer_ring(struct io_uring *ring, struct conn_buf_ring *cbr)
+{
+	if (!cbr->br)
+		return;
+
+	io_uring_free_buf_ring(ring, cbr->br, nr_bufs, cbr->bgid);
+	cbr->br = NULL;
+	free(cbr->buf);
+}
+
+static void free_buffer_rings(struct io_uring *ring, struct conn *c)
+{
+	free_buffer_ring(ring, &c->in_br);
+	free_buffer_ring(ring, &c->out_br);
+}
+
 /*
  * Setup a ring provided buffer ring for each connection. If we get -ENOBUFS
  * on receive, for multishot receive we'll wait for half the provided buffers
@@ -221,13 +248,13 @@ static struct error_handler error_handlers[] = {
  * io_urign_prep_provide_buffers() to add to the pool. But that approach is
  * slower and has been deprecated by using the faster ring provided buffers.
  */
-static int setup_buffer_ring(struct io_uring *ring, struct conn *c)
+static int setup_recv_ring(struct io_uring *ring, struct conn *c)
 {
-	struct conn_buf_ring *cbr = &c->br;
+	struct conn_buf_ring *cbr = &c->in_br;
 	int ret, i;
 	void *ptr;
 
-	cbr->bgid = cur_bgid++;
+	cbr->buf = NULL;
 
 	if (posix_memalign(&cbr->buf, page_size, buf_size * nr_bufs)) {
 		perror("posix memalign");
@@ -242,20 +269,60 @@ static int setup_buffer_ring(struct io_uring *ring, struct conn *c)
 
 	ptr = cbr->buf;
 	for (i = 0; i < nr_bufs; i++) {
+		vlog("%d: add bid %d, data 0x%p\n", c->tid, i, ptr);
 		io_uring_buf_ring_add(cbr->br, ptr, buf_size, i, br_mask, i);
 		ptr += buf_size;
 	}
 	io_uring_buf_ring_advance(cbr->br, nr_bufs);
-	printf("%d: buffer ring bgid %d, bufs %d\n", c->tid, cbr->bgid, nr_bufs);
+	printf("%d: recv buffer ring bgid %d, bufs %d\n", c->tid, cbr->bgid, nr_bufs);
 	return 0;
 }
 
-static void free_buffer_ring(struct io_uring *ring, struct conn *c)
+/*
+ * If 'send_ring' is used and the kernel supports it, we can skip serializing
+ * sends as the data will be ordered regardless. This reduces the send handling
+ * complexity, as buffers can always be added to the outgoing ring and will be
+ * processed in the order in which they were added.
+ */
+static int setup_send_ring(struct io_uring *ring, struct conn *c)
 {
-	struct conn_buf_ring *cbr = &c->br;
+	struct conn_buf_ring *cbr = &c->out_br;
+	int ret;
 
-	io_uring_free_buf_ring(ring, cbr->br, nr_bufs, cbr->bgid);
-	free(cbr->buf);
+	cbr->br = io_uring_setup_buf_ring(ring, nr_bufs, cbr->bgid, 0, &ret);
+	if (!cbr->br) {
+		fprintf(stderr, "Buffer ring register failed %d\n", ret);
+		return 1;
+	}
+
+	printf("%d: send buffer ring bgid %d, bufs %d\n", c->tid, cbr->bgid, nr_bufs);
+	return 0;
+}
+
+/*
+ * Setup an input and output buffer ring
+ */
+static int setup_buffer_rings(struct io_uring *ring, struct conn *c)
+{
+	int ret;
+
+	c->in_br.bgid = cur_bgid++;
+	c->out_br.bgid = cur_bgid++;
+	c->out_br.br = NULL;
+
+	ret = setup_recv_ring(ring, c);
+	if (ret)
+		return ret;
+	if (is_sink || !send_ring)
+		return 0;
+
+	ret = setup_send_ring(ring, c);
+	if (ret) {
+		free_buffer_ring(ring, &c->in_br);
+		return ret;
+	}
+
+	return 0;
 }
 
 static void __show_stats(struct conn *c)
@@ -377,14 +444,14 @@ static void encode_userdata(struct io_uring_sqe *sqe, struct conn *c, int op,
  */
 static void *get_buf(struct conn *c, int bid)
 {
-	struct conn_buf_ring *cbr = &c->br;
+	struct conn_buf_ring *cbr = &c->in_br;
 
 	return cbr->buf + bid * buf_size;
 }
 
 static void __submit_receive(struct io_uring *ring, struct conn *c, int fd)
 {
-	struct conn_buf_ring *cbr = &c->br;
+	struct conn_buf_ring *cbr = &c->in_br;
 	struct io_uring_sqe *sqe;
 	struct msghdr msg;
 	struct iovec iov;
@@ -462,6 +529,8 @@ static void submit_bidi_receive(struct io_uring *ring, struct conn *c)
 static void handle_enobufs(struct io_uring *ring, struct conn *c,
 			   struct conn_dir *cd, int fd)
 {
+	int send_waits;
+
 	vlog("%d: enobufs hit\n", c->tid);
 
 	cd->enobufs++;
@@ -472,7 +541,11 @@ static void handle_enobufs(struct io_uring *ring, struct conn *c,
 		return;
 	}
 
-	cd->rearm_recv = nr_bufs / 2;
+	send_waits = nr_bufs / 2;
+	if (send_ring)
+		send_waits = c->cd[0].pending_sends + c->cd[1].pending_sends;
+
+	cd->rearm_recv = send_waits;
 
 	/* really shouldn't use 1 buffer ring... */
 	if (!cd->rearm_recv)
@@ -585,7 +658,7 @@ static void close_cd(struct conn *c, struct conn_dir *cd)
  */
 static void replenish_buffer(struct conn *c, int bid)
 {
-	struct conn_buf_ring *cbr = &c->br;
+	struct conn_buf_ring *cbr = &c->in_br;
 	void *this_buf;
 
 	this_buf = cbr->buf + bid * buf_size;
@@ -601,23 +674,43 @@ static void __queue_send(struct io_uring *ring, struct conn *c, int fd,
 	struct io_uring_sqe *sqe;
 	struct iovec iov;
 	struct msghdr msg;
+	int bgid = 0;
 
 	vlog("%d: send %d to fd %d (%p, bid %d)\n", c->tid, len, fd, data, bid);
+
+	/* if using provided buffers for send, add it upfront */
+	if (send_ring) {
+		struct conn_buf_ring *cbr = &c->out_br;
+
+		io_uring_buf_ring_add(cbr->br, data, len, bid, br_mask, 0);
+		io_uring_buf_ring_advance(cbr->br, 1);
+		bgid = cbr->bgid;
+	}
 
 	sqe = get_sqe(ring);
 	if (use_msg) {
 		memset(&msg, 0, sizeof(msg));
-		iov.iov_base = data;
-		iov.iov_len = len;
-		msg.msg_iov = &iov;
-		msg.msg_iovlen = 1;
+		if (!send_ring) {
+			iov.iov_base = data;
+			iov.iov_len = len;
+			msg.msg_iov = &iov;
+			msg.msg_iovlen = 1;
+		}
 		io_uring_prep_sendmsg(sqe, fd, &msg, MSG_WAITALL | MSG_NOSIGNAL);
 	} else {
+		if (send_ring) {
+			data = NULL;
+			len = 0;
+		}
 		io_uring_prep_send(sqe, fd, data, len, MSG_WAITALL | MSG_NOSIGNAL);
 	}
 	encode_userdata(sqe, c, __SEND, bid, fd);
 	if (fixed_files)
 		sqe->flags |= IOSQE_FIXED_FILE;
+	if (send_ring) {
+		sqe->flags |= IOSQE_BUFFER_SELECT;
+		sqe->buf_group = bgid;
+	}
 	cd->pending_sends++;
 
 	/* must submit to avoid msg/iov going out-of-scope */
@@ -697,7 +790,8 @@ static void queue_send(struct io_uring *ring, struct conn *c, int bid, int len,
 {
 	struct conn_dir *cd = fd_to_conn_dir(c, out_fd);
 
-	if (cd->pending_sends) {
+	/* no need to serialize sends if we use an outgoing buffer ring */
+	if (!send_ring && cd->pending_sends) {
 		defer_send(c, cd, bid, len, out_fd);
 	} else {
 		void *data = get_buf(c, bid);
@@ -727,7 +821,9 @@ static int handle_accept(struct io_uring *ring, struct io_uring_cqe *cqe)
 
 	printf("New client: id=%d, in=%d\n", c->tid, c->in_fd);
 
-	setup_buffer_ring(ring, c);
+	if (setup_buffer_rings(ring, c))
+		return 1;
+
 	init_list_head(&c->cd[0].send_list);
 	init_list_head(&c->cd[1].send_list);
 
@@ -965,6 +1061,7 @@ static int handle_send(struct io_uring *ring, struct io_uring_cqe *cqe)
 	struct conn *c = cqe_to_conn(cqe);
 	int fd = cqe_to_fd(cqe);
 	struct conn_dir *cd = fd_to_conn_dir(c, fd);
+	int bid;
 
 	cd->snd++;
 	cd->out_bytes += cqe->res;
@@ -972,7 +1069,17 @@ static int handle_send(struct io_uring *ring, struct io_uring_cqe *cqe)
 	if (cqe->res != buf_size)
 		cd->snd_shrt++;
 
-	vlog("%d: send: bid=%d, res=%d\n", c->tid, cqe_to_bid(cqe), cqe->res);
+	if (send_ring) {
+		if (!(cqe->flags & IORING_CQE_F_BUFFER)) {
+			fprintf(stderr, "no buffer in send?!\n");
+			return 1;
+		}
+		bid = cqe->flags >> IORING_CQE_BUFFER_SHIFT;
+	} else {
+		bid = cqe_to_bid(cqe);
+	}
+
+	vlog("%d: send: bid=%d, res=%d\n", c->tid, bid, cqe->res);
 
 	/*
 	 * Find the provided buffer that the receive consumed, and
@@ -980,7 +1087,7 @@ static int handle_send(struct io_uring *ring, struct io_uring_cqe *cqe)
 	 * pool so it can get picked by another receive. Once the send
 	 * is done, we're done with it.
 	 */
-	replenish_buffer(c, cqe_to_bid(cqe));
+	replenish_buffer(c, bid);
 
 	cd->pending_sends--;
 
@@ -1049,7 +1156,7 @@ static int handle_close(struct io_uring *ring, struct io_uring_cqe *cqe)
 	if (c->in_fd == -1 && c->out_fd == -1) {
 		__show_stats(c);
 		open_conns--;
-		free_buffer_ring(ring, c);
+		free_buffer_rings(ring, c);
 	}
 
 	return 0;
@@ -1135,6 +1242,7 @@ static void usage(const char *name)
 	printf("\t-d:\t\tUse DEFER_TASKRUN (%d)\n", defer_tw);
 	printf("\t-S:\t\tUse SQPOLL (%d)\n", sqpoll);
 	printf("\t-b:\t\tSend/receive buf size (%d)\n", buf_size);
+	printf("\t-u:\t\tUse provided buffers for send (%d)\n", send_ring);
 	printf("\t-n:\t\tNumber of provided buffers (pow2) (%d)\n", nr_bufs);
 	printf("\t-w:\t\tNumber of CQEs to wait for each loop (%d)\n", wait_batch);
 	printf("\t-t:\t\tTimeout for waiting on CQEs (usec) (%d)\n", wait_usec);
@@ -1276,7 +1384,7 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-	while ((opt = getopt(argc, argv, "m:d:S:s:b:f:H:r:p:n:B:N:T:w:t:M:6Vh?")) != -1) {
+	while ((opt = getopt(argc, argv, "m:d:S:s:b:f:H:r:p:n:B:N:T:w:t:M:u:6Vh?")) != -1) {
 		switch (opt) {
 		case 'm':
 			mshot = !!atoi(optarg);
@@ -1292,6 +1400,9 @@ int main(int argc, char *argv[])
 			break;
 		case 'n':
 			nr_bufs = atoi(optarg);
+			break;
+		case 'u':
+			send_ring = !!atoi(optarg);
 			break;
 		case 'w':
 			wait_batch = atoi(optarg);
@@ -1436,6 +1547,22 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
+	/*
+	 * If send serialization is available and no option was given to use
+	 * it or not, default it to on. If it was turned on and the kernel
+	 * doesn't support it, turn it off.
+	 */
+	if (params.features & IORING_FEAT_SEND_BUFS) {
+		if (send_ring == -1)
+			send_ring = 1;
+	} else {
+		if (send_ring == 1) {
+			fprintf(stderr, "Kernel doesn't support ring provided "
+				"buffers for sends, disabled\n");
+			send_ring = 0;
+		}
+	}
+
 	if (fixed_files) {
 		/*
 		 * If fixed files are used, we need to allocate a fixed file
@@ -1478,10 +1605,11 @@ int main(int argc, char *argv[])
 
 	printf("Backend: multishot=%d, sqpoll=%d, defer_tw=%d, fixed_files=%d "
 		"is_sink=%d, buf_size=%d, nr_bufs=%d, host=%s, send_port=%d "
-		"receive_port=%d, napi=%d, napi_timeout=%d, msg=%d\n",
+		"receive_port=%d, napi=%d, napi_timeout=%d, msg=%d, "
+		"send_buf_ring=%d\n",
 			mshot, sqpoll, defer_tw, fixed_files, is_sink,
 			buf_size, nr_bufs, host, send_port, receive_port,
-			napi, napi_timeout, use_msg);
+			napi, napi_timeout, use_msg, send_ring);
 
 	return event_loop(&ring, fd);
 }
