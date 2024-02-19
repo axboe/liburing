@@ -535,15 +535,15 @@ static void handle_enobufs(struct io_uring *ring, struct conn *c,
 
 	cd->enobufs++;
 
-	/* sink has no sends to wait for, no choice but to re-arm */
-	if (is_sink) {
-		__submit_receive(ring, c, fd);
-		return;
-	}
-
 	send_waits = nr_bufs / 2;
 	if (send_ring)
 		send_waits = c->cd[0].pending_sends + c->cd[1].pending_sends;
+
+	/* sink has no sends to wait for, no choice but to re-arm */
+	if (is_sink || !send_waits) {
+		__submit_receive(ring, c, fd);
+		return;
+	}
 
 	cd->rearm_recv = send_waits;
 
