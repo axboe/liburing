@@ -43,7 +43,7 @@
 #include "list.h"
 #include "helpers.h"
 
-static int start_bgid = 1;
+static int cur_bgid = 1;
 static int nr_conns;
 static int open_conns;
 static long page_size;
@@ -89,14 +89,13 @@ struct conn_dir {
 	int pending_sends;
 	struct list_head send_list;
 
-	int rcv, rcv_shrt;
-	int snd, snd_shrt;
-	int snd_busy;
+	int rcv, rcv_shrt, enobufs;
+	int snd, snd_shrt, snd_busy;
+
+	int rearm_recv;
+	int mshot_submit;
 
 	unsigned long in_bytes, out_bytes;
-
-	int bgid_switch;
-	int mshot_resubmit;
 };
 
 enum {
@@ -107,8 +106,9 @@ enum {
 	CONN_F_END_TIME		= 16,
 };
 
-#define NR_BUF_RINGS	2
-
+/*
+ * buffer ring belonging to a connection
+ */
 struct conn_buf_ring {
 	struct io_uring_buf_ring *br;
 	void *buf;
@@ -116,13 +116,10 @@ struct conn_buf_ring {
 };
 
 struct conn {
-	struct conn_buf_ring brs[NR_BUF_RINGS];
-	struct conn_buf_ring *cur_br;
+	struct conn_buf_ring br;
 
 	int tid;
 	int in_fd, out_fd;
-	int start_bgid;
-	int cur_br_index;
 	int pending_cancels;
 	int flags;
 
@@ -198,7 +195,7 @@ static int default_error(struct error_handler *err,
  * it wants to stop the connection at that point and not do anything else,
  * then the default handler can be used. Only receive has proper error
  * handling, as we can get -ENOBUFS which is not a fatal condition. It just
- * means we need to replenish buffers / switch buffer group IDs.
+ * means we need to wait on buffer replenishing before re-arming the receive.
  */
 static struct error_handler error_handlers[] = {
 	{ .name = "NULL",	.error_fn = NULL, },
@@ -213,23 +210,24 @@ static struct error_handler error_handlers[] = {
 };
 
 /*
- * Setup 2 ring provided buffer rings for each connection. If we get -ENOBUFS
- * on receive, we'll switch to the other ring and re-arm. If this happens
- * frequently (see switch= stat), then the ring sizes are likely too small.
- * Use -nXX to make them bigger.
+ * Setup a ring provided buffer ring for each connection. If we get -ENOBUFS
+ * on receive, for multishot receive we'll wait for half the provided buffers
+ * to be returned by pending sends, then re-arm the multishot receive. If
+ * this happens too frequently (see enobufs= stat), then the ring size is
+ * likely too small. Use -nXX to make it bigger. See handle_enobufs().
  *
  * The alternative here would be to use the older style provided buffers,
  * where you simply setup a buffer group and use SQEs with
  * io_urign_prep_provide_buffers() to add to the pool. But that approach is
  * slower and has been deprecated by using the faster ring provided buffers.
  */
-static int setup_buffer_ring(struct io_uring *ring, struct conn *c, int index)
+static int setup_buffer_ring(struct io_uring *ring, struct conn *c)
 {
-	struct conn_buf_ring *cbr = &c->brs[index];
+	struct conn_buf_ring *cbr = &c->br;
 	int ret, i;
 	void *ptr;
 
-	cbr->bgid = c->start_bgid + index;
+	cbr->bgid = cur_bgid++;
 
 	if (posix_memalign(&cbr->buf, page_size, buf_size * nr_bufs)) {
 		perror("posix memalign");
@@ -252,39 +250,12 @@ static int setup_buffer_ring(struct io_uring *ring, struct conn *c, int index)
 	return 0;
 }
 
-/*
- * Sets up two buffer rings per connection, and we alternate between them if we
- * hit -ENOBUFS on a receive. See handle_enobufs().
- */
-static int setup_buffer_rings(struct io_uring *ring, struct conn *c)
+static void free_buffer_ring(struct io_uring *ring, struct conn *c)
 {
-	int i;
+	struct conn_buf_ring *cbr = &c->br;
 
-	c->start_bgid = start_bgid;
-
-	for (i = 0; i < NR_BUF_RINGS; i++) {
-		if (setup_buffer_ring(ring, c, i))
-			return 1;
-	}
-
-	c->cur_br = &c->brs[0];
-	c->cur_br_index = 0;
-	start_bgid += 2;
-	return 0;
-}
-
-static void free_buffer_rings(struct io_uring *ring, struct conn *c)
-{
-	int i;
-
-	for (i = 0; i < NR_BUF_RINGS; i++) {
-		struct conn_buf_ring *cbr = &c->brs[i];
-
-		io_uring_free_buf_ring(ring, cbr->br, nr_bufs, cbr->bgid);
-		free(cbr->buf);
-	}
-
-	c->cur_br = NULL;
+	io_uring_free_buf_ring(ring, cbr->br, nr_bufs, cbr->bgid);
+	free(cbr->buf);
 }
 
 static void __show_stats(struct conn *c)
@@ -324,11 +295,12 @@ static void __show_stats(struct conn *c)
 		printf("\t%3d: rcv=%u (short=%u), snd=%u (short=%u, busy=%u)\n",
 			i, cd->rcv, cd->rcv_shrt, cd->snd, cd->snd_shrt,
 			cd->snd_busy);
-		printf("\t   : switch=%u, mshot_resubmit=%d\n",
-			cd->bgid_switch, cd->mshot_resubmit);
 		printf("\t   : in_bytes=%lu (Kb %lu), out_bytes=%lu (Kb %lu)\n",
 			cd->in_bytes, cd->in_bytes >> 10,
 			cd->out_bytes, cd->out_bytes >> 10);
+		printf("\t   : mshot_submit=%d, enobufs=%d\n",
+			cd->mshot_submit, cd->enobufs);
+
 	}
 
 	c->flags |= CONN_F_STATS_SHOWN;
@@ -405,14 +377,14 @@ static void encode_userdata(struct io_uring_sqe *sqe, struct conn *c, int op,
  */
 static void *get_buf(struct conn *c, int bgid, int bid)
 {
-	struct conn_buf_ring *cbr = &c->brs[bgid - c->start_bgid];
+	struct conn_buf_ring *cbr = &c->br;
 
 	return cbr->buf + bid * buf_size;
 }
 
 static void __submit_receive(struct io_uring *ring, struct conn *c, int fd)
 {
-	struct conn_buf_ring *cbr = c->cur_br;
+	struct conn_buf_ring *cbr = &c->br;
 	struct io_uring_sqe *sqe;
 
 	vlog("%d: submit receive fd=%d\n", c->tid, fd);
@@ -428,10 +400,12 @@ static void __submit_receive(struct io_uring *ring, struct conn *c, int fd)
 	 * passing one in with the request.
 	 */
 	sqe = get_sqe(ring);
-	if (mshot)
+	if (mshot) {
+		fd_to_conn_dir(c, fd)->mshot_submit++;
 		io_uring_prep_recv_multishot(sqe, fd, NULL, 0, 0);
-	else
+	} else {
 		io_uring_prep_recv(sqe, fd, NULL, 0, 0);
+	}
 
 	encode_userdata(sqe, c, __RECV, cbr->bgid, 0, fd);
 	sqe->buf_group = cbr->bgid;
@@ -460,20 +434,22 @@ static void submit_bidi_receive(struct io_uring *ring, struct conn *c)
 /*
  * We hit -ENOBUFS, which means that we ran out of buffers in our current
  * provided buffer group. This can happen if there's an imbalance between the
- * receives coming in and the sends being processed. Switch to the other buffer
- * group and continue from there, previous sends should come in and replenish the
- * previous one by the time we potentially hit -ENOBUFS again.
+ * receives coming in and the sends being processed, particularly with multishot
+ * receive as they can trigger very quickly. If this happens, defer arming a
+ * new receive until we've replenished half of the buffer pool by processing
+ * pending sends.
  */
 static void handle_enobufs(struct io_uring *ring, struct conn *c,
 			   struct conn_dir *cd, int fd)
 {
-	cd->bgid_switch++;
-	c->cur_br_index ^= 1;
-	c->cur_br = &c->brs[c->cur_br_index];
+	vlog("%d: enobufs hit\n", c->tid);
 
-	vlog("%d: enobufs: switch to bgid %d\n", c->tid, c->cur_br->bgid);
+	cd->enobufs++;
+	cd->rearm_recv = nr_bufs / 2;
 
-	__submit_receive(ring, c, fd);
+	/* really shouldn't use 1 buffer ring... */
+	if (!cd->rearm_recv)
+		cd->rearm_recv = 1;
 }
 
 /*
@@ -582,7 +558,7 @@ static void close_cd(struct conn *c, struct conn_dir *cd)
  */
 static void replenish_buffer(struct conn *c, struct io_uring_cqe *cqe, int bid)
 {
-	struct conn_buf_ring *cbr = &c->brs[cqe_to_bgid(cqe) - c->start_bgid];
+	struct conn_buf_ring *cbr = &c->br;
 	void *this_buf;
 
 	this_buf = cbr->buf + bid * buf_size;
@@ -712,7 +688,7 @@ static int handle_accept(struct io_uring *ring, struct io_uring_cqe *cqe)
 
 	printf("New client: id=%d, in=%d\n", c->tid, c->in_fd);
 
-	setup_buffer_rings(ring, c);
+	setup_buffer_ring(ring, c);
 	init_list_head(&c->cd[0].send_list);
 	init_list_head(&c->cd[1].send_list);
 
@@ -851,10 +827,8 @@ static int __handle_recv(struct io_uring *ring, struct conn *c,
 	/*
 	 * If multishot terminates, just submit a new one.
 	 */
-	if (mshot && !(cqe->flags & IORING_CQE_F_MORE)) {
-		cd->mshot_resubmit++;
+	if (mshot && !(cqe->flags & IORING_CQE_F_MORE))
 		do_recv = 1;
-	}
 
 	bid = cqe->flags >> IORING_CQE_BUFFER_SHIFT;
 
@@ -913,6 +887,40 @@ static int recv_error(struct error_handler *err, struct io_uring *ring,
 	return 0;
 }
 
+/*
+ * Check if we have a pending receive resubmit after buffer replenish. If
+ * this is the case, ->rearm_recv will be set in the other data direction.
+ * If set, decrement it. If we've now hit zero pending replenishes, then
+ * resubmit the receive operation.
+ */
+static void check_recv_rearm(struct io_uring *ring, struct conn *c,
+			     struct conn_dir *cd, int fd)
+{
+	struct conn_dir *ocd;
+
+	if (cd == &c->cd[0])
+		ocd = &c->cd[1];
+	else
+		ocd = &c->cd[0];
+
+	if (!ocd->rearm_recv)
+		return;
+
+	vlog("%d: rearm_recv=%d\n", c->tid, ocd->rearm_recv);
+
+	if (!--ocd->rearm_recv) {
+		int in_fd;
+
+		if (fd == c->in_fd)
+			in_fd = c->out_fd;
+		else
+			in_fd = c->in_fd;
+
+		vlog("%d: arm recv on replenish\n", c->tid);
+		__submit_receive(ring, c, in_fd);
+	}
+}
+
 static int handle_send(struct io_uring *ring, struct io_uring_cqe *cqe)
 {
 	struct conn *c = cqe_to_conn(cqe);
@@ -947,6 +955,11 @@ static int handle_send(struct io_uring *ring, struct io_uring_cqe *cqe)
 			submit_deferred_send(ring, c, cd);
 	}
 
+	/*
+	 * Check if we need to re-arm receive after this send has added a
+	 * buffer back into the pool.
+	 */
+	check_recv_rearm(ring, c, cd, fd);
 	return 0;
 }
 
@@ -998,7 +1011,7 @@ static int handle_close(struct io_uring *ring, struct io_uring_cqe *cqe)
 	if (c->in_fd == -1 && c->out_fd == -1) {
 		__show_stats(c);
 		open_conns--;
-		free_buffer_rings(ring, c);
+		free_buffer_ring(ring, c);
 	}
 
 	return 0;
