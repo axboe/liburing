@@ -445,6 +445,13 @@ static void handle_enobufs(struct io_uring *ring, struct conn *c,
 	vlog("%d: enobufs hit\n", c->tid);
 
 	cd->enobufs++;
+
+	/* sink has no sends to wait for, no choice but to re-arm */
+	if (is_sink) {
+		__submit_receive(ring, c, fd);
+		return;
+	}
+
 	cd->rearm_recv = nr_bufs / 2;
 
 	/* really shouldn't use 1 buffer ring... */
