@@ -74,7 +74,7 @@ static int br_mask;
 struct pending_send {
 	struct list_head list;
 
-	int fd, bgid, bid, len;
+	int fd, bid, len;
 	void *data;
 };
 
@@ -184,8 +184,7 @@ static int default_error(struct error_handler *err,
 	struct conn *c = cqe_to_conn(cqe);
 
 	fprintf(stderr, "%d: %s error %s\n", c->tid, err->name, strerror(-cqe->res));
-	fprintf(stderr, "fd=%d, bgid=%d, bid=%d\n", cqe_to_fd(cqe),
-					cqe_to_bgid(cqe), cqe_to_bid(cqe));
+	fprintf(stderr, "fd=%d, bid=%d\n", cqe_to_fd(cqe), cqe_to_bid(cqe));
 	return 1;
 }
 
@@ -367,15 +366,15 @@ static struct io_uring_sqe *get_sqe(struct io_uring *ring)
 }
 
 static void encode_userdata(struct io_uring_sqe *sqe, struct conn *c, int op,
-			    int bgid, int bid, int fd)
+			    int bid, int fd)
 {
-	__encode_userdata(sqe, c->tid, op, bgid, bid, fd);
+	__encode_userdata(sqe, c->tid, op, bid, fd);
 }
 
 /*
  * Given a bgid/bid, return the buffer associated with it.
  */
-static void *get_buf(struct conn *c, int bgid, int bid)
+static void *get_buf(struct conn *c, int bid)
 {
 	struct conn_buf_ring *cbr = &c->br;
 
@@ -407,7 +406,7 @@ static void __submit_receive(struct io_uring *ring, struct conn *c, int fd)
 		io_uring_prep_recv(sqe, fd, NULL, 0, 0);
 	}
 
-	encode_userdata(sqe, c, __RECV, cbr->bgid, 0, fd);
+	encode_userdata(sqe, c, __RECV, 0, fd);
 	sqe->buf_group = cbr->bgid;
 	sqe->flags |= IOSQE_BUFFER_SELECT;
 	if (fixed_files)
@@ -481,13 +480,13 @@ static void queue_shutdown_close(struct io_uring *ring, struct conn *c, int fd)
 	if (fixed_files)
 		sqe1->flags |= IOSQE_FIXED_FILE;
 	sqe1->flags |= IOSQE_IO_LINK | IOSQE_CQE_SKIP_SUCCESS;
-	encode_userdata(sqe1, c, __SHUTDOWN, 0, 0, fd);
+	encode_userdata(sqe1, c, __SHUTDOWN, 0, fd);
 
 	if (fixed_files)
 		io_uring_prep_close_direct(sqe2, fd);
 	else
 		io_uring_prep_close(sqe2, fd);
-	encode_userdata(sqe2, c, __CLOSE, 0, 0, fd);
+	encode_userdata(sqe2, c, __CLOSE, 0, fd);
 }
 
 static void queue_cancel(struct io_uring *ring, struct conn *c)
@@ -500,13 +499,13 @@ static void queue_cancel(struct io_uring *ring, struct conn *c)
 
 	sqe = get_sqe(ring);
 	io_uring_prep_cancel_fd(sqe, c->in_fd, flags);
-	encode_userdata(sqe, c, __CANCEL, 0, 0, c->in_fd);
+	encode_userdata(sqe, c, __CANCEL, 0, c->in_fd);
 	c->pending_cancels++;
 
 	if (c->out_fd != -1) {
 		sqe = get_sqe(ring);
 		io_uring_prep_cancel_fd(sqe, c->in_fd, flags);
-		encode_userdata(sqe, c, __CANCEL, 0, 0, c->in_fd);
+		encode_userdata(sqe, c, __CANCEL, 0, c->in_fd);
 		c->pending_cancels++;
 	}
 
@@ -575,16 +574,16 @@ static void replenish_buffer(struct conn *c, struct io_uring_cqe *cqe, int bid)
 }
 
 static void __queue_send(struct io_uring *ring, struct conn *c, int fd,
-			 void *data, int len, int bgid, int bid)
+			 void *data, int len, int bid)
 {
 	struct conn_dir *cd = fd_to_conn_dir(c, fd);
 	struct io_uring_sqe *sqe;
 
-	vlog("%d: send %d to fd %d (%p, bgid %d, bid %d)\n", c->tid, len, fd, data, bgid, bid);
+	vlog("%d: send %d to fd %d (%p, bid %d)\n", c->tid, len, fd, data, bid);
 
 	sqe = get_sqe(ring);
 	io_uring_prep_send(sqe, fd, data, len, MSG_WAITALL | MSG_NOSIGNAL);
-	encode_userdata(sqe, c, __SEND, bgid, bid, fd);
+	encode_userdata(sqe, c, __SEND, bid, fd);
 	if (fixed_files)
 		sqe->flags |= IOSQE_FIXED_FILE;
 	cd->pending_sends++;
@@ -607,7 +606,7 @@ static void submit_deferred_send(struct io_uring *ring, struct conn *c,
 
 	ps = list_first_entry(&cd->send_list, struct pending_send, list);
 	list_del(&ps->list);
-	__queue_send(ring, c, ps->fd, ps->data, ps->len, ps->bgid, ps->bid);
+	__queue_send(ring, c, ps->fd, ps->data, ps->len, ps->bid);
 	free(ps);
 }
 
@@ -637,18 +636,16 @@ static void submit_deferred_send(struct io_uring *ring, struct conn *c,
 static void defer_send(struct conn *c, struct conn_dir *cd,
 		       struct io_uring_cqe *cqe, int bid, int out_fd)
 {
-	void *data = get_buf(c, cqe_to_bgid(cqe), bid);
+	void *data = get_buf(c, bid);
 	struct pending_send *ps;
 
-	vlog("%d: defer send %d to fd %d (%p, bgid %d, bid %d)\n", c->tid,
-					cqe->res, out_fd, data,
-					cqe_to_bgid(cqe), bid);
+	vlog("%d: defer send %d to fd %d (%p, bid %d)\n", c->tid,
+					cqe->res, out_fd, data, bid);
 	vlog("%d: pending %d, %p\n", c->tid, cd->pending_sends, cd);
 
 	cd->snd_busy++;
 	ps = malloc(sizeof(*ps));
 	ps->fd = out_fd;
-	ps->bgid = cqe_to_bgid(cqe);
 	ps->bid = bid;
 	ps->len = cqe->res;
 	ps->data = data;
@@ -663,14 +660,13 @@ static void queue_send(struct io_uring *ring, struct conn *c,
 		       struct io_uring_cqe *cqe, int bid, int out_fd)
 {
 	struct conn_dir *cd = fd_to_conn_dir(c, out_fd);
-	int bgid = cqe_to_bgid(cqe);
 
 	if (cd->pending_sends) {
 		defer_send(c, cd, cqe, bid, out_fd);
 	} else {
-		void *data = get_buf(c, bgid, bid);
+		void *data = get_buf(c, bid);
 
-		__queue_send(ring, c, out_fd, data, cqe->res, bgid, bid);
+		__queue_send(ring, c, out_fd, data, cqe->res, bid);
 	}
 }
 
@@ -743,7 +739,7 @@ static int handle_accept(struct io_uring *ring, struct io_uring_cqe *cqe)
 		io_uring_prep_socket_direct_alloc(sqe, domain, SOCK_STREAM, 0, 0);
 	else
 		io_uring_prep_socket(sqe, domain, SOCK_STREAM, 0, 0);
-	encode_userdata(sqe, c, __SOCK, 0, 0, 0);
+	encode_userdata(sqe, c, __SOCK, 0, 0);
 	return 0;
 }
 
@@ -786,7 +782,7 @@ static int handle_sock(struct io_uring *ring, struct io_uring_cqe *cqe)
 					(struct sockaddr *) &c->addr,
 					sizeof(c->addr));
 	}
-	encode_userdata(sqe, c, __CONNECT, 0, 0, c->out_fd);
+	encode_userdata(sqe, c, __CONNECT, 0, c->out_fd);
 	if (fixed_files)
 		sqe->flags |= IOSQE_FIXED_FILE;
 	return 0;
@@ -839,7 +835,7 @@ static int __handle_recv(struct io_uring *ring, struct conn *c,
 
 	bid = cqe->flags >> IORING_CQE_BUFFER_SHIFT;
 
-	vlog("%d: recv: bid=%d, bgid=%d, res=%d\n", c->tid, bid, cqe_to_bgid(cqe), cqe->res);
+	vlog("%d: recv: bid=%d, res=%d\n", c->tid, bid, cqe->res);
 
 	/*
 	 * If we're a sink, we're done here. Just replenish the buffer back
@@ -940,8 +936,7 @@ static int handle_send(struct io_uring *ring, struct io_uring_cqe *cqe)
 	if (cqe->res != buf_size)
 		cd->snd_shrt++;
 
-	vlog("%d: send: bid=%d, bgid=%d, res=%d\n", c->tid, cqe_to_bid(cqe),
-						cqe_to_bgid(cqe), cqe->res);
+	vlog("%d: send: bid=%d, res=%d\n", c->tid, cqe_to_bid(cqe), cqe->res);
 
 	/*
 	 * Find the provided buffer that the receive consumed, and
@@ -994,7 +989,7 @@ static int handle_shutdown(struct io_uring *ring, struct io_uring_cqe *cqe)
 		io_uring_prep_close_direct(sqe, fd);
 	else
 		io_uring_prep_close(sqe, fd);
-	encode_userdata(sqe, c, __CLOSE, 0, 0, fd);
+	encode_userdata(sqe, c, __CLOSE, 0, fd);
 	return 0;
 }
 
@@ -1162,7 +1157,7 @@ static int event_loop(struct io_uring *ring, int fd)
 		io_uring_prep_multishot_accept_direct(sqe, fd, NULL, NULL, 0);
 	else
 		io_uring_prep_multishot_accept(sqe, fd, NULL, NULL, 0);
-	__encode_userdata(sqe, 0, __ACCEPT, 0, 0, fd);
+	__encode_userdata(sqe, 0, __ACCEPT, 0, fd);
 
 	if (wait_usec > 1000000) {
 		active_ts.tv_sec = wait_usec / 1000000;

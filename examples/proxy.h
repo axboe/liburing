@@ -9,7 +9,6 @@ struct userdata {
 	union {
 		struct {
 			uint16_t op_tid; /* 3 bits op, 13 bits tid */
-			uint16_t bgid;
 			uint16_t bid;
 			uint16_t fd;
 		};
@@ -30,11 +29,10 @@ struct userdata {
  * structure into this field.
  */
 static inline void __encode_userdata(struct io_uring_sqe *sqe, int tid, int op,
-				     int bgid, int bid, int fd)
+				     int bid, int fd)
 {
 	struct userdata ud = {
 		.op_tid = (op << OP_SHIFT) | tid,
-		.bgid = bgid,
 		.bid = bid,
 		.fd = fd
 	};
@@ -47,13 +45,6 @@ static inline int cqe_to_op(struct io_uring_cqe *cqe)
 	struct userdata ud = { .val = cqe->user_data };
 
 	return ud.op_tid >> OP_SHIFT;
-}
-
-static inline int cqe_to_bgid(struct io_uring_cqe *cqe)
-{
-	struct userdata ud = { .val = cqe->user_data };
-
-	return ud.bgid;
 }
 
 static inline int cqe_to_bid(struct io_uring_cqe *cqe)
