@@ -269,7 +269,7 @@ static int setup_recv_ring(struct io_uring *ring, struct conn *c)
 
 	ptr = cbr->buf;
 	for (i = 0; i < nr_bufs; i++) {
-		vlog("%d: add bid %d, data 0x%p\n", c->tid, i, ptr);
+		vlog("%d: add bid %d, data %p\n", c->tid, i, ptr);
 		io_uring_buf_ring_add(cbr->br, ptr, buf_size, i, br_mask, i);
 		ptr += buf_size;
 	}
