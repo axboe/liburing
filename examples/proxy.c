@@ -1555,8 +1555,8 @@ int main(int argc, char *argv[])
 		if (send_ring == 1) {
 			fprintf(stderr, "Kernel doesn't support ring provided "
 				"buffers for sends, disabled\n");
-			send_ring = 0;
 		}
+		send_ring = 0;
 	}
 
 	if (fixed_files) {
