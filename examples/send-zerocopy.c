@@ -131,6 +131,8 @@ static void set_iowq_affinity(struct io_uring *ring)
 	if (cfg_cpu == -1)
 		return;
 
+	CPU_ZERO(&mask);
+	CPU_SET(cfg_cpu, &mask);
 	ret = io_uring_register_iowq_aff(ring, 1, &mask);
 	if (ret)
 		t_error(1, ret, "unabled to set io-wq affinity\n");
