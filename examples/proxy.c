@@ -862,8 +862,6 @@ static int handle_accept(struct io_uring *ring, struct io_uring_cqe *cqe)
 		c->msg_index = 0;
 	}
 
-	open_conns++;
-
 	printf("New client: id=%d, in=%d\n", c->tid, c->in_fd);
 
 	if (setup_buffer_rings(ring, c))
@@ -968,6 +966,8 @@ static int handle_sock(struct io_uring *ring, struct io_uring_cqe *cqe)
 static int handle_connect(struct io_uring *ring, struct io_uring_cqe *cqe)
 {
 	struct conn *c = cqe_to_conn(cqe);
+
+	open_conns++;
 
 	if (bidi)
 		submit_bidi_receive(ring, c);
@@ -1365,6 +1365,7 @@ static int event_loop(struct io_uring *ring, int fd)
 		io_uring_prep_multishot_accept(sqe, fd, NULL, NULL, 0);
 	__encode_userdata(sqe, 0, __ACCEPT, 0, fd);
 
+	active_ts = idle_ts;
 	if (wait_usec > 1000000) {
 		active_ts.tv_sec = wait_usec / 1000000;
 		wait_usec -= active_ts.tv_sec * 1000000;
@@ -1376,7 +1377,7 @@ static int event_loop(struct io_uring *ring, int fd)
 		struct __kernel_timespec *ts = &idle_ts;
 		struct io_uring_cqe *cqe;
 		unsigned int head;
-		int i, to_wait;
+		int ret, i, to_wait;
 
 		/*
 		 * If wait_batch is set higher than 1, then we'll wait on
@@ -1400,7 +1401,9 @@ static int event_loop(struct io_uring *ring, int fd)
 			to_wait = open_conns * wait_batch;
 		}
 
-		io_uring_submit_and_wait_timeout(ring, &cqe, to_wait, ts, NULL);
+		vlog("Submit and wait for %d\n", to_wait);
+		ret = io_uring_submit_and_wait_timeout(ring, &cqe, to_wait, ts, NULL);
+		vlog("Submit and wait: %d\n", ret);
 
 		i = flags = 0;
 		io_uring_for_each_cqe(ring, head, cqe) {
@@ -1409,6 +1412,8 @@ static int event_loop(struct io_uring *ring, int fd)
 			flags |= cqe_to_conn(cqe)->flags;
 			++i;
 		}
+
+		vlog("Handled %d events\n", i);
 
 		/*
 		 * Advance the CQ ring for seen events when we've processed
