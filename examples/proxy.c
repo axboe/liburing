@@ -89,6 +89,11 @@ struct pending_send {
 	void *data;
 };
 
+struct io_msg {
+	struct msghdr msg;
+	struct iovec iov;
+};
+
 /*
  * Per socket stats per connection. For bi-directional, we'll have both
  * sends and receives on each socket, this helps track them seperately.
@@ -107,6 +112,8 @@ struct conn_dir {
 	int mshot_submit;
 
 	unsigned long in_bytes, out_bytes;
+
+	struct io_msg io_rcv_msg;
 };
 
 enum {
@@ -451,19 +458,20 @@ static void *get_buf(struct conn *c, int bid)
 
 static void __submit_receive(struct io_uring *ring, struct conn *c, int fd)
 {
+	struct conn_dir *cd = fd_to_conn_dir(c, fd);
 	struct conn_buf_ring *cbr = &c->in_br;
 	struct io_uring_sqe *sqe;
-	struct msghdr msg;
-	struct iovec iov;
+	struct msghdr *msg = &cd->io_rcv_msg.msg;
+	struct iovec *iov = &cd->io_rcv_msg.iov;
 
 	vlog("%d: submit receive fd=%d\n", c->tid, fd);
 
 	if (use_msg) {
-		memset(&msg, 0, sizeof(msg));
-		iov.iov_base = NULL;
-		iov.iov_len = 0;
-		msg.msg_iov = &iov;
-		msg.msg_iovlen = 1;
+		memset(msg, 0, sizeof(*msg));
+		iov->iov_base = NULL;
+		iov->iov_len = 0;
+		msg->msg_iov = iov;
+		msg->msg_iovlen = 1;
 	}
 
 	/*
@@ -485,7 +493,7 @@ static void __submit_receive(struct io_uring *ring, struct conn *c, int fd)
 			io_uring_prep_recv_multishot(sqe, fd, NULL, 0, 0);
 	} else {
 		if (use_msg)
-			io_uring_prep_recvmsg(sqe, fd, &msg, 0);
+			io_uring_prep_recvmsg(sqe, fd, msg, 0);
 		else
 			io_uring_prep_recv(sqe, fd, NULL, 0, 0);
 	}
