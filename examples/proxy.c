@@ -703,7 +703,10 @@ static void __queue_send(struct io_uring *ring, struct conn *c, int fd,
 	if (use_msg) {
 		msg = &c->msgs[c->msg_index++];
 		memset(&msg->msg, 0, sizeof(msg->msg));
-		msg->iov.iov_base = data;
+		if (send_ring)
+			msg->iov.iov_base = NULL;
+		else
+			msg->iov.iov_base = data;
 		msg->iov.iov_len = len;
 		msg->msg.msg_iov = &msg->iov;
 		msg->msg.msg_iovlen = 1;
