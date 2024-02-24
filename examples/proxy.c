@@ -82,6 +82,8 @@ static int verbose;
 static int nr_bufs = 256;
 static int br_mask;
 
+#define QUEUE_SIZE	128
+
 struct pending_send {
 	struct list_head list;
 
@@ -150,6 +152,9 @@ struct conn {
 		struct sockaddr_in addr;
 		struct sockaddr_in6 addr6;
 	};
+
+	struct io_msg *msgs;
+	int msg_index;
 };
 
 #define MAX_CONNS	1024
@@ -680,8 +685,7 @@ static void __queue_send(struct io_uring *ring, struct conn *c, int fd,
 {
 	struct conn_dir *cd = fd_to_conn_dir(c, fd);
 	struct io_uring_sqe *sqe;
-	struct iovec iov;
-	struct msghdr msg;
+	struct io_msg *msg;
 	int bgid = 0;
 
 	vlog("%d: send %d to fd %d (%p, bid %d)\n", c->tid, len, fd, data, bid);
@@ -697,12 +701,13 @@ static void __queue_send(struct io_uring *ring, struct conn *c, int fd,
 
 	sqe = get_sqe(ring);
 	if (use_msg) {
-		memset(&msg, 0, sizeof(msg));
-		iov.iov_base = data;
-		iov.iov_len = len;
-		msg.msg_iov = &iov;
-		msg.msg_iovlen = 1;
-		io_uring_prep_sendmsg(sqe, fd, &msg, MSG_WAITALL | MSG_NOSIGNAL);
+		msg = &c->msgs[c->msg_index++];
+		memset(&msg->msg, 0, sizeof(msg->msg));
+		msg->iov.iov_base = data;
+		msg->iov.iov_len = len;
+		msg->msg.msg_iov = &msg->iov;
+		msg->msg.msg_iovlen = 1;
+		io_uring_prep_sendmsg(sqe, fd, &msg->msg, MSG_WAITALL | MSG_NOSIGNAL);
 	} else {
 		if (send_ring)
 			data = NULL;
@@ -718,8 +723,10 @@ static void __queue_send(struct io_uring *ring, struct conn *c, int fd,
 	cd->pending_sends++;
 
 	/* must submit to avoid msg/iov going out-of-scope */
-	if (use_msg)
+	if (use_msg && c->msg_index == QUEUE_SIZE) {
+		c->msg_index = 0;
 		io_uring_submit(ring);
+	}
 }
 
 /*
@@ -820,6 +827,11 @@ static int handle_accept(struct io_uring *ring, struct io_uring_cqe *cqe)
 	c->in_fd = cqe->res;
 	c->out_fd = -1;
 	gettimeofday(&c->start_time, NULL);
+
+	if (use_msg) {
+		c->msgs = calloc(QUEUE_SIZE, sizeof(struct io_msg));
+		c->msg_index = 0;
+	}
 
 	open_conns++;
 
@@ -1161,6 +1173,8 @@ static int handle_close(struct io_uring *ring, struct io_uring_cqe *cqe)
 		__show_stats(c);
 		open_conns--;
 		free_buffer_rings(ring, c);
+		if (use_msg)
+			free(c->msgs);
 	}
 
 	return 0;
@@ -1545,7 +1559,7 @@ int main(int argc, char *argv[])
 	 * that need to be prepared before submit. Normally in a loop we'd
 	 * only need a few, if any, particularly if multishot is used.
 	 */
-	ret = io_uring_queue_init_params(128, &ring, &params);
+	ret = io_uring_queue_init_params(QUEUE_SIZE, &ring, &params);
 	if (ret) {
 		fprintf(stderr, "%s\n", strerror(-ret));
 		return 1;
