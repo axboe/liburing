@@ -107,11 +107,10 @@ struct conn_dir {
 	int pending_sends;
 	struct list_head send_list;
 
-	int rcv, rcv_shrt, enobufs;
-	int snd, snd_shrt, snd_busy;
+	int rcv, rcv_shrt, rcv_enobufs, rcv_mshot;
+	int snd, snd_shrt, snd_enobufs, snd_busy, snd_mshot;
 
 	int rearm_recv;
-	int mshot_submit;
 
 	unsigned long in_bytes, out_bytes;
 
@@ -371,14 +370,15 @@ static void __show_stats(struct conn *c)
 		if (!cd->in_bytes && !cd->out_bytes)
 			continue;
 
-		printf("\t%3d: rcv=%u (short=%u), snd=%u (short=%u, busy=%u)\n",
-			i, cd->rcv, cd->rcv_shrt, cd->snd, cd->snd_shrt,
-			cd->snd_busy);
+		printf("\t%3d: rcv=%u (short=%u, enobufs=%d), snd=%u (short=%u,"
+			" busy=%u, enobufs=%d)\n", i, cd->rcv, cd->rcv_shrt,
+			cd->rcv_enobufs, cd->snd, cd->snd_shrt, cd->snd_busy,
+			cd->snd_enobufs);
 		printf("\t   : in_bytes=%lu (Kb %lu), out_bytes=%lu (Kb %lu)\n",
 			cd->in_bytes, cd->in_bytes >> 10,
 			cd->out_bytes, cd->out_bytes >> 10);
-		printf("\t   : mshot_submit=%d, enobufs=%d\n",
-			cd->mshot_submit, cd->enobufs);
+		printf("\t   : mshot_rcv=%d, mshot_snd=%d\n", cd->rcv_mshot,
+			cd->snd_mshot);
 
 	}
 
@@ -491,7 +491,7 @@ static void __submit_receive(struct io_uring *ring, struct conn *c, int fd)
 	 */
 	sqe = get_sqe(ring);
 	if (mshot) {
-		fd_to_conn_dir(c, fd)->mshot_submit++;
+		fd_to_conn_dir(c, fd)->rcv_mshot++;
 		if (use_msg)
 			io_uring_prep_recv_multishot(sqe, fd, NULL, 0, 0);
 		else
@@ -546,7 +546,7 @@ static void handle_enobufs(struct io_uring *ring, struct conn *c,
 
 	vlog("%d: enobufs hit\n", c->tid);
 
-	cd->enobufs++;
+	cd->rcv_enobufs++;
 
 	send_waits = nr_bufs / 2;
 	if (send_ring)
