@@ -707,11 +707,11 @@ static void __queue_send(struct io_uring *ring, struct conn *c, int fd,
 		msg->iov.iov_len = len;
 		msg->msg.msg_iov = &msg->iov;
 		msg->msg.msg_iovlen = 1;
-		io_uring_prep_sendmsg(sqe, fd, &msg->msg, MSG_WAITALL | MSG_NOSIGNAL);
+		io_uring_prep_sendmsg(sqe, fd, &msg->msg, MSG_NOSIGNAL);
 	} else {
 		if (send_ring)
 			data = NULL;
-		io_uring_prep_send(sqe, fd, data, len, MSG_WAITALL | MSG_NOSIGNAL);
+		io_uring_prep_send(sqe, fd, data, len, MSG_NOSIGNAL);
 	}
 	encode_userdata(sqe, c, __SEND, bid, fd);
 	if (fixed_files)
