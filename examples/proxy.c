@@ -1473,6 +1473,7 @@ int main(int argc, char *argv[])
 			break;
 		case 'U':
 			send_mshot = !!atoi(optarg);
+			break;
 		case 'w':
 			wait_batch = atoi(optarg);
 			break;
