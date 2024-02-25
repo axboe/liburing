@@ -350,10 +350,12 @@ calls down from three to two. Available since kernel 5.4.
 .TP
 .B IORING_FEAT_NODROP
 If this flag is set, io_uring supports almost never dropping completion events.
-If a completion event occurs and the CQ ring is full, the kernel stores
-the event internally until such a time that the CQ ring has room for more
-entries. If this overflow condition is entered, attempting to submit more
-IO will fail with the
+A dropped event can only occur if the kernel runs out of memory, in which case
+you have worse problems than a lost event. Your application and others will
+likely get OOM killed anyway. If a completion event occurs and the CQ ring is
+full, the kernel stores the event internally until such a time that the CQ ring
+has room for more entries. In earlier kernels, if this overflow condition is
+entered, attempting to submit more IO would fail with the
 .B -EBUSY
 error value, if it can't flush the overflown events to the CQ ring. If this
 happens, the application must reap events from the CQ ring and attempt the
