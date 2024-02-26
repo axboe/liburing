@@ -22,6 +22,11 @@ io_uring_prep_send \- prepare a send request
 .BI "                          int " flags ","
 .BI "                          const struct sockaddr *" addr ","
 .BI "                          socklen_t " addrlen ");"
+.PP
+.BI "void io_uring_prep_send_bundle(struct io_uring_sqe *" sqe ","
+.BI "                               int " sockfd ","
+.BI "                               size_t " len ","
+.BI "                               int " flags ");"
 .fi
 .SH DESCRIPTION
 .PP
@@ -72,6 +77,40 @@ and must be a valid address for the socket type.
 This function prepares an async
 .BR sendto (2)
 request. See that man page for details.
+
+Both of the above send variants may be used with provided buffers, where rather
+than pass a buffer in directly with the request,
+.B IOSQE_BUFFER_SELECT
+is set in the SQE
+.I flags
+field, and additionally a buffer group ID is set in the SQE
+.I buf_group
+field. By using provided buffers with send requests, the application can
+prevent any kind of reordering of the outgoing data which can otherwise
+occur if the application has more than one send request inflight for a single
+socket. This provides better pipelining of data, where previously the app
+needed to manually serialize sends.
+
+The bundle version allows the application to issue a single send request,
+with a buffer group ID given in the SQE
+.I buf_group
+field, which keeps sending from that buffer group until it runs out of buffers.
+As with any other request using provided buffers,
+.B IOSQE_BUFFER_SELECT
+must also be set in the SQE
+.I flags
+before submission. A single CQE is posted for the send, with the result being
+how many bytes were sent, on success. When used with provided buffers, send or
+send bundle will contain the starting buffer group ID in the CQE
+.I flags
+field. The number of bytes sent starts from there, and will be in contigious
+buffer IDs after that. Send bundle, and send with provided buffers in general,
+are available since kernel 6.10, and can be further identified by checking for
+the
+.B IORING_FEAT_SEND_BUF_SELECT
+flag returned in when using
+.BR io_uring_init_queue_params (3)
+to setup the ring.
 
 .SH RETURN VALUE
 None
