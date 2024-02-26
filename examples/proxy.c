@@ -49,15 +49,6 @@
 #include "list.h"
 #include "helpers.h"
 
-/*
- * Flag the kernel can use to tell us it supports sends with provided buffers.
- * We can use this to eliminate the need to serialize our sends, as each send
- * will pick a buffer in FIFO order if we can use provided buffers.
- */
-#ifndef IORING_FEAT_SEND_BUFS
-#define IORING_FEAT_SEND_BUFS	(1U << 14)
-#endif
-
 static int cur_bgid = 1;
 static int nr_conns;
 static int open_conns;
@@ -747,7 +738,7 @@ static void __queue_send(struct io_uring *ring, struct conn *c, int fd,
 		sqe->buf_group = bgid;
 	}
 	if (send_mshot) {
-		sqe->ioprio |= IORING_RECV_MULTISHOT;
+		sqe->ioprio |= IORING_SEND_MULTISHOT;
 		cd->snd_mshot++;
 	}
 
@@ -1626,7 +1617,7 @@ int main(int argc, char *argv[])
 	 * it or not, default it to on. If it was turned on and the kernel
 	 * doesn't support it, turn it off.
 	 */
-	if (params.features & IORING_FEAT_SEND_BUFS) {
+	if (params.features & IORING_FEAT_SEND_BUF_SELECT) {
 		if (send_ring == -1)
 			send_ring = 1;
 	} else {
