@@ -50,12 +50,14 @@
 #include "helpers.h"
 
 /*
- * Flag the kernel can use to tell us it supports sends with provided buffers.
- * We can use this to eliminate the need to serialize our sends, as each send
- * will pick a buffer in FIFO order if we can use provided buffers.
+ * Will go away once/if bundles are upstreamed and we put the generic
+ * definitions in the kernel header.
  */
-#ifndef IORING_FEAT_SEND_BUFS
-#define IORING_FEAT_SEND_BUFS	(1U << 14)
+#ifndef IORING_RECVSEND_BUNDLE
+#define IORING_RECVSEND_BUNDLE		(1U << 4)
+#endif
+#ifndef IORING_FEAT_SEND_BUF_SELECT
+#define IORING_FEAT_SEND_BUF_SELECT	(1U << 14)
 #endif
 
 static int cur_bgid = 1;
@@ -83,7 +85,7 @@ static int wait_batch = 1;
 static int wait_usec = 1000000;
 static int use_msg;
 static int send_ring = -1;
-static int send_mshot;
+static int send_bundle;
 static int verbose;
 
 static int nr_bufs = 256;
@@ -718,7 +720,7 @@ static void __queue_send(struct io_uring *ring, struct conn *c, int fd,
 	 * If we're using send multishot, we only need one send submitted
 	 * per loop.
 	 */
-	if (send_mshot && cd->loop_iter == loop_iter)
+	if (send_bundle && cd->loop_iter == loop_iter)
 		return;
 	cd->loop_iter = loop_iter;
 
@@ -746,8 +748,8 @@ static void __queue_send(struct io_uring *ring, struct conn *c, int fd,
 		sqe->flags |= IOSQE_BUFFER_SELECT;
 		sqe->buf_group = bgid;
 	}
-	if (send_mshot) {
-		sqe->ioprio |= IORING_RECV_MULTISHOT;
+	if (send_bundle) {
+		sqe->ioprio |= IORING_RECVSEND_BUNDLE;
 		cd->snd_mshot++;
 	}
 
@@ -1303,7 +1305,7 @@ static void usage(const char *name)
 	printf("\t-S:\t\tUse SQPOLL (%d)\n", sqpoll);
 	printf("\t-b:\t\tSend/receive buf size (%d)\n", buf_size);
 	printf("\t-u:\t\tUse provided buffers for send (%d)\n", send_ring);
-	printf("\t-U:\t\tUse send multishot (%d)\n", send_mshot);
+	printf("\t-U:\t\tUse send bundle (%d)\n", send_bundle);
 	printf("\t-n:\t\tNumber of provided buffers (pow2) (%d)\n", nr_bufs);
 	printf("\t-w:\t\tNumber of CQEs to wait for each loop (%d)\n", wait_batch);
 	printf("\t-t:\t\tTimeout for waiting on CQEs (usec) (%d)\n", wait_usec);
@@ -1473,7 +1475,7 @@ int main(int argc, char *argv[])
 			send_ring = !!atoi(optarg);
 			break;
 		case 'U':
-			send_mshot = !!atoi(optarg);
+			send_bundle = !!atoi(optarg);
 			break;
 		case 'w':
 			wait_batch = atoi(optarg);
@@ -1626,7 +1628,7 @@ int main(int argc, char *argv[])
 	 * it or not, default it to on. If it was turned on and the kernel
 	 * doesn't support it, turn it off.
 	 */
-	if (params.features & IORING_FEAT_SEND_BUFS) {
+	if (params.features & IORING_FEAT_SEND_BUF_SELECT) {
 		if (send_ring == -1)
 			send_ring = 1;
 	} else {
@@ -1637,9 +1639,9 @@ int main(int argc, char *argv[])
 		send_ring = 0;
 	}
 
-	if (!send_ring && send_mshot) {
-		fprintf(stderr, "Can't use send multishot without send_ring\n");
-		send_mshot = 0;
+	if (!send_ring && send_bundle) {
+		fprintf(stderr, "Can't use send bundle without send_ring\n");
+		send_bundle = 0;
 	}
 
 	if (fixed_files) {
@@ -1685,11 +1687,11 @@ int main(int argc, char *argv[])
 	printf("Backend: sqpoll=%d, defer_tw=%d, fixed_files=%d "
 		"is_sink=%d, buf_size=%d, nr_bufs=%d, host=%s, send_port=%d "
 		"receive_port=%d, napi=%d, napi_timeout=%d, msg=%d, "
-		"recv_shot=%d, send_buf_ring=%d, send_mshot=%d\n",
+		"recv_shot=%d, send_buf_ring=%d, send_bundle=%d\n",
 			sqpoll, defer_tw, fixed_files, is_sink,
 			buf_size, nr_bufs, host, send_port, receive_port,
 			napi, napi_timeout, use_msg, recv_mshot, send_ring,
-			send_mshot);
+			send_bundle);
 
 	return event_loop(&ring, fd);
 }
