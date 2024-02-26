@@ -91,7 +91,7 @@ static int br_mask;
 
 static unsigned long loop_iter;
 
-#define QUEUE_SIZE	128
+static int ring_size = 128;
 
 struct pending_send {
 	struct list_head list;
@@ -752,7 +752,7 @@ static void __queue_send(struct io_uring *ring, struct conn *c, int fd,
 	}
 
 	/* must submit to avoid msg/iov going out-of-scope */
-	if (use_msg && c->msg_index == QUEUE_SIZE) {
+	if (use_msg && c->msg_index == ring_size) {
 		c->msg_index = 0;
 		io_uring_submit(ring);
 	}
@@ -858,7 +858,7 @@ static int handle_accept(struct io_uring *ring, struct io_uring_cqe *cqe)
 	gettimeofday(&c->start_time, NULL);
 
 	if (use_msg) {
-		c->msgs = calloc(QUEUE_SIZE, sizeof(struct io_msg));
+		c->msgs = calloc(ring_size, sizeof(struct io_msg));
 		c->msg_index = 0;
 	}
 
@@ -1317,6 +1317,7 @@ static void usage(const char *name)
 	printf("\t-N:\t\tUse NAPI polling (%d)\n", napi);
 	printf("\t-T:\t\tNAPI timeout (usec) (%d)\n", napi_timeout);
 	printf("\t-M:\t\tUse send/recvmsg (%d)\n", use_msg);
+	printf("\t-q:\t\tRing size to use (%d)\n", ring_size);
 	printf("\t-V:\t\tIncrease verbosity (%d)\n", verbose);
 }
 
@@ -1451,7 +1452,7 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-	while ((opt = getopt(argc, argv, "m:d:S:s:b:f:H:r:p:n:B:N:T:w:t:M:u:U:6Vh?")) != -1) {
+	while ((opt = getopt(argc, argv, "m:d:S:s:b:f:H:r:p:n:B:N:T:w:t:M:u:U:q:6Vh?")) != -1) {
 		switch (opt) {
 		case 'm':
 			recv_mshot = !!atoi(optarg);
@@ -1509,6 +1510,9 @@ int main(int argc, char *argv[])
 			break;
 		case 'M':
 			use_msg = !!atoi(optarg);
+			break;
+		case 'q':
+			ring_size = atoi(optarg);
 			break;
 		case 'V':
 			verbose++;
@@ -1611,7 +1615,7 @@ int main(int argc, char *argv[])
 	 * that need to be prepared before submit. Normally in a loop we'd
 	 * only need a few, if any, particularly if multishot is used.
 	 */
-	ret = io_uring_queue_init_params(QUEUE_SIZE, &ring, &params);
+	ret = io_uring_queue_init_params(ring_size, &ring, &params);
 	if (ret) {
 		fprintf(stderr, "%s\n", strerror(-ret));
 		return 1;
