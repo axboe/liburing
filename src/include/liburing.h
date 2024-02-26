@@ -768,6 +768,13 @@ IOURINGINLINE void io_uring_prep_send(struct io_uring_sqe *sqe, int sockfd,
 	sqe->msg_flags = (__u32) flags;
 }
 
+IOURINGINLINE void io_uring_prep_send_bundle(struct io_uring_sqe *sqe,
+					     int sockfd, size_t len, int flags)
+{
+	io_uring_prep_send(sqe, sockfd, NULL, len, flags);
+	sqe->ioprio |= IORING_RECVSEND_BUNDLE;
+}
+
 IOURINGINLINE void io_uring_prep_send_set_addr(struct io_uring_sqe *sqe,
 						const struct sockaddr *dest_addr,
 						__u16 addr_len)
