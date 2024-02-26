@@ -510,6 +510,14 @@ IOURINGINLINE void io_uring_prep_sendmsg(struct io_uring_sqe *sqe, int fd,
 	sqe->msg_flags = flags;
 }
 
+IOURINGINLINE void io_uring_prep_sendmsg_multishot(struct io_uring_sqe *sqe,
+					 int fd, const struct msghdr *msg,
+					 unsigned flags)
+{
+	io_uring_prep_sendmsg(sqe, fd, msg, flags);
+	sqe->ioprio |= IORING_SEND_MULTISHOT;
+}
+
 IOURINGINLINE unsigned __io_uring_prep_poll_mask(unsigned poll_mask)
 {
 #if __BYTE_ORDER == __BIG_ENDIAN
@@ -766,6 +774,14 @@ IOURINGINLINE void io_uring_prep_send(struct io_uring_sqe *sqe, int sockfd,
 {
 	io_uring_prep_rw(IORING_OP_SEND, sqe, sockfd, buf, (__u32) len, 0);
 	sqe->msg_flags = (__u32) flags;
+}
+
+IOURINGINLINE void io_uring_prep_send_multishot(struct io_uring_sqe *sqe,
+						int sockfd, const void *buf,
+						size_t len, int flags)
+{
+	io_uring_prep_send(sqe, sockfd, buf, len, flags);
+	sqe->ioprio |= IORING_SEND_MULTISHOT;
 }
 
 IOURINGINLINE void io_uring_prep_send_set_addr(struct io_uring_sqe *sqe,

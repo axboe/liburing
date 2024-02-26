@@ -194,4 +194,6 @@ LIBURING_2.6 {
 		io_uring_prep_fixed_fd_install;
 		io_uring_buf_ring_available;
 		io_uring_prep_ftruncate;
+		io_uring_prep_send_multishot;
+		io_uring_prep_sendmsg_multishot;
 } LIBURING_2.5;
