@@ -20,6 +20,11 @@ io_uring_prep_sendmsg \- prepare a sendmsg request
 .BI "                              int " fd ","
 .BI "                              const struct msghdr *" msg ","
 .BI "                              unsigned " flags ");"
+.PP
+.BI "void io_uring_prep_sendmsg_multishot(struct io_uring_sqe *" sqe ","
+.BI "                                     int " fd ","
+.BI "                                     const struct msghdr *" msg ","
+.BI "                                     unsigned " flags ");"
 .fi
 .SH DESCRIPTION
 .PP
@@ -42,6 +47,52 @@ The
 accepts the same parameters as 
 .BR io_uring_prep_sendmsg (3)
 but prepares a zerocopy sendmsg request.
+
+.BR io_uring_prep_sendmsg (3)
+may be used with provided buffers, where rather than pass a buffer in directly
+with the request,
+.B IOSQE_BUFFER_SELECT
+is set in the SQE
+.I flags
+field, and additionally a buffer group ID is set in the SQE
+.I buf_group
+field. By using provided buffers with send requests, the application can
+prevent any kind of reordering of the outgoing data which can otherwise
+occur if the application has more than one send request inflight for a single
+socket. This provides better pipelining of data, where previously the app
+needed to manually serialize sends.
+
+The multishot version allows the application to issue a single send request,
+with a buffer group ID given in the SQE
+.I buf_group
+field, which keeps sending from that buffer group until it runs out of buffers.
+As with any other request using provided buffers,
+.B IOSQE_BUFFER_SELECT
+must also be set in the SQE
+.I flags
+before submission. A CQE is posted for each send. As with receive multishot, an
+application should expect further completions from this SQE as long as the
+.B IORING_CQE_F_MORE
+flag is set in the CQE
+.I flags
+field. Note that this can be used in conjunction with
+.B MSG_WAITALL .
+If
+.B MSG_WAITALL
+is set on a multishot request, the kernel will retry a short send and maintain
+ordering within that send. If
+.B MSG_WAITALL
+is not set, then any short send will terminate the multishot request by nature
+of the short IO completion not having
+.B IORING_CQE_F_MORE
+set in the CQE
+.I flags
+when posted. Send multishot, and send with provided buffers in general, are
+available since kernel 6.9, and can be further identified by checking for the
+.B IORING_FEAT_SEND_BUF_SELECT
+flag returned in when using
+.BR io_uring_init_queue_params (3)
+to setup the ring.
 
 Note that using
 .B IOSQE_IO_LINK
