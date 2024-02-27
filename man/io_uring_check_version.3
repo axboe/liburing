@@ -23,7 +23,7 @@ io_uring_check_version \- functions and macros to check the liburing version
 The
 .BR io_uring_check_version (3)
 function returns
-.I true
+.I false
 if the liburing library loaded by the dynamic linker is greater-than
 or equal-to the
 .I major
@@ -35,7 +35,7 @@ numbers provided.
 The
 .BR IO_URING_CHECK_VERSION (3)
 macro returns
-.I 1
+.I 0
 if the liburing library being compiled against is greater-than or equal-to the
 .I major
 and
