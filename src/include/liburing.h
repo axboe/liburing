@@ -1532,7 +1532,7 @@ bool io_uring_check_version(int major, int minor);
 #define IO_URING_CHECK_VERSION(major,minor) \
   (major > IO_URING_VERSION_MAJOR ||        \
    (major == IO_URING_VERSION_MAJOR &&      \
-    minor >= IO_URING_VERSION_MINOR))
+    minor > IO_URING_VERSION_MINOR))
 
 #ifdef __cplusplus
 }
