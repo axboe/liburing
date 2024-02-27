@@ -1111,7 +1111,7 @@ static int handle_send(struct io_uring *ring, struct io_uring_cqe *cqe)
 	cd->snd++;
 	cd->out_bytes += cqe->res;
 
-	if (cqe->res != buf_size)
+	if (cqe->res && cqe->res != buf_size)
 		cd->snd_shrt++;
 
 	if (send_ring) {
