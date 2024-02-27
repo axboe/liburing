@@ -23,6 +23,7 @@
 /examples/napi-busy-poll-server
 /examples/ucontext-cp
 /examples/poll-bench
+/examples/proxy
 /examples/send-zerocopy
 /examples/rsrc-update-bench
 
