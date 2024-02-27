@@ -110,7 +110,7 @@ static int run_test(bool stream)
 		return T_EXIT_FAIL;
 	bytes_in = receive_cqe(&ring);
 	if (bytes_in < 0) {
-		if (bytes_in == -EINVAL) {
+		if (bytes_in == -EINVAL || bytes_in == -EOPNOTSUPP) {
 			no_io_cmd = 1;
 			return T_EXIT_SKIP;
 		}

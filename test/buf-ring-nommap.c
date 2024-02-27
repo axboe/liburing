@@ -71,6 +71,8 @@ int main(int argc, char *argv[])
 	br = mmap(NULL, ring_size, PROT_READ | PROT_WRITE,
 				MAP_SHARED | MAP_POPULATE, ring.ring_fd, off);
 	if (br == MAP_FAILED) {
+		if (errno == ENOMEM)
+			return T_EXIT_SKIP;
 		perror("mmap");
 		return T_EXIT_FAIL;
 	}
