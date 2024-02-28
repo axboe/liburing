@@ -43,6 +43,7 @@
 #include <sys/socket.h>
 #include <sys/time.h>
 #include <unistd.h>
+#include <assert.h>
 #include <liburing.h>
 
 #include "proxy.h"
@@ -85,13 +86,11 @@ static int wait_batch = 1;
 static int wait_usec = 1000000;
 static int use_msg;
 static int send_ring = -1;
-static int send_bundle;
+static int bundle;
 static int verbose;
 
 static int nr_bufs = 256;
 static int br_mask;
-
-static unsigned long loop_iter;
 
 static int ring_size = 128;
 
@@ -102,9 +101,26 @@ struct pending_send {
 	void *data;
 };
 
+/*
+ * For sendmsg/recvmsg. recvmsg just has a single vec, sendmsg will have
+ * two vecs - one that is currently sent out and being sent, and one that
+ * is being prepared. When a new sendmsg is issued, we'll swap which one we
+ * use.
+ */
+struct msg_vec {
+	struct iovec *iov;
+	/* length of allocated vec */
+	int vec_size;
+	/* length currently being used */
+	int iov_len;
+	/* only for send, current index we're processing */
+	int cur_iov;
+};
+
 struct io_msg {
 	struct msghdr msg;
-	struct iovec iov;
+	struct msg_vec vecs[2];
+	int vec_index;
 };
 
 /*
@@ -114,20 +130,31 @@ struct io_msg {
  * or receives, not both.
  */
 struct conn_dir {
+	int index;
+
 	int pending_shutdown;
-	int pending_sends;
+	int pending_send;
+	int pending_recv;
 	struct list_head send_list;
+
+	int out_buffers;
 
 	int rcv, rcv_shrt, rcv_enobufs, rcv_mshot;
 	int snd, snd_shrt, snd_enobufs, snd_busy, snd_mshot;
 
-	int rearm_recv;
+	int rcv_need_rearm;
+	int rcv_rearm;
 
-	unsigned long loop_iter;
+	int snd_next_bid;
+	int rcv_next_bid;
 
 	unsigned long in_bytes, out_bytes;
 
+	/* only ever have a single recv pending */
 	struct io_msg io_rcv_msg;
+
+	/* one send that is inflight, and one being prepared for the next one */
+	struct io_msg io_snd_msg;
 };
 
 enum {
@@ -164,9 +191,6 @@ struct conn {
 		struct sockaddr_in addr;
 		struct sockaddr_in6 addr6;
 	};
-
-	struct io_msg *msgs;
-	int msg_index;
 };
 
 #define MAX_CONNS	1024
@@ -177,6 +201,9 @@ static struct conn conns[MAX_CONNS];
 		printf(str, ##__VA_ARGS__);				\
 } while (0)
 
+static void prep_next_send(struct io_uring *ring, struct conn *c,
+			   struct conn_dir *cd, int fd);
+
 static struct conn *cqe_to_conn(struct io_uring_cqe *cqe)
 {
 	struct userdata ud = { .val = cqe->user_data };
@@ -184,9 +211,29 @@ static struct conn *cqe_to_conn(struct io_uring_cqe *cqe)
 	return &conns[ud.op_tid & TID_MASK];
 }
 
-static struct conn_dir *fd_to_conn_dir(struct conn *c, int fd)
+static struct conn_dir *cqe_to_conn_dir(struct conn *c,
+					struct io_uring_cqe *cqe)
 {
+	int fd = cqe_to_fd(cqe);
+
 	return &c->cd[fd != c->in_fd];
+}
+
+static int other_dir_fd(struct conn *c, int fd)
+{
+	if (c->in_fd == fd)
+		return c->out_fd;
+	return c->in_fd;
+}
+
+static struct msg_vec *msg_vec(struct io_msg *imsg)
+{
+	return &imsg->vecs[imsg->vec_index];
+}
+
+static struct msg_vec *snd_msg_vec(struct conn_dir *cd)
+{
+	return msg_vec(&cd->io_snd_msg);
 }
 
 /*
@@ -267,7 +314,7 @@ static void free_buffer_rings(struct io_uring *ring, struct conn *c)
  * on receive, for multishot receive we'll wait for half the provided buffers
  * to be returned by pending sends, then re-arm the multishot receive. If
  * this happens too frequently (see enobufs= stat), then the ring size is
- * likely too small. Use -nXX to make it bigger. See handle_enobufs().
+ * likely too small. Use -nXX to make it bigger. See recv_enobufs().
  *
  * The alternative here would be to use the older style provided buffers,
  * where you simply setup a buffer group and use SQEs with
@@ -382,7 +429,7 @@ static void __show_stats(struct conn *c)
 	for (i = 0; i < 2; i++) {
 		cd = &c->cd[i];
 
-		if (!cd->in_bytes && !cd->out_bytes)
+		if (!cd->in_bytes && !cd->out_bytes && !cd->snd && !cd->rcv)
 			continue;
 
 		printf("\t%3d: rcv=%u (short=%u, enobufs=%d), snd=%u (short=%u,"
@@ -466,33 +513,16 @@ static void encode_userdata(struct io_uring_sqe *sqe, struct conn *c, int op,
 	__encode_userdata(sqe, c->tid, op, bid, fd);
 }
 
-/*
- * Given a bgid/bid, return the buffer associated with it.
- */
-static void *get_buf(struct conn *c, int bid)
+static void __submit_receive(struct io_uring *ring, struct conn *c,
+			     struct conn_dir *cd, int fd)
 {
-	struct conn_buf_ring *cbr = &c->in_br;
-
-	return cbr->buf + bid * buf_size;
-}
-
-static void __submit_receive(struct io_uring *ring, struct conn *c, int fd)
-{
-	struct conn_dir *cd = fd_to_conn_dir(c, fd);
 	struct conn_buf_ring *cbr = &c->in_br;
 	struct io_uring_sqe *sqe;
-	struct msghdr *msg = &cd->io_rcv_msg.msg;
-	struct iovec *iov = &cd->io_rcv_msg.iov;
 
 	vlog("%d: submit receive fd=%d\n", c->tid, fd);
 
-	if (use_msg) {
-		memset(msg, 0, sizeof(*msg));
-		iov->iov_base = NULL;
-		iov->iov_len = 0;
-		msg->msg_iov = iov;
-		msg->msg_iovlen = 1;
-	}
+	assert(!cd->pending_recv);
+	cd->pending_recv = 1;
 
 	/*
 	 * For both recv and multishot receive, we use the ring provided
@@ -505,28 +535,35 @@ static void __submit_receive(struct io_uring *ring, struct conn *c, int fd)
 	 * passing one in with the request.
 	 */
 	sqe = get_sqe(ring);
-	if (recv_mshot) {
-		fd_to_conn_dir(c, fd)->rcv_mshot++;
-		if (use_msg)
-			io_uring_prep_recv_multishot(sqe, fd, NULL, 0, 0);
-		else
-			io_uring_prep_recv_multishot(sqe, fd, NULL, 0, 0);
-	} else {
-		if (use_msg)
-			io_uring_prep_recvmsg(sqe, fd, msg, 0);
-		else
-			io_uring_prep_recv(sqe, fd, NULL, 0, 0);
-	}
+	if (use_msg) {
+		struct io_msg *imsg = &cd->io_rcv_msg;
+		struct msghdr *msg = &imsg->msg;
 
+		memset(msg, 0, sizeof(*msg));
+		msg->msg_iov = msg_vec(imsg)->iov;
+		msg->msg_iovlen = msg_vec(imsg)->iov_len;
+
+		if (recv_mshot) {
+			cd->rcv_mshot++;
+			io_uring_prep_recvmsg_multishot(sqe, fd, &imsg->msg, 0);
+		} else {
+			io_uring_prep_recvmsg(sqe, fd, &imsg->msg, 0);
+		}
+	} else {
+		if (recv_mshot) {
+			cd->rcv_mshot++;
+			io_uring_prep_recv_multishot(sqe, fd, NULL, 0, 0);
+		} else {
+			io_uring_prep_recv(sqe, fd, NULL, 0, 0);
+		}
+	}
 	encode_userdata(sqe, c, __RECV, 0, fd);
 	sqe->buf_group = cbr->bgid;
 	sqe->flags |= IOSQE_BUFFER_SELECT;
 	if (fixed_files)
 		sqe->flags |= IOSQE_FIXED_FILE;
-
-	/* must submit to avoid msg/iov going out-of-scope */
-	if (use_msg)
-		io_uring_submit(ring);
+	if (bundle)
+		sqe->ioprio |= IORING_RECVSEND_BUNDLE;
 }
 
 /*
@@ -534,7 +571,7 @@ static void __submit_receive(struct io_uring *ring, struct conn *c, int fd)
  */
 static void submit_receive(struct io_uring *ring, struct conn *c)
 {
-	__submit_receive(ring, c, c->in_fd);
+	__submit_receive(ring, c, &c->cd[0], c->in_fd);
 }
 
 /*
@@ -542,8 +579,8 @@ static void submit_receive(struct io_uring *ring, struct conn *c)
  */
 static void submit_bidi_receive(struct io_uring *ring, struct conn *c)
 {
-	__submit_receive(ring, c, c->in_fd);
-	__submit_receive(ring, c, c->out_fd);
+	__submit_receive(ring, c, &c->cd[0], c->in_fd);
+	__submit_receive(ring, c, &c->cd[1], c->out_fd);
 }
 
 /*
@@ -554,30 +591,24 @@ static void submit_bidi_receive(struct io_uring *ring, struct conn *c)
  * new receive until we've replenished half of the buffer pool by processing
  * pending sends.
  */
-static void handle_enobufs(struct io_uring *ring, struct conn *c,
-			   struct conn_dir *cd, int fd)
+static void recv_enobufs(struct io_uring *ring, struct conn *c,
+			 struct conn_dir *cd, int fd)
 {
-	int send_waits;
-
 	vlog("%d: enobufs hit\n", c->tid);
 
 	cd->rcv_enobufs++;
 
-	send_waits = nr_bufs / 2;
-	if (send_ring)
-		send_waits = c->cd[0].pending_sends + c->cd[1].pending_sends;
-
-	/* sink has no sends to wait for, no choice but to re-arm */
-	if (is_sink || !send_waits) {
-		__submit_receive(ring, c, fd);
-		return;
+	/*
+	 * If we're a sink, mark rcv as rearm. If we're not, then mark us as
+	 * needing a rearm for receive and send. The completing send will
+	 * kick the recv rearm.
+	 */
+	if (!is_sink) {
+		cd->rcv_need_rearm = 1;
+		prep_next_send(ring, c, cd, fd);
+	} else {
+		cd->rcv_rearm = 1;
 	}
-
-	cd->rearm_recv = send_waits;
-
-	/* really shouldn't use 1 buffer ring... */
-	if (!cd->rearm_recv)
-		cd->rearm_recv = 1;
 }
 
 /*
@@ -626,8 +657,8 @@ static void queue_cancel(struct io_uring *ring, struct conn *c)
 
 	if (c->out_fd != -1) {
 		sqe = get_sqe(ring);
-		io_uring_prep_cancel_fd(sqe, c->in_fd, flags);
-		encode_userdata(sqe, c, __CANCEL, 0, c->in_fd);
+		io_uring_prep_cancel_fd(sqe, c->out_fd, flags);
+		encode_userdata(sqe, c, __CANCEL, 0, c->out_fd);
 		c->pending_cancels++;
 	}
 
@@ -648,7 +679,7 @@ static bool should_shutdown(struct conn *c)
 	if (is_sink)
 		return true;
 	if (!bidi)
-		return c->cd[0].rcv == c->cd[1].snd;
+		return c->cd[0].in_bytes == c->cd[1].out_bytes;
 
 	for (i = 0; i < 2; i++) {
 		if (c->cd[0].rcv != c->cd[1].snd)
@@ -670,10 +701,11 @@ static void __close_conn(struct io_uring *ring, struct conn *c)
 
 static void close_cd(struct conn *c, struct conn_dir *cd)
 {
-	if (cd->pending_sends)
+	cd->pending_shutdown = 1;
+
+	if (cd->pending_send)
 		return;
 
-	cd->pending_shutdown = 1;
 	if (!(c->flags & CONN_F_PENDING_SHUTDOWN)) {
 		gettimeofday(&c->end_time, NULL);
 		c->flags |= CONN_F_PENDING_SHUTDOWN | CONN_F_END_TIME;
@@ -684,169 +716,70 @@ static void close_cd(struct conn *c, struct conn_dir *cd)
  * We're done with this buffer, add it back to our pool so the kernel is
  * free to use it again.
  */
-static void replenish_buffer(struct conn *c, int bid)
+static int replenish_buffer(struct conn_buf_ring *cbr, int bid, int offset)
+{
+	void *this_buf = cbr->buf + bid * buf_size;
+
+	assert(bid < nr_bufs);
+
+	io_uring_buf_ring_add(cbr->br, this_buf, buf_size, bid, br_mask, offset);
+	return buf_size;
+}
+
+static int replenish_buffers(struct conn *c, int *bid, int bytes)
 {
 	struct conn_buf_ring *cbr = &c->in_br;
-	void *this_buf;
+	int nr_packets = 0;
 
-	this_buf = cbr->buf + bid * buf_size;
+	while (bytes) {
+		int this_len = replenish_buffer(cbr, *bid, nr_packets);
 
-	io_uring_buf_ring_add(cbr->br, this_buf, buf_size, bid, br_mask, 0);
-	io_uring_buf_ring_advance(cbr->br, 1);
+		if (this_len > bytes)
+			this_len = bytes;
+		bytes -= this_len;
+
+		*bid = (*bid + 1) & (nr_bufs - 1);
+		nr_packets++;
+	}
+
+	io_uring_buf_ring_advance(cbr->br, nr_packets);
+	return nr_packets;
 }
 
-static void __queue_send(struct io_uring *ring, struct conn *c, int fd,
-			 void *data, int bid, int len)
+static void free_mvec(struct msg_vec *mvec)
 {
-	struct conn_dir *cd = fd_to_conn_dir(c, fd);
-	struct io_uring_sqe *sqe;
-	struct io_msg *msg;
-	int bgid = 0;
-
-	vlog("%d: send %d to fd %d (%p, bid %d)\n", c->tid, len, fd, data, bid);
-
-	/* if using provided buffers for send, add it upfront */
-	if (send_ring) {
-		struct conn_buf_ring *cbr = &c->out_br;
-
-		io_uring_buf_ring_add(cbr->br, data, len, bid, br_mask, 0);
-		io_uring_buf_ring_advance(cbr->br, 1);
-		bgid = cbr->bgid;
-	}
-
-	cd->pending_sends++;
-
-	/*
-	 * If we're using send multishot, we only need one send submitted
-	 * per loop.
-	 */
-	if (send_bundle && cd->loop_iter == loop_iter)
-		return;
-	cd->loop_iter = loop_iter;
-
-	sqe = get_sqe(ring);
-	if (use_msg) {
-		msg = &c->msgs[c->msg_index++];
-		memset(&msg->msg, 0, sizeof(msg->msg));
-		if (send_ring)
-			msg->iov.iov_base = NULL;
-		else
-			msg->iov.iov_base = data;
-		msg->iov.iov_len = len;
-		msg->msg.msg_iov = &msg->iov;
-		msg->msg.msg_iovlen = 1;
-		io_uring_prep_sendmsg(sqe, fd, &msg->msg, MSG_NOSIGNAL);
-	} else {
-		if (send_ring)
-			data = NULL;
-		io_uring_prep_send(sqe, fd, data, len, MSG_NOSIGNAL);
-	}
-	encode_userdata(sqe, c, __SEND, bid, fd);
-	if (fixed_files)
-		sqe->flags |= IOSQE_FIXED_FILE;
-	if (send_ring) {
-		sqe->flags |= IOSQE_BUFFER_SELECT;
-		sqe->buf_group = bgid;
-	}
-	if (send_bundle) {
-		sqe->ioprio |= IORING_RECVSEND_BUNDLE;
-		cd->snd_mshot++;
-	}
-
-	/* must submit to avoid msg/iov going out-of-scope */
-	if (use_msg && c->msg_index == ring_size) {
-		c->msg_index = 0;
-		io_uring_submit(ring);
-	}
+	free(mvec->iov);
+	mvec->iov = NULL;
 }
 
-/*
- * Submit any deferred sends (see comment for defer_send()).
- */
-static void submit_deferred_send(struct io_uring *ring, struct conn *c,
-				 struct conn_dir *cd)
+static void init_mvec(struct msg_vec *mvec)
 {
-	struct pending_send *ps;
-
-	if (list_empty(&cd->send_list)) {
-		vlog("%d: defer send %p empty\n", c->tid, cd);
-		return;
-	}
-
-	vlog("%d: queueing deferred send %p\n", c->tid, cd);
-
-	ps = list_first_entry(&cd->send_list, struct pending_send, list);
-	list_del(&ps->list);
-	__queue_send(ring, c, ps->fd, ps->data, ps->bid, ps->len);
-	free(ps);
+	memset(mvec, 0, sizeof(*mvec));
+	mvec->iov = malloc(sizeof(struct iovec));
+	mvec->vec_size = 1;
 }
 
-/*
- * We have pending sends on this socket. Normally this is not an issue, but
- * if we don't serialize sends, then we can get into a situation where the
- * following can happen:
- *
- * 1) Submit sendA for socket1
- * 2) socket1 buffer is full, poll is armed for sendA
- * 3) socket1 space frees up
- * 4) Poll triggers retry for sendA
- * 5) Submit sendB for socket1
- * 6) sendB completes
- * 7) sendA is retried
- *
- * Regardless of the outcome of what happens with sendA in step 7 (it completes
- * or it gets deferred because the socket1 buffer is now full again after sendB
- * has been filled), we've now reordered the received data.
- *
- * This isn't a common occurence, but more likely with big buffers. If we never
- * run into out-of-space in the socket, we could easily support having more than
- * one send in-flight at the same time.
- *
- * Something to think about on the kernel side...
- */
-static void defer_send(struct conn *c, struct conn_dir *cd, int bid, int len,
-		       int out_fd)
+static void init_msgs(struct conn_dir *cd)
 {
-	void *data = get_buf(c, bid);
-	struct pending_send *ps;
-
-	vlog("%d: defer send %d to fd %d (%p, bid %d)\n", c->tid, len, out_fd,
-					data, bid);
-	vlog("%d: pending %d, %p\n", c->tid, cd->pending_sends, cd);
-
-	cd->snd_busy++;
-	ps = malloc(sizeof(*ps));
-	ps->fd = out_fd;
-	ps->bid = bid;
-	ps->len = len;
-	ps->data = data;
-	list_add_tail(&ps->list, &cd->send_list);
+	memset(&cd->io_snd_msg, 0, sizeof(cd->io_snd_msg));
+	memset(&cd->io_rcv_msg, 0, sizeof(cd->io_rcv_msg));
+	init_mvec(&cd->io_snd_msg.vecs[0]);
+	init_mvec(&cd->io_snd_msg.vecs[1]);
+	init_mvec(&cd->io_rcv_msg.vecs[0]);
 }
 
-/*
- * Queue a send based on the data received in this cqe, which came from
- * a completed receive operation.
- */
-static void queue_send(struct io_uring *ring, struct conn *c, int bid, int len,
-		       int out_fd)
+static void free_msgs(struct conn_dir *cd)
 {
-	struct conn_dir *cd = fd_to_conn_dir(c, out_fd);
-
-	/* no need to serialize sends if we use an outgoing buffer ring */
-	if (!send_ring && cd->pending_sends) {
-		defer_send(c, cd, bid, len, out_fd);
-	} else {
-		void *data = get_buf(c, bid);
-
-		__queue_send(ring, c, out_fd, data, bid, len);
-	}
+	free_mvec(&cd->io_snd_msg.vecs[0]);
+	free_mvec(&cd->io_snd_msg.vecs[1]);
+	free_mvec(&cd->io_rcv_msg.vecs[0]);
 }
 
 static int handle_accept(struct io_uring *ring, struct io_uring_cqe *cqe)
 {
 	struct io_uring_sqe *sqe;
 	struct conn *c;
-	int domain;
+	int domain, i;
 
 	if (nr_conns == MAX_CONNS) {
 		fprintf(stderr, "max clients reached %d\n", nr_conns);
@@ -859,18 +792,20 @@ static int handle_accept(struct io_uring *ring, struct io_uring_cqe *cqe)
 	c->out_fd = -1;
 	gettimeofday(&c->start_time, NULL);
 
-	if (use_msg) {
-		c->msgs = calloc(ring_size, sizeof(struct io_msg));
-		c->msg_index = 0;
+	for (i = 0; i < 2; i++) {
+		struct conn_dir *cd = &c->cd[i];
+
+		cd->index = i;
+		init_list_head(&cd->send_list);
+		cd->snd_next_bid = -1;
+		cd->rcv_next_bid = -1;
+		init_msgs(cd);
 	}
 
 	printf("New client: id=%d, in=%d\n", c->tid, c->in_fd);
 
 	if (setup_buffer_rings(ring, c))
 		return 1;
-
-	init_list_head(&c->cd[0].send_list);
-	init_list_head(&c->cd[1].send_list);
 
 	if (is_sink) {
 		submit_receive(ring, c);
@@ -979,11 +914,149 @@ static int handle_connect(struct io_uring *ring, struct io_uring_cqe *cqe)
 	return 0;
 }
 
-static int __handle_recv(struct io_uring *ring, struct conn *c,
-			 struct io_uring_cqe *cqe, int in_fd, int out_fd)
+static void send_append_vec(struct conn_dir *cd, void *data, int len)
 {
-	struct conn_dir *cd = fd_to_conn_dir(c, in_fd);
-	int bid, do_recv = !recv_mshot;
+	struct msg_vec *mvec = snd_msg_vec(cd);
+
+	if (mvec->iov_len == mvec->vec_size) {
+		mvec->vec_size <<= 1;
+		mvec->iov = realloc(mvec->iov, mvec->vec_size * sizeof(struct iovec));
+	}
+
+	mvec->iov[mvec->iov_len].iov_base = data;
+	mvec->iov[mvec->iov_len].iov_len = len;
+	mvec->iov_len++;
+}
+
+/*
+ * Queue a send based on the data received in this cqe, which came from
+ * a completed receive operation.
+ */
+static void send_append(struct conn *c, struct conn_dir *cd, void *data,
+			int bid, int len)
+{
+	vlog("%d: send %d (%p, bid %d)\n", c->tid, len, data, bid);
+
+	assert(bid < nr_bufs);
+
+	/* if using provided buffers for send, add it upfront */
+	if (send_ring) {
+		struct conn_buf_ring *cbr = &c->out_br;
+
+		io_uring_buf_ring_add(cbr->br, data, len, bid, br_mask, 0);
+		io_uring_buf_ring_advance(cbr->br, 1);
+	} else {
+		send_append_vec(cd, data, len);
+	}
+}
+
+/*
+ * For non recvmsg && multishot, a zero receive marks the end. For recvmsg
+ * with multishot, we always get the header regardless. Hence a "zero receive"
+ * is the size of the header.
+ */
+static int recv_done_res(int res)
+{
+	if (!res)
+		return 1;
+	if (use_msg && recv_mshot && res == sizeof(struct io_uring_recvmsg_out))
+		return 1;
+	return 0;
+}
+
+static int recv_bids(struct conn *c, struct conn_dir *cd, int *bid, int in_bytes)
+{
+	struct conn_buf_ring *cbr = &c->out_br;
+	struct conn_buf_ring *in_cbr = &c->in_br;
+	struct io_uring_buf *buf;
+	int nr_packets = 0;
+
+	while (in_bytes) {
+		int this_bytes;
+		void *data;
+
+		buf = &in_cbr->br->bufs[*bid];
+		data = (void *) (unsigned long) buf->addr;
+		this_bytes = buf->len;
+		if (this_bytes > in_bytes)
+			this_bytes = in_bytes;
+
+		in_bytes -= this_bytes;
+
+		if (send_ring)
+			io_uring_buf_ring_add(cbr->br, data, this_bytes, *bid,
+						br_mask, nr_packets);
+		else
+			send_append(c, cd, data, *bid, this_bytes);
+
+		*bid = (*bid + 1) & (nr_bufs - 1);
+		nr_packets++;
+	}
+
+	if (send_ring)
+		io_uring_buf_ring_advance(cbr->br, nr_packets);
+
+	return nr_packets;
+}
+
+static int recv_mshot_msg(struct conn *c, struct conn_dir *cd, int *bid,
+			  int in_bytes)
+{
+	struct conn_buf_ring *cbr = &c->out_br;
+	struct conn_buf_ring *in_cbr = &c->in_br;
+	struct io_uring_buf *buf;
+	int nr_packets = 0;
+
+	while (in_bytes) {
+		struct io_uring_recvmsg_out *pdu;
+		int this_bytes;
+		void *data;
+
+		buf = &in_cbr->br->bufs[*bid];
+
+		/*
+		 * multishot recvmsg puts a header in front of the data - we
+		 * have to take that into account for the send setup, and
+		 * adjust the actual data read to not take this metadata into
+		 * account. For this use case, namelen and controllen will not
+		 * be set. If they were, they would need to be factored in too.
+		 */
+		buf->len -= sizeof(struct io_uring_recvmsg_out);
+		in_bytes -= sizeof(struct io_uring_recvmsg_out);
+
+		pdu = (void *) (unsigned long) buf->addr;
+		vlog("pdu namelen %d, controllen %d, payload %d flags %x\n",
+				pdu->namelen, pdu->controllen, pdu->payloadlen,
+				pdu->flags);
+		data = (void *) (pdu + 1);
+
+		this_bytes = pdu->payloadlen;
+		if (this_bytes > in_bytes)
+			this_bytes = in_bytes;
+
+		in_bytes -= this_bytes;
+
+		if (send_ring)
+			io_uring_buf_ring_add(cbr->br, data, this_bytes, *bid,
+						br_mask, nr_packets);
+		else
+			send_append(c, cd, data, *bid, this_bytes);
+
+		*bid = (*bid + 1) & (nr_bufs - 1);
+		nr_packets++;
+	}
+
+	if (send_ring)
+		io_uring_buf_ring_advance(cbr->br, nr_packets);
+
+	return nr_packets;
+}
+
+static int __handle_recv(struct io_uring *ring, struct conn *c,
+			 struct conn_dir *cd, struct io_uring_cqe *cqe)
+{
+	struct conn_dir *ocd = &c->cd[!cd->index];
+	int bid, nr_packets;
 
 	/*
 	 * Not having a buffer attached should only happen if we get a zero
@@ -993,28 +1066,34 @@ static int __handle_recv(struct io_uring *ring, struct conn *c,
 	 * result and not have a buffer attached.
 	 */
 	if (!(cqe->flags & IORING_CQE_F_BUFFER)) {
-		if (!cqe->res) {
-			close_cd(c, cd);
-			return 0;
+		cd->pending_recv = 0;
+
+		if (!recv_done_res(cqe->res)) {
+			fprintf(stderr, "no buffer assigned, res=%d\n", cqe->res);
+			return 1;
 		}
-		fprintf(stderr, "no buffer assigned, res=%d\n", cqe->res);
-		return 1;
+start_close:
+		prep_next_send(ring, c, ocd, other_dir_fd(c, cqe_to_fd(cqe)));
+		close_cd(c, cd);
+		return 0;
 	}
 
-	cd->rcv++;
-
-	if (cqe->res != buf_size)
+	if (cqe->res && cqe->res < buf_size)
 		cd->rcv_shrt++;
-
-	/*
-	 * If multishot terminates, just submit a new one.
-	 */
-	if (recv_mshot && !(cqe->flags & IORING_CQE_F_MORE))
-		do_recv = 1;
 
 	bid = cqe->flags >> IORING_CQE_BUFFER_SHIFT;
 
-	vlog("%d: recv: bid=%d, res=%d\n", c->tid, bid, cqe->res);
+	/*
+	 * BIDI will use the same buffer pool and do receive on both CDs,
+	 * so can't reliably check. TODO.
+	 */
+	if (!bidi && cd->rcv_next_bid != -1 && bid != cd->rcv_next_bid) {
+		fprintf(stderr, "recv bid %d, wanted %d\n", bid, cd->rcv_next_bid);
+		goto start_close;
+	}
+
+	vlog("%d: recv: bid=%d, res=%d, cflags=%x\n", c->tid, bid, cqe->res, cqe->flags);
+	assert(cqe->res);
 
 	/*
 	 * If we're a sink, we're done here. Just replenish the buffer back
@@ -1023,102 +1102,237 @@ static int __handle_recv(struct io_uring *ring, struct conn *c,
 	 * it.
 	 */
 	if (is_sink)
-		replenish_buffer(c, bid);
+		nr_packets = replenish_buffers(c, &bid, cqe->res);
+	else if (use_msg && recv_mshot)
+		nr_packets = recv_mshot_msg(c, ocd, &bid, cqe->res);
 	else
-		queue_send(ring, c, bid, cqe->res, out_fd);
+		nr_packets = recv_bids(c, ocd, &bid, cqe->res);
 
-	cd->in_bytes += cqe->res;
+	ocd->out_buffers += nr_packets;
+	assert(ocd->out_buffers <= nr_bufs);
+
+	cd->rcv++;
+	cd->rcv_next_bid = bid;
 
 	/*
-	 * If we're not doing multishot receive, or if multishot receive
-	 * terminated, we need to submit a new receive request as this one
-	 * has completed. Multishot will stay armed.
+	 * If IORING_CQE_F_MORE isn't set, then this is either a normal recv
+	 * that needs rearming, or it's a multishot that won't post any further
+	 * completions. Setup a new one for these cases.
 	 */
-	if (do_recv)
-		__submit_receive(ring, c, in_fd);
+	if (!(cqe->flags & IORING_CQE_F_MORE)) {
+		cd->pending_recv = 0;
+		if (recv_done_res(cqe->res))
+			goto start_close;
+		if (!is_sink)
+			cd->rcv_need_rearm = 1;
+		else
+			cd->rcv_rearm = 1;
+	}
 
+	/*
+	 * Submit a send if we won't get anymore notifications from this
+	 * recv, or if we have nr_bufs / 2 queued up. If BIDI mode, send
+	 * every buffer. We assume this is interactive mode, and hence don't
+	 * delay anything.
+	 */
+	if (!ocd->pending_send && (bidi || (ocd->out_buffers >= nr_bufs / 2)))
+		prep_next_send(ring, c, ocd, other_dir_fd(c, cqe_to_fd(cqe)));
+
+	if (!recv_done_res(cqe->res))
+		cd->in_bytes += cqe->res;
 	return 0;
 }
 
 static int handle_recv(struct io_uring *ring, struct io_uring_cqe *cqe)
 {
 	struct conn *c = cqe_to_conn(cqe);
-	int fd = cqe_to_fd(cqe);
+	struct conn_dir *cd = cqe_to_conn_dir(c, cqe);
 
-	if (fd == c->in_fd)
-		return __handle_recv(ring, c, cqe, c->in_fd, c->out_fd);
-
-	return __handle_recv(ring, c, cqe, c->out_fd, c->in_fd);
+	return __handle_recv(ring, c, cd, cqe);
 }
 
 static int recv_error(struct error_handler *err, struct io_uring *ring,
 		      struct io_uring_cqe *cqe)
 {
 	struct conn *c = cqe_to_conn(cqe);
-	int in_fd, fd = cqe_to_fd(cqe);
+	struct conn_dir *cd = cqe_to_conn_dir(c, cqe);
+
+	cd->pending_recv = 0;
 
 	if (cqe->res != -ENOBUFS)
 		return default_error(err, ring, cqe);
 
-	if (fd == c->in_fd)
-		in_fd = c->in_fd;
-	else
-		in_fd = c->out_fd;
-
-	handle_enobufs(ring, c, fd_to_conn_dir(c, in_fd), in_fd);
+	recv_enobufs(ring, c, cd, other_dir_fd(c, cqe_to_fd(cqe)));
 	return 0;
 }
 
-/*
- * Check if we have a pending receive resubmit after buffer replenish. If
- * this is the case, ->rearm_recv will be set in the other data direction.
- * If set, decrement it. If we've now hit zero pending replenishes, then
- * resubmit the receive operation.
- */
-static void check_recv_rearm(struct io_uring *ring, struct conn *c,
-			     struct conn_dir *cd, int fd)
+static void submit_send(struct io_uring *ring, struct conn *c,
+			struct conn_dir *cd, int fd, void *data, int len,
+			int bid)
 {
-	struct conn_dir *ocd;
+	struct io_uring_sqe *sqe;
+	int bgid = c->out_br.bgid;
 
-	if (cd == &c->cd[0])
-		ocd = &c->cd[1];
-	else
-		ocd = &c->cd[0];
+	if (cd->pending_send)
+		return;
+	cd->pending_send = 1;
 
-	if (!ocd->rearm_recv)
+	sqe = get_sqe(ring);
+	if (use_msg) {
+		struct io_msg *imsg = &cd->io_snd_msg;
+
+		io_uring_prep_sendmsg(sqe, fd, &imsg->msg, MSG_WAITALL|MSG_NOSIGNAL);
+	} else if (send_ring) {
+		io_uring_prep_send(sqe, fd, NULL, 0, MSG_WAITALL|MSG_NOSIGNAL);
+	} else {
+		io_uring_prep_send(sqe, fd, data, len, MSG_WAITALL|MSG_NOSIGNAL);
+	}
+	encode_userdata(sqe, c, __SEND, bid, fd);
+	if (fixed_files)
+		sqe->flags |= IOSQE_FIXED_FILE;
+	if (send_ring) {
+		sqe->flags |= IOSQE_BUFFER_SELECT;
+		sqe->buf_group = bgid;
+	}
+	if (bundle) {
+		sqe->ioprio |= IORING_RECVSEND_BUNDLE;
+		cd->snd_mshot++;
+	} else if (send_ring)
+		cd->snd_mshot++;
+}
+
+static void prep_next_send(struct io_uring *ring, struct conn *c,
+			   struct conn_dir *cd, int fd)
+{
+	int bid;
+
+	if (cd->pending_send || is_sink || !cd->out_buffers)
 		return;
 
-	vlog("%d: rearm_recv=%d\n", c->tid, ocd->rearm_recv);
+	bid = cd->snd_next_bid;
+	if (bid == -1)
+		bid = 0;
 
-	if (!--ocd->rearm_recv) {
-		int in_fd;
+	if (send_ring) {
+		submit_send(ring, c, cd, fd, NULL, 0, bid);
+	} else if (use_msg) {
+		struct io_msg *imsg = &cd->io_snd_msg;
 
-		if (fd == c->in_fd)
-			in_fd = c->out_fd;
-		else
-			in_fd = c->in_fd;
+		if (!msg_vec(imsg)->iov_len)
+			return;
+		assert(msg_vec(imsg)->iov_len);
+		imsg->msg.msg_iov = msg_vec(imsg)->iov;
+		imsg->msg.msg_iovlen = msg_vec(imsg)->iov_len;
+		msg_vec(imsg)->iov_len = 0;
+		imsg->vec_index = !imsg->vec_index;
+		submit_send(ring, c, cd, fd, NULL, 0, bid);
+	} else {
+		struct io_msg *imsg = &cd->io_snd_msg;
+		struct msg_vec *mvec = msg_vec(imsg);
+		struct iovec *iov;
 
-		vlog("%d: arm recv on replenish\n", c->tid);
-		__submit_receive(ring, c, in_fd);
+		if (mvec->iov_len == mvec->cur_iov)
+			return;
+		imsg->msg.msg_iov = msg_vec(imsg)->iov;
+		iov = &mvec->iov[mvec->cur_iov];
+		mvec->cur_iov++;
+		if (mvec->cur_iov == mvec->iov_len) {
+			mvec->iov_len = 0;
+			mvec->cur_iov = 0;
+			imsg->vec_index = !imsg->vec_index;
+		}
+		submit_send(ring, c, cd, fd, iov->iov_base, iov->iov_len, bid);
 	}
 }
 
-static int handle_send(struct io_uring *ring, struct io_uring_cqe *cqe)
+/*
+ * Handling a send with an outgoing send ring. Get the buffers from the
+ * receive side, and add them to the ingoing buffer ring again.
+ */
+static int handle_send_ring(struct conn *c, struct conn_dir *cd,
+			    int bid, int bytes)
 {
-	struct conn *c = cqe_to_conn(cqe);
-	int fd = cqe_to_fd(cqe);
-	struct conn_dir *cd = fd_to_conn_dir(c, fd);
-	int bid;
+	struct conn_buf_ring *in_cbr = &c->in_br;
+	struct conn_buf_ring *out_cbr = &c->out_br;
+	int i = 0;
 
-	cd->snd++;
-	cd->out_bytes += cqe->res;
+	while (bytes) {
+		struct io_uring_buf *buf = &out_cbr->br->bufs[bid];
+		int this_bytes;
+		void *this_buf;
 
-	if (cqe->res && cqe->res != buf_size)
-		cd->snd_shrt++;
+		this_bytes = buf->len;
+		if (this_bytes > bytes)
+			this_bytes = bytes;
+
+		cd->out_bytes += this_bytes;
+
+		vlog("%d: send: bid=%d, len=%d\n", c->tid, bid, this_bytes);
+
+		this_buf = in_cbr->buf + bid * buf_size;
+		io_uring_buf_ring_add(in_cbr->br, this_buf, buf_size, bid, br_mask, i);
+		/*
+		 * Find the provided buffer that the receive consumed, and
+		 * which we then used for the send, and add it back to the
+		 * pool so it can get picked by another receive. Once the send
+		 * is done, we're done with it.
+		 */
+		bid = (bid + 1) & (nr_bufs - 1);
+		bytes -= this_bytes;
+		i++;
+	}
+	cd->snd_next_bid = bid;
+	io_uring_buf_ring_advance(in_cbr->br, i);
+
+	if (pending_shutdown(c))
+		close_cd(c, cd);
+
+	return i;
+}
+
+/*
+ * sendmsg, or send without a ring. Just add buffers back to the ingoing
+ * ring for receives.
+ */
+static int handle_send_buf(struct conn *c, struct conn_dir *cd, int bid,
+			   int bytes)
+{
+	struct conn_buf_ring *in_cbr = &c->in_br;
+	int i = 0;
+
+	while (bytes) {
+		struct io_uring_buf *buf = &in_cbr->br->bufs[bid];
+		int this_bytes;
+
+		this_bytes = bytes;
+		if (this_bytes > buf->len)
+			this_bytes = buf->len;
+
+		vlog("%d: send: bid=%d, len=%d\n", c->tid, bid, this_bytes);
+
+		cd->out_bytes += this_bytes;
+		/* each recvmsg mshot package has this overhead */
+		if (use_msg && recv_mshot)
+			cd->out_bytes += sizeof(struct io_uring_recvmsg_out);
+		replenish_buffer(in_cbr, bid, i);
+		bid = (bid + 1) & (nr_bufs - 1);
+		bytes -= this_bytes;
+		i++;
+	}
+	io_uring_buf_ring_advance(in_cbr->br, i);
+	cd->snd_next_bid = bid;
+	return i;
+}
+
+static int __handle_send(struct io_uring *ring, struct conn *c,
+			 struct conn_dir *cd, struct io_uring_cqe *cqe)
+{
+	struct conn_dir *ocd;
+	int bid, nr_packets;
 
 	if (send_ring) {
 		if (!(cqe->flags & IORING_CQE_F_BUFFER)) {
-			fprintf(stderr, "no buffer in send?!\n");
+			fprintf(stderr, "no buffer in send?! %d\n", cqe->res);
 			return 1;
 		}
 		bid = cqe->flags >> IORING_CQE_BUFFER_SHIFT;
@@ -1126,44 +1340,79 @@ static int handle_send(struct io_uring *ring, struct io_uring_cqe *cqe)
 		bid = cqe_to_bid(cqe);
 	}
 
-	vlog("%d: send: bid=%d, res=%d\n", c->tid, bid, cqe->res);
+	if (cqe->res && cqe->res < buf_size)
+		cd->snd_shrt++;
 
 	/*
-	 * Find the provided buffer that the receive consumed, and
-	 * which we then used for the send, and add it back to the
-	 * pool so it can get picked by another receive. Once the send
-	 * is done, we're done with it.
+	 * BIDI will use the same buffer pool and do sends on both CDs,
+	 * so can't reliably check. TODO.
 	 */
-	replenish_buffer(c, bid);
-
-	cd->pending_sends--;
-
-	vlog("%d: pending sends %d\n", c->tid, cd->pending_sends);
-
-	if (!cd->pending_sends) {
-		if (!cqe->res)
-			close_cd(c, cd);
-		else
-			submit_deferred_send(ring, c, cd);
+	if (!bidi && send_ring && cd->snd_next_bid != -1 && bid != cd->snd_next_bid) {
+		fprintf(stderr, "send bid %d, wanted %d at %lu\n", bid,
+					cd->snd_next_bid, cd->out_bytes);
+		goto out_close;
 	}
 
-	/*
-	 * Check if we need to re-arm receive after this send has added a
-	 * buffer back into the pool.
-	 */
-	check_recv_rearm(ring, c, cd, fd);
+	assert(bid <= nr_bufs);
+
+	vlog("send: got %d, %lu\n", cqe->res, cd->out_bytes);
+
+	if (send_ring)
+		nr_packets = handle_send_ring(c, cd, bid, cqe->res);
+	else
+		nr_packets = handle_send_buf(c, cd, bid, cqe->res);
+
+	cd->out_buffers -= nr_packets;
+	assert(cd->out_buffers >= 0);
+
+	cd->snd++;
+
+	ocd = &c->cd[!cd->index];
+	if (!ocd->pending_recv) {
+		int fd = other_dir_fd(c, cqe_to_fd(cqe));
+
+		__submit_receive(ring, c, ocd, fd);
+	}
+
+	if (!(cqe->flags & IORING_CQE_F_MORE)) {
+		cd->pending_send = 0;
+
+		/*
+		 * send done - see if the current vec has data to submit, and
+		 * do so if it does. if it doesn't have data yet, nothing to
+		 * do.
+		 */
+		prep_next_send(ring, c, cd, cqe_to_fd(cqe));
+out_close:
+		if (pending_shutdown(c))
+			close_cd(c, cd);
+	}
+
+	vlog("%d: pending sends %d\n", c->tid, cd->pending_send);
 	return 0;
+}
+
+static int handle_send(struct io_uring *ring, struct io_uring_cqe *cqe)
+{
+	struct conn *c = cqe_to_conn(cqe);
+	struct conn_dir *cd = cqe_to_conn_dir(c, cqe);
+
+	return __handle_send(ring, c, cd, cqe);
 }
 
 static int send_error(struct error_handler *err, struct io_uring *ring,
 		      struct io_uring_cqe *cqe)
 {
 	struct conn *c = cqe_to_conn(cqe);
-	struct conn_dir *cd = fd_to_conn_dir(c, cqe_to_fd(cqe));
+	struct conn_dir *cd = cqe_to_conn_dir(c, cqe);
+	struct conn_dir *ocd = &c->cd[!cd->index];
+
+	cd->pending_send = 0;
 
 	if (cqe->res != -ENOBUFS)
 		return default_error(err, ring, cqe);
 
+	ocd->rcv_rearm = 1;
 	cd->snd_enobufs++;
 	return 0;
 }
@@ -1217,8 +1466,8 @@ static int handle_close(struct io_uring *ring, struct io_uring_cqe *cqe)
 		__show_stats(c);
 		open_conns--;
 		free_buffer_rings(ring, c);
-		if (use_msg)
-			free(c->msgs);
+		free_msgs(&c->cd[0]);
+		free_msgs(&c->cd[1]);
 	}
 
 	return 0;
@@ -1305,7 +1554,7 @@ static void usage(const char *name)
 	printf("\t-S:\t\tUse SQPOLL (%d)\n", sqpoll);
 	printf("\t-b:\t\tSend/receive buf size (%d)\n", buf_size);
 	printf("\t-u:\t\tUse provided buffers for send (%d)\n", send_ring);
-	printf("\t-U:\t\tUse send bundle (%d)\n", send_bundle);
+	printf("\t-U:\t\tUse bundles for recv/send (%d)\n", bundle);
 	printf("\t-n:\t\tNumber of provided buffers (pow2) (%d)\n", nr_bufs);
 	printf("\t-w:\t\tNumber of CQEs to wait for each loop (%d)\n", wait_batch);
 	printf("\t-t:\t\tTimeout for waiting on CQEs (usec) (%d)\n", wait_usec);
@@ -1323,15 +1572,42 @@ static void usage(const char *name)
 	printf("\t-V:\t\tIncrease verbosity (%d)\n", verbose);
 }
 
-static void check_for_close(struct io_uring *ring)
+static void house_keeping(struct io_uring *ring)
 {
-	int i;
+	struct conn_dir *cd;
+	struct conn *c;
+	int i, j;
+
+	vlog("House keeping entered\n");
 
 	for (i = 0; i < nr_conns; i++) {
-		struct conn *c = &conns[i];
+		c = &conns[i];
 
-		if (c->flags & (CONN_F_DISCONNECTING | CONN_F_DISCONNECTED))
+		if (c->flags & CONN_F_DISCONNECTED) {
+			vlog("%d: disconnected\n", i);
 			continue;
+		}
+
+		for (j = 0; j < 2; j++) {
+			int in_fd;
+
+			cd = &c->cd[j];
+			if (!j)
+				in_fd = c->in_fd;
+			else
+				in_fd = c->out_fd;
+
+			if (cd->rcv_rearm) {
+				vlog("%d: rcv rearm on %d\n", i, j);
+				cd->rcv_rearm = 0;
+				if (!cd->pending_recv)
+					__submit_receive(ring, c, cd, in_fd);
+			}
+		}
+
+		if (c->flags & CONN_F_DISCONNECTING)
+			continue;
+
 		if (should_shutdown(c)) {
 			__close_conn(ring, c);
 			c->flags |= CONN_F_DISCONNECTING;
@@ -1425,14 +1701,13 @@ static int event_loop(struct io_uring *ring, int fd)
 		 * that single CQE as seen. However, it's more efficient to
 		 * mark a batch as seen when we're done with that batch.
 		 */
-		if (i)
+		if (i) {
 			io_uring_cq_advance(ring, i);
-		if (!i || (flags & (CONN_F_PENDING_SHUTDOWN)))
-			check_for_close(ring);
+			events += i;
+		}
 
+		house_keeping(ring);
 		event_loops++;
-		events += i;
-		loop_iter++;
 	}
 
 	return 0;
@@ -1475,7 +1750,7 @@ int main(int argc, char *argv[])
 			send_ring = !!atoi(optarg);
 			break;
 		case 'U':
-			send_bundle = !!atoi(optarg);
+			bundle = !!atoi(optarg);
 			break;
 		case 'w':
 			wait_batch = atoi(optarg);
@@ -1532,6 +1807,14 @@ int main(int argc, char *argv[])
 	}
 	if (use_msg && sqpoll) {
 		fprintf(stderr, "SQPOLL with msg variants disabled\n");
+		use_msg = 0;
+	}
+	if (use_msg && bundle) {
+		fprintf(stderr, "Can't use bundles with sendmsg/recvmsg\n");
+		use_msg = 0;
+	}
+	if (use_msg && send_ring) {
+		fprintf(stderr, "Can't use send ring sendmsg\n");
 		use_msg = 0;
 	}
 
@@ -1639,9 +1922,9 @@ int main(int argc, char *argv[])
 		send_ring = 0;
 	}
 
-	if (!send_ring && send_bundle) {
+	if (!send_ring && bundle) {
 		fprintf(stderr, "Can't use send bundle without send_ring\n");
-		send_bundle = 0;
+		bundle = 0;
 	}
 
 	if (fixed_files) {
@@ -1687,11 +1970,11 @@ int main(int argc, char *argv[])
 	printf("Backend: sqpoll=%d, defer_tw=%d, fixed_files=%d "
 		"is_sink=%d, buf_size=%d, nr_bufs=%d, host=%s, send_port=%d "
 		"receive_port=%d, napi=%d, napi_timeout=%d, msg=%d, "
-		"recv_shot=%d, send_buf_ring=%d, send_bundle=%d\n",
+		"recv_shot=%d, send_buf_ring=%d, bundle=%d\n",
 			sqpoll, defer_tw, fixed_files, is_sink,
 			buf_size, nr_bufs, host, send_port, receive_port,
 			napi, napi_timeout, use_msg, recv_mshot, send_ring,
-			send_bundle);
+			bundle);
 
 	return event_loop(&ring, fd);
 }
