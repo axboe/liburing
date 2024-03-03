@@ -327,6 +327,18 @@ when calling
 .BR io_uring_register (2).
 Available since 6.5.
 
+.TP
+.B IORING_SETUP_NO_SQARRAY
+If this flag is set, entries in the submission queue will be submitted in order,
+wrapping around to the first entry after reaching the end of the queue. In other
+words, there will be no more indirection via the array of submission entries,
+and the queue will be indexed directly by the submission queue tail and the
+range of indexed represented by it modulo queue size. Subsequently, the user
+should not map the array of submission queue entries, and the corresponding
+offset in
+.I struct io_sqring_offsets
+will be set to zero. Available since 6.6.
+
 .PP
 If no flags are specified, the io_uring instance is setup for
 interrupt driven I/O.  I/O may be submitted using
