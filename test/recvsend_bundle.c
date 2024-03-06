@@ -163,12 +163,11 @@ static int recv_get_cqe(struct io_uring *ring, struct recv_data *rd,
 static int do_recv(struct io_uring *ring, struct recv_data *rd)
 {
 	struct io_uring_cqe *cqe;
-	int i = 0, bid, next_bid = 0;
+	int bid, next_bid = 0;
 
 	do {
 		if (recv_get_cqe(ring, rd, &cqe))
 			break;
-		i++;
 		if (cqe->res == -EINVAL) {
 			fprintf(stdout, "recv not supported, skipping\n");
 			return 0;
