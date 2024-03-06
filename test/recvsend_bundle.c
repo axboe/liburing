@@ -270,8 +270,7 @@ static int __do_send_bundle(struct recv_data *rd, struct io_uring *ring, int soc
 	int i, ret;
 
 	sqe = io_uring_get_sqe(ring);
-	io_uring_prep_send(sqe, sockfd, NULL, nr_msgs * MSG_SIZE, 0);
-	sqe->ioprio |= IORING_RECVSEND_BUNDLE;
+	io_uring_prep_send_bundle(sqe, sockfd, nr_msgs * MSG_SIZE, 0);
 	sqe->flags |= IOSQE_BUFFER_SELECT;
 	sqe->buf_group = SEND_BGID;
 	sqe->user_data = 1;
