@@ -18,6 +18,7 @@
 #define SEQ_SIZE	(MSG_SIZE / sizeof(unsigned long))
 
 static int nr_msgs;
+static int use_tcp;
 
 #define RECV_BIDS	8192
 #define RECV_BID_MASK	(RECV_BIDS - 1)
@@ -27,6 +28,8 @@ static int nr_msgs;
 
 #define PORT	10202
 #define HOST	"127.0.0.1"
+
+static int use_port = PORT;
 
 #define SEND_BGID	7
 #define RECV_BGID	8
@@ -60,9 +63,12 @@ static int recv_prep(struct io_uring *ring, struct recv_data *rd, int *sock)
 	memset(&saddr, 0, sizeof(saddr));
 	saddr.sin_family = AF_INET;
 	saddr.sin_addr.s_addr = htonl(INADDR_ANY);
-	saddr.sin_port = htons(PORT);
+	saddr.sin_port = htons(use_port);
 
-	sockfd = socket(AF_INET, SOCK_STREAM, 0);
+	if (use_tcp)
+		sockfd = socket(AF_INET, SOCK_STREAM, 0);
+	else
+		sockfd = socket(AF_INET, SOCK_DGRAM, 0);
 	if (sockfd < 0) {
 		perror("socket");
 		return 1;
@@ -77,19 +83,24 @@ static int recv_prep(struct io_uring *ring, struct recv_data *rd, int *sock)
 		goto err;
 	}
 
-	ret = listen(sockfd, 1);
-	if (ret < 0) {
-		perror("listen");
-		goto err;
-	}
+	if (use_tcp) {
+		ret = listen(sockfd, 1);
+		if (ret < 0) {
+			perror("listen");
+			goto err;
+		}
 
-	pthread_barrier_wait(&rd->connect);
+		pthread_barrier_wait(&rd->connect);
 
-	socklen = sizeof(saddr);
-	use_fd = accept(sockfd, (struct sockaddr *)&saddr, &socklen);
-	if (use_fd < 0) {
-		perror("accept");
-		goto err;
+		socklen = sizeof(saddr);
+		use_fd = accept(sockfd, (struct sockaddr *)&saddr, &socklen);
+		if (use_fd < 0) {
+			perror("accept");
+			goto err;
+		}
+	} else {
+		use_fd = sockfd;
+		pthread_barrier_wait(&rd->connect);
 	}
 
 	rd->accept_fd = use_fd;
@@ -395,10 +406,13 @@ static int do_send(struct recv_data *rd)
 
 	memset(&saddr, 0, sizeof(saddr));
 	saddr.sin_family = AF_INET;
-	saddr.sin_port = htons(PORT);
+	saddr.sin_port = htons(use_port);
 	inet_pton(AF_INET, HOST, &saddr.sin_addr);
 
-	sockfd = socket(AF_INET, SOCK_STREAM, 0);
+	if (use_tcp)
+		sockfd = socket(AF_INET, SOCK_STREAM, 0);
+	else
+		sockfd = socket(AF_INET, SOCK_DGRAM, 0);
 	if (sockfd < 0) {
 		perror("socket");
 		goto err2;
@@ -417,8 +431,6 @@ static int do_send(struct recv_data *rd)
 	optlen = sizeof(len);
 	len = 256 * MSG_SIZE;
 	setsockopt(sockfd, SOL_SOCKET, SO_SNDBUF, &len, optlen);
-
-	getsockopt(sockfd, SOL_SOCKET, SO_SNDBUF, &len, &optlen);
 
 	/* almost fill queue, leave room for one message */
 	send_seq = 0;
@@ -485,6 +497,10 @@ static int test(int backlog, unsigned int max_sends, int *to_eagain,
 	int ret;
 	void *retval;
 
+	/* backlog not reliable on UDP, skip it */
+	if ((backlog || max_sends) && !use_tcp)
+		return T_EXIT_PASS;
+
 	memset(&rd, 0, sizeof(rd));
 	pthread_barrier_init(&rd.connect, NULL, 2);
 	pthread_barrier_init(&rd.startup, NULL, 2);
@@ -516,20 +532,16 @@ static int test(int backlog, unsigned int max_sends, int *to_eagain,
 	return (intptr_t)retval;
 }
 
-int main(int argc, char *argv[])
+static int run_tests(void)
 {
-	int eagain_hit;
-	int ret;
-
-	if (argc > 1)
-		return 0;
+	int ret, eagain_hit;
 
 	nr_msgs = NR_MIN_MSGS;
 
 	/* test basic send bundle first */
-	ret = test(0, 0, NULL, 1, 0);
+	ret = test(0, 0, NULL, 0, 0);
 	if (ret) {
-		fprintf(stderr, "test 0 failed\n");
+		fprintf(stderr, "test a failed\n");
 		return T_EXIT_FAIL;
 	}
 	if (no_send_mshot)
@@ -538,42 +550,42 @@ int main(int argc, char *argv[])
 	/* test recv bundle */
 	ret = test(0, 0, NULL, 0, 1);
 	if (ret) {
-		fprintf(stderr, "test 0 failed\n");
+		fprintf(stderr, "test b failed\n");
 		return T_EXIT_FAIL;
 	}
 
 	/* test bundling recv and send */
 	ret = test(0, 0, NULL, 1, 1);
 	if (ret) {
-		fprintf(stderr, "test 0 failed\n");
+		fprintf(stderr, "test c failed\n");
 		return T_EXIT_FAIL;
 	}
 
 	/* test bundling with full socket */
 	ret = test(1, 1000000, &eagain_hit, 1, 1);
 	if (ret) {
-		fprintf(stderr, "test 0 failed\n");
+		fprintf(stderr, "test d failed\n");
 		return T_EXIT_FAIL;
 	}
 
 	/* test bundling with almost full socket */
 	ret = test(1, eagain_hit - (nr_msgs / 2), NULL, 1, 1);
 	if (ret) {
-		fprintf(stderr, "test 1 failed\n");
+		fprintf(stderr, "test e failed\n");
 		return T_EXIT_FAIL;
 	}
 
 	/* test recv bundle with almost full socket */
 	ret = test(1, eagain_hit - (nr_msgs / 2), NULL, 0, 1);
 	if (ret) {
-		fprintf(stderr, "test 1 failed\n");
+		fprintf(stderr, "test f failed\n");
 		return T_EXIT_FAIL;
 	}
 
 	/* test send bundle with almost full socket */
 	ret = test(1, eagain_hit - (nr_msgs / 2), &eagain_hit, 1, 0);
 	if (ret) {
-		fprintf(stderr, "test 1 failed\n");
+		fprintf(stderr, "test g failed\n");
 		return T_EXIT_FAIL;
 	}
 
@@ -583,23 +595,54 @@ int main(int argc, char *argv[])
 	/* test bundling with almost full socket */
 	ret = test(1, eagain_hit - (nr_msgs / 2), NULL, 1, 1);
 	if (ret) {
-		fprintf(stderr, "test 1 failed\n");
+		fprintf(stderr, "test h failed\n");
 		return T_EXIT_FAIL;
 	}
 
 	/* test recv bundle with almost full socket */
 	ret = test(1, eagain_hit - (nr_msgs / 2), NULL, 0, 1);
 	if (ret) {
-		fprintf(stderr, "test 1 failed\n");
+		fprintf(stderr, "test i failed\n");
 		return T_EXIT_FAIL;
 	}
 
 	/* test send bundle with almost full socket */
 	ret = test(1, eagain_hit - (nr_msgs / 2), &eagain_hit, 1, 0);
 	if (ret) {
-		fprintf(stderr, "test 1 failed\n");
+		fprintf(stderr, "test j failed\n");
 		return T_EXIT_FAIL;
 	}
+
+	return T_EXIT_PASS;
+}
+
+static int test_tcp(void)
+{
+	use_tcp = 1;
+	return run_tests();
+}
+
+static int test_udp(void)
+{
+	use_tcp = 0;
+	use_port++;
+	return run_tests();
+}
+
+int main(int argc, char *argv[])
+{
+	int ret;
+
+	if (argc > 1)
+		return 0;
+
+	ret = test_tcp();
+	if (ret != T_EXIT_PASS)
+		return ret;
+
+	ret = test_udp();
+	if (ret != T_EXIT_PASS)
+		return ret;
 
 	return T_EXIT_PASS;
 }
