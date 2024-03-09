@@ -101,6 +101,23 @@ ifeq ($(ENABLE_SHARED),1)
 	ln -sf $(relativelibdir)$(ffi_libname) $(libdevdir)/liburing-ffi.so
 endif
 
+uninstall:
+	@rm -f $(includedir)/liburing/io_uring.h
+	@rm -f $(includedir)/liburing.h
+	@rm -f $(includedir)/liburing/compat.h
+	@rm -f $(includedir)/liburing/barrier.h
+	@rm -f $(includedir)/liburing/io_uring_version.h
+	@rm -f $(libdevdir)/liburing.a
+	@rm -f $(libdevdir)/liburing-ffi.a
+ifeq ($(ENABLE_SHARED),1)
+	@rm -f $(libdir)/$(libname)
+	@rm -f $(libdir)/$(ffi_libname)
+	@rm -f $(libdir)/$(soname)
+	@rm -f $(libdevdir)/liburing.so
+	@rm -f $(libdir)/$(ffi_soname)
+	@rm -f $(libdevdir)/liburing-ffi.so
+endif
+
 clean:
 	@rm -f $(all_targets) $(liburing_objs) $(liburing_sobjs) $(liburing_ffi_objs) $(liburing_ffi_sobjs) $(soname).new
 	@rm -f *.so* *.a *.o *.d

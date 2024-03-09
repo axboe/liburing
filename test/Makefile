@@ -261,6 +261,9 @@ install: $(test_targets) runtests.sh runtests-loop.sh
 	$(INSTALL) -D -m 755 runtests.sh  $(datadir)/liburing-test/
 	$(INSTALL) -D -m 755 runtests-loop.sh  $(datadir)/liburing-test/
 
+uninstall:
+	@rm -rf $(datadir)/liburing-test/
+
 clean:
 	@rm -f $(all_targets) helpers.o output/*
 	@rm -rf output/
