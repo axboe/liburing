@@ -1977,7 +1977,7 @@ int main(int argc, char *argv[])
 	printf("Backend: sqpoll=%d, defer_tw=%d, fixed_files=%d "
 		"is_sink=%d, buf_size=%d, nr_bufs=%d, host=%s, send_port=%d "
 		"receive_port=%d, napi=%d, napi_timeout=%d, sendmsg=%d, "
-		"recvmsg=%d, recv_shot=%d, send_buf_ring=%d, bundle=%d\n",
+		"recvmsg=%d, recv_mshot=%d, send_buf_ring=%d, bundle=%d\n",
 			sqpoll, defer_tw, fixed_files, is_sink,
 			buf_size, nr_bufs, host, send_port, receive_port,
 			napi, napi_timeout, snd_msg, rcv_msg, recv_mshot,
