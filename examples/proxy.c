@@ -1833,6 +1833,15 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "Can't use send ring sendmsg\n");
 		snd_msg = 0;
 	}
+	/*
+	 * For recvmsg w/multishot, we waste some data at the head of the
+	 * packet every time. Adjust the buffer size to account for that,
+	 * so we're still handing 'buf_size' actual payload of data.
+	 */
+	if (rcv_msg && recv_mshot) {
+		fprintf(stderr, "Adjusted buf size for recvmsg w/multishot\n");
+		buf_size += sizeof(struct io_uring_recvmsg_out);
+	}
 
 	br_mask = nr_bufs - 1;
 
