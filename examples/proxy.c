@@ -87,7 +87,8 @@ static int wait_usec = 1000000;
 static int rcv_msg;
 static int snd_msg;
 static int send_ring = -1;
-static int bundle;
+static int snd_bundle;
+static int rcv_bundle;
 static int verbose;
 
 static int nr_bufs = 256;
@@ -563,7 +564,7 @@ static void __submit_receive(struct io_uring *ring, struct conn *c,
 	sqe->flags |= IOSQE_BUFFER_SELECT;
 	if (fixed_files)
 		sqe->flags |= IOSQE_FIXED_FILE;
-	if (bundle)
+	if (rcv_bundle)
 		sqe->ioprio |= IORING_RECVSEND_BUNDLE;
 }
 
@@ -1196,7 +1197,7 @@ static void submit_send(struct io_uring *ring, struct conn *c,
 		sqe->flags |= IOSQE_BUFFER_SELECT;
 		sqe->buf_group = bgid;
 	}
-	if (bundle) {
+	if (snd_bundle) {
 		sqe->ioprio |= IORING_RECVSEND_BUNDLE;
 		cd->snd_mshot++;
 	} else if (send_ring)
@@ -1556,7 +1557,7 @@ static void usage(const char *name)
 	printf("\t-S:\t\tUse SQPOLL (%d)\n", sqpoll);
 	printf("\t-b:\t\tSend/receive buf size (%d)\n", buf_size);
 	printf("\t-u:\t\tUse provided buffers for send (%d)\n", send_ring);
-	printf("\t-U:\t\tUse bundles for recv/send (%d)\n", bundle);
+	printf("\t-U:\t\tUse bundles for recv/send (%d)\n", rcv_bundle || snd_bundle);
 	printf("\t-n:\t\tNumber of provided buffers (pow2) (%d)\n", nr_bufs);
 	printf("\t-w:\t\tNumber of CQEs to wait for each loop (%d)\n", wait_batch);
 	printf("\t-t:\t\tTimeout for waiting on CQEs (usec) (%d)\n", wait_usec);
@@ -1754,7 +1755,7 @@ int main(int argc, char *argv[])
 			send_ring = !!atoi(optarg);
 			break;
 		case 'U':
-			bundle = !!atoi(optarg);
+			rcv_bundle = snd_bundle = !!atoi(optarg);
 			break;
 		case 'w':
 			wait_batch = atoi(optarg);
@@ -1816,9 +1817,13 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "SQPOLL with msg variants disabled\n");
 		snd_msg = 0;
 	}
-	if ((rcv_msg || snd_msg) && bundle) {
-		fprintf(stderr, "Can't use bundles with sendmsg/recvmsg\n");
-		rcv_msg = snd_msg = 0;
+	if (rcv_msg && rcv_bundle) {
+		fprintf(stderr, "Can't use bundles with recvmsg\n");
+		rcv_msg = 0;
+	}
+	if (snd_msg && snd_bundle) {
+		fprintf(stderr, "Can't use bundles with recvmsg\n");
+		snd_msg = 0;
 	}
 	if (snd_msg && send_ring) {
 		fprintf(stderr, "Can't use send ring sendmsg\n");
@@ -1929,9 +1934,9 @@ int main(int argc, char *argv[])
 		send_ring = 0;
 	}
 
-	if (!send_ring && bundle) {
+	if (!send_ring && snd_bundle) {
 		fprintf(stderr, "Can't use send bundle without send_ring\n");
-		bundle = 0;
+		snd_bundle = 0;
 	}
 
 	if (fixed_files) {
@@ -1977,11 +1982,12 @@ int main(int argc, char *argv[])
 	printf("Backend: sqpoll=%d, defer_tw=%d, fixed_files=%d "
 		"is_sink=%d, buf_size=%d, nr_bufs=%d, host=%s, send_port=%d "
 		"receive_port=%d, napi=%d, napi_timeout=%d, sendmsg=%d, "
-		"recvmsg=%d, recv_mshot=%d, send_buf_ring=%d, bundle=%d\n",
+		"recvmsg=%d, recv_mshot=%d, send_buf_ring=%d, send bundle=%d "
+		"recv bundle=%d\n",
 			sqpoll, defer_tw, fixed_files, is_sink,
 			buf_size, nr_bufs, host, send_port, receive_port,
 			napi, napi_timeout, snd_msg, rcv_msg, recv_mshot,
-			send_ring, bundle);
+			send_ring, snd_bundle, rcv_bundle);
 
 	return event_loop(&ring, fd);
 }
