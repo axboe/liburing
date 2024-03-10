@@ -1569,7 +1569,8 @@ static void usage(const char *name)
 	printf("\t-6:\t\tUse IPv6 (%d)\n", ipv6);
 	printf("\t-N:\t\tUse NAPI polling (%d)\n", napi);
 	printf("\t-T:\t\tNAPI timeout (usec) (%d)\n", napi_timeout);
-	printf("\t-M:\t\tUse send/recvmsg (%d)\n", snd_msg || rcv_msg);
+	printf("\t-M:\t\tUse sendmsg (%d)\n", snd_msg);
+	printf("\t-M:\t\tUse recvmsg (%d)\n", rcv_msg);
 	printf("\t-q:\t\tRing size to use (%d)\n", ring_size);
 	printf("\t-V:\t\tIncrease verbosity (%d)\n", verbose);
 }
@@ -1723,6 +1724,7 @@ int main(int argc, char *argv[])
 	struct io_uring ring;
 	struct io_uring_params params;
 	struct sigaction sa = { };
+	const char *optstring = "m:d:S:s:b:f:H:r:p:n:B:N:T:w:t:M:R:u:U:q:6Vh?";
 	int opt, ret, fd;
 
 	page_size = sysconf(_SC_PAGESIZE);
@@ -1731,7 +1733,7 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-	while ((opt = getopt(argc, argv, "m:d:S:s:b:f:H:r:p:n:B:N:T:w:t:M:u:U:q:6Vh?")) != -1) {
+	while ((opt = getopt(argc, argv, optstring)) != -1) {
 		switch (opt) {
 		case 'm':
 			recv_mshot = !!atoi(optarg);
@@ -1788,7 +1790,10 @@ int main(int argc, char *argv[])
 			ipv6 = true;
 			break;
 		case 'M':
-			rcv_msg = snd_msg = !!atoi(optarg);
+			snd_msg = !!atoi(optarg);
+			break;
+		case 'R':
+			rcv_msg = !!atoi(optarg);
 			break;
 		case 'q':
 			ring_size = atoi(optarg);
