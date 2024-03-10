@@ -84,7 +84,8 @@ static int napi;
 static int napi_timeout;
 static int wait_batch = 1;
 static int wait_usec = 1000000;
-static int use_msg;
+static int rcv_msg;
+static int snd_msg;
 static int send_ring = -1;
 static int bundle;
 static int verbose;
@@ -535,7 +536,7 @@ static void __submit_receive(struct io_uring *ring, struct conn *c,
 	 * passing one in with the request.
 	 */
 	sqe = get_sqe(ring);
-	if (use_msg) {
+	if (rcv_msg) {
 		struct io_msg *imsg = &cd->io_rcv_msg;
 		struct msghdr *msg = &imsg->msg;
 
@@ -959,7 +960,7 @@ static int recv_done_res(int res)
 {
 	if (!res)
 		return 1;
-	if (use_msg && recv_mshot && res == sizeof(struct io_uring_recvmsg_out))
+	if (rcv_msg && recv_mshot && res == sizeof(struct io_uring_recvmsg_out))
 		return 1;
 	return 0;
 }
@@ -1103,7 +1104,7 @@ start_close:
 	 */
 	if (is_sink)
 		nr_packets = replenish_buffers(c, &bid, cqe->res);
-	else if (use_msg && recv_mshot)
+	else if (rcv_msg && recv_mshot)
 		nr_packets = recv_mshot_msg(c, ocd, &bid, cqe->res);
 	else
 		nr_packets = recv_bids(c, ocd, &bid, cqe->res);
@@ -1179,7 +1180,7 @@ static void submit_send(struct io_uring *ring, struct conn *c,
 	cd->pending_send = 1;
 
 	sqe = get_sqe(ring);
-	if (use_msg) {
+	if (snd_msg) {
 		struct io_msg *imsg = &cd->io_snd_msg;
 
 		io_uring_prep_sendmsg(sqe, fd, &imsg->msg, MSG_WAITALL|MSG_NOSIGNAL);
@@ -1216,7 +1217,7 @@ static void prep_next_send(struct io_uring *ring, struct conn *c,
 
 	if (send_ring) {
 		submit_send(ring, c, cd, fd, NULL, 0, bid);
-	} else if (use_msg) {
+	} else if (snd_msg) {
 		struct io_msg *imsg = &cd->io_snd_msg;
 
 		if (!msg_vec(imsg)->iov_len)
@@ -1313,7 +1314,7 @@ static int handle_send_buf(struct conn *c, struct conn_dir *cd, int bid,
 
 		cd->out_bytes += this_bytes;
 		/* each recvmsg mshot package has this overhead */
-		if (use_msg && recv_mshot)
+		if (rcv_msg && recv_mshot)
 			cd->out_bytes += sizeof(struct io_uring_recvmsg_out);
 		replenish_buffer(in_cbr, bid, i);
 		bid = (bid + 1) & (nr_bufs - 1);
@@ -1568,7 +1569,7 @@ static void usage(const char *name)
 	printf("\t-6:\t\tUse IPv6 (%d)\n", ipv6);
 	printf("\t-N:\t\tUse NAPI polling (%d)\n", napi);
 	printf("\t-T:\t\tNAPI timeout (usec) (%d)\n", napi_timeout);
-	printf("\t-M:\t\tUse send/recvmsg (%d)\n", use_msg);
+	printf("\t-M:\t\tUse send/recvmsg (%d)\n", snd_msg || rcv_msg);
 	printf("\t-q:\t\tRing size to use (%d)\n", ring_size);
 	printf("\t-V:\t\tIncrease verbosity (%d)\n", verbose);
 }
@@ -1787,7 +1788,7 @@ int main(int argc, char *argv[])
 			ipv6 = true;
 			break;
 		case 'M':
-			use_msg = !!atoi(optarg);
+			rcv_msg = snd_msg = !!atoi(optarg);
 			break;
 		case 'q':
 			ring_size = atoi(optarg);
@@ -1806,17 +1807,17 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "Can't be both bidi proxy and sink\n");
 		return 1;
 	}
-	if (use_msg && sqpoll) {
+	if (snd_msg && sqpoll) {
 		fprintf(stderr, "SQPOLL with msg variants disabled\n");
-		use_msg = 0;
+		snd_msg = 0;
 	}
-	if (use_msg && bundle) {
+	if ((rcv_msg || snd_msg) && bundle) {
 		fprintf(stderr, "Can't use bundles with sendmsg/recvmsg\n");
-		use_msg = 0;
+		rcv_msg = snd_msg = 0;
 	}
-	if (use_msg && send_ring) {
+	if (snd_msg && send_ring) {
 		fprintf(stderr, "Can't use send ring sendmsg\n");
-		use_msg = 0;
+		snd_msg = 0;
 	}
 
 	br_mask = nr_bufs - 1;
@@ -1970,12 +1971,12 @@ int main(int argc, char *argv[])
 
 	printf("Backend: sqpoll=%d, defer_tw=%d, fixed_files=%d "
 		"is_sink=%d, buf_size=%d, nr_bufs=%d, host=%s, send_port=%d "
-		"receive_port=%d, napi=%d, napi_timeout=%d, msg=%d, "
-		"recv_shot=%d, send_buf_ring=%d, bundle=%d\n",
+		"receive_port=%d, napi=%d, napi_timeout=%d, sendmsg=%d, "
+		"recvmsg=%d, recv_shot=%d, send_buf_ring=%d, bundle=%d\n",
 			sqpoll, defer_tw, fixed_files, is_sink,
 			buf_size, nr_bufs, host, send_port, receive_port,
-			napi, napi_timeout, use_msg, recv_mshot, send_ring,
-			bundle);
+			napi, napi_timeout, snd_msg, rcv_msg, recv_mshot,
+			send_ring, bundle);
 
 	return event_loop(&ring, fd);
 }
