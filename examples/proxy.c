@@ -1135,7 +1135,8 @@ start_close:
 	 * every buffer. We assume this is interactive mode, and hence don't
 	 * delay anything.
 	 */
-	if (!ocd->pending_send && (bidi || (ocd->out_buffers >= nr_bufs / 2)))
+	if ((!ocd->pending_send && (bidi || (ocd->out_buffers >= nr_bufs / 2))) ||
+	    !(cqe->flags & IORING_CQE_F_MORE))
 		prep_next_send(ring, c, ocd, other_dir_fd(c, cqe_to_fd(cqe)));
 
 	if (!recv_done_res(cqe->res))
