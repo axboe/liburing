@@ -1557,7 +1557,8 @@ static void usage(const char *name)
 	printf("\t-S:\t\tUse SQPOLL (%d)\n", sqpoll);
 	printf("\t-b:\t\tSend/receive buf size (%d)\n", buf_size);
 	printf("\t-u:\t\tUse provided buffers for send (%d)\n", send_ring);
-	printf("\t-U:\t\tUse bundles for recv/send (%d)\n", rcv_bundle || snd_bundle);
+	printf("\t-C:\t\tUse bundles for send (%d)\n", snd_bundle);
+	printf("\t-c:\t\tUse bundles for recv (%d)\n", snd_bundle);
 	printf("\t-n:\t\tNumber of provided buffers (pow2) (%d)\n", nr_bufs);
 	printf("\t-w:\t\tNumber of CQEs to wait for each loop (%d)\n", wait_batch);
 	printf("\t-t:\t\tTimeout for waiting on CQEs (usec) (%d)\n", wait_usec);
@@ -1725,7 +1726,7 @@ int main(int argc, char *argv[])
 	struct io_uring ring;
 	struct io_uring_params params;
 	struct sigaction sa = { };
-	const char *optstring = "m:d:S:s:b:f:H:r:p:n:B:N:T:w:t:M:R:u:U:q:6Vh?";
+	const char *optstring = "m:d:S:s:b:f:H:r:p:n:B:N:T:w:t:M:R:u:c:C:q:6Vh?";
 	int opt, ret, fd;
 
 	page_size = sysconf(_SC_PAGESIZE);
@@ -1754,8 +1755,11 @@ int main(int argc, char *argv[])
 		case 'u':
 			send_ring = !!atoi(optarg);
 			break;
-		case 'U':
-			rcv_bundle = snd_bundle = !!atoi(optarg);
+		case 'c':
+			rcv_bundle = !!atoi(optarg);
+			break;
+		case 'C':
+			snd_bundle = !!atoi(optarg);
 			break;
 		case 'w':
 			wait_batch = atoi(optarg);
