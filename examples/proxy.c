@@ -1985,13 +1985,14 @@ int main(int argc, char *argv[])
 
 	printf("Backend: sqpoll=%d, defer_tw=%d, fixed_files=%d "
 		"is_sink=%d, buf_size=%d, nr_bufs=%d, host=%s, send_port=%d "
-		"receive_port=%d, napi=%d, napi_timeout=%d, sendmsg=%d, "
-		"recvmsg=%d, recv_mshot=%d, send_buf_ring=%d, send bundle=%d "
-		"recv bundle=%d\n",
+		"receive_port=%d, napi=%d, napi_timeout=%d\n",
 			sqpoll, defer_tw, fixed_files, is_sink,
 			buf_size, nr_bufs, host, send_port, receive_port,
-			napi, napi_timeout, snd_msg, rcv_msg, recv_mshot,
-			send_ring, snd_bundle, rcv_bundle);
+			napi, napi_timeout);
+	printf(" recv options: recvmsg=%d, recv_mshot=%d, recv_bundle=%d\n",
+			rcv_msg, recv_mshot, rcv_bundle);
+	printf(" send options: sendmsg=%d, send_ring=%d, send_bundle=%d\n",
+			snd_msg, send_ring, snd_bundle);
 
 	return event_loop(&ring, fd);
 }
