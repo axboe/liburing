@@ -47,7 +47,6 @@
 #include <liburing.h>
 
 #include "proxy.h"
-#include "list.h"
 #include "helpers.h"
 
 /*
@@ -97,13 +96,6 @@ static int br_mask;
 
 static int ring_size = 128;
 
-struct pending_send {
-	struct list_head list;
-
-	int fd, bid, len;
-	void *data;
-};
-
 /*
  * For sendmsg/recvmsg. recvmsg just has a single vec, sendmsg will have
  * two vecs - one that is currently submitted and being sent, and one that
@@ -140,7 +132,6 @@ struct conn_dir {
 	int pending_shutdown;
 	int pending_send;
 	int pending_recv;
-	struct list_head send_list;
 
 	int out_buffers;
 
@@ -826,7 +817,6 @@ static int handle_accept(struct io_uring *ring, struct io_uring_cqe *cqe)
 		struct conn_dir *cd = &c->cd[i];
 
 		cd->index = i;
-		init_list_head(&cd->send_list);
 		cd->snd_next_bid = -1;
 		cd->rcv_next_bid = -1;
 		init_msgs(cd);
