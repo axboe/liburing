@@ -254,10 +254,12 @@ enum {
 	__SOCK		= 2,
 	__CONNECT	= 3,
 	__RECV		= 4,
-	__SEND		= 5,
-	__SHUTDOWN	= 6,
-	__CANCEL	= 7,
-	__CLOSE		= 8,
+	__RECVMSG	= 5,
+	__SEND		= 6,
+	__SENDMSG	= 7,
+	__SHUTDOWN	= 8,
+	__CANCEL	= 9,
+	__CLOSE		= 10,
 };
 
 struct error_handler {
@@ -295,7 +297,9 @@ static struct error_handler error_handlers[] = {
 	{ .name = "SOCK",	.error_fn = default_error, },
 	{ .name = "CONNECT",	.error_fn = default_error, },
 	{ .name = "RECV",	.error_fn = recv_error, },
+	{ .name = "RECVMSG",	.error_fn = recv_error, },
 	{ .name = "SEND",	.error_fn = send_error, },
+	{ .name = "SENDMSG",	.error_fn = send_error, },
 	{ .name = "SHUTDOWN",	.error_fn = NULL, },
 	{ .name = "CANCEL",	.error_fn = NULL, },
 	{ .name = "CLOSE",	.error_fn = NULL, },
@@ -1593,9 +1597,11 @@ static int handle_cqe(struct io_uring *ring, struct io_uring_cqe *cqe)
 		ret = handle_connect(ring, cqe);
 		break;
 	case __RECV:
+	case __RECVMSG:
 		ret = handle_recv(ring, cqe);
 		break;
 	case __SEND:
+	case __SENDMSG:
 		ret = handle_send(ring, cqe);
 		break;
 	case __CANCEL:
