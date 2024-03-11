@@ -13,10 +13,10 @@
  * 	./proxy -m1 -d1 -f1 -r4444 -H 192.168.2.6 -p4445
  *
  *
- * Same as above, but utilize send bundles (-U1, requires -u1 send_ring) as well
+ * Same as above, but utilize send bundles (-C1, requires -u1 send_ring) as well
  * with ring provided send buffers.
  *
- * 	./proxy -m1 -d1 -f1 -u1 -U1 -r4444 -H 192.168.2.6 -p4445
+ * 	./proxy -m1 -d1 -f1 -u1 -C1 -r4444 -H 192.168.2.6 -p4445
  *
  * Act as a bi-directional proxy, listening on port 8888, and send data back
  * and forth between host and 192.168.2.6 on port 22. Use multishot receive,
