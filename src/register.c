@@ -326,7 +326,7 @@ int io_uring_unregister_buf_ring(struct io_uring *ring, int bgid)
 	return do_register(ring, IORING_UNREGISTER_PBUF_RING, &reg, 1);
 }
 
-int io_uring_buf_ring_head(struct io_uring *ring, int buf_group, unsigned *head)
+int io_uring_buf_ring_head(struct io_uring *ring, int buf_group, uint16_t *head)
 {
 	struct io_uring_buf_status buf_status = {
 		.buf_group	= buf_group,

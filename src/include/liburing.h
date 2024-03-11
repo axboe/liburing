@@ -231,7 +231,7 @@ int io_uring_close_ring_fd(struct io_uring *ring);
 int io_uring_register_buf_ring(struct io_uring *ring,
 			       struct io_uring_buf_reg *reg, unsigned int flags);
 int io_uring_unregister_buf_ring(struct io_uring *ring, int bgid);
-int io_uring_buf_ring_head(struct io_uring *ring, int buf_group, unsigned *head);
+int io_uring_buf_ring_head(struct io_uring *ring, int buf_group, uint16_t *head);
 int io_uring_register_sync_cancel(struct io_uring *ring,
 				 struct io_uring_sync_cancel_reg *reg);
 
@@ -1494,14 +1494,14 @@ IOURINGINLINE int io_uring_buf_ring_available(struct io_uring *ring,
 					      struct io_uring_buf_ring *br,
 					      unsigned short bgid)
 {
-	unsigned head;
+	uint16_t head;
 	int ret;
 
 	ret = io_uring_buf_ring_head(ring, bgid, &head);
 	if (ret)
 		return ret;
 
-	return br->tail - head;
+	return (uint16_t) (br->tail - head);
 }
 
 #ifndef LIBURING_INTERNAL

@@ -30,7 +30,7 @@ static int test(int invalid)
 	struct io_uring ring;
 	struct io_uring_buf_ring *br;
 	int ret, i, fds[2];
-	unsigned head;
+	uint16_t head;
 	char *buf;
 	void *ptr;
 	char output[16];
