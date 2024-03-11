@@ -23,6 +23,60 @@
 static int no_buf_ring;
 static int no_buf_ring_status;
 
+static int test_max(void)
+{
+	struct io_uring_buf_ring *br;
+	struct io_uring ring;
+	int nr_bufs = 32768;
+	int ret, i;
+	char *buf;
+
+	ret = io_uring_queue_init(1, &ring, 0);
+	if (ret) {
+		fprintf(stderr, "ring setup failed: %d\n", ret);
+		return 1;
+	}
+
+	if (posix_memalign((void **) &buf, 4096, FSIZE))
+		return 1;
+
+	br = io_uring_setup_buf_ring(&ring, nr_bufs, BGID, 0, &ret);
+	if (!br) {
+		fprintf(stderr, "Buffer ring register failed %d\n", ret);
+		return 1;
+	}
+
+	ret = io_uring_buf_ring_available(&ring, br, BGID);
+	if (ret) {
+		fprintf(stderr, "Bad available count %d\n", ret);
+		return 1;
+	}
+
+	for (i = 0; i < nr_bufs / 2; i++)
+		io_uring_buf_ring_add(br, buf, BUF_SIZE, i + 1, nr_bufs - 1, i);
+	io_uring_buf_ring_advance(br, nr_bufs / 2);
+
+	ret = io_uring_buf_ring_available(&ring, br, BGID);
+	if (ret != nr_bufs / 2) {
+		fprintf(stderr, "Bad half full available count %d\n", ret);
+		return 1;
+	}
+
+	for (i = 0; i < nr_bufs / 2; i++)
+		io_uring_buf_ring_add(br, buf, BUF_SIZE, i + 1, nr_bufs - 1, i);
+	io_uring_buf_ring_advance(br, nr_bufs / 2);
+
+	ret = io_uring_buf_ring_available(&ring, br, BGID);
+	if (ret != nr_bufs) {
+		fprintf(stderr, "Bad half full available count %d\n", ret);
+		return 1;
+	}
+
+	free(buf);
+	io_uring_queue_exit(&ring);
+	return T_EXIT_PASS;
+}
+
 static int test(int invalid)
 {
 	struct io_uring_sqe *sqe;
@@ -175,6 +229,12 @@ int main(int argc, char *argv[])
 	ret = test(1);
 	if (ret == T_EXIT_FAIL) {
 		fprintf(stderr, "test 1 failed\n");
+		return T_EXIT_FAIL;
+	}
+
+	ret = test_max();
+	if (ret == T_EXIT_FAIL) {
+		fprintf(stderr, "test_max failed\n");
 		return T_EXIT_FAIL;
 	}
 
