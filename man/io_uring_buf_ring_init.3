@@ -23,8 +23,14 @@ but must be called before the buffer ring is used in any other way.
 .SH RETURN VALUE
 None
 
+.SH NOTES
+Unless manual setup is needed, it's recommended to use
+.BR io_uring_setup_buf_ring (3)
+as it provides a simpler way to setup a provided buffer ring.
+.
 .SH SEE ALSO
 .BR io_uring_register_buf_ring (3),
+.BR io_uring_setup_buf_ring (3),
 .BR io_uring_buf_ring_add (3)
 .BR io_uring_buf_ring_advance (3),
 .BR io_uring_buf_ring_cq_advance (3)
