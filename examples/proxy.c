@@ -10,24 +10,23 @@
  * Act as a proxy, listening on port 4444, and send data to 192.168.2.6 on port
  * 4445. Use multishot receive, DEFER_TASKRUN, and fixed files
  *
- * 	./proxy -m1 -d1 -f1 -r4444 -H 192.168.2.6 -p4445
- *
+ * 	./proxy -m1 -r4444 -H 192.168.2.6 -p4445
  *
  * Same as above, but utilize send bundles (-C1, requires -u1 send_ring) as well
- * with ring provided send buffers.
+ * with ring provided send buffers, and recv bundles (-c1).
  *
- * 	./proxy -m1 -d1 -f1 -u1 -C1 -r4444 -H 192.168.2.6 -p4445
+ * 	./proxy -m1 -c1 -u1 -C1 -r4444 -H 192.168.2.6 -p4445
  *
  * Act as a bi-directional proxy, listening on port 8888, and send data back
  * and forth between host and 192.168.2.6 on port 22. Use multishot receive,
  * DEFER_TASKRUN, fixed files, and buffers of size 1500.
  *
- * 	./proxy -m1 -d1 -f1 -B1 -b1500 -r8888 -H 192.168.2.6 -p22
+ * 	./proxy -m1 -B1 -b1500 -r8888 -H 192.168.2.6 -p22
  *
  * Act a sink, listening on port 4445, using multishot receive, DEFER_TASKRUN,
  * and fixed files:
  *
- * 	./proxy -m1 -d1 -s1 -f1 -r4445
+ * 	./proxy -m1 -s1 -r4445
  *
  * Run with -h to see a list of options, and their defaults.
  *
