@@ -2,7 +2,8 @@
 /*
  * Sample program that can act either as a packet sink, where it just receives
  * packets and doesn't do anything with them, or it can act as a proxy where it
- * receives packets and then sends them to a new destination.
+ * receives packets and then sends them to a new destination. The proxy can
+ * be unidirectional (-B0), or bi-direction (-B1).
  * 
  * Examples:
  *
@@ -12,8 +13,8 @@
  * 	./proxy -m1 -d1 -f1 -r4444 -H 192.168.2.6 -p4445
  *
  *
- * Same as above, but utilize multishot send as well with ring provided send
- * buffers.
+ * Same as above, but utilize send bundles (-U1, requires -u1 send_ring) as well
+ * with ring provided send buffers.
  *
  * 	./proxy -m1 -d1 -f1 -u1 -U1 -r4444 -H 192.168.2.6 -p4445
  *
