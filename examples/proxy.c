@@ -90,6 +90,7 @@ static int snd_msg;
 static int send_ring = -1;
 static int snd_bundle;
 static int rcv_bundle;
+static int use_huge;
 static int verbose;
 
 static int nr_bufs = 256;
@@ -1550,34 +1551,6 @@ static int handle_cqe(struct io_uring *ring, struct io_uring_cqe *cqe)
 	return ret;
 }
 
-static void usage(const char *name)
-{
-	printf("%s:\n", name);
-	printf("\t-m:\t\tUse multishot receive (%d)\n", recv_mshot);
-	printf("\t-d:\t\tUse DEFER_TASKRUN (%d)\n", defer_tw);
-	printf("\t-S:\t\tUse SQPOLL (%d)\n", sqpoll);
-	printf("\t-f:\t\tUse only fixed files (%d)\n", fixed_files);
-	printf("\t-t:\t\tTimeout for waiting on CQEs (usec) (%d)\n", wait_usec);
-	printf("\t-w:\t\tNumber of CQEs to wait for each loop (%d)\n", wait_batch);
-	printf("\t-B:\t\tUse bi-directional mode (%d)\n", bidi);
-	printf("\t-s:\t\tAct only as a sink (%d)\n", is_sink);
-	printf("\t-q:\t\tRing size to use (%d)\n", ring_size);
-	printf("\t-H:\t\tHost to connect to (%s)\n", host);
-	printf("\t-r:\t\tPort to receive on (%d)\n", receive_port);
-	printf("\t-p:\t\tPort to connect to (%d)\n", send_port);
-	printf("\t-6:\t\tUse IPv6 (%d)\n", ipv6);
-	printf("\t-N:\t\tUse NAPI polling (%d)\n", napi);
-	printf("\t-T:\t\tNAPI timeout (usec) (%d)\n", napi_timeout);
-	printf("\t-b:\t\tSend/receive buf size (%d)\n", buf_size);
-	printf("\t-n:\t\tNumber of provided buffers (pow2) (%d)\n", nr_bufs);
-	printf("\t-u:\t\tUse provided buffers for send (%d)\n", send_ring);
-	printf("\t-C:\t\tUse bundles for send (%d)\n", snd_bundle);
-	printf("\t-c:\t\tUse bundles for recv (%d)\n", snd_bundle);
-	printf("\t-M:\t\tUse sendmsg (%d)\n", snd_msg);
-	printf("\t-M:\t\tUse recvmsg (%d)\n", rcv_msg);
-	printf("\t-V:\t\tIncrease verbosity (%d)\n", verbose);
-}
-
 static void house_keeping(struct io_uring *ring)
 {
 	struct conn_dir *cd;
@@ -1688,6 +1661,12 @@ static int event_loop(struct io_uring *ring, int fd)
 
 		vlog("Submit and wait for %d\n", to_wait);
 		ret = io_uring_submit_and_wait_timeout(ring, &cqe, to_wait, ts, NULL);
+
+		if (*ring->cq.koverflow)
+			printf("overflow %u\n", *ring->cq.koverflow);
+		if (*ring->sq.kflags &  IORING_SQ_CQ_OVERFLOW)
+			printf("saw overflow\n");
+
 		vlog("Submit and wait: %d\n", ret);
 
 		i = flags = 0;
@@ -1719,6 +1698,36 @@ static int event_loop(struct io_uring *ring, int fd)
 	return 0;
 }
 
+static void usage(const char *name)
+{
+	printf("%s:\n", name);
+	printf("\t-m:\t\tUse multishot receive (%d)\n", recv_mshot);
+	printf("\t-d:\t\tUse DEFER_TASKRUN (%d)\n", defer_tw);
+	printf("\t-S:\t\tUse SQPOLL (%d)\n", sqpoll);
+	printf("\t-f:\t\tUse only fixed files (%d)\n", fixed_files);
+	printf("\t-a:\t\tUse huge pages for the ring (%d)\n", use_huge);
+	printf("\t-t:\t\tTimeout for waiting on CQEs (usec) (%d)\n", wait_usec);
+	printf("\t-w:\t\tNumber of CQEs to wait for each loop (%d)\n", wait_batch);
+	printf("\t-B:\t\tUse bi-directional mode (%d)\n", bidi);
+	printf("\t-s:\t\tAct only as a sink (%d)\n", is_sink);
+	printf("\t-q:\t\tRing size to use (%d)\n", ring_size);
+	printf("\t-H:\t\tHost to connect to (%s)\n", host);
+	printf("\t-r:\t\tPort to receive on (%d)\n", receive_port);
+	printf("\t-p:\t\tPort to connect to (%d)\n", send_port);
+	printf("\t-6:\t\tUse IPv6 (%d)\n", ipv6);
+	printf("\t-N:\t\tUse NAPI polling (%d)\n", napi);
+	printf("\t-T:\t\tNAPI timeout (usec) (%d)\n", napi_timeout);
+	printf("\t-b:\t\tSend/receive buf size (%d)\n", buf_size);
+	printf("\t-n:\t\tNumber of provided buffers (pow2) (%d)\n", nr_bufs);
+	printf("\t-u:\t\tUse provided buffers for send (%d)\n", send_ring);
+	printf("\t-C:\t\tUse bundles for send (%d)\n", snd_bundle);
+	printf("\t-c:\t\tUse bundles for recv (%d)\n", snd_bundle);
+	printf("\t-M:\t\tUse sendmsg (%d)\n", snd_msg);
+	printf("\t-M:\t\tUse recvmsg (%d)\n", rcv_msg);
+	printf("\t-V:\t\tIncrease verbosity (%d)\n", verbose);
+}
+
+
 /*
  * Options parsing the ring / net setup
  */
@@ -1727,7 +1736,7 @@ int main(int argc, char *argv[])
 	struct io_uring ring;
 	struct io_uring_params params;
 	struct sigaction sa = { };
-	const char *optstring = "m:d:S:s:b:f:H:r:p:n:B:N:T:w:t:M:R:u:c:C:q:6Vh?";
+	const char *optstring = "m:d:S:s:b:f:H:r:p:n:B:N:T:w:t:M:R:u:c:C:q:a:6Vh?";
 	int opt, ret, fd;
 
 	page_size = sysconf(_SC_PAGESIZE);
@@ -1804,6 +1813,9 @@ int main(int argc, char *argv[])
 		case 'q':
 			ring_size = atoi(optarg);
 			break;
+		case 'a':
+			use_huge = !!atoi(optarg);
+			break;
 		case 'V':
 			verbose++;
 			break;
@@ -1872,6 +1884,17 @@ int main(int argc, char *argv[])
 	params.flags |= IORING_SETUP_SINGLE_ISSUER | IORING_SETUP_CLAMP;
 	params.flags |= IORING_SETUP_CQSIZE;
 	params.cq_entries = 1024;
+
+	/*
+	 * If use_huge is set, setup the ring with IORING_SETUP_NO_MMAP. This
+	 * means that the application allocates the memory for the ring, and
+	 * the kernel maps it. The alternative is having the kernel allocate
+	 * the memory, and then liburing will mmap it. But we can't really
+	 * support huge pages that way. If this fails, then ensure that the
+	 * system has huge pages set aside upfront.
+	 */
+	if (use_huge)
+		params.flags |= IORING_SETUP_NO_MMAP;
 
 	/*
 	 * DEFER_TASKRUN decouples async event reaping and retrying from
@@ -1995,10 +2018,10 @@ int main(int argc, char *argv[])
 
 	printf("Backend: sqpoll=%d, defer_tw=%d, fixed_files=%d "
 		"is_sink=%d, buf_size=%d, nr_bufs=%d, host=%s, send_port=%d "
-		"receive_port=%d, napi=%d, napi_timeout=%d\n",
+		"receive_port=%d, napi=%d, napi_timeout=%d, huge_page=%d\n",
 			sqpoll, defer_tw, fixed_files, is_sink,
 			buf_size, nr_bufs, host, send_port, receive_port,
-			napi, napi_timeout);
+			napi, napi_timeout, use_huge);
 	printf(" recv options: recvmsg=%d, recv_mshot=%d, recv_bundle=%d\n",
 			rcv_msg, recv_mshot, rcv_bundle);
 	printf(" send options: sendmsg=%d, send_ring=%d, send_bundle=%d\n",
