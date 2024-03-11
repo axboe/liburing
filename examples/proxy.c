@@ -1145,8 +1145,6 @@ start_close:
 	}
 
 	vlog("%d: recv: bid=%d, res=%d, cflags=%x\n", c->tid, bid, cqe->res, cqe->flags);
-	assert(cqe->res);
-
 	/*
 	 * If we're a sink, we're done here. Just replenish the buffer back
 	 * to the pool. For proxy mode, we will send the data to the other
@@ -1288,7 +1286,6 @@ static void prep_next_send(struct io_uring *ring, struct conn *c,
 
 		if (!msg_vec(imsg)->iov_len)
 			return;
-		assert(msg_vec(imsg)->iov_len);
 		imsg->msg.msg_iov = msg_vec(imsg)->iov;
 		imsg->msg.msg_iovlen = msg_vec(imsg)->iov_len;
 		msg_vec(imsg)->iov_len = 0;
