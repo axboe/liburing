@@ -8,7 +8,7 @@
 struct userdata {
 	union {
 		struct {
-			uint16_t op_tid; /* 3 bits op, 13 bits tid */
+			uint16_t op_tid; /* 4 bits op, 12 bits tid */
 			uint16_t bid;
 			uint16_t fd;
 		};

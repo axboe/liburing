@@ -106,9 +106,10 @@ struct pending_send {
 
 /*
  * For sendmsg/recvmsg. recvmsg just has a single vec, sendmsg will have
- * two vecs - one that is currently sent out and being sent, and one that
+ * two vecs - one that is currently submitted and being sent, and one that
  * is being prepared. When a new sendmsg is issued, we'll swap which one we
- * use.
+ * use. For send, even though we don't pass in the iovec itself, we use the
+ * vec to serialize the sends to avoid reordering.
  */
 struct msg_vec {
 	struct iovec *iov;
@@ -123,6 +124,7 @@ struct msg_vec {
 struct io_msg {
 	struct msghdr msg;
 	struct msg_vec vecs[2];
+	/* current msg_vec being prepared */
 	int vec_index;
 };
 
@@ -178,7 +180,9 @@ struct conn_buf_ring {
 };
 
 struct conn {
+	/* receive side buffer ring, new data arrives here */
 	struct conn_buf_ring in_br;
+	/* if send_ring is used, outgoing data to send */
 	struct conn_buf_ring out_br;
 
 	int tid;
@@ -229,6 +233,7 @@ static int other_dir_fd(struct conn *c, int fd)
 	return c->in_fd;
 }
 
+/* currently active msg_vec */
 static struct msg_vec *msg_vec(struct io_msg *imsg)
 {
 	return &imsg->vecs[imsg->vec_index];
@@ -510,6 +515,10 @@ static struct io_uring_sqe *get_sqe(struct io_uring *ring)
 	return sqe;
 }
 
+/*
+ * See __encode_userdata() for how we encode sqe->user_data, which is passed
+ * back as cqe->user_data at completion time.
+ */
 static void encode_userdata(struct io_uring_sqe *sqe, struct conn *c, int op,
 			    int bid, int fd)
 {
@@ -645,6 +654,11 @@ static void queue_shutdown_close(struct io_uring *ring, struct conn *c, int fd)
 	encode_userdata(sqe2, c, __CLOSE, 0, fd);
 }
 
+/*
+ * This connection is going away, queue a cancel for any pending recv, for
+ * example, we have pending for this ring. For completeness, we issue a cancel
+ * for any request we have pending for both in_fd and out_fd.
+ */
 static void queue_cancel(struct io_uring *ring, struct conn *c)
 {
 	struct io_uring_sqe *sqe;
@@ -729,6 +743,10 @@ static int replenish_buffer(struct conn_buf_ring *cbr, int bid, int offset)
 	return buf_size;
 }
 
+/*
+ * Iterate buffers from '*bid' and with a total size of 'bytes' and add them
+ * back to our receive ring so they can be reused for new receives.
+ */
 static int replenish_buffers(struct conn *c, int *bid, int bytes)
 {
 	struct conn_buf_ring *cbr = &c->in_br;
@@ -778,6 +796,11 @@ static void free_msgs(struct conn_dir *cd)
 	free_mvec(&cd->io_rcv_msg.vecs[0]);
 }
 
+/*
+ * Multishot accept completion triggered. If we're acting as a sink, we're
+ * good to go. Just issue a receive for that case. If we're acting as a proxy,
+ * then start opening a socket that we can use to connect to the other end.
+ */
 static int handle_accept(struct io_uring *ring, struct io_uring_cqe *cqe)
 {
 	struct io_uring_sqe *sqe;
@@ -858,6 +881,9 @@ static int handle_accept(struct io_uring *ring, struct io_uring_cqe *cqe)
 	return 0;
 }
 
+/*
+ * Our socket request completed, issue a connect request to the other end.
+ */
 static int handle_sock(struct io_uring *ring, struct io_uring_cqe *cqe)
 {
 	struct conn *c = cqe_to_conn(cqe);
@@ -903,6 +929,11 @@ static int handle_sock(struct io_uring *ring, struct io_uring_cqe *cqe)
 	return 0;
 }
 
+/*
+ * Connection to the other end is done, submit a receive to start receiving
+ * data. If we're a bidirectional proxy, issue a receive on both ends. If not,
+ * then just a single recv will do.
+ */
 static int handle_connect(struct io_uring *ring, struct io_uring_cqe *cqe)
 {
 	struct conn *c = cqe_to_conn(cqe);
@@ -917,6 +948,12 @@ static int handle_connect(struct io_uring *ring, struct io_uring_cqe *cqe)
 	return 0;
 }
 
+/*
+ * Append new segment to our currently active msg_vec. This will be submitted
+ * as a sendmsg (with all of it), or as separate sends, later. If we're using
+ * send_ring, then we won't hit this path. Instead, outgoing buffers are
+ * added directly to our outgoing send buffer ring.
+ */
 static void send_append_vec(struct conn_dir *cd, void *data, int len)
 {
 	struct msg_vec *mvec = snd_msg_vec(cd);
@@ -967,6 +1004,11 @@ static int recv_done_res(int res)
 	return 0;
 }
 
+/*
+ * Any receive that isn't recvmsg with multishot can be handled the same way.
+ * Iterate from '*bid' and 'in_bytes' in total, and append the data to the
+ * outgoing queue.
+ */
 static int recv_bids(struct conn *c, struct conn_dir *cd, int *bid, int in_bytes)
 {
 	struct conn_buf_ring *cbr = &c->out_br;
@@ -1002,6 +1044,9 @@ static int recv_bids(struct conn *c, struct conn_dir *cd, int *bid, int in_bytes
 	return nr_packets;
 }
 
+/*
+ * Special handling of recvmsg with multishot
+ */
 static int recv_mshot_msg(struct conn *c, struct conn_dir *cd, int *bid,
 			  int in_bytes)
 {
@@ -1205,6 +1250,11 @@ static void submit_send(struct io_uring *ring, struct conn *c,
 		cd->snd_mshot++;
 }
 
+/*
+ * Prepare the next send request, if we need to. If one is already pending,
+ * or if we're a sink and we don't need to do sends, then there's nothing
+ * to do.
+ */
 static void prep_next_send(struct io_uring *ring, struct conn *c,
 			   struct conn_dir *cd, int fd)
 {
@@ -1218,8 +1268,18 @@ static void prep_next_send(struct io_uring *ring, struct conn *c,
 		bid = 0;
 
 	if (send_ring) {
+		/*
+		 * send_ring mode is easy, there's nothing to do but submit
+		 * our next send request. That will empty the entire outgoing
+		 * queue.
+		 */
 		submit_send(ring, c, cd, fd, NULL, 0, bid);
 	} else if (snd_msg) {
+		/*
+		 * For sendmsg mode, submit our currently prepared iovec, if
+		 * we have one, and swap our iovecs so that any further
+		 * receives will start preparing that one.
+		 */
 		struct io_msg *imsg = &cd->io_snd_msg;
 
 		if (!msg_vec(imsg)->iov_len)
@@ -1231,6 +1291,11 @@ static void prep_next_send(struct io_uring *ring, struct conn *c,
 		imsg->vec_index = !imsg->vec_index;
 		submit_send(ring, c, cd, fd, NULL, 0, bid);
 	} else {
+		/*
+		 * send without send_ring - submit the next available vec,
+		 * if any. If this vec is the last one in the current series,
+		 * then swap to the next vec.
+		 */
 		struct io_msg *imsg = &cd->io_snd_msg;
 		struct msg_vec *mvec = msg_vec(imsg);
 		struct iovec *iov;
