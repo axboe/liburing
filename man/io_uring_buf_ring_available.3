@@ -9,9 +9,9 @@ io_uring_buf_ring_available \- return number of unconsumed provided ring buffer 
 .nf
 .B #include <liburing.h>
 .PP
-.BI "void io_uring_buf_ring_available(struct io_uring *" ring ",
-.BI "                                 struct io_uring_buf_ring *" br ",
-.BI "                                 unsigned short " bgid ");"
+.BI "int io_uring_buf_ring_available(struct io_uring *" ring ",
+.BI "                                struct io_uring_buf_ring *" br ",
+.BI "                                unsigned short " bgid ");"
 .fi
 .SH DESCRIPTION
 .PP
