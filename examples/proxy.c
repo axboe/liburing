@@ -1556,25 +1556,25 @@ static void usage(const char *name)
 	printf("\t-m:\t\tUse multishot receive (%d)\n", recv_mshot);
 	printf("\t-d:\t\tUse DEFER_TASKRUN (%d)\n", defer_tw);
 	printf("\t-S:\t\tUse SQPOLL (%d)\n", sqpoll);
-	printf("\t-b:\t\tSend/receive buf size (%d)\n", buf_size);
-	printf("\t-u:\t\tUse provided buffers for send (%d)\n", send_ring);
-	printf("\t-C:\t\tUse bundles for send (%d)\n", snd_bundle);
-	printf("\t-c:\t\tUse bundles for recv (%d)\n", snd_bundle);
-	printf("\t-n:\t\tNumber of provided buffers (pow2) (%d)\n", nr_bufs);
-	printf("\t-w:\t\tNumber of CQEs to wait for each loop (%d)\n", wait_batch);
-	printf("\t-t:\t\tTimeout for waiting on CQEs (usec) (%d)\n", wait_usec);
-	printf("\t-s:\t\tAct only as a sink (%d)\n", is_sink);
 	printf("\t-f:\t\tUse only fixed files (%d)\n", fixed_files);
+	printf("\t-t:\t\tTimeout for waiting on CQEs (usec) (%d)\n", wait_usec);
+	printf("\t-w:\t\tNumber of CQEs to wait for each loop (%d)\n", wait_batch);
 	printf("\t-B:\t\tUse bi-directional mode (%d)\n", bidi);
+	printf("\t-s:\t\tAct only as a sink (%d)\n", is_sink);
+	printf("\t-q:\t\tRing size to use (%d)\n", ring_size);
 	printf("\t-H:\t\tHost to connect to (%s)\n", host);
 	printf("\t-r:\t\tPort to receive on (%d)\n", receive_port);
 	printf("\t-p:\t\tPort to connect to (%d)\n", send_port);
 	printf("\t-6:\t\tUse IPv6 (%d)\n", ipv6);
 	printf("\t-N:\t\tUse NAPI polling (%d)\n", napi);
 	printf("\t-T:\t\tNAPI timeout (usec) (%d)\n", napi_timeout);
+	printf("\t-b:\t\tSend/receive buf size (%d)\n", buf_size);
+	printf("\t-n:\t\tNumber of provided buffers (pow2) (%d)\n", nr_bufs);
+	printf("\t-u:\t\tUse provided buffers for send (%d)\n", send_ring);
+	printf("\t-C:\t\tUse bundles for send (%d)\n", snd_bundle);
+	printf("\t-c:\t\tUse bundles for recv (%d)\n", snd_bundle);
 	printf("\t-M:\t\tUse sendmsg (%d)\n", snd_msg);
 	printf("\t-M:\t\tUse recvmsg (%d)\n", rcv_msg);
-	printf("\t-q:\t\tRing size to use (%d)\n", ring_size);
 	printf("\t-V:\t\tIncrease verbosity (%d)\n", verbose);
 }
 
