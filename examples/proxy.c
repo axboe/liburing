@@ -1871,7 +1871,7 @@ int main(int argc, char *argv[])
 	memset(&params, 0, sizeof(params));
 	params.flags |= IORING_SETUP_SINGLE_ISSUER | IORING_SETUP_CLAMP;
 	params.flags |= IORING_SETUP_CQSIZE;
-	params.cq_entries = 131072;
+	params.cq_entries = 1024;
 
 	/*
 	 * DEFER_TASKRUN decouples async event reaping and retrying from
