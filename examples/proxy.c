@@ -89,6 +89,7 @@ static int send_ring = -1;
 static int snd_bundle;
 static int rcv_bundle;
 static int use_huge;
+static int ext_stat;
 static int verbose;
 
 static int nr_bufs = 256;
@@ -143,6 +144,9 @@ struct conn_dir {
 
 	int snd_next_bid;
 	int rcv_next_bid;
+
+	int *rcv_bucket;
+	int *snd_bucket;
 
 	unsigned long in_bytes, out_bytes;
 
@@ -401,6 +405,22 @@ static int setup_buffer_rings(struct io_uring *ring, struct conn *c)
 	return 0;
 }
 
+static void show_buckets(struct conn_dir *cd)
+{
+	int i;
+
+	if (!cd->rcv_bucket || !cd->snd_bucket)
+		return;
+
+	printf("\t Packets per recv/send:\n");
+	for (i = 0; i < nr_bufs; i++) {
+		if (!cd->rcv_bucket[i] && !cd->snd_bucket[i])
+			continue;
+		printf("\t bucket(%3d): rcv=%u snd=%u\n", i, cd->rcv_bucket[i],
+							     cd->snd_bucket[i]);
+	}
+}
+
 static void __show_stats(struct conn *c)
 {
 	unsigned long msec, qps;
@@ -444,6 +464,7 @@ static void __show_stats(struct conn *c)
 			cd->out_bytes, cd->out_bytes >> 10);
 		printf("\t   : mshot_rcv=%d, mshot_snd=%d\n", cd->rcv_mshot,
 			cd->snd_mshot);
+		show_buckets(cd);
 
 	}
 
@@ -819,6 +840,10 @@ static int handle_accept(struct io_uring *ring, struct io_uring_cqe *cqe)
 		cd->index = i;
 		cd->snd_next_bid = -1;
 		cd->rcv_next_bid = -1;
+		if (ext_stat) {
+			cd->rcv_bucket = calloc(nr_bufs, sizeof(int));
+			cd->snd_bucket = calloc(nr_bufs, sizeof(int));
+		}
 		init_msgs(cd);
 	}
 
@@ -1148,6 +1173,9 @@ start_close:
 	else
 		nr_packets = recv_bids(c, ocd, &bid, cqe->res);
 
+	if (cd->rcv_bucket)
+		cd->rcv_bucket[nr_packets]++;
+
 	ocd->out_buffers += nr_packets;
 	assert(ocd->out_buffers <= nr_bufs);
 
@@ -1422,6 +1450,9 @@ static int __handle_send(struct io_uring *ring, struct conn *c,
 	else
 		nr_packets = handle_send_buf(c, cd, bid, cqe->res);
 
+	if (cd->snd_bucket)
+		cd->snd_bucket[nr_packets]++;
+
 	cd->out_buffers -= nr_packets;
 	assert(cd->out_buffers >= 0);
 
@@ -1528,6 +1559,8 @@ static int handle_close(struct io_uring *ring, struct io_uring_cqe *cqe)
 		free_buffer_rings(ring, c);
 		free_msgs(&c->cd[0]);
 		free_msgs(&c->cd[1]);
+		free(c->cd[0].rcv_bucket);
+		free(c->cd[0].snd_bucket);
 	}
 
 	return 0;
@@ -1781,6 +1814,7 @@ static void usage(const char *name)
 	printf("\t-c:\t\tUse bundles for recv (%d)\n", snd_bundle);
 	printf("\t-M:\t\tUse sendmsg (%d)\n", snd_msg);
 	printf("\t-M:\t\tUse recvmsg (%d)\n", rcv_msg);
+	printf("\t-x:\t\tShow extended stats (%d)\n", ext_stat);
 	printf("\t-V:\t\tIncrease verbosity (%d)\n", verbose);
 }
 
@@ -1793,7 +1827,7 @@ int main(int argc, char *argv[])
 	struct io_uring ring;
 	struct io_uring_params params;
 	struct sigaction sa = { };
-	const char *optstring = "m:d:S:s:b:f:H:r:p:n:B:N:T:w:t:M:R:u:c:C:q:a:6Vh?";
+	const char *optstring = "m:d:S:s:b:f:H:r:p:n:B:N:T:w:t:M:R:u:c:C:q:a:x:6Vh?";
 	int opt, ret, fd;
 
 	page_size = sysconf(_SC_PAGESIZE);
@@ -1872,6 +1906,9 @@ int main(int argc, char *argv[])
 			break;
 		case 'a':
 			use_huge = !!atoi(optarg);
+			break;
+		case 'x':
+			ext_stat = !!atoi(optarg);
 			break;
 		case 'V':
 			verbose++;
