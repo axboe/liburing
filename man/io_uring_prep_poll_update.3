@@ -40,7 +40,19 @@ modifier flags is a bitmask and may contain and OR'ed mask of:
 If set, the poll update request will replace the existing events being waited
 for with the ones specified in the
 .I poll_mask
-argument to the function.
+argument to the function. Note that only the lower 16 bits of events can
+be updated. This includes things like
+.B EPOLLIN
+and
+.B EPOLLOUT .
+Higher order masks/settings are included as internal state, and cannot be
+modified. That includes settings like
+.B EPOLLONESHOT ,
+.B EPOLLEXCLUSIVE ,
+and
+.B EPOLLET .
+If an application wishes to modify these, it must cancel/remove the existing
+poll request and arm a new one.
 .TP
 .B IORING_POLL_UPDATE_USER_DATA
 If set, the poll update request will update the existing user_data of the
