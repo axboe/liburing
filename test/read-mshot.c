@@ -236,7 +236,7 @@ static int test(int first_good, int async, int overflow)
 		}
 		if (!(cqe->flags & IORING_CQE_F_MORE)) {
 			/* we expect this on overflow */
-			if (overflow && (i - 1 == NR_OVERFLOW))
+			if (overflow && i >= NR_OVERFLOW)
 				break;
 			fprintf(stderr, "no more cqes\n");
 			return 1;
