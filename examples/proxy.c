@@ -1827,6 +1827,11 @@ static void house_keeping(struct io_uring *ring)
 	for (i = 0; i < nr_conns; i++) {
 		c = &conns[i];
 
+		for (j = 0; j < 2; j++) {
+			struct conn_dir *cd = &c->cd[j];
+
+			bytes += cd->in_bytes + cd->out_bytes;
+		}
 		if (c->flags & CONN_F_DISCONNECTED) {
 			vlog("%d: disconnected\n", i);
 
@@ -1838,12 +1843,6 @@ static void house_keeping(struct io_uring *ring)
 			}
 			continue;
 		}
-		for (j = 0; j < 2; j++) {
-			struct conn_dir *cd = &c->cd[j];
-
-			bytes += cd->in_bytes + cd->out_bytes;
-		}
-
 		if (c->flags & CONN_F_DISCONNECTING)
 			continue;
 
