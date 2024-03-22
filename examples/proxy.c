@@ -315,6 +315,9 @@ static struct error_handler error_handlers[] = {
 	{ .name = "SHUTDOWN",	.error_fn = NULL, },
 	{ .name = "CANCEL",	.error_fn = NULL, },
 	{ .name = "CLOSE",	.error_fn = NULL, },
+	{ .name = "FD_PASS",	.error_fn = default_error, },
+	{ .name = "NOP",	.error_fn = NULL, },
+	{ .name = "STOP",	.error_fn = default_error, },
 };
 
 static void free_buffer_ring(struct io_uring *ring, struct conn_buf_ring *cbr)
