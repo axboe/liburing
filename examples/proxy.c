@@ -1305,7 +1305,7 @@ static int recv_error(struct error_handler *err, struct io_uring *ring,
 
 static void submit_send(struct io_uring *ring, struct conn *c,
 			struct conn_dir *cd, int fd, void *data, int len,
-			int bid)
+			int bid, int flags)
 {
 	struct io_uring_sqe *sqe;
 	int bgid = c->out_br.bgid;
@@ -1314,20 +1314,22 @@ static void submit_send(struct io_uring *ring, struct conn *c,
 		return;
 	cd->pending_send = 1;
 
+	flags |= MSG_WAITALL | MSG_NOSIGNAL;
+
 	sqe = get_sqe(ring);
 	if (snd_msg) {
 		struct io_msg *imsg = &cd->io_snd_msg;
 
 		if (snd_zc)
-			io_uring_prep_sendmsg_zc(sqe, fd, &imsg->msg, MSG_WAITALL|MSG_NOSIGNAL);
+			io_uring_prep_sendmsg_zc(sqe, fd, &imsg->msg, flags);
 		else
-			io_uring_prep_sendmsg(sqe, fd, &imsg->msg, MSG_WAITALL|MSG_NOSIGNAL);
+			io_uring_prep_sendmsg(sqe, fd, &imsg->msg, flags);
 	} else if (send_ring) {
-		io_uring_prep_send(sqe, fd, NULL, 0, MSG_WAITALL|MSG_NOSIGNAL);
+		io_uring_prep_send(sqe, fd, NULL, 0, flags);
 	} else if (!snd_zc) {
-		io_uring_prep_send(sqe, fd, data, len, MSG_WAITALL|MSG_NOSIGNAL);
+		io_uring_prep_send(sqe, fd, data, len, flags);
 	} else {
-		io_uring_prep_send_zc(sqe, fd, data, len, MSG_WAITALL, 0);
+		io_uring_prep_send_zc(sqe, fd, data, len, flags, 0);
 		sqe->ioprio |= IORING_RECVSEND_FIXED_BUF;
 		sqe->buf_index = bid;
 	}
@@ -1372,7 +1374,7 @@ static int prep_next_send(struct io_uring *ring, struct conn *c,
 		 * our next send request. That will empty the entire outgoing
 		 * queue.
 		 */
-		submit_send(ring, c, cd, fd, NULL, 0, bid);
+		submit_send(ring, c, cd, fd, NULL, 0, bid, 0);
 		return 1;
 	} else if (snd_msg) {
 		/*
@@ -1388,16 +1390,18 @@ static int prep_next_send(struct io_uring *ring, struct conn *c,
 		imsg->msg.msg_iovlen = msg_vec(imsg)->iov_len;
 		msg_vec(imsg)->iov_len = 0;
 		imsg->vec_index = !imsg->vec_index;
-		submit_send(ring, c, cd, fd, NULL, 0, bid);
+		submit_send(ring, c, cd, fd, NULL, 0, bid, 0);
 		return 1;
 	} else {
 		/*
 		 * send without send_ring - submit the next available vec,
 		 * if any. If this vec is the last one in the current series,
-		 * then swap to the next vec.
+		 * then swap to the next vec. We flag each send with MSG_MORE,
+		 * unless this is the last part of the current vec.
 		 */
 		struct io_msg *imsg = &cd->io_snd_msg;
 		struct msg_vec *mvec = msg_vec(imsg);
+		int flags = !snd_zc ? MSG_MORE : 0;
 		struct iovec *iov;
 
 		if (mvec->iov_len == mvec->cur_iov)
@@ -1409,8 +1413,9 @@ static int prep_next_send(struct io_uring *ring, struct conn *c,
 			mvec->iov_len = 0;
 			mvec->cur_iov = 0;
 			imsg->vec_index = !imsg->vec_index;
+			flags = 0;
 		}
-		submit_send(ring, c, cd, fd, iov->iov_base, iov->iov_len, bid);
+		submit_send(ring, c, cd, fd, iov->iov_base, iov->iov_len, bid, flags);
 		return 1;
 	}
 }
