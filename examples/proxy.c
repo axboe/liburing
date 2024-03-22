@@ -2364,16 +2364,17 @@ int main(int argc, char *argv[])
 	if (ret)
 		return ret;
 
-	printf("Backend: sqpoll=%d, defer_tw=%d, fixed_files=%d "
-		"is_sink=%d, buf_size=%d, nr_bufs=%d, host=%s, send_port=%d "
+	printf("Backend: sqpoll=%d, defer_tw=%d, fixed_files=%d, "
+		"is_sink=%d, buf_size=%d, nr_bufs=%d, host=%s, send_port=%d, "
 		"receive_port=%d, napi=%d, napi_timeout=%d, huge_page=%d\n",
 			sqpoll, defer_tw, fixed_files, is_sink,
 			buf_size, nr_bufs, host, send_port, receive_port,
 			napi, napi_timeout, use_huge);
 	printf(" recv options: recvmsg=%d, recv_mshot=%d, recv_bundle=%d\n",
 			rcv_msg, recv_mshot, rcv_bundle);
-	printf(" send options: sendmsg=%d, send_ring=%d, send_bundle=%d\n",
-			snd_msg, send_ring, snd_bundle);
+	printf(" send options: sendmsg=%d, send_ring=%d, send_bundle=%d, "
+		"send_zerocopy=%d\n", snd_msg, send_ring, snd_bundle,
+			snd_zc);
 
 	return parent_loop(&ring, fd);
 }
