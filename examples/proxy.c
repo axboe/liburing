@@ -216,8 +216,8 @@ static struct conn conns[MAX_CONNS];
 		printf(str, ##__VA_ARGS__);				\
 } while (0)
 
-static void prep_next_send(struct io_uring *ring, struct conn *c,
-			   struct conn_dir *cd, int fd);
+static int prep_next_send(struct io_uring *ring, struct conn *c,
+			  struct conn_dir *cd, int fd);
 static void *thread_main(void *data);
 
 static struct conn *cqe_to_conn(struct io_uring_cqe *cqe)
@@ -1349,14 +1349,18 @@ static void submit_send(struct io_uring *ring, struct conn *c,
  * Prepare the next send request, if we need to. If one is already pending,
  * or if we're a sink and we don't need to do sends, then there's nothing
  * to do.
+ *
+ * Return 1 if another send completion is expected, 0 if not.
  */
-static void prep_next_send(struct io_uring *ring, struct conn *c,
+static int prep_next_send(struct io_uring *ring, struct conn *c,
 			   struct conn_dir *cd, int fd)
 {
 	int bid;
 
-	if (cd->pending_send || is_sink || !cd->out_buffers)
-		return;
+	if (cd->pending_send || is_sink)
+		return 0;
+	if (!cd->out_buffers)
+		return 0;
 
 	bid = cd->snd_next_bid;
 	if (bid == -1)
@@ -1369,6 +1373,7 @@ static void prep_next_send(struct io_uring *ring, struct conn *c,
 		 * queue.
 		 */
 		submit_send(ring, c, cd, fd, NULL, 0, bid);
+		return 1;
 	} else if (snd_msg) {
 		/*
 		 * For sendmsg mode, submit our currently prepared iovec, if
@@ -1378,12 +1383,13 @@ static void prep_next_send(struct io_uring *ring, struct conn *c,
 		struct io_msg *imsg = &cd->io_snd_msg;
 
 		if (!msg_vec(imsg)->iov_len)
-			return;
+			return 0;
 		imsg->msg.msg_iov = msg_vec(imsg)->iov;
 		imsg->msg.msg_iovlen = msg_vec(imsg)->iov_len;
 		msg_vec(imsg)->iov_len = 0;
 		imsg->vec_index = !imsg->vec_index;
 		submit_send(ring, c, cd, fd, NULL, 0, bid);
+		return 1;
 	} else {
 		/*
 		 * send without send_ring - submit the next available vec,
@@ -1395,7 +1401,7 @@ static void prep_next_send(struct io_uring *ring, struct conn *c,
 		struct iovec *iov;
 
 		if (mvec->iov_len == mvec->cur_iov)
-			return;
+			return 0;
 		imsg->msg.msg_iov = msg_vec(imsg)->iov;
 		iov = &mvec->iov[mvec->cur_iov];
 		mvec->cur_iov++;
@@ -1405,6 +1411,7 @@ static void prep_next_send(struct io_uring *ring, struct conn *c,
 			imsg->vec_index = !imsg->vec_index;
 		}
 		submit_send(ring, c, cd, fd, iov->iov_base, iov->iov_len, bid);
+		return 1;
 	}
 }
 
@@ -1537,25 +1544,7 @@ static int __handle_send(struct io_uring *ring, struct conn *c,
 	cd->snd++;
 out:
 	if (!(cqe->flags & IORING_CQE_F_MORE)) {
-		int do_recv_arm = 1;
-
-		/*
-		 * If we're serializing sends, finish the batch before
-		 * arming a new receive.
-		 */
-		if (!snd_msg) {
-			struct io_msg *imsg = &cd->io_snd_msg;
-			struct msg_vec *mvec = msg_vec(imsg);
-
-			if (mvec->cur_iov + 1 != mvec->iov_len)
-				do_recv_arm = 0;
-		}
-		ocd = &c->cd[!cd->index];
-		if (do_recv_arm && !ocd->pending_recv) {
-			int fd = other_dir_fd(c, cqe_to_fd(cqe));
-
-			__submit_receive(ring, c, ocd, fd);
-		}
+		int do_recv_arm;
 
 		cd->pending_send = 0;
 
@@ -1564,7 +1553,14 @@ out:
 		 * do so if it does. if it doesn't have data yet, nothing to
 		 * do.
 		 */
-		prep_next_send(ring, c, cd, cqe_to_fd(cqe));
+		do_recv_arm = !prep_next_send(ring, c, cd, cqe_to_fd(cqe));
+
+		ocd = &c->cd[!cd->index];
+		if (do_recv_arm && !ocd->pending_recv) {
+			int fd = other_dir_fd(c, cqe_to_fd(cqe));
+
+			__submit_receive(ring, c, ocd, fd);
+		}
 out_close:
 		if (pending_shutdown(c))
 			close_cd(c, cd);
