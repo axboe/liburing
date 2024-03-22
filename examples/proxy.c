@@ -1725,7 +1725,7 @@ static void open_socket(struct conn *c)
 /*
  * Start of connection, we got our in descriptor.
  */
-static int handle_fd_pass(struct io_uring *ring, struct io_uring_cqe *cqe)
+static int handle_fd_pass(struct io_uring_cqe *cqe)
 {
 	struct conn *c = cqe_to_conn(cqe);
 	int fd = cqe_to_fd(cqe);
@@ -1736,7 +1736,7 @@ static int handle_fd_pass(struct io_uring *ring, struct io_uring_cqe *cqe)
 	return 0;
 }
 
-static int handle_stop(struct io_uring *ring, struct io_uring_cqe *cqe)
+static int handle_stop(struct io_uring_cqe *cqe)
 {
 	struct conn *c = cqe_to_conn(cqe);
 
@@ -1794,10 +1794,10 @@ static int handle_cqe(struct io_uring *ring, struct io_uring_cqe *cqe)
 		ret = handle_close(ring, cqe);
 		break;
 	case __FD_PASS:
-		ret = handle_fd_pass(ring, cqe);
+		ret = handle_fd_pass(cqe);
 		break;
 	case __STOP:
-		ret = handle_stop(ring, cqe);
+		ret = handle_stop(cqe);
 		break;
 	case __NOP:
 		ret = 0;
