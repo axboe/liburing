@@ -1635,8 +1635,6 @@ static int handle_close(struct io_uring *ring, struct io_uring_cqe *cqe)
 	struct conn *c = cqe_to_conn(cqe);
 	int fd = cqe_to_fd(cqe);
 
-	c->flags |= CONN_F_DISCONNECTED;
-
 	printf("Closed client: id=%d, in_fd=%d, out_fd=%d\n", c->tid, c->in_fd, c->out_fd);
 	if (fd == c->in_fd)
 		c->in_fd = -1;
@@ -1644,6 +1642,8 @@ static int handle_close(struct io_uring *ring, struct io_uring_cqe *cqe)
 		c->out_fd = -1;
 
 	if (c->in_fd == -1 && c->out_fd == -1) {
+		c->flags |= CONN_F_DISCONNECTED;
+
 		pthread_mutex_lock(&thread_lock);
 		__show_stats(c);
 		open_conns--;
