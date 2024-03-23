@@ -1591,6 +1591,9 @@ static int send_error(struct error_handler *err, struct io_uring *ring,
 
 	cd->pending_send = 0;
 
+	/* res can have high bit set */
+	if (cqe->flags & IORING_CQE_F_NOTIF)
+		return handle_send(ring, cqe);
 	if (cqe->res != -ENOBUFS)
 		return default_error(err, ring, cqe);
 
