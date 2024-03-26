@@ -352,10 +352,14 @@ err:
 static int test_basic(struct io_uring *ring, int fail)
 {
 	int *files;
-	int ret;
+	int ret, i;
 	int nr_files = fail ? 10 : 100;
 
-	files = open_files(nr_files, 0, 0);
+	files = open_files(nr_files, fail ? 90 : 0, 0);
+	if (fail) {
+		for (i = nr_files; i < nr_files + 90; i++)
+			files[i] = -2;
+	}
 	ret = io_uring_register_files(ring, files, 100);
 	if (ret) {
 		if (fail) {
