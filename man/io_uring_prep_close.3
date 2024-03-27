@@ -32,6 +32,16 @@ argument instead of the
 This is identical to unregistering the direct descriptor, and is provided as
 a convenience.
 
+To properly close a direct descriptor, the 
+.I sqe
+flag
+.B IOSQE_FIXED_FILE
+should not be set. If the flag is set, the descriptor can be reused after a
+manual call to
+.BR io_uring_register_files_update (3) .
+Otherwise the direct descriptor will not be available to operations that use
+.BR IORING_FILE_INDEX_ALLOC .
+
 These functions prepare an async
 .BR close (2)
 request. See that man page for details.
