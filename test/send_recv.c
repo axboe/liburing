@@ -268,7 +268,7 @@ static int test_invalid(void)
 	struct io_uring_cqe *cqe;
 	struct io_uring_sqe *sqe;
 
-	ret = t_create_ring(8, &ring, 0);
+	ret = t_create_ring(8, &ring, IORING_SETUP_SUBMIT_ALL);
 	if (ret)
 		return ret;
 
