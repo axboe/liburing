@@ -365,15 +365,12 @@ err:
 	return -1;
 }
 
-int main(int argc, char *argv[])
+static int test(int flags)
 {
 	struct io_uring ring;
 	int ret;
 
-	if (argc > 1)
-		return T_EXIT_SKIP;
-
-	ret = io_uring_queue_init(8, &ring, 0);
+	ret = io_uring_queue_init(8, &ring, flags);
 	if (ret) {
 		fprintf(stderr, "io_uring_queue_setup() = %d\n", ret);
 		return T_EXIT_FAIL;
@@ -411,5 +408,35 @@ int main(int argc, char *argv[])
 	}
 
 	io_uring_queue_exit(&ring);
+	return T_EXIT_PASS;
+}
+
+int main(int argc, char *argv[])
+{
+	int ret;
+
+	if (argc > 1)
+		return T_EXIT_SKIP;
+
+	ret = test(0);
+	if (ret == -1) {
+		fprintf(stderr, "test 0 failed\n");
+		return T_EXIT_FAIL;
+	}
+	if (no_connect)
+		return T_EXIT_SKIP;
+
+	ret = test(IORING_SETUP_SQPOLL);
+	if (ret == -1) {
+		fprintf(stderr, "test SQPOLL failed\n");
+		return T_EXIT_FAIL;
+	}
+
+	ret = test(IORING_SETUP_SINGLE_ISSUER|IORING_SETUP_DEFER_TASKRUN);
+	if (ret == -1) {
+		fprintf(stderr, "test DEFER failed\n");
+		return T_EXIT_FAIL;
+	}
+
 	return T_EXIT_PASS;
 }
