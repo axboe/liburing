@@ -143,6 +143,8 @@ struct conn_dir {
 	int pending_send;
 	int pending_recv;
 
+	int snd_notif;
+
 	int out_buffers;
 
 	int rcv, rcv_shrt, rcv_enobufs, rcv_mshot;
@@ -1320,10 +1322,12 @@ static void submit_send(struct io_uring *ring, struct conn *c,
 	if (snd_msg) {
 		struct io_msg *imsg = &cd->io_snd_msg;
 
-		if (snd_zc)
+		if (snd_zc) {
 			io_uring_prep_sendmsg_zc(sqe, fd, &imsg->msg, flags);
-		else
+			cd->snd_notif++;
+		} else {
 			io_uring_prep_sendmsg(sqe, fd, &imsg->msg, flags);
+		}
 	} else if (send_ring) {
 		io_uring_prep_send(sqe, fd, NULL, 0, flags);
 	} else if (!snd_zc) {
@@ -1332,6 +1336,7 @@ static void submit_send(struct io_uring *ring, struct conn *c,
 		io_uring_prep_send_zc(sqe, fd, data, len, flags, 0);
 		sqe->ioprio |= IORING_RECVSEND_FIXED_BUF;
 		sqe->buf_index = bid;
+		cd->snd_notif++;
 	}
 	encode_userdata(sqe, c, __SEND, bid, fd);
 	if (fixed_files)
@@ -1515,39 +1520,50 @@ static int __handle_send(struct io_uring *ring, struct conn *c,
 		bid = cqe_to_bid(cqe);
 	}
 
-	if (cqe->flags & IORING_CQE_F_NOTIF)
-		goto out;
-
-	if (cqe->res && cqe->res < buf_size)
-		cd->snd_shrt++;
-
 	/*
-	 * BIDI will use the same buffer pool and do sends on both CDs,
-	 * so can't reliably check. TODO.
+	 * CQE notifications only happen with send/sendmsg zerocopy. They
+	 * tell us that the data has been acked, and that hence the buffer
+	 * is now free to reuse. Waiting on an ACK for each packet will slow
+	 * us down tremendously, so do all of our sends and then wait for
+	 * the ACKs to come in. They tend to come in bundles anyway. Once
+	 * all acks are done (cd->snd_notif == 0), then fire off the next
+	 * receive.
 	 */
-	if (!bidi && send_ring && cd->snd_next_bid != -1 && bid != cd->snd_next_bid) {
-		fprintf(stderr, "send bid %d, wanted %d at %lu\n", bid,
+	if (cqe->flags & IORING_CQE_F_NOTIF) {
+		cd->snd_notif--;
+	} else {
+		if (cqe->res && cqe->res < buf_size)
+			cd->snd_shrt++;
+
+		/*
+		 * BIDI will use the same buffer pool and do sends on both CDs,
+		 * so can't reliably check. TODO.
+		 */
+		if (!bidi && send_ring && cd->snd_next_bid != -1 &&
+		    bid != cd->snd_next_bid) {
+			fprintf(stderr, "send bid %d, wanted %d at %lu\n", bid,
 					cd->snd_next_bid, cd->out_bytes);
-		goto out_close;
+			goto out_close;
+		}
+
+		assert(bid <= nr_bufs);
+
+		vlog("send: got %d, %lu\n", cqe->res, cd->out_bytes);
+
+		if (send_ring)
+			nr_packets = handle_send_ring(c, cd, bid, cqe->res);
+		else
+			nr_packets = handle_send_buf(c, cd, bid, cqe->res);
+
+		if (cd->snd_bucket)
+			cd->snd_bucket[nr_packets]++;
+
+		cd->out_buffers -= nr_packets;
+		assert(cd->out_buffers >= 0);
+
+		cd->snd++;
 	}
 
-	assert(bid <= nr_bufs);
-
-	vlog("send: got %d, %lu\n", cqe->res, cd->out_bytes);
-
-	if (send_ring)
-		nr_packets = handle_send_ring(c, cd, bid, cqe->res);
-	else
-		nr_packets = handle_send_buf(c, cd, bid, cqe->res);
-
-	if (cd->snd_bucket)
-		cd->snd_bucket[nr_packets]++;
-
-	cd->out_buffers -= nr_packets;
-	assert(cd->out_buffers >= 0);
-
-	cd->snd++;
-out:
 	if (!(cqe->flags & IORING_CQE_F_MORE)) {
 		int do_recv_arm;
 
@@ -1561,7 +1577,7 @@ out:
 		do_recv_arm = !prep_next_send(ring, c, cd, cqe_to_fd(cqe));
 
 		ocd = &c->cd[!cd->index];
-		if (do_recv_arm && !ocd->pending_recv) {
+		if (!cd->snd_notif && do_recv_arm && !ocd->pending_recv) {
 			int fd = other_dir_fd(c, cqe_to_fd(cqe));
 
 			__submit_receive(ring, c, ocd, fd);
