@@ -115,6 +115,7 @@ test_srcs := \
 	madvise.c \
 	mkdir.c \
 	msg-ring.c \
+	msg-ring-fd.c \
 	msg-ring-flags.c \
 	msg-ring-overflow.c \
 	multicqes_drain.c \
