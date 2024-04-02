@@ -58,6 +58,7 @@ static void *thread_fn(void *__data)
 	}
 
 	fd = cqe->res;
+	io_uring_cqe_seen(&ring, cqe);
 	sqe = io_uring_get_sqe(&ring);
 	io_uring_prep_read(sqe, fd, d->buf, sizeof(d->buf), 0);
 	sqe->flags |= IOSQE_FIXED_FILE;
@@ -127,6 +128,14 @@ static int test_remote(struct io_uring *src, int ring_flags)
 			fprintf(stderr, "wait_cqe: %d\n", ret);
 			return 1;
 		}
+		if (cqe->res < 0) {
+			fprintf(stderr, "cqe res %d\n", cqe->res);
+			return 1;
+		}
+		if (cqe->user_data == 1 && cqe->res != sizeof(buf)) {
+			fprintf(stderr, "short write %d\n", cqe->res);
+			return 1;
+		}
 		io_uring_cqe_seen(src, cqe);
 	}
 
@@ -181,15 +190,24 @@ static int test_local(struct io_uring *src, struct io_uring *dst)
 	sqe->user_data = 1;
 
 	sqe = io_uring_get_sqe(src);
-	io_uring_prep_msg_ring_fd(sqe, dst->ring_fd, 0, 0, 0, 0);
+	io_uring_prep_msg_ring_fd(sqe, dst->ring_fd, 0, 0, 10, 0);
 	sqe->user_data = 2;
 	
 	io_uring_submit(src);
 
+	fd = -1;
 	for (i = 0; i < 2; i++) {
 		ret = io_uring_wait_cqe(src, &cqe);
 		if (ret) {
 			fprintf(stderr, "wait_cqe: %d\n", ret);
+			return 1;
+		}
+		if (cqe->res < 0) {
+			fprintf(stderr, "cqe res %d\n", cqe->res);
+			return 1;
+		}
+		if (cqe->user_data == 1 && cqe->res != sizeof(buf)) {
+			fprintf(stderr, "short write %d\n", cqe->res);
 			return 1;
 		}
 		io_uring_cqe_seen(src, cqe);
@@ -206,9 +224,11 @@ static int test_local(struct io_uring *src, struct io_uring *dst)
 	}
 
 	fd = cqe->res;
+	io_uring_cqe_seen(dst, cqe);
 	sqe = io_uring_get_sqe(dst);
 	io_uring_prep_read(sqe, fd, dst_buf, sizeof(dst_buf), 0);
 	sqe->flags |= IOSQE_FIXED_FILE;
+	sqe->user_data = 3;
 	io_uring_submit(dst);
 
 	ret = io_uring_wait_cqe(dst, &cqe);
@@ -218,6 +238,10 @@ static int test_local(struct io_uring *src, struct io_uring *dst)
 	}
 	if (cqe->res < 0) {
 		fprintf(stderr, "cqe error dst: %d\n", cqe->res);
+		return 1;
+	}
+	if (cqe->res != sizeof(dst_buf)) {
+		fprintf(stderr, "short read %d\n", cqe->res);
 		return 1;
 	}
 	if (memcmp(buf, dst_buf, sizeof(buf))) {
