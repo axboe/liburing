@@ -15,6 +15,7 @@
 #include "helpers.h"
 
 static int no_msg;
+static int no_sparse;
 
 struct data {
 	pthread_t thread;
@@ -35,7 +36,10 @@ static void *thread_fn(void *__data)
 	io_uring_queue_init(8, &ring, d->ring_flags);
 	ret = io_uring_register_files(&ring, &fd, 1);
 	if (ret) {
-		fprintf(stderr, "thread file register: %d\n", ret);
+		if (ret != -EINVAL && ret != -EBADF)
+			fprintf(stderr, "thread file register: %d\n", ret);
+		no_sparse = 1;
+		pthread_barrier_wait(&d->barrier);
 		return NULL;
 	}
 
@@ -88,6 +92,9 @@ static int test_remote(struct io_uring *src, int ring_flags)
 	pthread_create(&d.thread, NULL, thread_fn, &d);
 	pthread_barrier_wait(&d.barrier);
 	memset(d.buf, 0, sizeof(d.buf));
+
+	if (no_sparse)
+		return 0;
 
 	if (pipe(fds) < 0) {
 		perror("pipe");
@@ -147,6 +154,8 @@ static int test_local(struct io_uring *src, struct io_uring *dst)
 	fd = -1;
 	ret = io_uring_register_files(dst, &fd, 1);
 	if (ret) {
+		if (ret == -EBADF || ret == -EINVAL)
+			return 0;
 		fprintf(stderr, "register files failed: %d\n", ret);
 		return 1;
 	}
@@ -230,6 +239,8 @@ static int test(int ring_flags)
 
 	ret = io_uring_queue_init(8, &ring, ring_flags);
 	if (ret) {
+		if (ret == -EINVAL)
+			return 0;
 		fprintf(stderr, "ring setup failed: %d\n", ret);
 		return T_EXIT_FAIL;
 	}
