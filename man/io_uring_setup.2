@@ -325,6 +325,9 @@ file descriptor. The caller will need to use
 .B IORING_REGISTER_USE_REGISTERED_RING
 when calling
 .BR io_uring_register (2).
+This flag only makes sense when used alongside with
+.B IORING_SETUP_NO_MMAP,
+which also needs to be set.
 Available since 6.5.
 
 .TP
@@ -690,6 +693,10 @@ was not, or
 was specified, but
 .I io_uring_params.cq_entries
 was invalid.
+.B IORING_SETUP_REGISTERED_FD_ONLY
+was specified, but
+.B IORING_SETUP_NO_MMAP
+was not.
 .TP
 .B EMFILE
 The per-process limit on the number of open file descriptors has been
