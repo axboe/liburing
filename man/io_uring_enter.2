@@ -302,41 +302,13 @@ the original request. If this flag isn't set on completion, then the poll
 request has been terminated and no further events will be generated. This mode
 is available since 5.13.
 
-If
-.B IORING_POLL_UPDATE_EVENTS
-is set in the SQE
-.I len
-field, then the request will update an existing poll request with the mask of
-events passed in with this request. The lookup is based on the
-.I user_data
-field of the original SQE submitted, and this values is passed in the
-.I addr
-field of the SQE. This mode is available since 5.13.
-
-If
-.B IORING_POLL_UPDATE_USER_DATA
-is set in the SQE
-.I len
-field, then the request will update the
-.I user_data
-of an existing poll request based on the value passed in the
-.I off
-field. This mode is available since 5.13.
-
 This command works like
 an async
 .BR poll(2)
-and the completion event result is the returned mask of events. For the
-variants that update
-.I user_data
-or
-.I events
-, the completion result will be similar to
-.B IORING_OP_POLL_REMOVE.
-
+and the completion event result is the returned mask of events.
 .TP
 .B IORING_OP_POLL_REMOVE
-Remove an existing poll request.  If found, the
+Remove or update an existing poll request.  If found, the
 .I res
 field of the
 .I "struct io_uring_cqe"
@@ -347,6 +319,26 @@ will contain
 or
 .B -EALREADY
 if the poll request was in the process of completing already.
+
+If
+.B IORING_POLL_UPDATE_EVENTS
+is set in the SQE
+.I len
+field, then the request will update an existing poll request with the mask of
+events passed in with this request. The lookup is based on the
+.I user_data
+field of the original SQE submitted, and this values is passed in the
+.I addr
+field of the SQE.
+If
+.B IORING_POLL_UPDATE_USER_DATA
+is set in the SQE
+.I len
+field, then the request will update the
+.I user_data
+of an existing poll request based on the value passed in the
+.I off
+field. Updating an existing poll is available since 5.13.
 
 .TP
 .B IORING_OP_EPOLL_CTL
