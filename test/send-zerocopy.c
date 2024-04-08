@@ -68,7 +68,36 @@ enum {
 static size_t page_sz;
 static char *tx_buffer, *rx_buffer;
 static struct iovec buffers_iov[__BUF_NR];
+
+static bool has_sendzc;
 static bool has_sendmsg;
+
+static int probe_zc_support(void)
+{
+	struct io_uring ring;
+	struct io_uring_probe *p;
+	int ret;
+
+	has_sendzc = has_sendmsg = false;
+
+	ret = io_uring_queue_init(1, &ring, 0);
+	if (ret)
+		return -1;
+
+	p = t_calloc(1, sizeof(*p) + 256 * sizeof(struct io_uring_probe_op));
+	if (!p)
+		return -1;
+
+	ret = io_uring_register_probe(&ring, p, 256);
+	if (ret)
+		return -1;
+
+	has_sendzc = p->ops_len > IORING_OP_SEND_ZC;
+	has_sendmsg = p->ops_len > IORING_OP_SENDMSG_ZC;
+	io_uring_queue_exit(&ring);
+	free(p);
+	return 0;
+}
 
 static bool check_cq_empty(struct io_uring *ring)
 {
@@ -98,10 +127,7 @@ static int test_basic_send(struct io_uring *ring, int sock_tx, int sock_rx)
 
 	ret = io_uring_wait_cqe(ring, &cqe);
 	assert(!ret && cqe->user_data == 1);
-	if (cqe->res == -EINVAL) {
-		assert(!(cqe->flags & IORING_CQE_F_MORE));
-		return T_EXIT_SKIP;
-	} else if (cqe->res != payload_size) {
+	if (cqe->res != payload_size) {
 		fprintf(stderr, "send failed %i\n", cqe->res);
 		return T_EXIT_FAIL;
 	}
@@ -700,22 +726,6 @@ static int test_async_addr(struct io_uring *ring)
 	return 0;
 }
 
-static bool io_check_zc_sendmsg(struct io_uring *ring)
-{
-	struct io_uring_probe *p;
-	int ret;
-
-	p = t_calloc(1, sizeof(*p) + 256 * sizeof(struct io_uring_probe_op));
-	if (!p) {
-		fprintf(stderr, "probe allocation failed\n");
-		return false;
-	}
-	ret = io_uring_register_probe(ring, p, 256);
-	if (ret)
-		return false;
-	return p->ops_len > IORING_OP_SENDMSG_ZC;
-}
-
 /* see also send_recv.c:test_invalid */
 static int test_invalid_zc(int fds[2])
 {
@@ -768,6 +778,16 @@ int main(int argc, char *argv[])
 
 	if (argc > 1)
 		return T_EXIT_SKIP;
+
+	ret = probe_zc_support();
+	if (ret) {
+		printf("probe failed\n");
+		return T_EXIT_FAIL;
+	}
+	if (!has_sendzc) {
+		printf("no IORING_OP_SEND_ZC support, skip\n");
+		return T_EXIT_SKIP;
+	}
 
 	page_sz = sysconf(_SC_PAGESIZE);
 
@@ -834,14 +854,10 @@ int main(int argc, char *argv[])
 	}
 
 	ret = test_basic_send(&ring, sp[0], sp[1]);
-	if (ret == T_EXIT_SKIP)
-		return ret;
 	if (ret) {
 		fprintf(stderr, "test_basic_send() failed\n");
 		return T_EXIT_FAIL;
 	}
-
-	has_sendmsg = io_check_zc_sendmsg(&ring);
 
 	ret = test_send_faults(sp[0], sp[1]);
 	if (ret) {
