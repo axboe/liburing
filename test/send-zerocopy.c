@@ -769,12 +769,69 @@ static int test_invalid_zc(int fds[2])
 	return 0;
 }
 
-int main(int argc, char *argv[])
+static int run_basic_tests(void)
 {
 	struct sockaddr_storage addr;
-	struct io_uring ring;
-	int i, ret, sp[2];
+	int ret, i, sp[2];
+
+	/* create TCP IPv6 pair */
+	ret = create_socketpair_ip(&addr, &sp[0], &sp[1], true, true, false, true);
+	if (ret) {
+		fprintf(stderr, "sock prep failed %d\n", ret);
+		return -1;
+	}
+
+	for (i = 0; i < 2; i++) {
+		struct io_uring ring;
+		unsigned ring_flags = 0;
+
+		if (i & 1)
+			ring_flags |= IORING_SETUP_DEFER_TASKRUN;
+
+		ret = io_uring_queue_init(32, &ring, ring_flags);
+		if (ret) {
+			if (ret == -EINVAL)
+				continue;
+			fprintf(stderr, "queue init failed: %d\n", ret);
+			return -1;
+		}
+
+		ret = test_basic_send(&ring, sp[0], sp[1]);
+		if (ret) {
+			fprintf(stderr, "test_basic_send() failed\n");
+			return -1;
+		}
+
+		ret = test_send_faults(sp[0], sp[1]);
+		if (ret) {
+			fprintf(stderr, "test_send_faults() failed\n");
+			return -1;
+		}
+
+		ret = test_invalid_zc(sp);
+		if (ret) {
+			fprintf(stderr, "test_invalid_zc() failed\n");
+			return -1;
+		}
+
+		ret = test_async_addr(&ring);
+		if (ret) {
+			fprintf(stderr, "test_async_addr() failed\n");
+			return T_EXIT_FAIL;
+		}
+
+		io_uring_queue_exit(&ring);
+	}
+
+	close(sp[0]);
+	close(sp[1]);
+	return 0;
+}
+
+int main(int argc, char *argv[])
+{
 	size_t len;
+	int ret, i;
 
 	if (argc > 1)
 		return T_EXIT_SKIP;
@@ -790,13 +847,6 @@ int main(int argc, char *argv[])
 	}
 
 	page_sz = sysconf(_SC_PAGESIZE);
-
-	/* create TCP IPv6 pair */
-	ret = create_socketpair_ip(&addr, &sp[0], &sp[1], true, true, false, true);
-	if (ret) {
-		fprintf(stderr, "sock prep failed %d\n", ret);
-		return T_EXIT_FAIL;
-	}
 
 	len = LARGE_BUF_SIZE;
 	tx_buffer = aligned_alloc(page_sz, len);
@@ -847,65 +897,62 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	ret = io_uring_queue_init(32, &ring, 0);
-	if (ret) {
-		fprintf(stderr, "queue init failed: %d\n", ret);
+	ret = run_basic_tests();
+	if (ret)
 		return T_EXIT_FAIL;
-	}
 
-	ret = test_basic_send(&ring, sp[0], sp[1]);
-	if (ret) {
-		fprintf(stderr, "test_basic_send() failed\n");
-		return T_EXIT_FAIL;
-	}
+	for (i = 0; i < 2; i++) {
+		struct io_uring ring;
+		unsigned ring_flags = 0;
 
-	ret = test_send_faults(sp[0], sp[1]);
-	if (ret) {
-		fprintf(stderr, "test_send_faults() failed\n");
-		return T_EXIT_FAIL;
-	}
+		if (i & 1)
+			ring_flags |= IORING_SETUP_SINGLE_ISSUER |
+				      IORING_SETUP_DEFER_TASKRUN;
 
-	ret = test_invalid_zc(sp);
-	if (ret) {
-		fprintf(stderr, "test_invalid_zc() failed\n");
-		return T_EXIT_FAIL;
-	}
+		ret = io_uring_queue_init(32, &ring, ring_flags);
+		if (ret) {
+			if (ret == -EINVAL)
+				continue;
+			fprintf(stderr, "queue init failed: %d\n", ret);
+			return -1;
+		}
 
-	close(sp[0]);
-	close(sp[1]);
+		ret = t_register_buffers(&ring, buffers_iov, ARRAY_SIZE(buffers_iov));
+		if (ret == T_SETUP_SKIP) {
+			fprintf(stderr, "can't register bufs, skip\n");
+			goto out;
+		} else if (ret != T_SETUP_OK) {
+			fprintf(stderr, "buffer registration failed %i\n", ret);
+			return T_EXIT_FAIL;
+		}
 
-	ret = test_async_addr(&ring);
-	if (ret) {
-		fprintf(stderr, "test_async_addr() failed\n");
-		return T_EXIT_FAIL;
-	}
+		if (buffers_iov[BUF_T_HUGETLB].iov_base) {
+			buffers_iov[BUF_T_HUGETLB].iov_base += 13;
+			buffers_iov[BUF_T_HUGETLB].iov_len -= 26;
+		}
+		if (buffers_iov[BUF_T_LARGE].iov_base) {
+			buffers_iov[BUF_T_LARGE].iov_base += 13;
+			buffers_iov[BUF_T_LARGE].iov_len -= 26;
+		}
 
-	ret = t_register_buffers(&ring, buffers_iov, ARRAY_SIZE(buffers_iov));
-	if (ret == T_SETUP_SKIP) {
-		fprintf(stderr, "can't register bufs, skip\n");
-		goto out;
-	} else if (ret != T_SETUP_OK) {
-		fprintf(stderr, "buffer registration failed %i\n", ret);
-		return T_EXIT_FAIL;
-	}
+		ret = test_inet_send(&ring);
+		if (ret) {
+			fprintf(stderr, "test_inet_send() failed (defer_taskrun %i)\n",
+					 ring_flags & IORING_SETUP_DEFER_TASKRUN);
+			return T_EXIT_FAIL;
+		}
 
-	if (buffers_iov[BUF_T_HUGETLB].iov_base) {
-		buffers_iov[BUF_T_HUGETLB].iov_base += 13;
-		buffers_iov[BUF_T_HUGETLB].iov_len -= 26;
-	}
-	if (buffers_iov[BUF_T_LARGE].iov_base) {
-		buffers_iov[BUF_T_LARGE].iov_base += 13;
-		buffers_iov[BUF_T_LARGE].iov_len -= 26;
-	}
-
-	ret = test_inet_send(&ring);
-	if (ret) {
-		fprintf(stderr, "test_inet_send() failed\n");
-		return T_EXIT_FAIL;
-	}
+		if (buffers_iov[BUF_T_HUGETLB].iov_base) {
+			buffers_iov[BUF_T_HUGETLB].iov_base -= 13;
+			buffers_iov[BUF_T_HUGETLB].iov_len += 26;
+		}
+		if (buffers_iov[BUF_T_LARGE].iov_base) {
+			buffers_iov[BUF_T_LARGE].iov_base -= 13;
+			buffers_iov[BUF_T_LARGE].iov_len += 26;
+		}
 out:
-	io_uring_queue_exit(&ring);
-	close(sp[0]);
-	close(sp[1]);
+		io_uring_queue_exit(&ring);
+	}
+
 	return T_EXIT_PASS;
 }
