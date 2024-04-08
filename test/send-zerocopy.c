@@ -122,17 +122,60 @@ static int test_basic_send(struct io_uring *ring, int sock_tx, int sock_rx)
 	return T_EXIT_PASS;
 }
 
+static int test_send_faults_check(struct io_uring *ring, int expected)
+{
+	struct io_uring_cqe *cqe;
+	int ret, nr_cqes = 0;
+	bool more = true;
+
+	while (more) {
+		nr_cqes++;
+		ret = io_uring_wait_cqe(ring, &cqe);
+		assert(!ret);
+		assert(cqe->user_data == 1);
+
+		if (nr_cqes == 1 && (cqe->flags & IORING_CQE_F_NOTIF)) {
+			fprintf(stderr, "test_send_faults_check notif came first\n");
+			return -1;
+		}
+
+		if (!(cqe->flags & IORING_CQE_F_NOTIF)) {
+			if (cqe->res != expected) {
+				fprintf(stderr, "invalid cqe res %i vs expected %i, "
+					"user_data %i\n",
+					cqe->res, expected, (int)cqe->user_data);
+				return -1;
+			}
+		} else {
+			if (cqe->res != 0 || cqe->flags != IORING_CQE_F_NOTIF) {
+				fprintf(stderr, "invalid notif cqe %i %i\n",
+					cqe->res, cqe->flags);
+				return -1;
+			}
+		}
+
+		more = cqe->flags & IORING_CQE_F_MORE;
+		io_uring_cqe_seen(ring, cqe);
+	}
+
+	if (nr_cqes > 2) {
+		fprintf(stderr, "test_send_faults_check() too many CQEs %i\n",
+				nr_cqes);
+		return -1;
+	}
+	assert(check_cq_empty(ring));
+	return 0;
+}
+
 static int test_send_faults(int sock_tx, int sock_rx)
 {
 	struct io_uring_sqe *sqe;
-	struct io_uring_cqe *cqe;
 	int msg_flags = 0;
 	unsigned zc_flags = 0;
-	int payload_size = 100;
-	int ret, i, nr_cqes, nr_reqs = 3;
+	int ret, payload_size = 100;
 	struct io_uring ring;
 
-	ret = io_uring_queue_init(32, &ring, IORING_SETUP_SUBMIT_ALL);
+	ret = io_uring_queue_init(32, &ring, 0);
 	if (ret) {
 		fprintf(stderr, "queue init failed: %d\n", ret);
 		return -1;
@@ -143,6 +186,14 @@ static int test_send_faults(int sock_tx, int sock_rx)
 	io_uring_prep_send_zc(sqe, sock_tx, (void *)1UL, payload_size,
 			      msg_flags, zc_flags);
 	sqe->user_data = 1;
+	ret = io_uring_submit(&ring);
+	assert(ret == 1);
+
+	ret = test_send_faults_check(&ring, -EFAULT);
+	if (ret) {
+		fprintf(stderr, "test_send_faults with invalid buf failed\n");
+		return -1;
+	}
 
 	/* invalid address */
 	sqe = io_uring_get_sqe(&ring);
@@ -150,44 +201,30 @@ static int test_send_faults(int sock_tx, int sock_rx)
 			      msg_flags, zc_flags);
 	io_uring_prep_send_set_addr(sqe, (const struct sockaddr *)1UL,
 				    sizeof(struct sockaddr_in6));
-	sqe->user_data = 2;
+	sqe->user_data = 1;
+	ret = io_uring_submit(&ring);
+	assert(ret == 1);
+
+	ret = test_send_faults_check(&ring, -EFAULT);
+	if (ret) {
+		fprintf(stderr, "test_send_faults with invalid addr failed\n");
+		return -1;
+	}
 
 	/* invalid send/recv flags */
 	sqe = io_uring_get_sqe(&ring);
 	io_uring_prep_send_zc(sqe, sock_tx, tx_buffer, payload_size,
 			      msg_flags, ~0U);
-	sqe->user_data = 3;
-
+	sqe->user_data = 1;
 	ret = io_uring_submit(&ring);
-	assert(ret == nr_reqs);
+	assert(ret == 1);
 
-	nr_cqes = nr_reqs;
-	for (i = 0; i < nr_cqes; i++) {
-		ret = io_uring_wait_cqe(&ring, &cqe);
-		assert(!ret);
-		assert(cqe->user_data <= nr_reqs);
-
-		if (!(cqe->flags & IORING_CQE_F_NOTIF)) {
-			int expected = (cqe->user_data == 3) ? -EINVAL : -EFAULT;
-
-			if (cqe->res != expected) {
-				fprintf(stderr, "invalid cqe res %i vs expected %i, "
-					"user_data %i\n",
-					cqe->res, expected, (int)cqe->user_data);
-				return -1;
-			}
-			if (cqe->flags & IORING_CQE_F_MORE)
-				nr_cqes++;
-		} else {
-			if (cqe->res != 0 || cqe->flags != IORING_CQE_F_NOTIF) {
-				fprintf(stderr, "invalid notif cqe %i %i\n",
-					cqe->res, cqe->flags);
-				return -1;
-			}
-		}
-		io_uring_cqe_seen(&ring, cqe);
+	ret = test_send_faults_check(&ring, -EINVAL);
+	if (ret) {
+		fprintf(stderr, "test_send_faults with invalid flags failed\n");
+		return -1;
 	}
-	assert(check_cq_empty(&ring));
+
 	return T_EXIT_PASS;
 }
 
