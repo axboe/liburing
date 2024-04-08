@@ -74,6 +74,7 @@ static int  cfg_type		= 0;
 static int  cfg_payload_len;
 static int  cfg_port		= 8000;
 static int  cfg_runtime_ms	= 4200;
+static bool cfg_rx_poll		= false;
 
 static socklen_t cfg_alen;
 static char *str_addr = NULL;
@@ -370,6 +371,17 @@ static void do_tx(struct thread_data *td, int domain, int type, int protocol)
 	if (ret)
 		t_error(1, ret, "io_uring: buffer registration");
 
+	if (cfg_rx_poll) {
+		struct io_uring_sqe *sqe;
+
+		sqe = io_uring_get_sqe(&ring);
+		io_uring_prep_poll_add(sqe, fd, POLLIN);
+
+		ret = io_uring_submit(&ring);
+		if (ret != 1)
+			t_error(1, ret, "submit poll");
+	}
+
 	pthread_barrier_wait(&barrier);
 
 	tstart = gettimeofday_ms();
@@ -504,7 +516,7 @@ static void parse_opts(int argc, char **argv)
 
 	cfg_payload_len = max_payload_len;
 
-	while ((c = getopt(argc, argv, "46D:p:s:t:n:z:b:l:dC:T:R")) != -1) {
+	while ((c = getopt(argc, argv, "46D:p:s:t:n:z:b:l:dC:T:Ry")) != -1) {
 		switch (c) {
 		case '4':
 			if (cfg_family != PF_UNSPEC)
@@ -555,6 +567,9 @@ static void parse_opts(int argc, char **argv)
 			break;
 		case 'R':
 			cfg_rx = 1;
+			break;
+		case 'y':
+			cfg_rx_poll = 1;
 			break;
 		}
 	}
