@@ -375,23 +375,27 @@ IOURINGINLINE void __io_uring_set_target_fixed_file(struct io_uring_sqe *sqe,
 	sqe->file_index = file_index + 1;
 }
 
-IOURINGINLINE void io_uring_prep_rw(int op, struct io_uring_sqe *sqe, int fd,
-				    const void *addr, unsigned len,
-				    __u64 offset)
+IOURINGINLINE void io_uring_initialize_sqe(struct io_uring_sqe *sqe) 
 {
-	sqe->opcode = (__u8) op;
 	sqe->flags = 0;
 	sqe->ioprio = 0;
-	sqe->fd = fd;
-	sqe->off = offset;
-	sqe->addr = (unsigned long) addr;
-	sqe->len = len;
 	sqe->rw_flags = 0;
 	sqe->buf_index = 0;
 	sqe->personality = 0;
 	sqe->file_index = 0;
 	sqe->addr3 = 0;
 	sqe->__pad2[0] = 0;
+}
+
+IOURINGINLINE void io_uring_prep_rw(int op, struct io_uring_sqe *sqe, int fd,
+				    const void *addr, unsigned len,
+				    __u64 offset)
+{
+	sqe->opcode = (__u8) op;
+	sqe->fd = fd;
+	sqe->off = offset;
+	sqe->addr = (unsigned long) addr;
+	sqe->len = len;
 }
 
 /*
@@ -727,7 +731,6 @@ IOURINGINLINE void io_uring_prep_read_multishot(struct io_uring_sqe *sqe,
 	io_uring_prep_rw(IORING_OP_READ_MULTISHOT, sqe, fd, NULL, nbytes,
 			 offset);
 	sqe->buf_group = buf_group;
-	sqe->flags |= IOSQE_BUFFER_SELECT;
 }
 
 IOURINGINLINE void io_uring_prep_write(struct io_uring_sqe *sqe, int fd,
@@ -1423,6 +1426,7 @@ IOURINGINLINE struct io_uring_sqe *_io_uring_get_sqe(struct io_uring *ring)
 
 		sqe = &sq->sqes[(sq->sqe_tail & sq->ring_mask) << shift];
 		sq->sqe_tail = next;
+		io_uring_initialize_sqe(sqe);
 		return sqe;
 	}
 
