@@ -1411,15 +1411,11 @@ IOURINGINLINE int io_uring_wait_cqe(struct io_uring *ring,
 IOURINGINLINE struct io_uring_sqe *_io_uring_get_sqe(struct io_uring *ring)
 {
 	struct io_uring_sq *sq = &ring->sq;
-	unsigned int head, next = sq->sqe_tail + 1;
+	unsigned int head = *sq->khead, next = sq->sqe_tail + 1;
 	int shift = 0;
 
 	if (ring->flags & IORING_SETUP_SQE128)
 		shift = 1;
-	if (!(ring->flags & IORING_SETUP_SQPOLL))
-		head = *sq->khead;
-	else
-		head = io_uring_smp_load_acquire(sq->khead);
 
 	if (next - head <= sq->ring_entries) {
 		struct io_uring_sqe *sqe;
