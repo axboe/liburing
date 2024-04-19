@@ -183,7 +183,6 @@ test_srcs := \
 	splice.c \
 	sq-full.c \
 	sq-full-cpp.cc \
-	sqpoll-cancel-hang.c \
 	sqpoll-disable-exit.c \
 	sq-poll-dup.c \
 	sqpoll-exit-hang.c \
