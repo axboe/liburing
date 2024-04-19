@@ -66,10 +66,11 @@ static int receive_cqe(struct io_uring *ring)
 	err = io_uring_wait_cqe(ring, &cqe);
 	assert(err ==  0);
 	assert(cqe->user_data == USERDATA);
+	err = cqe->res;
 	io_uring_cqe_seen(ring, cqe);
 
 	/* Return the result of the operation */
-	return cqe->res;
+	return err;
 }
 
 static ssize_t send_data(struct fds *s, char *str)
