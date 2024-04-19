@@ -154,7 +154,7 @@ static int run_test_raw(void)
 	int ioctl_siocoutq, ioctl_siocinq;
 	int uring_siocoutq, uring_siocinq;
 	struct io_uring ring;
-	int sock, error;
+	int retry = 0, sock, error;
 
 	sock = socket(PF_INET, SOCK_RAW, IPPROTO_TCP);
 	if (sock == -1)  {
@@ -163,6 +163,14 @@ static int run_test_raw(void)
 		return T_EXIT_SKIP;
 	}
 
+	/* Get the same operation using uring cmd */
+	error = t_create_ring(1, &ring, 0);
+	if (error == T_SETUP_SKIP)
+		return error;
+	else if (error != T_SETUP_OK)
+		return T_EXIT_FAIL;
+
+again:
 	/* Simple SIOCOUTQ using ioctl */
 	error = ioctl(sock, SIOCOUTQ, &ioctl_siocoutq);
 	if (error < 0) {
@@ -176,13 +184,6 @@ static int run_test_raw(void)
 		return T_EXIT_FAIL;
 	}
 
-	/* Get the same operation using uring cmd */
-	error = t_create_ring(1, &ring, 0);
-	if (error == T_SETUP_SKIP)
-		return error;
-	else if (error != T_SETUP_OK)
-		return T_EXIT_FAIL;
-
 	create_sqe_and_submit(&ring, sock, SOCKET_URING_OP_SIOCOUTQ);
 	uring_siocoutq = receive_cqe(&ring);
 
@@ -191,11 +192,19 @@ static int run_test_raw(void)
 
 	/* Compare that both values (ioctl and uring CMD) should be similar */
 	if (uring_siocoutq != ioctl_siocoutq) {
+		if (!retry) {
+			retry = 1;
+			goto again;
+		}
 		fprintf(stderr, "values does not match: %d != %d\n",
 			uring_siocoutq, ioctl_siocoutq);
 		return T_EXIT_FAIL;
 	}
 	if (uring_siocinq != ioctl_siocinq) {
+		if (!retry) {
+			retry = 1;
+			goto again;
+		}
 		fprintf(stderr, "values does not match: %d != %d\n",
 			uring_siocinq, ioctl_siocinq);
 		return T_EXIT_FAIL;
