@@ -713,8 +713,12 @@ static void recv_enobufs(struct io_uring *ring, struct conn *c,
 	 * kick the recv rearm.
 	 */
 	if (!is_sink) {
+		int do_recv_arm = 1;
+
 		if (!cd->pending_send)
-			prep_next_send(ring, c, cd, fd);
+			do_recv_arm = !prep_next_send(ring, c, cd, fd);
+		if (do_recv_arm)
+			__submit_receive(ring, c, &c->cd[0], c->in_fd);
 	} else {
 		__submit_receive(ring, c, &c->cd[0], c->in_fd);
 	}
