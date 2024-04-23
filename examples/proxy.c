@@ -1703,6 +1703,10 @@ static int handle_cancel(struct io_uring *ring, struct io_uring_cqe *cqe)
 static void open_socket(struct conn *c)
 {
 	if (is_sink) {
+		pthread_mutex_lock(&thread_lock);
+		open_conns++;
+		pthread_mutex_unlock(&thread_lock);
+
 		submit_receive(&c->ring, c);
 	} else {
 		struct io_uring_sqe *sqe;
