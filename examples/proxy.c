@@ -2355,7 +2355,7 @@ int main(int argc, char *argv[])
 		rcv_msg = 0;
 	}
 	if (snd_msg && snd_bundle) {
-		fprintf(stderr, "Can't use bundles with recvmsg\n");
+		fprintf(stderr, "Can't use bundles with sendmsg\n");
 		snd_msg = 0;
 	}
 	if (snd_msg && send_ring) {
