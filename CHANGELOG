@@ -11,6 +11,9 @@ liburing-2.6 release
 - Add support for IORING_OP_FIXED_FD_INSTALL
 - Add io_uring_prep_fixed_fd_install() helper
 - Support for napi busy polling
+- Improve/add test cases
+- Man page fixes
+- Add sample 'proxy' example
 
 liburing-2.5 release
 
