@@ -528,8 +528,8 @@ of the ring file descriptor itself. This reduces the overhead of the
 system call.
 
 .I arg
-must be set to an unsigned int pointer to an array of type
-.I struct io_uring_rsrc_register
+must be set to a pointer to an array of type
+.I struct io_uring_rsrc_update
 of
 .I nr_args
 number of entries. The
@@ -570,8 +570,8 @@ Unregister descriptors previously registered with
 .B IORING_REGISTER_RING_FDS.
 
 .I arg
-must be set to an unsigned int pointer to an array of type
-.I struct io_uring_rsrc_register
+must be set to a pointer to an array of type
+.I struct io_uring_rsrc_update
 of
 .I nr_args
 number of entries. Only the
