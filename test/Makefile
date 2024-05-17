@@ -166,6 +166,7 @@ test_srcs := \
 	rsrc_tags.c \
 	rw_merge_test.c \
 	self.c \
+	recvsend_bundle.c \
 	send_recv.c \
 	send_recvmsg.c \
 	send-zerocopy.c \
