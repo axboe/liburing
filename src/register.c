@@ -373,3 +373,9 @@ int io_uring_register_clock(struct io_uring *ring,
 {
 	return do_register(ring, IORING_REGISTER_CLOCK, arg, 0);
 }
+
+int io_uring_register_ifq(struct io_uring *ring,
+			  struct io_uring_zcrx_ifq_reg *reg)
+{
+	return do_register(ring, IORING_REGISTER_ZCRX_IFQ, reg, 1);
+}
