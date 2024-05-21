@@ -186,6 +186,7 @@ test_srcs := \
 	sq-full.c \
 	sq-full-cpp.cc \
 	sqpoll-disable-exit.c \
+	sqpoll-exec.c \
 	sq-poll-dup.c \
 	sqpoll-exit-hang.c \
 	sq-poll-kthread.c \
