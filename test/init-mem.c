@@ -60,7 +60,6 @@ static int setup_ctx(struct ctx *ctx, struct q_entries *q)
 		return T_EXIT_FAIL;
 	}
 
-	printf("Used %d bytes\n", ret);
 	ctx->post = ctx->ring_mem + ret;
 	*ctx->post = POST_RED;
 	return 0;
