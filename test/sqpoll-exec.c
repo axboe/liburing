@@ -111,12 +111,12 @@ int main(int argc, char * const argv[])
 	int ret, i;
 
 	if (argc > 1)
-		return 0;
+		return T_EXIT_SKIP;
 
 	ret = io_uring_queue_init(8, &ring, IORING_SETUP_SQPOLL);
 	if (ret) {
 		fprintf(stderr, "ring create failed: %d\n", ret);
-		return 1;
+		return T_EXIT_FAIL;
 	}
 
 	for (i = 0; i < 20; i++) {
@@ -127,5 +127,5 @@ int main(int argc, char * const argv[])
 		}
 	}
 
-	return 0;
+	return T_EXIT_PASS;
 }
