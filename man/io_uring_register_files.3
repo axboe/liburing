@@ -60,6 +60,14 @@ function registers an empty file table of
 .I nr_files
 number of file descriptors. These files must be updated before use, using eg
 .BR io_uring_register_files_update_tag (3).
+Note that if the size of the sparse table exceeds what
+.B RLIMIT_NOFILE
+allows, then
+.BR io_uring_register_files_sparse (3)
+will attempt to raise the limit using
+.B setrlimit (2)
+and retry the operation. If the registration fails after doing that, then an
+error will be returned.
 The sparse variant is available in kernels 5.19 and later.
 
 Registering a file table is a prerequisite for using any request that uses
