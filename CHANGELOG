@@ -1,3 +1,14 @@
+liburing-2.7 release
+
+- Man page updates
+- Sync with kernel 6.10
+	- send/recv bundle support
+	- accept nowait and CQE_F_MORE
+- Add and update test cases
+- Fix io_uring_queue_init_mem() returning a value that was too small,
+  potentially causing memory corruption in userspace by overwriting
+  64 bytes beyond the returned value. Also add test case for that.
+
 liburing-2.6 release
 
 - Add getsockopt and setsockopt socket commands
