@@ -107,17 +107,18 @@ static int test_exec(struct io_uring *ring, char * const argv[])
 
 int main(int argc, char * const argv[])
 {
+	struct io_uring_params p = { .flags = IORING_SETUP_SQPOLL, };
 	struct io_uring ring;
 	int ret, i;
 
 	if (argc > 1)
 		return T_EXIT_SKIP;
 
-	ret = io_uring_queue_init(8, &ring, IORING_SETUP_SQPOLL);
-	if (ret) {
-		fprintf(stderr, "ring create failed: %d\n", ret);
+	ret = t_create_ring_params(8, &ring, &p);
+	if (ret == T_SETUP_SKIP)
+		return T_EXIT_SKIP;
+	else if (ret != T_SETUP_OK)
 		return T_EXIT_FAIL;
-	}
 
 	for (i = 0; i < 20; i++) {
 		ret = test_exec(&ring, argv);
