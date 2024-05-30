@@ -101,6 +101,7 @@ test_srcs := \
 	fsync.c \
 	futex.c \
 	hardlink.c \
+	ignore-single-mmap.c \
 	init-mem.c \
 	io-cancel.c \
 	iopoll.c \
