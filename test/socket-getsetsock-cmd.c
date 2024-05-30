@@ -178,12 +178,10 @@ static int run_getsockopt_test(struct io_uring *ring, struct fds *sockfds)
 {
 	int err;
 
-	fprintf(stderr, "Testing getsockopt SO_PEERNAME\n");
 	err = run_get_peername(ring, sockfds);
 	if (err)
 		return err;
 
-	fprintf(stderr, "Testing getsockopt SO_RCVBUF\n");
 	return run_get_rcvbuf(ring, sockfds);
 }
 
@@ -262,14 +260,12 @@ static int run_setsockopt_test(struct io_uring *ring, struct fds *sockfds)
 {
 	int err, i;
 
-	fprintf(stderr, "Testing setsockopt SOL_SOCKET/SO_REUSEPORT\n");
 	for (i = 0; i <= 1; i++) {
 		err = run_setsockopt_reuseport(ring, sockfds, i);
 		if (err)
 			return err;
 	}
 
-	fprintf(stderr, "Testing setsockopt IPPROTO_TCP/TCP_FASTOPEN\n");
 	for (i = 1; i <= 10; i++) {
 		err = run_setsockopt_usertimeout(ring, sockfds, i);
 		if (err)
