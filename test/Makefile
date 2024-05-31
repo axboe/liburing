@@ -95,6 +95,7 @@ test_srcs := \
 	file-verify.c \
 	fixed-buf-iter.c \
 	fixed-buf-merge.c \
+	fixed-hugepage.c \
 	fixed-link.c \
 	fixed-reuse.c \
 	fpos.c \
