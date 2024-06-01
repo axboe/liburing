@@ -751,16 +751,31 @@ IOURINGINLINE void io_uring_prep_statx(struct io_uring_sqe *sqe, int dfd,
 }
 
 IOURINGINLINE void io_uring_prep_fadvise(struct io_uring_sqe *sqe, int fd,
-					 __u64 offset, off_t len, int advice)
+					 __u64 offset, __u32 len, int advice)
 {
 	io_uring_prep_rw(IORING_OP_FADVISE, sqe, fd, NULL, (__u32) len, offset);
 	sqe->fadvise_advice = (__u32) advice;
 }
 
 IOURINGINLINE void io_uring_prep_madvise(struct io_uring_sqe *sqe, void *addr,
-					 off_t length, int advice)
+					 __u32 length, int advice)
 {
 	io_uring_prep_rw(IORING_OP_MADVISE, sqe, -1, addr, (__u32) length, 0);
+	sqe->fadvise_advice = (__u32) advice;
+}
+
+IOURINGINLINE void io_uring_prep_fadvise64(struct io_uring_sqe *sqe, int fd,
+					 __u64 offset, off_t len, int advice)
+{
+	io_uring_prep_rw(IORING_OP_FADVISE, sqe, fd, NULL, 0, offset);
+	sqe->addr = len;
+	sqe->fadvise_advice = (__u32) advice;
+}
+
+IOURINGINLINE void io_uring_prep_madvise64(struct io_uring_sqe *sqe, void *addr,
+					 off_t length, int advice)
+{
+	io_uring_prep_rw(IORING_OP_MADVISE, sqe, -1, addr, 0, length);
 	sqe->fadvise_advice = (__u32) advice;
 }
 

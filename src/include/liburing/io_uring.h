@@ -537,6 +537,7 @@ struct io_uring_params {
 #define IORING_FEAT_LINKED_FILE		(1U << 12)
 #define IORING_FEAT_REG_REG_RING	(1U << 13)
 #define IORING_FEAT_RECVSEND_BUNDLE	(1U << 14)
+#define IORING_FEAT_64BIT_ADVISE	(1U << 15)
 
 /*
  * io_uring_register(2) opcodes and arguments
