@@ -15,34 +15,7 @@
 #include "helpers.h"
 #include "liburing.h"
 
-#define FILE_SIZE	(128 * 1024)
-
-#define LOOPS		100
-#define MIN_LOOPS	10
-
-static unsigned long long utime_since(const struct timeval *s,
-				      const struct timeval *e)
-{
-	long long sec, usec;
-
-	sec = e->tv_sec - s->tv_sec;
-	usec = (e->tv_usec - s->tv_usec);
-	if (sec > 0 && usec < 0) {
-		sec--;
-		usec += 1000000;
-	}
-
-	sec *= 1000000;
-	return sec + usec;
-}
-
-static unsigned long long utime_since_now(struct timeval *tv)
-{
-	struct timeval end;
-
-	gettimeofday(&end, NULL);
-	return utime_since(tv, &end);
-}
+#define FILE_SIZE    (8ULL * 1024ULL * 1024ULL * 1024ULL)
 
 static int do_madvise(struct io_uring *ring, void *addr, off_t len, int advice)
 {
@@ -76,83 +49,68 @@ static int do_madvise(struct io_uring *ring, void *addr, off_t len, int advice)
 		unlink(".madvise.tmp");
 		exit(0);
 	} else if (ret) {
-		fprintf(stderr, "cqe->res=%d\n", cqe->res);
+		fprintf(stderr, "cqe->res=%d (%s)\n", cqe->res,
+			strerror(-cqe->res));
 	}
 	io_uring_cqe_seen(ring, cqe);
 	return ret;
 }
 
-static long do_copy(int fd, char *buf, void *ptr)
-{
-	struct timeval tv;
-
-	gettimeofday(&tv, NULL);
-	memcpy(buf, ptr, FILE_SIZE);
-	return utime_since_now(&tv);
-}
-
 static int test_madvise(struct io_uring *ring, const char *filename)
 {
-	unsigned long cached_read, uncached_read, cached_read2;
+	size_t page_size;
+	unsigned char contents;
 	int fd, ret;
-	char *buf;
-	void *ptr;
+	unsigned char *ptr;
 
-	fd = open(filename, O_RDONLY);
+	page_size = sysconf(_SC_PAGE_SIZE);
+
+	fd = open(filename, O_RDWR);
 	if (fd < 0) {
 		perror("open");
 		return 1;
 	}
 
-	buf = t_malloc(FILE_SIZE);
+	ret =
+	    fallocate(fd, FALLOC_FL_PUNCH_HOLE | FALLOC_FL_KEEP_SIZE, page_size,
+		      page_size);
+	if (ret == -1 && errno == EOPNOTSUPP)
+		return 3;
 
-	ptr = mmap(NULL, FILE_SIZE, PROT_READ, MAP_PRIVATE, fd, 0);
+	ptr = mmap(NULL, FILE_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
 	if (ptr == MAP_FAILED) {
 		perror("mmap");
 		return 1;
 	}
 
-	cached_read = do_copy(fd, buf, ptr);
-	if (cached_read == -1)
-		return 1;
-
-	cached_read = do_copy(fd, buf, ptr);
-	if (cached_read == -1)
-		return 1;
-
-	ret = do_madvise(ring, ptr, FILE_SIZE, MADV_DONTNEED);
+	ret =
+	    do_madvise(ring, ptr + 2 * page_size, FILE_SIZE - page_size,
+		       MADV_REMOVE);
 	if (ret)
 		return 1;
 
-	uncached_read = do_copy(fd, buf, ptr);
-	if (uncached_read == -1)
-		return 1;
+	for (size_t i = 0; i < FILE_SIZE; i++) {
+		contents = ptr[i];
+		if (contents && i > page_size) {
+			fprintf(stderr,
+				"In removed page at %lu but contents=%x\n", i,
+				contents);
+			return 2;
+		} else if (contents != 0xaa && i < page_size) {
+			fprintf(stderr,
+				"In non-removed page at %lu but contents=%x\n",
+				i, contents);
+			return 2;
+		}
+	}
 
-	ret = do_madvise(ring, ptr, FILE_SIZE, MADV_DONTNEED);
-	if (ret)
-		return 1;
-
-	ret = do_madvise(ring, ptr, FILE_SIZE, MADV_WILLNEED);
-	if (ret)
-		return 1;
-
-	msync(ptr, FILE_SIZE, MS_SYNC);
-
-	cached_read2 = do_copy(fd, buf, ptr);
-	if (cached_read2 == -1)
-		return 1;
-
-	if (cached_read < uncached_read &&
-	    cached_read2 < uncached_read)
-		return 0;
-
-	return 2;
+	return 0;
 }
 
 int main(int argc, char *argv[])
 {
 	struct io_uring ring;
-	int ret, i, good, bad;
+	int ret = 0;
 	char *fname;
 
 	if (argc > 1) {
@@ -167,23 +125,12 @@ int main(int argc, char *argv[])
 		goto err;
 	}
 
-	good = bad = 0;
-	for (i = 0; i < LOOPS; i++) {
-		ret = test_madvise(&ring, fname);
-		if (ret == 1) {
-			fprintf(stderr, "test_madvise failed\n");
-			goto err;
-		} else if (!ret)
-			good++;
-		else if (ret == 2)
-			bad++;
-		if (i >= MIN_LOOPS && !bad)
-			break;
+	ret = test_madvise(&ring, fname);
+	if (ret) {
+		fprintf(stderr, "test_madvise failed\n");
+		goto err;
 	}
 
-	/* too hard to reliably test, just ignore */
-	if ((0) && bad > good)
-		fprintf(stderr, "Suspicious timings (%u > %u)\n", bad, good);
 	if (fname != argv[1])
 		unlink(fname);
 	io_uring_queue_exit(&ring);
@@ -191,5 +138,7 @@ int main(int argc, char *argv[])
 err:
 	if (fname != argv[1])
 		unlink(fname);
+	if (ret == 3)
+		return T_EXIT_SKIP;
 	return T_EXIT_FAIL;
 }
