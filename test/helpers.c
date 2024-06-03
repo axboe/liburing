@@ -76,8 +76,9 @@ void *t_calloc(size_t nmemb, size_t size)
  */
 static void __t_create_file(const char *file, size_t size, char pattern)
 {
-	ssize_t ret;
-	char *buf;
+	ssize_t ret = 0;
+	size_t size_remaining;
+	char *buf, *buf_loc;
 	int fd;
 
 	buf = t_malloc(size);
@@ -86,11 +87,19 @@ static void __t_create_file(const char *file, size_t size, char pattern)
 	fd = open(file, O_WRONLY | O_CREAT, 0644);
 	assert(fd >= 0);
 
-	ret = write(fd, buf, size);
+	size_remaining = size;
+	buf_loc = buf;
+	while (size_remaining > 0) {
+		ret = write(fd, buf_loc, size_remaining);
+		if (ret <= 0)
+			break;
+		size_remaining -= ret;
+		buf_loc += ret;
+	}
 	fsync(fd);
 	close(fd);
 	free(buf);
-	assert(ret == size);
+	assert(size_remaining == 0);
 }
 
 void t_create_file(const char *file, size_t size)
@@ -264,7 +273,7 @@ bool t_probe_defer_taskrun(void)
 	int ret;
 
 	ret = io_uring_queue_init(1, &ring, IORING_SETUP_SINGLE_ISSUER |
-					    IORING_SETUP_DEFER_TASKRUN);
+				  IORING_SETUP_DEFER_TASKRUN);
 	if (ret < 0)
 		return false;
 	io_uring_queue_exit(&ring);
@@ -291,12 +300,12 @@ unsigned __io_uring_flush_sq(struct io_uring *ring)
 			io_uring_smp_store_release(sq->ktail, tail);
 	}
 	/*
-	* This load needs to be atomic, since sq->khead is written concurrently
-	* by the kernel, but it doesn't need to be load_acquire, since the
-	* kernel doesn't store to the submission queue; it advances khead just
-	* to indicate that it's finished reading the submission queue entries
-	* so they're available for us to write to.
-	*/
+	 * This load needs to be atomic, since sq->khead is written concurrently
+	 * by the kernel, but it doesn't need to be load_acquire, since the
+	 * kernel doesn't store to the submission queue; it advances khead just
+	 * to indicate that it's finished reading the submission queue entries
+	 * so they're available for us to write to.
+	 */
 	return tail - IO_URING_READ_ONCE(*sq->khead);
 }
 
@@ -306,13 +315,13 @@ unsigned __io_uring_flush_sq(struct io_uring *ring)
 void t_error(int status, int errnum, const char *format, ...)
 {
 	va_list args;
-    	va_start(args, format);
+	va_start(args, format);
 
 	vfprintf(stderr, format, args);
-    	if (errnum)
-        	fprintf(stderr, ": %s", strerror(errnum));
+	if (errnum)
+		fprintf(stderr, ": %s", strerror(errnum));
 
 	fprintf(stderr, "\n");
 	va_end(args);
-    	exit(status);
+	exit(status);
 }
