@@ -486,9 +486,9 @@ ready to be received, the operation will proceed.
 .B IORING_OP_TIMEOUT
 This command will register a timeout operation. The
 .I addr
-field must contain a pointer to a struct timespec64 structure,
+field must contain a pointer to a struct __kernel_timespec structure,
 .I len
-must contain 1 to signify one timespec64 structure,
+must contain 1 to signify one __kernel_timespec structure,
 .I timeout_flags
 may contain IORING_TIMEOUT_ABS
 for an absolute timeout value, or 0 for a relative timeout.
@@ -559,7 +559,7 @@ instead of removing an existing operation, it updates it.
 .I addr
 and return values are same as before.
 .I addr2
-field must contain a pointer to a struct timespec64 structure.
+field must contain a pointer to a struct __kernel_timespec structure.
 .I timeout_flags
 may also contain IORING_TIMEOUT_ABS, in which case the value given is an
 absolute one, not a relative one.
