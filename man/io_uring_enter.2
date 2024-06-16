@@ -349,13 +349,13 @@ See
 for details of the system call.
 .I fd
 holds the file descriptor that represents the epoll instance,
-.I addr
+.I off
 holds the file descriptor to add, remove or modify,
 .I len
 holds the operation (EPOLL_CTL_ADD, EPOLL_CTL_DEL, EPOLL_CTL_MOD) to perform and,
-.I off
+.I addr
 holds a pointer to the
-.I epoll_events
+.I epoll_event
 structure. Available since 5.6.
 
 .TP
