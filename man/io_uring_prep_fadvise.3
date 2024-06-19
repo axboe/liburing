@@ -13,8 +13,14 @@ io_uring_prep_fadvise \- prepare a fadvise request
 .BI "void io_uring_prep_fadvise(struct io_uring_sqe *" sqe ","
 .BI "                           int " fd ","
 .BI "                           __u64 " offset ","
-.BI "                           off_t " len ","
+.BI "                           __u32 " len ","
 .BI "                           int " advice ");"
+.BI "
+.BI "void io_uring_prep_fadvise64(struct io_uring_sqe *" sqe ","
+.BI "                             int " fd ","
+.BI "                             __u64 " offset ","
+.BI "                             __u64 " len ","
+.BI "                             int " advice ");"
 .fi
 .SH DESCRIPTION
 .PP
@@ -30,6 +36,17 @@ and of
 .I len
 length in bytes, giving it the advise located in
 .IR advice .
+
+The
+.BR io_uring_prep_fadvise64 (3)
+function works like
+.BR io_uring_prep_fadvise (3)
+except that it takes a 64-bit length rather than just a 32-bit one. Older
+kernels may not support the 64-bit length variant. If this variant is attempted
+used on a kernel that doesn't support 64-bit lengths, then the request will get
+errored with
+.B -EINVAL
+in the results field of the CQE.
 
 This function prepares an async
 .BR posix_fadvise (2)
