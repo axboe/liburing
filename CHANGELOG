@@ -8,6 +8,7 @@ liburing-2.7 release
 - Fix io_uring_queue_init_mem() returning a value that was too small,
   potentially causing memory corruption in userspace by overwriting
   64 bytes beyond the returned value. Also add test case for that.
+- Add 64-bit length variants of io_uring_prep_{m,f}advise()
 
 liburing-2.6 release
 
