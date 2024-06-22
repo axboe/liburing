@@ -1282,7 +1282,7 @@ last SQE in a submission has this flag set, it will still terminate the current
 chain. This flag has no effect on previous SQE submissions, nor does it impact
 SQEs that are outside of the chain tail. This means that multiple chains can be
 executing in parallel, or chains and individual SQEs. Only members inside the
-chain are serialized. A chain of SQEs will be broken, if any request in that
+chain are serialized. A chain of SQEs will be broken if any request in that
 chain ends in error. io_uring considers any unexpected result an error. This
 means that, eg, a short read will also terminate the remainder of the chain.
 If a chain of SQE links is broken, the remaining unstarted part of the chain

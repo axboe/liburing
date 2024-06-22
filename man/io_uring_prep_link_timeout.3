@@ -15,9 +15,9 @@ io_uring_prep_link_timeout \- a timeout request for linked sqes
 .fi
 .SH DESCRIPTION
 .PP
-The 
+The
 .BR io_uring_prep_link_timeout (3)
-function prepares a timeout request for linked sqes. The submission queue entry 
+function prepares a timeout request for linked sqes. The submission queue entry
 .I sqe
 is setup a timeout specified by
 .IR ts .
@@ -58,10 +58,10 @@ The realtime clock source should be used.
 Consider an expired timeout a success in terms of the posted completion.
 .PP
 
-It is invalid to create a chain (linked sqes) consisting only of a link timeout 
-request. If all the requests in the chain are completed before timeout, then the 
-link timeout request gets cancelled. Upon timeout, all the uncompleted requests 
-in the chain get cancelled.
+It is invalid to create a chain (linked sqes) consisting only of a link timeout
+request. If all the requests in the chain are completed before timeout, then the
+link timeout request gets canceled. Upon timeout, all the uncompleted requests
+in the chain get canceled.
 
 .SH RETURN VALUE
 None
@@ -78,14 +78,14 @@ is returned.
 The specified timeout occurred and triggered the completion event.
 .TP
 .B -EINVAL
-One of the fields set in the SQE was invalid. For example, two clock sources 
+One of the fields set in the SQE was invalid. For example, two clock sources
 where given, or the specified timeout seconds or nanoseconds where < 0.
 .TP
 .B -EFAULT
 io_uring was unable to access the data specified by ts.
 .TP
 .B -ECANCELED
-The timeout was canceled because all submitted requests were completed successfully 
+The timeout was canceled because all submitted requests were completed successfully
 or one of the requests resulted in failure.
 
 
