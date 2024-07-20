@@ -80,6 +80,29 @@ or
 .BR recvmsg (2)
 operation. If set, the socket still had data to be read after the operation
 completed. Both these flags are available since 5.19.
+
+.TP
+.B IORING_RECVSEND_BUNDLE
+If set and provided buffers are used with
+.B IOSQE_BUFFER_SELECT ,
+the receive operation will attempt to fill multiple buffers with rather than
+just pick a single buffer to fill. To receive multiple buffers in a single
+receive, the buffer group ID set in the SQE must be of the ring provided type.
+If set, the CQE
+.I res
+field indicates the total number of bytes received, and the buffer ID returned
+in the CQE
+.I flags
+field indicates the first buffer in the receive operation. The application must
+iterate from the indicated initial buffer ID and until all
+.I res
+bytes have been seen to know which is the last buffer in the receive operation.
+The buffer IDs consumed will be contigious from the starting ID, in the order
+in which they were added to the buffer ring used. Receiving in bundles can
+improve performance when more than one chunk of data is available to receive,
+by eliminating redundant round trips through the networking stack. Receive
+bundles may be used by both single shot and multishot receive operations.
+Available since 6.10.
 .P
 
 .SH RETURN VALUE
