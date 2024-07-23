@@ -10,7 +10,7 @@ for opt do
   case "$opt" in
   --help|-h) show_help=yes
   ;;
-  --prefix=*) prefix="$optarg"
+  --prefix=*) prefix="$(realpath -s $optarg)"
   ;;
   --includedir=*) includedir="$optarg"
   ;;
