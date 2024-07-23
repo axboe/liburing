@@ -52,6 +52,7 @@ test_srcs := \
 	across-fork.c \
 	b19062a56726.c \
 	b5837bd5311d.c \
+	bind-listen.c \
 	buf-ring.c \
 	buf-ring-nommap.c \
 	buf-ring-put.c \
