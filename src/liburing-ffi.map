@@ -202,4 +202,5 @@ LIBURING_2.7 {
 		io_uring_prep_fadvise64;
 		io_uring_prep_madvise64;
 		io_uring_prep_bind;
+		io_uring_prep_listen;
 } LIBURING_2.6;

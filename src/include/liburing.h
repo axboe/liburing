@@ -676,6 +676,12 @@ IOURINGINLINE void io_uring_prep_bind(struct io_uring_sqe *sqe, int fd,
 	io_uring_prep_rw(IORING_OP_BIND, sqe, fd, addr, 0, addrlen);
 }
 
+IOURINGINLINE void io_uring_prep_listen(struct io_uring_sqe *sqe, int fd,
+				      int backlog)
+{
+	io_uring_prep_rw(IORING_OP_LISTEN, sqe, fd, 0, backlog, 0);
+}
+
 IOURINGINLINE void io_uring_prep_files_update(struct io_uring_sqe *sqe,
 					      int *fds, unsigned nr_fds,
 					      int offset)
