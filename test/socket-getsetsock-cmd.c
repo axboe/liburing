@@ -53,7 +53,8 @@ static struct io_uring create_ring(void)
 
 static int submit_cmd_sqe(struct io_uring *ring, int32_t fd,
 			  int op, int level, int optname,
-			  void *optval, int optlen)
+			  void *optval, int optlen,
+			  bool async)
 {
 	struct io_uring_sqe *sqe;
 	int err;
@@ -65,6 +66,8 @@ static int submit_cmd_sqe(struct io_uring *ring, int32_t fd,
 
 	io_uring_prep_cmd_sock(sqe, op, fd, level, optname, optval, optlen);
 	sqe->user_data = USERDATA;
+	if (async)
+		sqe->flags |= IOSQE_ASYNC;
 
 	/* Submitting SQE */
 	err = io_uring_submit_and_wait(ring, 1);
@@ -92,7 +95,7 @@ static int receive_cqe(struct io_uring *ring)
  * Run getsock operation using SO_RCVBUF using io_uring cmd operation and
  * getsockopt(2) and compare the results.
  */
-static int run_get_rcvbuf(struct io_uring *ring, struct fds *sockfds)
+static int run_get_rcvbuf(struct io_uring *ring, struct fds *sockfds, bool async)
 {
 	int sval, uval, ulen, err;
 	unsigned int slen;
@@ -104,7 +107,7 @@ static int run_get_rcvbuf(struct io_uring *ring, struct fds *sockfds)
 
 	/* get through io_uring cmd */
 	err = submit_cmd_sqe(ring, sockfds->rx, SOCKET_URING_OP_GETSOCKOPT,
-			     SOL_SOCKET, SO_RCVBUF, &uval, ulen);
+			     SOL_SOCKET, SO_RCVBUF, &uval, ulen, async);
 	assert(err == 1);
 
 	/* Wait for the CQE */
@@ -133,7 +136,7 @@ static int run_get_rcvbuf(struct io_uring *ring, struct fds *sockfds)
  * Run getsock operation using SO_PEERNAME using io_uring cmd operation
  * and getsockopt(2) and compare the results.
  */
-static int run_get_peername(struct io_uring *ring, struct fds *sockfds)
+static int run_get_peername(struct io_uring *ring, struct fds *sockfds, bool async)
 {
 	struct sockaddr sval, uval = {};
 	socklen_t slen = sizeof(sval);
@@ -146,7 +149,7 @@ static int run_get_peername(struct io_uring *ring, struct fds *sockfds)
 
 	/* Getting SO_PEERNAME */
 	err = submit_cmd_sqe(ring, sockfds->rx, SOCKET_URING_OP_GETSOCKOPT,
-			     SOL_SOCKET, SO_PEERNAME, &uval, ulen);
+			     SOL_SOCKET, SO_PEERNAME, &uval, ulen, async);
 	assert(err == 1);
 
 	/* Wait for the CQE */
@@ -178,18 +181,27 @@ static int run_getsockopt_test(struct io_uring *ring, struct fds *sockfds)
 {
 	int err;
 
-	err = run_get_peername(ring, sockfds);
+	err = run_get_peername(ring, sockfds, false);
 	if (err)
 		return err;
 
-	return run_get_rcvbuf(ring, sockfds);
+	err = run_get_peername(ring, sockfds, true);
+	if (err)
+		return err;
+
+	err = run_get_rcvbuf(ring, sockfds, false);
+	if (err)
+		return err;
+
+	return run_get_rcvbuf(ring, sockfds, true);
 }
 
 /*
  * Given a `val` value, set it in SO_REUSEPORT using io_uring cmd, and read using
  * getsockopt(2), and make sure they match.
  */
-static int run_setsockopt_reuseport(struct io_uring *ring, struct fds *sockfds, int val)
+static int run_setsockopt_reuseport(struct io_uring *ring, struct fds *sockfds,
+				    int val, bool async)
 {
 	unsigned int slen, ulen;
 	int sval, uval = val;
@@ -200,7 +212,7 @@ static int run_setsockopt_reuseport(struct io_uring *ring, struct fds *sockfds, 
 
 	/* Setting SO_REUSEPORT */
 	err = submit_cmd_sqe(ring, sockfds->rx, SOCKET_URING_OP_SETSOCKOPT,
-			     SOL_SOCKET, SO_REUSEPORT, &uval, ulen);
+			     SOL_SOCKET, SO_REUSEPORT, &uval, ulen, async);
 	assert(err == 1);
 
 	err = receive_cqe(ring);
@@ -222,7 +234,8 @@ static int run_setsockopt_reuseport(struct io_uring *ring, struct fds *sockfds, 
  * Given a `val` value, set the TCP_USER_TIMEOUT using io_uring and read using
  * getsockopt(2). Make sure they match
  */
-static int run_setsockopt_usertimeout(struct io_uring *ring, struct fds *sockfds, int val)
+static int run_setsockopt_usertimeout(struct io_uring *ring, struct fds *sockfds,
+				      int val, bool async)
 {
 	int optname = TCP_USER_TIMEOUT;
 	int level = IPPROTO_TCP;
@@ -236,7 +249,7 @@ static int run_setsockopt_usertimeout(struct io_uring *ring, struct fds *sockfds
 
 	/* Setting timeout */
 	err = submit_cmd_sqe(ring, sockfds->rx, SOCKET_URING_OP_SETSOCKOPT,
-			     level, optname, &uval, ulen);
+			     level, optname, &uval, ulen, async);
 	assert(err == 1);
 
 	err = receive_cqe(ring);
@@ -259,17 +272,22 @@ static int run_setsockopt_usertimeout(struct io_uring *ring, struct fds *sockfds
 static int run_setsockopt_test(struct io_uring *ring, struct fds *sockfds)
 {
 	int err, i;
+	int j;
 
-	for (i = 0; i <= 1; i++) {
-		err = run_setsockopt_reuseport(ring, sockfds, i);
-		if (err)
-			return err;
-	}
+	for (j = 0; j < 2; j++) {
+		bool async = j & 1;
 
-	for (i = 1; i <= 10; i++) {
-		err = run_setsockopt_usertimeout(ring, sockfds, i);
-		if (err)
-			return err;
+		for (i = 0; i <= 1; i++) {
+			err = run_setsockopt_reuseport(ring, sockfds, i, async);
+			if (err)
+				return err;
+		}
+
+		for (i = 1; i <= 10; i++) {
+			err = run_setsockopt_usertimeout(ring, sockfds, i, async);
+			if (err)
+				return err;
+		}
 	}
 
 	return err;
