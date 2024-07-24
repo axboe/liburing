@@ -21,7 +21,8 @@ static void msec_to_ts(struct __kernel_timespec *ts, unsigned int msec)
         ts->tv_nsec = (msec % 1000) * 1000000;
 }
 
-const char *magic = "Hello World!";
+static const char *magic = "Hello World!";
+static int use_port = 8000;
 
 enum {
 	SRV_INDEX = 0,
@@ -31,7 +32,6 @@ enum {
 
 static int connect_client(struct io_uring *ring, unsigned short peer_port)
 {
-
 	struct __kernel_timespec ts;
 	struct io_uring_sqe *sqe;
 	struct io_uring_cqe *cqe;
@@ -76,18 +76,15 @@ static int connect_client(struct io_uring *ring, unsigned short peer_port)
 
 static int setup_srv(struct io_uring *ring, struct sockaddr_in *server_addr)
 {
-	int val;
-	int submitted;
 	struct io_uring_sqe *sqe;
 	struct io_uring_cqe *cqe;
 	struct __kernel_timespec ts;
-	int head;
-
-	int ret;
+	int ret, val, submitted;
+	unsigned head;
 
 	memset(server_addr, 0, sizeof(struct sockaddr_in));
 	server_addr->sin_family = AF_INET;
-	server_addr->sin_port = htons(8000);
+	server_addr->sin_port = htons(use_port++);
 	server_addr->sin_addr.s_addr = htons(INADDR_ANY);
 
 	sqe = io_uring_get_sqe(ring);
@@ -133,7 +130,7 @@ static int setup_srv(struct io_uring *ring, struct sockaddr_in *server_addr)
 	return T_SETUP_OK;
 }
 
-static int test_good_server()
+static int test_good_server(unsigned int ring_flags)
 {
 	struct sockaddr_in server_addr;
 	struct __kernel_timespec ts;
@@ -146,7 +143,7 @@ static int test_good_server()
 
 	memset(fds, -1, sizeof(fds));
 
-	ret = t_create_ring(10, &ring, IORING_SETUP_SUBMIT_ALL);
+	ret = t_create_ring(10, &ring, ring_flags | IORING_SETUP_SUBMIT_ALL);
 	if (ret < 0) {
 		fprintf(stderr, "queue_init: %s\n", strerror(-ret));
 		return T_SETUP_SKIP;
@@ -194,6 +191,7 @@ static int test_good_server()
 		return T_EXIT_FAIL;
 	}
 	ret = cqe->res;
+	io_uring_cqe_seen(&ring, cqe);
 
 	io_uring_queue_exit(&ring);
 
@@ -201,23 +199,22 @@ static int test_good_server()
 		fprintf(stderr, "didn't receive expected string. Got %d '%s'\n", ret, buf);
 		return T_EXIT_FAIL;
 	}
-	fprintf(stderr, "expected string. Got %d '%s'\n", ret, buf);
+
 	return T_EXIT_PASS;
 }
 
-int test_bad_bind()
+static int test_bad_bind(void)
 {
-	int sock;
 	struct sockaddr_in server_addr;
 	struct io_uring_sqe *sqe;
 	struct io_uring_cqe *cqe;
 	struct io_uring ring;
-	int err;
+	int sock = -1, err;
 	int ret = T_EXIT_FAIL;
 
 	memset(&server_addr, 0, sizeof(struct sockaddr_in));
 	server_addr.sin_family = AF_INET;
-	server_addr.sin_port = htons(8001);
+	server_addr.sin_port = htons(9001);
 	server_addr.sin_addr.s_addr = htons(INADDR_ANY);
 
 	err = t_create_ring(1, &ring, 0);
@@ -278,19 +275,18 @@ int test_bad_bind()
 
 fail:
 	io_uring_queue_exit(&ring);
-	if (sock)
+	if (sock != -1)
 		close(sock);
 	return ret;
 }
 
-int test_bad_listen()
+static int test_bad_listen(void)
 {
-	int sock;
 	struct sockaddr_in server_addr;
 	struct io_uring_sqe *sqe;
 	struct io_uring_cqe *cqe;
 	struct io_uring ring;
-	int err;
+	int sock = -1, err;
 	int ret = T_EXIT_FAIL;
 
 	memset(&server_addr, 0, sizeof(struct sockaddr_in));
@@ -305,12 +301,14 @@ int test_bad_listen()
 	}
 
 	sock = socket(AF_INET, SOCK_STREAM, 0);
-	if (!sock) {
+	if (sock < 0) {
 		fprintf(stderr, "bad sock\n");
 		goto fail;
 	}
-	if (bind(sock, (struct sockaddr *) &server_addr,  sizeof(struct sockaddr_in))) {
-		fprintf(stderr, "bad bind\n");
+
+	err = t_bind_ephemeral_port(sock, &server_addr);
+	if (err) {
+		fprintf(stderr, "bind: %s\n", strerror(-err));
 		goto fail;
 	}
 
@@ -348,7 +346,7 @@ int test_bad_listen()
 	ret = T_EXIT_PASS;
 fail:
 	io_uring_queue_exit(&ring);
-	if (sock)
+	if (sock != -1)
 		close(sock);
 	return ret;
 }
@@ -356,12 +354,13 @@ fail:
 int main(int argc, char *argv[])
 {
 	struct io_uring_probe *probe;
-	int failures = 0;
+	int ret;
+
 	if (argc > 1)
 		return 0;
 
 	/*
-	 * This test is not supported in older kernels. Check for
+	 * This test is not supported on older kernels. Check for
 	 * OP_LISTEN, since that is the last feature required to support
 	 * it.
 	 */
@@ -371,11 +370,35 @@ int main(int argc, char *argv[])
 	if (!io_uring_opcode_supported(probe, IORING_OP_LISTEN))
 		return T_EXIT_SKIP;
 
-	failures += test_good_server();
-	failures += test_bad_bind();
-	failures += test_bad_listen();
+	ret = test_good_server(0);
+	if (ret) {
+		fprintf(stderr, "good 0 failed\n");
+		return T_EXIT_FAIL;
+	}
 
-	if (!failures)
-		return T_EXIT_PASS;
-	return T_EXIT_FAIL;
+	ret = test_good_server(IORING_SETUP_SINGLE_ISSUER|IORING_SETUP_DEFER_TASKRUN);
+	if (ret) {
+		fprintf(stderr, "good defer failed\n");
+		return T_EXIT_FAIL;
+	}
+
+	ret = test_good_server(IORING_SETUP_SQPOLL);
+	if (ret) {
+		fprintf(stderr, "good sqpoll failed\n");
+		return T_EXIT_FAIL;
+	}
+
+	ret = test_bad_bind();
+	if (ret) {
+		fprintf(stderr, "bad bind failed\n");
+		return T_EXIT_FAIL;
+	}
+
+	ret = test_bad_listen();
+	if (ret) {
+		fprintf(stderr, "bad listen failed\n");
+		return T_EXIT_FAIL;
+	}
+
+	return T_EXIT_PASS;
 }
