@@ -224,6 +224,10 @@ static int test_bad_bind(void)
 	}
 
 	sock = socket(AF_INET, SOCK_STREAM, 0);
+	if (sock < 0) {
+		perror("socket");
+		goto fail;
+	}
 
 	/* Bind with size 0 */
 	sqe = io_uring_get_sqe(&ring);
@@ -302,7 +306,7 @@ static int test_bad_listen(void)
 
 	sock = socket(AF_INET, SOCK_STREAM, 0);
 	if (sock < 0) {
-		fprintf(stderr, "bad sock\n");
+		perror("socket");
 		goto fail;
 	}
 
