@@ -347,18 +347,21 @@ static int test_cancel_req_across_fork(void)
 			case 1:
 				if (cqe->res != -EINTR &&
 				    cqe->res != -ECANCELED) {
-					fprintf(stderr, "%i %i\n", (int)cqe->user_data, cqe->res);
+					fprintf(stderr, "user_data %i res %i\n",
+						(unsigned)cqe->user_data, cqe->res);
 					exit(1);
 				}
 				break;
 			case 2:
 				if (cqe->res != -EALREADY && cqe->res) {
-					fprintf(stderr, "%i %i\n", (int)cqe->user_data, cqe->res);
+					fprintf(stderr, "user_data %i res %i\n",
+						(unsigned)cqe->user_data, cqe->res);
 					exit(1);
 				}
 				break;
 			default:
-				fprintf(stderr, "%i %i\n", (int)cqe->user_data, cqe->res);
+				fprintf(stderr, "user_data %i res %i\n",
+					(unsigned)cqe->user_data, cqe->res);
 				exit(1);
 			}
 
@@ -451,7 +454,8 @@ static int test_cancel_inflight_exit(void)
 		if ((cqe->user_data == 1 && cqe->res != -ECANCELED) ||
 		    (cqe->user_data == 2 && cqe->res != -ECANCELED) ||
 		    (cqe->user_data == 3 && cqe->res != -ETIME)) {
-			fprintf(stderr, "%i %i\n", (int)cqe->user_data, cqe->res);
+			fprintf(stderr, "user_data %i res %i\n",
+				(unsigned)cqe->user_data, cqe->res);
 			return 1;
 		}
 		io_uring_cqe_seen(&ring, cqe);
