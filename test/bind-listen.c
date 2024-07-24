@@ -370,7 +370,7 @@ int main(int argc, char *argv[])
 	 */
 	probe = io_uring_get_probe();
 	if (!probe)
-		return 1;
+		return T_EXIT_SKIP;
 	if (!io_uring_opcode_supported(probe, IORING_OP_LISTEN))
 		return T_EXIT_SKIP;
 
