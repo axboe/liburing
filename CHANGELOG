@@ -9,6 +9,7 @@ liburing-2.7 release
   potentially causing memory corruption in userspace by overwriting
   64 bytes beyond the returned value. Also add test case for that.
 - Add 64-bit length variants of io_uring_prep_{m,f}advise()
+- Add BIND/LISTEN support and helpers / man pages
 
 liburing-2.6 release
 
