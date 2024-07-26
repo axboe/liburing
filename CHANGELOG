@@ -10,6 +10,7 @@ liburing-2.7 release
   64 bytes beyond the returned value. Also add test case for that.
 - Add 64-bit length variants of io_uring_prep_{m,f}advise()
 - Add BIND/LISTEN support and helpers / man pages
+- Add io_uring_enable_rings.3 man page
 
 liburing-2.6 release
 
