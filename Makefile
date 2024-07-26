@@ -11,7 +11,10 @@ all:
 	@$(MAKE) -C test
 	@$(MAKE) -C examples
 
-.PHONY: all install default clean test
+library:
+	@$(MAKE) -C src
+
+.PHONY: all install default clean test library
 .PHONY: FORCE cscope
 
 runtests: all
