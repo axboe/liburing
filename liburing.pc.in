@@ -9,4 +9,4 @@ Description: io_uring library
 URL: https://git.kernel.dk/cgit/liburing/
 
 Libs: -L${libdir} -luring
-Cflags: -I${includedir}
+Cflags: -I${includedir} -D_GNU_SOURCE
