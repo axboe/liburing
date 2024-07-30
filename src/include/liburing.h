@@ -132,14 +132,13 @@ struct io_uring {
 };
 
 struct io_uring_zcrx_rq {
-	unsigned *khead;
-	unsigned *ktail;
-	struct io_uring_zcrx_rqe *rqes;
-
-	unsigned rq_tail;
-
-	void *ring_ptr;
+	__u32 *khead;
+	__u32 *ktail;
+	__u32 rq_tail;
 	unsigned ring_entries;
+
+	struct io_uring_zcrx_rqe *rqes;
+	void *ring_ptr;
 };
 
 /*
