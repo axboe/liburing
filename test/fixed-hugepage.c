@@ -177,7 +177,7 @@ static int do_read(struct io_uring *ring, int fd, struct iovec *iov, int nr_bufs
 			return -1;
 		}
 		if (cqe->res != iov[i].iov_len) {
-			fprintf(stderr, "cqe res: %d, expected: %lu\n", cqe->res, iov[i].iov_len);
+			fprintf(stderr, "cqe res: %d, expected: %lu\n", cqe->res, (unsigned long) iov[i].iov_len);
 			return -1;
 		}
 
@@ -214,7 +214,7 @@ static int do_write(struct io_uring *ring, int fd, struct iovec *iov, int nr_buf
 			return -1;
 		}
 		if (cqe->res != iov[i].iov_len) {
-			fprintf(stderr, "cqe res: %d, expected: %lu\n", cqe->res, iov[i].iov_len);
+			fprintf(stderr, "cqe res: %d, expected: %lu\n", cqe->res, (unsigned long) iov[i].iov_len);
 			return -1;
 		}
 
