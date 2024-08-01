@@ -128,6 +128,7 @@ test_srcs := \
 	nolibc.c \
 	nop-all-sizes.c \
 	nop.c \
+	ooo-file-unreg.c \
 	openat2.c \
 	open-close.c \
 	open-direct-link.c \
