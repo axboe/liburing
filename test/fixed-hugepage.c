@@ -76,10 +76,11 @@ static int mmap_hugebufs(struct iovec *iov, int nr_bufs, size_t buf_size, size_t
 }
 
 /* map a hugepage and smaller page to a contiguous memory */
-static int mmap_mixture(struct iovec *iov, int nr_bufs, size_t buf_size)
+static int mmap_mixture(struct iovec *iov, int nr_bufs, size_t buf_size, bool huge_on_left)
 {
 	int i;
-	void *small_base = NULL, *huge_base = NULL, *start = NULL;
+	void *small_base = NULL, *huge_base = NULL, *start = NULL,
+	     *huge_start = NULL, *small_start = NULL;
 	size_t small_size = buf_size - HUGEPAGE_SIZE;
 	size_t seg_size = ((buf_size / HUGEPAGE_SIZE) + 1) * HUGEPAGE_SIZE;
 
@@ -92,7 +93,15 @@ static int mmap_mixture(struct iovec *iov, int nr_bufs, size_t buf_size)
 	}
 
 	for (i = 0; i < nr_bufs; i++) {
-		huge_base = mmap(start, HUGEPAGE_SIZE, PROT_READ | PROT_WRITE,
+		if (huge_on_left) {
+			huge_start = start;
+			small_start = start + HUGEPAGE_SIZE;
+		} else {
+			huge_start = start + HUGEPAGE_SIZE;
+			small_start = start + HUGEPAGE_SIZE - small_size;
+		}
+
+		huge_base = mmap(huge_start, HUGEPAGE_SIZE, PROT_READ | PROT_WRITE,
 				MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB | MAP_FIXED, -1, 0);
 		if (huge_base == MAP_FAILED) {
 			printf("Unable to map hugetlb page in the page mixture. "
@@ -101,7 +110,7 @@ static int mmap_mixture(struct iovec *iov, int nr_bufs, size_t buf_size)
 			return -1;
 		}
 
-		small_base = mmap(start + HUGEPAGE_SIZE, small_size, PROT_READ | PROT_WRITE,
+		small_base = mmap(small_start, small_size, PROT_READ | PROT_WRITE,
 				MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0);
 		if (small_base == MAP_FAILED) {
 			printf("Unable to map small page in the page mixture. "
@@ -110,8 +119,14 @@ static int mmap_mixture(struct iovec *iov, int nr_bufs, size_t buf_size)
 			return -1;
 		}
 
-		memset(huge_base, 0, buf_size);
-		iov[i].iov_base = huge_base;
+		if (huge_on_left) {
+			iov[i].iov_base = huge_base;
+			memset(huge_base, 0, buf_size);
+		}
+		else {
+			iov[i].iov_base = small_base;
+			memset(small_base, 0, buf_size);
+		}
 		iov[i].iov_len = buf_size;
 		start += seg_size;
 	}
@@ -315,13 +330,13 @@ static int test_multi_unaligned_mthps(struct io_uring *ring, int fd_in, int fd_o
 }
 
 /* Should not coalesce */
-static int test_page_mixture(struct io_uring *ring, int fd_in, int fd_out)
+static int test_page_mixture(struct io_uring *ring, int fd_in, int fd_out, int huge_on_left)
 {
 	struct iovec iov[NR_BUFS];
 	size_t buf_size = HUGEPAGE_SIZE + MTHP_16KB;
 	int ret;
 
-	if (mmap_mixture(iov, NR_BUFS, buf_size))
+	if (mmap_mixture(iov, NR_BUFS, buf_size, huge_on_left))
 		return T_EXIT_SKIP;
 
 	ret = register_submit(ring, iov, NR_BUFS, fd_in, fd_out);
@@ -377,10 +392,17 @@ int main(int argc, char *argv[])
 		return ret;
 	}
 
-	ret = test_page_mixture(&ring, fd_in, fd_out);
+	ret = test_page_mixture(&ring, fd_in, fd_out, true);
 	if (ret != T_EXIT_PASS) {
 		if (ret != T_EXIT_SKIP)
-			fprintf(stderr, "Test huge small page mixture failed.\n");
+			fprintf(stderr, "Test huge small page mixture (start with huge) failed.\n");
+		return ret;
+	}
+
+	ret = test_page_mixture(&ring, fd_in, fd_out, false);
+	if (ret != T_EXIT_PASS) {
+		if (ret != T_EXIT_SKIP)
+			fprintf(stderr, "Test huge small page mixture (start with small) failed.\n");
 		return ret;
 	}
 
