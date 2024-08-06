@@ -11,7 +11,6 @@ io_uring_prep_fixed_fd_install \- prepare fixed file fd installation request
 .PP
 .BI "void io_uring_prep_fixed_fd_install(struct io_uring_sqe *" sqe ","
 .BI "                                    int " fd ","
-.BI "                                    unsigned int " file_flags ","
 .BI "                                    unsigned int " flags ");"
 .fi
 .SH DESCRIPTION
@@ -23,10 +22,8 @@ helper prepares a fixed file descriptor installation. The submission queue entry
 is setup to install the direct/fixed file descriptor
 .I fd
 with the specified
-.I file_flags
-file installation flags, and the
 .I flags
-request specific flags into the normal process file table.
+file installation flags.
 
 One use case of direct/fixed file descriptors is to turn a regular file
 descriptor into a direct one, reducing the overhead of any request that
@@ -43,19 +40,18 @@ Upon successful return of this request, both a normal and fixed file descriptor
 exists for the same file. Either one of them may be used to access the file.
 Either one of them may be closed without affecting the other one.
 
-.I file_flags
+.I flags
 may be either zero, or set to
+.B IORING_FIXED_FD_NO_CLOEXEC
+to indicate that the new regular file descriptor should not be closed during
+exec. By default,
 .B O_CLOEXEC
-to indicate that the new regular file descriptor should be closed during
-exec. Setting this field to anything but those two values will result in
-the request being failed with
+will be set on the new descriptor otherwise. Setting this field to anything but
+those two values will result in the request being failed with
 .B -EINVAL
 in the CQE
 .I res
 field.
-
-.I flags
-is as-of yet unused and must be set to zero.
 
 .SH RETURN VALUE
 None
