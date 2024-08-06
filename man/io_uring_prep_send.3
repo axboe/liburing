@@ -99,9 +99,17 @@ As with any other request using provided buffers,
 .B IOSQE_BUFFER_SELECT
 must also be set in the SQE
 .I flags
-before submission. A single CQE is posted for the send, with the result being
-how many bytes were sent, on success. When used with provided buffers, send or
-send bundle will contain the starting buffer group ID in the CQE
+before submission. Currently
+.I len
+must be given as
+.B 0
+otherwise the request will be errored with
+.B -EINVAL
+as the result code. Future versions may allow setting
+.I
+to limit the transfer size. A single CQE is posted for the send, with the result
+being how many bytes were sent, on success. When used with provided buffers,
+send or send bundle will contain the starting buffer group ID in the CQE
 .I flags
 field. The number of bytes sent starts from there, and will be in contigious
 buffer IDs after that. Send bundle, and send with provided buffers in general,
