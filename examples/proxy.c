@@ -473,20 +473,71 @@ static int setup_buffer_rings(struct io_uring *ring, struct conn *c)
 	return 0;
 }
 
+struct bucket_stat {
+	int nr_packets;
+	int count;
+};
+
+static int stat_cmp(const void *p1, const void *p2)
+{
+	const struct bucket_stat *b1 = p1;
+	const struct bucket_stat *b2 = p2;
+
+	if (b1->count < b2->count)
+		return 1;
+	else if (b1->count > b2->count)
+		return -1;
+	return 0;
+}
+
 static void show_buckets(struct conn_dir *cd)
 {
+	unsigned long snd_total, rcv_total;
+	struct bucket_stat *rstat, *sstat;
 	int i;
 
 	if (!cd->rcv_bucket || !cd->snd_bucket)
 		return;
 
+	rstat = calloc(sizeof(struct bucket_stat), nr_bufs);
+	sstat = calloc(sizeof(struct bucket_stat), nr_bufs);
+
+	snd_total = rcv_total = 0;
+	for (i = 0; i < nr_bufs; i++) {
+		snd_total += cd->snd_bucket[i];
+		sstat[i].nr_packets = i;
+		sstat[i].count = cd->snd_bucket[i];
+		rcv_total += cd->rcv_bucket[i];
+		rstat[i].nr_packets = i;
+		rstat[i].count = cd->rcv_bucket[i];
+	}
+
+	if (!snd_total && !rcv_total) {
+		free(sstat);
+		free(rstat);
+	}
+	if (snd_total)
+		qsort(sstat, nr_bufs, sizeof(struct bucket_stat), stat_cmp);
+	if (rcv_total)
+		qsort(rstat, nr_bufs, sizeof(struct bucket_stat), stat_cmp);
+
 	printf("\t Packets per recv/send:\n");
 	for (i = 0; i < nr_bufs; i++) {
-		if (!cd->rcv_bucket[i] && !cd->snd_bucket[i])
+		double snd_prc = 0.0, rcv_prc = 0.0;
+		if (!rstat[i].count && !sstat[i].count)
 			continue;
-		printf("\t bucket(%3d): rcv=%u snd=%u\n", i, cd->rcv_bucket[i],
-							     cd->snd_bucket[i]);
+		if (rstat[i].count)
+			rcv_prc = 100.0 * (rstat[i].count / (double) rcv_total);
+		if (sstat[i].count)
+			snd_prc = 100.0 * (sstat[i].count / (double) snd_total);
+		printf("\t bucket(%3d/%3d): rcv=%u (%.2f%%) snd=%u (%.2f%%)\n",
+				rstat[i].nr_packets, sstat[i].nr_packets,
+				rstat[i].count, rcv_prc,
+				sstat[i].count, snd_prc);
 	}
+
+	free(sstat);
+	free(rstat);
 }
 
 static void __show_stats(struct conn *c)
