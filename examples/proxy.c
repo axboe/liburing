@@ -499,11 +499,11 @@ static void show_buckets(struct conn_dir *cd)
 	if (!cd->rcv_bucket || !cd->snd_bucket)
 		return;
 
-	rstat = calloc(sizeof(struct bucket_stat), nr_bufs);
-	sstat = calloc(sizeof(struct bucket_stat), nr_bufs);
+	rstat = calloc(nr_bufs + 1, sizeof(struct bucket_stat));
+	sstat = calloc(nr_bufs + 1, sizeof(struct bucket_stat));
 
 	snd_total = rcv_total = 0;
-	for (i = 0; i < nr_bufs; i++) {
+	for (i = 0; i <= nr_bufs; i++) {
 		snd_total += cd->snd_bucket[i];
 		sstat[i].nr_packets = i;
 		sstat[i].count = cd->snd_bucket[i];
@@ -522,7 +522,7 @@ static void show_buckets(struct conn_dir *cd)
 		qsort(rstat, nr_bufs, sizeof(struct bucket_stat), stat_cmp);
 
 	printf("\t Packets per recv/send:\n");
-	for (i = 0; i < nr_bufs; i++) {
+	for (i = 0; i <= nr_bufs; i++) {
 		double snd_prc = 0.0, rcv_prc = 0.0;
 		if (!rstat[i].count && !sstat[i].count)
 			continue;
@@ -986,8 +986,8 @@ static int handle_accept(struct io_uring *ring, struct io_uring_cqe *cqe)
 		cd->snd_next_bid = -1;
 		cd->rcv_next_bid = -1;
 		if (ext_stat) {
-			cd->rcv_bucket = calloc(nr_bufs, sizeof(int));
-			cd->snd_bucket = calloc(nr_bufs, sizeof(int));
+			cd->rcv_bucket = calloc(nr_bufs + 1, sizeof(int));
+			cd->snd_bucket = calloc(nr_bufs + 1, sizeof(int));
 		}
 		init_msgs(cd);
 	}
