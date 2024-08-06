@@ -101,8 +101,11 @@ The buffer IDs consumed will be contigious from the starting ID, in the order
 in which they were added to the buffer ring used. Receiving in bundles can
 improve performance when more than one chunk of data is available to receive,
 by eliminating redundant round trips through the networking stack. Receive
-bundles may be used by both single shot and multishot receive operations.
-Available since 6.10.
+bundles may be used by both single shot and multishot receive operations. Note
+that, internally, bundles rely on the networking stack passing back how much
+data is left in the socket after the initial receive. This means that the
+initial receive may contain less buffers than what is available, with the
+followup receive(s) containing more buffers. Available since 6.10.
 .P
 
 .SH RETURN VALUE
