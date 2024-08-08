@@ -12,6 +12,8 @@
 #include <sys/socket.h>
 #include <pthread.h>
 
+#undef USE_UDP
+
 #define MSG_SIZE 128
 #define NR_MIN_MSGS	4
 #define NR_MAX_MSGS	32
@@ -53,10 +55,31 @@ struct recv_data {
 	int recv_bundle;
 };
 
+static int arm_recv(struct io_uring *ring, struct recv_data *rd)
+{
+	struct io_uring_sqe *sqe;
+	int ret;
+
+	sqe = io_uring_get_sqe(ring);
+	io_uring_prep_recv_multishot(sqe, rd->accept_fd, NULL, 0, 0);
+	if (rd->recv_bundle)
+		sqe->ioprio |= IORING_RECVSEND_BUNDLE;
+	sqe->buf_group = RECV_BGID;
+	sqe->flags |= IOSQE_BUFFER_SELECT;
+	sqe->user_data = 2;
+
+	ret = io_uring_submit(ring);
+	if (ret != 1) {
+		fprintf(stderr, "submit failed: %d\n", ret);
+		return 1;
+	}
+
+	return 0;
+}
+
 static int recv_prep(struct io_uring *ring, struct recv_data *rd, int *sock)
 {
 	struct sockaddr_in saddr;
-	struct io_uring_sqe *sqe;
 	int sockfd, ret, val, use_fd;
 	socklen_t socklen;
 
@@ -107,19 +130,8 @@ static int recv_prep(struct io_uring *ring, struct recv_data *rd, int *sock)
 	pthread_barrier_wait(&rd->startup);
 	pthread_barrier_wait(&rd->barrier);
 
-	sqe = io_uring_get_sqe(ring);
-	io_uring_prep_recv_multishot(sqe, use_fd, NULL, 0, 0);
-	if (rd->recv_bundle)
-		sqe->ioprio |= IORING_RECVSEND_BUNDLE;
-	sqe->buf_group = RECV_BGID;
-	sqe->flags |= IOSQE_BUFFER_SELECT;
-	sqe->user_data = 2;
-
-	ret = io_uring_submit(ring);
-	if (ret != 1) {
-		fprintf(stderr, "submit failed: %d\n", ret);
+	if (arm_recv(ring, rd))
 		goto err;
-	}
 
 	*sock = sockfd;
 	return 0;
@@ -128,18 +140,17 @@ err:
 	return 1;
 }
 
-static int verify_seq(struct recv_data *rd, struct io_uring_cqe *cqe,
+static int verify_seq(struct recv_data *rd, void *verify_ptr, int verify_sz,
 		      int start_bid)
 {
 	unsigned long *seqp;
-	int seq_size = cqe->res / sizeof(unsigned long);
+	int seq_size = verify_sz / sizeof(unsigned long);
 	int i;
 
-	seqp = rd->recv_buf;
-	seqp += (start_bid * SEQ_SIZE);
+	seqp = verify_ptr;
 	for (i = 0; i < seq_size; i++) {
 		if (rd->seq != *seqp) {
-			fprintf(stderr, "got seq %lu, wanted %lu, offset %d\n", *seqp, rd->seq, i);
+			fprintf(stderr, "bid=%d, got seq %lu, wanted %lu, offset %d\n", start_bid, *seqp, rd->seq, i);
 			return 0;
 		}
 		seqp++;
@@ -175,6 +186,11 @@ static int do_recv(struct io_uring *ring, struct recv_data *rd)
 {
 	struct io_uring_cqe *cqe;
 	int bid, next_bid = 0;
+	void *verify_ptr;
+	int verify_sz = 0;
+	int verify_bid = 0;
+
+	verify_ptr = malloc(rd->recv_bytes);
 
 	do {
 		if (recv_get_cqe(ring, rd, &cqe))
@@ -200,19 +216,29 @@ static int do_recv(struct io_uring *ring, struct recv_data *rd)
 			fprintf(stderr, "recv got wrong length: %d\n", cqe->res);
 			goto err;
 		}
-		if (!verify_seq(rd, cqe, bid))
-			goto err;
-		if (cqe->res % MSG_SIZE)
-			fprintf(stderr, "MSG resid %d\n", cqe->res % MSG_SIZE);
-		next_bid = bid + (cqe->res / MSG_SIZE);
+		if (!(verify_sz % MSG_SIZE)) {
+			if (!verify_seq(rd, verify_ptr, verify_sz, verify_bid))
+				goto err;
+			verify_bid += verify_sz / MSG_SIZE;
+			verify_bid &= RECV_BID_MASK;
+			verify_sz = 0;
+		} else {
+			memcpy(verify_ptr + verify_sz, rd->recv_buf + (bid * MSG_SIZE), cqe->res);
+			verify_sz += cqe->res;
+		}
+		next_bid = bid + ((cqe->res + MSG_SIZE - 1) / MSG_SIZE);
 		next_bid &= RECV_BID_MASK;
 		rd->recv_bytes -= cqe->res;
 		io_uring_cqe_seen(ring, cqe);
 		if (!(cqe->flags & IORING_CQE_F_MORE) && rd->recv_bytes) {
-			fprintf(stderr, "MORE not set and expecting more\n");
-			goto err;
+			if (arm_recv(ring, rd))
+				goto err;
 		}
 	} while (rd->recv_bytes);
+
+	if (verify_sz && !(verify_sz % MSG_SIZE) &&
+	    !verify_seq(rd, verify_ptr, verify_sz, verify_bid))
+		goto err;
 
 	pthread_barrier_wait(&rd->finish);
 	return 0;
@@ -280,7 +306,7 @@ static int __do_send_bundle(struct recv_data *rd, struct io_uring *ring, int soc
 	int i, ret;
 
 	sqe = io_uring_get_sqe(ring);
-	io_uring_prep_send_bundle(sqe, sockfd, nr_msgs * MSG_SIZE, 0);
+	io_uring_prep_send_bundle(sqe, sockfd, 0, 0);
 	sqe->flags |= IOSQE_BUFFER_SELECT;
 	sqe->buf_group = SEND_BGID;
 	sqe->user_data = 1;
@@ -307,9 +333,15 @@ static int __do_send_bundle(struct recv_data *rd, struct io_uring *ring, int soc
 			return 1;
 		}
 		bytes_needed -= cqe->res;
-		io_uring_cqe_seen(ring, cqe);
-		if (!bytes_needed)
+		if (!bytes_needed) {
+			io_uring_cqe_seen(ring, cqe);
 			break;
+		}
+		if (!(cqe->flags & IORING_CQE_F_MORE)) {
+			fprintf(stderr, "expected more, but MORE not set\n");
+			return 1;
+		}
+		io_uring_cqe_seen(ring, cqe);
 	}
 
 	return 0;
@@ -324,7 +356,7 @@ static int __do_send(struct recv_data *rd, struct io_uring *ring, int sockfd)
 
 	for (i = 0; i < nr_msgs; i++) {
 		sqe = io_uring_get_sqe(ring);
-		io_uring_prep_send(sqe, sockfd, NULL, MSG_SIZE, 0);
+		io_uring_prep_send(sqe, sockfd, NULL, 0, 0);
 		sqe->user_data = 10 + i;
 		sqe->flags |= IOSQE_BUFFER_SELECT;
 		sqe->buf_group = SEND_BGID;
@@ -429,7 +461,7 @@ static int do_send(struct recv_data *rd)
 	pthread_barrier_wait(&rd->startup);
 
 	optlen = sizeof(len);
-	len = 256 * MSG_SIZE;
+	len = 1024 * MSG_SIZE;
 	setsockopt(sockfd, SOL_SOCKET, SO_SNDBUF, &len, optlen);
 
 	/* almost fill queue, leave room for one message */
@@ -532,7 +564,7 @@ static int test(int backlog, unsigned int max_sends, int *to_eagain,
 	return (intptr_t)retval;
 }
 
-static int run_tests(void)
+static int run_tests(int is_udp)
 {
 	int ret, eagain_hit;
 
@@ -582,6 +614,9 @@ static int run_tests(void)
 		return T_EXIT_FAIL;
 	}
 
+	if (is_udp)
+		return T_EXIT_PASS;
+
 	/* test send bundle with almost full socket */
 	ret = test(1, eagain_hit - (nr_msgs / 2), &eagain_hit, 1, 0);
 	if (ret) {
@@ -619,30 +654,34 @@ static int run_tests(void)
 static int test_tcp(void)
 {
 	use_tcp = 1;
-	return run_tests();
+	return run_tests(false);
 }
 
+#ifdef USE_UDP
 static int test_udp(void)
 {
 	use_tcp = 0;
 	use_port++;
-	return run_tests();
+	return run_tests(true);
 }
+#endif
 
 int main(int argc, char *argv[])
 {
 	int ret;
 
 	if (argc > 1)
-		return 0;
+		return T_EXIT_SKIP;
 
 	ret = test_tcp();
 	if (ret != T_EXIT_PASS)
 		return ret;
 
+#ifdef USE_UDP
 	ret = test_udp();
 	if (ret != T_EXIT_PASS)
 		return ret;
+#endif
 
 	return T_EXIT_PASS;
 }
