@@ -12,8 +12,6 @@
 #include <sys/socket.h>
 #include <pthread.h>
 
-#undef USE_UDP
-
 #define MSG_SIZE 128
 #define NR_MIN_MSGS	4
 #define NR_MAX_MSGS	32
@@ -62,7 +60,7 @@ static int arm_recv(struct io_uring *ring, struct recv_data *rd)
 
 	sqe = io_uring_get_sqe(ring);
 	io_uring_prep_recv_multishot(sqe, rd->accept_fd, NULL, 0, 0);
-	if (rd->recv_bundle)
+	if (rd->recv_bundle && use_tcp)
 		sqe->ioprio |= IORING_RECVSEND_BUNDLE;
 	sqe->buf_group = RECV_BGID;
 	sqe->flags |= IOSQE_BUFFER_SELECT;
@@ -500,7 +498,7 @@ static int do_send(struct recv_data *rd)
 
 	/* prepare more messages, sending with bundle */
 	rd->recv_bytes += (nr_msgs * MSG_SIZE);
-	if (rd->send_bundle)
+	if (rd->send_bundle && use_tcp)
 		ret = __do_send_bundle(rd, &ring, sockfd);
 	else
 		ret = __do_send(rd, &ring, sockfd);
@@ -653,18 +651,26 @@ static int run_tests(int is_udp)
 
 static int test_tcp(void)
 {
+	int ret;
+
 	use_tcp = 1;
-	return run_tests(false);
+	ret = run_tests(false);
+	if (ret == T_EXIT_FAIL)
+		fprintf(stderr, "TCP test case failed\n");
+	return ret;
 }
 
-#ifdef USE_UDP
 static int test_udp(void)
 {
+	int ret;
+
 	use_tcp = 0;
 	use_port++;
-	return run_tests(true);
+	ret = run_tests(true);
+	if (ret == T_EXIT_FAIL)
+		fprintf(stderr, "UDP test case failed\n");
+	return ret;
 }
-#endif
 
 int main(int argc, char *argv[])
 {
@@ -677,11 +683,9 @@ int main(int argc, char *argv[])
 	if (ret != T_EXIT_PASS)
 		return ret;
 
-#ifdef USE_UDP
 	ret = test_udp();
 	if (ret != T_EXIT_PASS)
 		return ret;
-#endif
 
 	return T_EXIT_PASS;
 }
