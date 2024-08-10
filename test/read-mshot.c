@@ -25,6 +25,126 @@
 
 static int no_buf_ring, no_read_mshot, no_buf_ring_inc;
 
+static void arm_read(struct io_uring *ring, int fd, int use_mshot)
+{
+	struct io_uring_sqe *sqe;
+
+	sqe = io_uring_get_sqe(ring);
+	if (use_mshot) {
+		io_uring_prep_read_multishot(sqe, fd, 0, 0, BUF_BGID);
+	} else {
+		io_uring_prep_read(sqe, fd, NULL, 0, 0);
+		sqe->flags = IOSQE_BUFFER_SELECT;
+		sqe->buf_group = BUF_BGID;
+	}
+
+	io_uring_submit(ring);
+}
+
+static int test_inc(int use_mshot, int flags)
+{
+	struct io_uring_buf_ring *br;
+	struct io_uring_params p = { };
+	struct io_uring_cqe *cqe;
+	struct io_uring ring;
+	int nbytes = 65536;
+	int ret, fds[2], i;
+	char tmp[31];
+	char *buf;
+	void *ptr;
+	int bid = -1;
+	int bid_bytes;
+
+	if (no_buf_ring)
+		return 0;
+
+	p.flags = flags;
+	ret = io_uring_queue_init_params(64, &ring, &p);
+	if (ret) {
+		fprintf(stderr, "ring setup failed: %d\n", ret);
+		return 1;
+	}
+
+	if (pipe(fds) < 0) {
+		perror("pipe");
+		return 1;
+	}
+
+	if (posix_memalign((void **) &buf, 4096, 65536))
+		return 1;
+
+	br = io_uring_setup_buf_ring(&ring, 32, BUF_BGID, IOU_PBUF_RING_INC, &ret);
+	if (!br) {
+		fprintf(stderr, "Buffer ring register failed %d\n", ret);
+		return 1;
+	}
+
+	ptr = buf;
+	buf = ptr + 65536 - 2048;
+	for (i = 0; i < 32; i++) {
+		io_uring_buf_ring_add(br, buf, 2048, i, 31, i);
+		buf -= 2048;
+	}
+	io_uring_buf_ring_advance(br, 32);
+
+	memset(tmp, 0x5a, sizeof(tmp));
+
+	arm_read(&ring, fds[0], use_mshot);
+
+	bid_bytes = 0;
+	do {
+		int write_size = sizeof(tmp);
+
+		if (write_size > nbytes)
+			write_size = nbytes;
+
+		io_uring_get_events(&ring);
+		ret = io_uring_peek_cqe(&ring, &cqe);
+		if (!ret) {
+			int this_bid = cqe->flags >> IORING_CQE_BUFFER_SHIFT;
+			if (bid == -1) {
+				bid = this_bid;
+			} else if (bid != this_bid) {
+				if (bid_bytes != 2048) {
+					fprintf(stderr, "unexpected bid bytes %d\n",
+						bid_bytes);
+					return 1;
+				}
+				bid = this_bid;
+				bid_bytes = 0;
+			}
+			bid_bytes += cqe->res;
+			nbytes -= cqe->res;
+			if (!(cqe->flags & IORING_CQE_F_MORE))
+				arm_read(&ring, fds[0], use_mshot);
+			io_uring_cqe_seen(&ring, cqe);
+			if (!nbytes)
+				break;
+		}
+		usleep(1000);
+		ret = write(fds[1], tmp, write_size);
+		if (ret < 0) {
+			perror("write");
+			return 1;
+		} else if (ret != write_size) {
+			printf("short write %d\n", ret);
+			return 1;
+		}
+	} while (nbytes);
+
+	if (bid_bytes) {
+		if (bid_bytes != 2048) {
+			fprintf(stderr, "unexpected bid bytes %d\n", bid_bytes);
+			return 1;
+		}
+	}
+
+	free(ptr);
+	close(fds[0]);
+	close(fds[1]);
+	return 0;
+}
+
 static int test_clamp(void)
 {
 	struct io_uring_buf_ring *br;
@@ -485,6 +605,42 @@ int main(int argc, char *argv[])
 	ret = test_clamp();
 	if (ret) {
 		fprintf(stderr, "test_clamp failed\n");
+		return T_EXIT_FAIL;
+	}
+
+	ret = test_inc(0, 0);
+	if (ret) {
+		fprintf(stderr, "test_inc 0 0 failed\n");
+		return T_EXIT_FAIL;
+	}
+
+	ret = test_inc(0, IORING_SETUP_SQPOLL);
+	if (ret) {
+		fprintf(stderr, "test_inc 0 sqpoll failed\n");
+		return T_EXIT_FAIL;
+	}
+
+	ret = test_inc(0, IORING_SETUP_SINGLE_ISSUER | IORING_SETUP_DEFER_TASKRUN);
+	if (ret) {
+		fprintf(stderr, "test_inc 0 defer failed\n");
+		return T_EXIT_FAIL;
+	}
+
+	ret = test_inc(1, 0);
+	if (ret) {
+		fprintf(stderr, "test_inc 1 0 failed\n");
+		return T_EXIT_FAIL;
+	}
+
+	ret = test_inc(1, IORING_SETUP_SQPOLL);
+	if (ret) {
+		fprintf(stderr, "test_inc 1 sqpoll failed\n");
+		return T_EXIT_FAIL;
+	}
+
+	ret = test_inc(1, IORING_SETUP_SINGLE_ISSUER | IORING_SETUP_DEFER_TASKRUN);
+	if (ret) {
+		fprintf(stderr, "test_inc 1 defer failed\n");
 		return T_EXIT_FAIL;
 	}
 
