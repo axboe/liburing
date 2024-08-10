@@ -375,7 +375,7 @@ IOURINGINLINE void __io_uring_set_target_fixed_file(struct io_uring_sqe *sqe,
 	sqe->file_index = file_index + 1;
 }
 
-IOURINGINLINE void io_uring_initialize_sqe(struct io_uring_sqe *sqe) 
+IOURINGINLINE void io_uring_initialize_sqe(struct io_uring_sqe *sqe)
 {
 	sqe->flags = 0;
 	sqe->ioprio = 0;
@@ -744,6 +744,7 @@ IOURINGINLINE void io_uring_prep_read_multishot(struct io_uring_sqe *sqe,
 	io_uring_prep_rw(IORING_OP_READ_MULTISHOT, sqe, fd, NULL, nbytes,
 			 offset);
 	sqe->buf_group = buf_group;
+	sqe->flags = IOSQE_BUFFER_SELECT;
 }
 
 IOURINGINLINE void io_uring_prep_write(struct io_uring_sqe *sqe, int fd,
