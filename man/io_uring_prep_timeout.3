@@ -45,10 +45,11 @@ The boottime clock source should be used.
 The realtime clock source should be used.
 .TP
 .B IORING_TIMEOUT_ETIME_SUCCESS
-Consider an expired timeout a success in terms of the posted completion.
-Normally a timeout that triggers would return in a
+Consider an expired timeout a success in terms of the posted completion. This
+means it will not sever dependent links, as a failed request normally would. The
+posted CQE result code will still contain
 .B -ETIME
-CQE
+in the
 .I res
 value.
 .TP
