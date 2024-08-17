@@ -27,6 +27,7 @@ and identified by the buffer group ID
 Since the head of the provided buffer ring is only visible to the kernel, it's
 impossible to otherwise know how many unconsumed entries exist in the given
 provided buffer ring. This function query the kernel to return that number.
+Availabe since kernel 6.8.
 
 .SH NOTES
 The returned number of entries reflect the amount of unconsumed entries at the
