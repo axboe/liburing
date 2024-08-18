@@ -366,3 +366,9 @@ int io_uring_unregister_napi(struct io_uring *ring, struct io_uring_napi *napi)
 {
 	return do_register(ring, IORING_UNREGISTER_NAPI, napi, 1);
 }
+
+int io_uring_register_clock(struct io_uring *ring,
+			    struct io_uring_clock_register *arg)
+{
+	return do_register(ring, IORING_REGISTER_CLOCK, arg, 0);
+}

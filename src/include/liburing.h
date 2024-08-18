@@ -241,6 +241,9 @@ int io_uring_register_file_alloc_range(struct io_uring *ring,
 int io_uring_register_napi(struct io_uring *ring, struct io_uring_napi *napi);
 int io_uring_unregister_napi(struct io_uring *ring, struct io_uring_napi *napi);
 
+int io_uring_register_clock(struct io_uring *ring,
+			    struct io_uring_clock_register *arg);
+
 int io_uring_get_events(struct io_uring *ring);
 int io_uring_submit_and_get_events(struct io_uring *ring);
 

@@ -206,4 +206,6 @@ LIBURING_2.7 {
 } LIBURING_2.6;
 
 LIBURING_2.8 {
+	global:
+		io_uring_register_clock;
 } LIBURING_2.7;
