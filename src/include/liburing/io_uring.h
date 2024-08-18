@@ -702,7 +702,7 @@ struct io_uring_buf_ring {
 			__u16	resv3;
 			__u16	tail;
 		};
-		__DECLARE_FLEX_ARRAY(struct io_uring_buf, bufs);
+		struct io_uring_buf	bufs[0];
 	};
 };
 
