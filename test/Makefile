@@ -213,6 +213,7 @@ test_srcs := \
 	unlink.c \
 	version.c \
 	waitid.c \
+	wait-timeout.c \
 	wakeup-hang.c \
 	wq-aff.c \
 	xattr.c \
