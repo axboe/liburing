@@ -720,6 +720,26 @@ The application must have registered a file table first.
 
 Available since 6.0.
 
+.TP
+.B IORING_REGISTER_CLOCK
+Specifies which clock id io_uring will use for timers while waiting for
+completion events with
+.B IORING_ENTER_GETEVENTS.
+It's only effective if the timeout argument in
+.I struct io_uring_getevents_arg
+is passed, ignored otherwise.
+When used in conjunction with
+.B IORING_ENTER_ABS_TIMER,
+interprets the timeout argument as absolute time of the specified clock.
+
+The default clock is
+.B CLOCK_MONOTONIC.
+
+Available since 6.12 and supports
+.B CLOCK_MONOTONIC
+and
+.B CLOCK_BOOTTIME.
+
 .SH RETURN VALUE
 
 On success,

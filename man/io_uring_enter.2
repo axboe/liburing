@@ -105,6 +105,18 @@ then setting this flag will tell the kernel that the
 .I ring_fd
 passed in is the registered ring offset rather than a normal file descriptor.
 
+.TP
+.B IORING_ENTER_ABS_TIMER
+
+When this flag is set, the timeout argument passed in
+.I struct io_uring_getevents_arg
+will be interpreted as an absolute
+time of the registered clock (see
+.B IORING_REGISTER_CLOCK
+) until which the waiting should end.
+
+Available since 6.12
+
 .PP
 .PP
 If the io_uring instance was configured for polling, by specifying
