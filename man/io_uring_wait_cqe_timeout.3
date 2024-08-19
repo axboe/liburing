@@ -40,6 +40,14 @@ before calling
 For newer kernels with that feature flag set, there is no implied submit
 when waiting for a request.
 
+If
+.I ts
+is
+.B NULL ,
+then this behaves like
+.BR io_uring_wait_cqe (3)
+in that it will wait forever for an event.
+
 .SH RETURN VALUE
 On success
 .BR io_uring_wait_cqe_timeout (3)
