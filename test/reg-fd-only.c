@@ -64,7 +64,7 @@ static int test(int nentries)
 		fprintf(stdout, "Enable huge pages to test big rings\n");
 		return T_EXIT_SKIP;
 	} else if (ret) {
-		fprintf(stderr, "ring setup failed\n");
+		fprintf(stderr, "ring setup failed: %d\n", ret);
 		return T_EXIT_FAIL;
 	}
 
