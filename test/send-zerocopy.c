@@ -646,7 +646,8 @@ static int test_inet_send(struct io_uring *ring)
 
 				if (!buffers_iov[buf_index].iov_base)
 					continue;
-				if (!tcp && len > 4 * page_sz)
+				/* UDP IPv4 max datagram size is under 64K */
+				if (!tcp && len > (1U << 15))
 					continue;
 
 				conf.buf_index = buf_index;
