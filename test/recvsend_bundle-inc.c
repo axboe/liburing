@@ -180,10 +180,10 @@ static int recv_get_cqe(struct io_uring *ring, struct recv_data *rd,
 static int do_recv(struct io_uring *ring, struct recv_data *rd)
 {
 	struct io_uring_cqe *cqe;
-	int bid, next_bid = 0;
 	void *verify_ptr;
 	int verify_sz = 0;
 	int verify_bid = 0;
+	int bid;
 
 	verify_ptr = malloc(rd->recv_bytes);
 
@@ -202,9 +202,13 @@ static int do_recv(struct io_uring *ring, struct recv_data *rd)
 			fprintf(stderr, "no buffer set in recv\n");
 			goto err;
 		}
+		if (!(cqe->flags & IORING_CQE_F_BUF_MORE)) {
+			fprintf(stderr, "CQE_F_BUF_MORE not set\n");
+			goto err;
+		}
 		bid = cqe->flags >> IORING_CQE_BUFFER_SHIFT;
-		if (bid != next_bid) {
-			fprintf(stderr, "got bid %d, wanted %d\n", bid, next_bid);
+		if (bid != 0) {
+			fprintf(stderr, "got bid %d\n", bid);
 			goto err;
 		}
 		if (!(verify_sz % MSG_SIZE)) {
@@ -274,6 +278,7 @@ static void *recv_fn(void *data)
 
 	close(sock);
 	close(rd->accept_fd);
+	free(buf);
 	io_uring_queue_exit(&ring);
 err:
 	return (void *)(intptr_t)ret;
@@ -488,6 +493,7 @@ static int do_send(struct recv_data *rd)
 	pthread_barrier_wait(&rd->finish);
 
 	close(sockfd);
+	free(buf);
 	io_uring_queue_exit(&ring);
 	return 0;
 
