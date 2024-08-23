@@ -1168,7 +1168,10 @@ static int recv_inc(struct conn *c, struct conn_dir *cd, int *bid,
 		return 0;
 
 	data = in_cbr->buf + *bid * buf_size;
-	if (send_ring) {
+	if (is_sink) {
+		io_uring_buf_ring_add(in_cbr->br, data, buf_size, *bid, br_mask, 0);
+		io_uring_buf_ring_advance(in_cbr->br, 1);
+	} else if (send_ring) {
 		io_uring_buf_ring_add(cbr->br, data, buf_size, *bid, br_mask, 0);
 		io_uring_buf_ring_advance(cbr->br, 1);
 	} else {
@@ -1321,12 +1324,12 @@ start_close:
 	 * end and the buffer will be replenished once the send is done with
 	 * it.
 	 */
-	if (is_sink)
+	if (buf_ring_inc)
+		nr_packets = recv_inc(c, ocd, &bid, cqe);
+	else if (is_sink)
 		nr_packets = replenish_buffers(c, &bid, cqe->res);
 	else if (rcv_msg && recv_mshot)
 		nr_packets = recv_mshot_msg(c, ocd, &bid, cqe->res);
-	else if (buf_ring_inc)
-		nr_packets = recv_inc(c, ocd, &bid, cqe);
 	else
 		nr_packets = recv_bids(c, ocd, &bid, cqe->res);
 
