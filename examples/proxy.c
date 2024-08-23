@@ -82,6 +82,7 @@ static char *host = "192.168.3.2";
 static int send_port = 4445;
 static int receive_port = 4444;
 static int buf_size = 32;
+static int buf_ring_inc;
 static int bidi;
 static int ipv6;
 static int napi;
@@ -356,6 +357,7 @@ static void free_buffer_rings(struct io_uring *ring, struct conn *c)
 static int setup_recv_ring(struct io_uring *ring, struct conn *c)
 {
 	struct conn_buf_ring *cbr = &c->in_br;
+	int br_flags = 0;
 	int ret, i;
 	size_t len;
 	void *ptr;
@@ -375,7 +377,9 @@ static int setup_recv_ring(struct io_uring *ring, struct conn *c)
 			return 1;
 		}
 	}
-	cbr->br = io_uring_setup_buf_ring(ring, nr_bufs, cbr->bgid, 0, &ret);
+	if (buf_ring_inc)
+		br_flags = IOU_PBUF_RING_INC;
+	cbr->br = io_uring_setup_buf_ring(ring, nr_bufs, cbr->bgid, br_flags, &ret);
 	if (!cbr->br) {
 		fprintf(stderr, "Buffer ring register failed %d\n", ret);
 		return 1;
@@ -401,9 +405,12 @@ static int setup_recv_ring(struct io_uring *ring, struct conn *c)
 static int setup_send_ring(struct io_uring *ring, struct conn *c)
 {
 	struct conn_buf_ring *cbr = &c->out_br;
+	int br_flags = 0;
 	int ret;
 
-	cbr->br = io_uring_setup_buf_ring(ring, nr_bufs, cbr->bgid, 0, &ret);
+	if (buf_ring_inc)
+		br_flags = IOU_PBUF_RING_INC;
+	cbr->br = io_uring_setup_buf_ring(ring, nr_bufs, cbr->bgid, br_flags, &ret);
 	if (!cbr->br) {
 		fprintf(stderr, "Buffer ring register failed %d\n", ret);
 		return 1;
@@ -1148,6 +1155,29 @@ static int recv_done_res(int res)
 	return 0;
 }
 
+static int recv_inc(struct conn *c, struct conn_dir *cd, int *bid,
+		    struct io_uring_cqe *cqe)
+{
+	struct conn_buf_ring *cbr = &c->out_br;
+	struct conn_buf_ring *in_cbr = &c->in_br;
+	void *data;
+
+	if (!cqe->res)
+		return 0;
+	if (cqe->flags & IORING_CQE_F_BUF_MORE)
+		return 0;
+
+	data = in_cbr->buf + *bid * buf_size;
+	if (send_ring) {
+		io_uring_buf_ring_add(cbr->br, data, buf_size, *bid, br_mask, 0);
+		io_uring_buf_ring_advance(cbr->br, 1);
+	} else {
+		send_append(c, cd, data, *bid, buf_size);
+	}
+	*bid = (*bid + 1) & (nr_bufs - 1);
+	return 1;
+}
+
 /*
  * Any receive that isn't recvmsg with multishot can be handled the same way.
  * Iterate from '*bid' and 'in_bytes' in total, and append the data to the
@@ -1295,6 +1325,8 @@ start_close:
 		nr_packets = replenish_buffers(c, &bid, cqe->res);
 	else if (rcv_msg && recv_mshot)
 		nr_packets = recv_mshot_msg(c, ocd, &bid, cqe->res);
+	else if (buf_ring_inc)
+		nr_packets = recv_inc(c, ocd, &bid, cqe);
 	else
 		nr_packets = recv_bids(c, ocd, &bid, cqe->res);
 
@@ -1480,12 +1512,39 @@ static int prep_next_send(struct io_uring *ring, struct conn *c,
 	}
 }
 
+static int handle_send_inc(struct conn *c, struct conn_dir *cd, int bid,
+			   struct io_uring_cqe *cqe)
+{
+	struct conn_buf_ring *in_cbr = &c->in_br;
+	int ret = 0;
+	void *data;
+
+	if (!cqe->res)
+		goto out;
+	if (cqe->flags & IORING_CQE_F_BUF_MORE)
+		return 0;
+
+	assert(cqe->res <= buf_size);
+	cd->out_bytes += cqe->res;
+
+	data = in_cbr->buf + bid * buf_size;
+	io_uring_buf_ring_add(in_cbr->br, data, buf_size, bid, br_mask, 0);
+	io_uring_buf_ring_advance(in_cbr->br, 1);
+	bid = (bid + 1) & (nr_bufs - 1);
+	ret = 1;
+out:
+	if (pending_shutdown(c))
+		close_cd(c, cd);
+
+	return ret;
+}
+
 /*
  * Handling a send with an outgoing send ring. Get the buffers from the
  * receive side, and add them to the ingoing buffer ring again.
  */
-static int handle_send_ring(struct conn *c, struct conn_dir *cd,
-			    int bid, int bytes)
+static int handle_send_ring(struct conn *c, struct conn_dir *cd, int bid,
+			    int bytes)
 {
 	struct conn_buf_ring *in_cbr = &c->in_br;
 	struct conn_buf_ring *out_cbr = &c->out_br;
@@ -1605,7 +1664,9 @@ static int __handle_send(struct io_uring *ring, struct conn *c,
 
 		vlog("send: got %d, %lu\n", cqe->res, cd->out_bytes);
 
-		if (send_ring)
+		if (buf_ring_inc)
+			nr_packets = handle_send_inc(c, cd, bid, cqe);
+		else if (send_ring)
 			nr_packets = handle_send_ring(c, cd, bid, cqe->res);
 		else
 			nr_packets = handle_send_buf(c, cd, bid, cqe->res);
@@ -2305,7 +2366,7 @@ int main(int argc, char *argv[])
 
 	pthread_mutex_init(&thread_lock, NULL);
 
-	optstring = "m:d:S:s:b:f:H:r:p:n:B:N:T:w:t:M:R:u:c:C:q:a:x:z:6Vh?";
+	optstring = "m:d:S:s:b:f:H:r:p:n:B:N:T:w:t:M:R:u:c:C:q:a:x:z:i:6Vh?";
 	while ((opt = getopt(argc, argv, optstring)) != -1) {
 		switch (opt) {
 		case 'm':
@@ -2376,6 +2437,9 @@ int main(int argc, char *argv[])
 			break;
 		case 'q':
 			ring_size = atoi(optarg);
+			break;
+		case 'i':
+			buf_ring_inc = !!atoi(optarg);
 			break;
 		case 'a':
 			use_huge = !!atoi(optarg);
