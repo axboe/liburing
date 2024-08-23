@@ -1353,7 +1353,7 @@ start_close:
 		cd->pending_recv = 0;
 		if (recv_done_res(cqe->res))
 			goto start_close;
-		if (is_sink)
+		if (is_sink || !ocd->pending_send)
 			__submit_receive(ring, c, &c->cd[0], c->in_fd);
 	}
 
