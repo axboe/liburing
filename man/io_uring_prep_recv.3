@@ -97,7 +97,7 @@ field indicates the first buffer in the receive operation. The application must
 iterate from the indicated initial buffer ID and until all
 .I res
 bytes have been seen to know which is the last buffer in the receive operation.
-The buffer IDs consumed will be contigious from the starting ID, in the order
+The buffer IDs consumed will be contiguous from the starting ID, in the order
 in which they were added to the buffer ring used. Receiving in bundles can
 improve performance when more than one chunk of data is available to receive,
 by eliminating redundant round trips through the networking stack. Receive

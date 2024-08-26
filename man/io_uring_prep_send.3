@@ -111,7 +111,7 @@ to limit the transfer size. A single CQE is posted for the send, with the result
 being how many bytes were sent, on success. When used with provided buffers,
 send or send bundle will contain the starting buffer group ID in the CQE
 .I flags
-field. The number of bytes sent starts from there, and will be in contigious
+field. The number of bytes sent starts from there, and will be in contiguous
 buffer IDs after that. Send bundle, and send with provided buffers in general,
 are available since kernel 6.10, and can be further identified by checking for
 the
