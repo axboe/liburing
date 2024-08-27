@@ -132,7 +132,7 @@ struct io_msg {
 
 /*
  * Per socket stats per connection. For bi-directional, we'll have both
- * sends and receives on each socket, this helps track them seperately.
+ * sends and receives on each socket, this helps track them separately.
  * For sink or one directional, each of the two stats will be only sends
  * or receives, not both.
  */
@@ -298,7 +298,7 @@ static int default_error(struct error_handler *err,
 }
 
 /*
- * Move error handling out of the normal handling path, cleanly seperating
+ * Move error handling out of the normal handling path, cleanly separating
  * them. If an opcode doesn't need any error handling, set it to NULL. If
  * it wants to stop the connection at that point and not do anything else,
  * then the default handler can be used. Only receive has proper error
@@ -1684,7 +1684,7 @@ static int handle_shutdown(struct io_uring *ring, struct io_uring_cqe *cqe)
 	struct io_uring_sqe *sqe;
 	int fd = cqe_to_fd(cqe);
 
-	fprintf(stderr, "Got shutdown notication on fd %d\n", fd);
+	fprintf(stderr, "Got shutdown notification on fd %d\n", fd);
 
 	if (!cqe->res)
 		fprintf(stderr, "Unexpected success shutdown CQE\n");
