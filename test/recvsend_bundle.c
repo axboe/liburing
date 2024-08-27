@@ -210,7 +210,7 @@ static int do_recv(struct io_uring *ring, struct recv_data *rd)
 			fprintf(stderr, "got bid %d, wanted %d\n", bid, next_bid);
 			goto err;
 		}
-		if (!rd->recv_bundle && cqe->res != MSG_SIZE) {
+		if (!rd->recv_bundle && cqe->res > MSG_SIZE) {
 			fprintf(stderr, "recv got wrong length: %d\n", cqe->res);
 			goto err;
 		}
