@@ -638,11 +638,38 @@ static int test_tcp(void)
 	return ret;
 }
 
+static bool has_pbuf_ring_inc(void)
+{
+	struct io_uring_buf_ring *br;
+	bool has_pbuf_inc = false;
+	struct io_uring ring;
+	void *buf;
+	int ret;
+
+	ret = io_uring_queue_init(1, &ring, 0);
+	if (ret)
+		return false;
+
+	if (posix_memalign(&buf, 4096, MSG_SIZE * RECV_BIDS))
+		return false;
+
+	br = io_uring_setup_buf_ring(&ring, RECV_BIDS, RECV_BGID, IOU_PBUF_RING_INC, &ret);
+	if (br) {
+		has_pbuf_inc = true;
+		io_uring_unregister_buf_ring(&ring, RECV_BGID);
+	}
+	io_uring_queue_exit(&ring);
+	free(buf);
+	return has_pbuf_inc;
+}
+
 int main(int argc, char *argv[])
 {
 	int ret;
 
 	if (argc > 1)
+		return T_EXIT_SKIP;
+	if (!has_pbuf_ring_inc())
 		return T_EXIT_SKIP;
 
 	ret = test_tcp();
