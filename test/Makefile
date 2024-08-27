@@ -88,6 +88,7 @@ test_srcs := \
 	fc2a85cb02ef.c \
 	fd-install.c \
 	fd-pass.c \
+	fdinfo.c \
 	file-register.c \
 	files-exit-hang-poll.c \
 	files-exit-hang-timeout.c \
