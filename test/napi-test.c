@@ -92,7 +92,6 @@ static int receiver(int queue_flags)
 	struct io_uring_sqe *sqe;
 	struct io_uring_cqe *cqe;
 	struct io_uring ring;
-	unsigned long long received = 0;
 	struct io_uring_napi napi = { };
 	struct sockaddr_in addr;
 	int fd, listen_fd;
@@ -164,7 +163,6 @@ static int receiver(int queue_flags)
 		}
 
 		current_byte += ret;
-		received += ret;
 		io_uring_cqe_seen(&ring, cqe);
 	}
 
