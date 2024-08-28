@@ -19,7 +19,7 @@
 #include "liburing.h"
 #include "../src/syscall.h"
 
-#define IO_NSEC_PER_SEC			1000000000LU
+#define IO_NSEC_PER_SEC			1000000000ULL
 
 static bool support_abs = false;
 static bool support_clock = false;
@@ -55,10 +55,14 @@ static long long ns_since(struct timespec *ts)
 static int t_io_uring_wait(struct io_uring *ring, int nr, unsigned enter_flags,
 			   struct timespec *ts)
 {
+	struct __kernel_timespec kts = {
+		.tv_sec = ts->tv_sec,
+		.tv_nsec = ts->tv_nsec
+	};
 	struct io_uring_getevents_arg arg = {
 		.sigmask	= 0,
 		.sigmask_sz	= _NSIG / 8,
-		.ts		= (unsigned long)ts
+		.ts		= (unsigned long) &kts
 	};
 	int ret;
 
