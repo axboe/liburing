@@ -1,10 +1,17 @@
 #! /usr/bin/env bash
 
+if [ ! -x "$(command -v ip)" ]; then
+	echo "Need ip installed"
+	exit 77
+fi
+if [ ! -x "$(command -v ethtool)" ]; then
+	echo "Need ethool installed"
+	exit 77
+fi
+
 function clean_namespaces {
 	ip netns del nscl
 	ip netns del nsserv
-	ip link del ptp-serv
-	echo 10
 }
 trap clean_namespaces EXIT
 
@@ -24,5 +31,18 @@ ip netns exec nsserv ethtool -K ptp-serv tcp-segmentation-offload off
 ip netns exec nsserv ethtool -K ptp-serv generic-receive-offload on
 ip netns exec nsserv ip link set dev ptp-serv up
 
-ip netns exec nsserv ./prog 1 &
-ip netns exec nscl ./prog 0
+# test basic init, defer_taskrun, and sqpoll
+QUEUE_FLAGS="0x0 0x3000 0x2"
+for flags in $QUEUE_FLAGS; do
+	if [ -f "napi-test.t" ]; then
+		NAPI_TEST="./napi-test.t"
+	elif [ -f "test/napi-test.t" ]; then
+		NAPI_TEST="test/napi-test.t"
+	else
+		echo "Can't find napi-test.t"
+		exit 77
+	fi
+	ip netns exec nsserv $NAPI_TEST receive $flags &
+	ip netns exec nscl $NAPI_TEST send $flags
+	wait
+done
