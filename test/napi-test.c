@@ -18,6 +18,7 @@
 #include <linux/if_packet.h>
 #include <linux/socket.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 
 #include "liburing.h"
 #include "helpers.h"
@@ -181,12 +182,22 @@ int main(int argc, char **argv)
 		return T_EXIT_SKIP;
 	}
 
-	if (argc == 1)
-		return system("bash napi-test.sh");
-	else if (argc == 2)
+	if (argc == 1) {
+		struct stat sb;
+
+		if (!stat("napi-test.sh", &sb)) {
+			return system("bash napi-test.sh");
+		} else if (!stat("test/napi-test.sh", &sb)) {
+			return system("bash test/napi-test.sh");
+		} else {
+			fprintf(stderr, "Can't find napi-test.sh\n");
+			return T_EXIT_SKIP;
+		}
+	} else if (argc == 2) {
 		return T_EXIT_SKIP;
-	else if (argc != 3)
+	} else if (argc != 3) {
 		return T_EXIT_SKIP;
+	}
 
 	if (!strcmp(argv[1], "receive"))
 		is_rx = 1;
