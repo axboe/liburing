@@ -1215,6 +1215,9 @@ int main(int argc, char *argv[])
 	__u64 features;
 	int ret, i;
 
+	if (argc > 1)
+		return T_EXIT_SKIP;
+
 	dev = ublk_ctrl_init();
 	/* ublk isn't supported or the module isn't loaded */
 	if (!dev)
