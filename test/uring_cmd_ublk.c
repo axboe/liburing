@@ -4,6 +4,7 @@
  *
  * Covers cancellable uring_cmd feature.
  */
+#ifdef CONFIG_HAVE_UBLK_HEADER
 #include <unistd.h>
 #include <stdlib.h>
 #include <assert.h>
@@ -1238,3 +1239,9 @@ int main(int argc, char *argv[])
 	ublk_ctrl_deinit(dev);
 	return T_EXIT_PASS;
 }
+#else
+int main(int argc, char *argv[])
+{
+	return T_EXIT_SKIP;
+}
+#endif

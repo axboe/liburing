@@ -471,6 +471,23 @@ fi
 print_config "has_fanotify" "$has_fanotify"
 ####################################################
 
+##########################################
+# check for ublk headers
+ublk_header="no"
+cat > $TMPC << EOF
+#include <string.h>
+#include <linux/ublk_cmd.h>
+int main(int argc, char **argv)
+{
+  struct ublksrv_ctrl_cmd cmd = { };
+  return cmd.queue_id;
+}
+EOF
+if compile_prog "" "" "ublk_header"; then
+  ublk_header="yes"
+fi
+print_config "ublk_header" "$ublk_header"
+
 if test "$liburing_nolibc" = "yes"; then
   output_sym "CONFIG_NOLIBC"
 fi
@@ -509,6 +526,9 @@ if test "$has_fanotify" = "yes"; then
 fi
 if test "$futexv" = "yes"; then
   output_sym "CONFIG_HAVE_FUTEXV"
+fi
+if test "$ublk_header" = "yes"; then
+  output_sym "CONFIG_HAVE_UBLK_HEADER"
 fi
 
 echo "CC=$cc" >> $config_host_mak
