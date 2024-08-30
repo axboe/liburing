@@ -216,13 +216,13 @@ test_srcs := \
 	truncate.c \
 	tty-write-dpoll.c \
 	unlink.c \
+	uring_cmd_ublk.c \
 	version.c \
 	waitid.c \
 	wait-timeout.c \
 	wakeup-hang.c \
 	wq-aff.c \
 	xattr.c \
-	uring_cmd_ublk.c \
 	# EOL
 
 all_targets :=
