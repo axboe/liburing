@@ -964,7 +964,7 @@ static int ublk_null_queue_io(struct ublk_queue *q, int tag)
 	return 0;
 }
 
-const struct ublk_tgt_ops tgt_ops_list[] = {
+static const struct ublk_tgt_ops tgt_ops_list[] = {
 	{
 		.name = "null",
 		.init_tgt = ublk_null_tgt_init,
@@ -1137,7 +1137,7 @@ static void *test_io_fn(void *data)
 	return data;
 }
 
-static void ignore_stderr()
+static void ignore_stderr(void)
 {
 	int devnull = open("/dev/null", O_WRONLY);
 
