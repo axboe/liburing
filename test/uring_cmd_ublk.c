@@ -719,7 +719,8 @@ static int ublk_start_daemon(struct ublk_dev *dev)
 	void *thread_ret;
 	const struct ublksrv_ctrl_dev_info *dinfo = &dev->dev_info;
 
-	daemon(1, 1);
+	if (daemon(1, 1) < 0)
+		return -errno;
 
 	ublk_dbg(UBLK_DBG_DEV, "%s enter\n", __func__);
 
