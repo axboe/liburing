@@ -4,7 +4,6 @@
  *
  * Covers cancellable uring_cmd feature.
  */
-#ifdef CONFIG_HAVE_UBLK_HEADER
 #include <unistd.h>
 #include <stdlib.h>
 #include <assert.h>
@@ -14,12 +13,15 @@
 #include <pthread.h>
 #include <limits.h>
 #include <poll.h>
-#include <liburing.h>
 #include <sys/syscall.h>
 #include <sys/mman.h>
 #include <sys/ioctl.h>
 #include <sys/inotify.h>
 #include <sys/wait.h>
+
+#include "liburing.h"
+#include "helpers.h"
+#ifdef CONFIG_HAVE_UBLK_HEADER
 #include <linux/ublk_cmd.h>
 
 /****************** part 1: libublk ********************/
