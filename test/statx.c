@@ -36,6 +36,81 @@ static int statx_syscall_supported(void)
 	return errno == ENOSYS ? 0 : -1;
 }
 
+static int test_statx_invalid_buf(struct io_uring *ring, const char *path)
+{
+	struct io_uring_cqe *cqe;
+	struct io_uring_sqe *sqe;
+	struct statx *x = (struct statx *) (uintptr_t) 0x1234;
+	int ret;
+
+	sqe = io_uring_get_sqe(ring);
+	if (!sqe) {
+		fprintf(stderr, "get sqe failed\n");
+		goto err;
+	}
+	io_uring_prep_statx(sqe, -1, path, 0, STATX_ALL, x);
+
+	ret = io_uring_submit(ring);
+	if (ret <= 0) {
+		fprintf(stderr, "sqe submit failed: %d\n", ret);
+		goto err;
+	}
+
+	ret = io_uring_wait_cqe(ring, &cqe);
+	if (ret < 0) {
+		fprintf(stderr, "wait completion %d\n", ret);
+		goto err;
+	}
+	ret = cqe->res;
+	io_uring_cqe_seen(ring, cqe);
+	if (ret != -EFAULT) {
+		fprintf(stderr, "Invalid address didn't fail\n");
+		goto err;
+	}
+
+	return 0;
+err:
+	return -1;
+}
+
+static int test_statx_invalid_path(struct io_uring *ring)
+{
+	const char *path = (const char *) (uintptr_t) 0x1234;
+	struct io_uring_cqe *cqe;
+	struct io_uring_sqe *sqe;
+	struct statx x1 = { };
+	int ret;
+
+	sqe = io_uring_get_sqe(ring);
+	if (!sqe) {
+		fprintf(stderr, "get sqe failed\n");
+		goto err;
+	}
+	io_uring_prep_statx(sqe, -1, path, 0, STATX_ALL, &x1);
+
+	ret = io_uring_submit(ring);
+	if (ret <= 0) {
+		fprintf(stderr, "sqe submit failed: %d\n", ret);
+		goto err;
+	}
+
+	ret = io_uring_wait_cqe(ring, &cqe);
+	if (ret < 0) {
+		fprintf(stderr, "wait completion %d\n", ret);
+		goto err;
+	}
+	ret = cqe->res;
+	io_uring_cqe_seen(ring, cqe);
+	if (ret != -EFAULT) {
+		fprintf(stderr, "Invalid address didn't fail\n");
+		goto err;
+	}
+
+	return 0;
+err:
+	return -1;
+}
+
 static int test_statx(struct io_uring *ring, const char *path)
 {
 	struct io_uring_cqe *cqe;
@@ -153,6 +228,18 @@ int main(int argc, char *argv[])
 			goto done;
 		}
 		fprintf(stderr, "test_statx failed: %d\n", ret);
+		goto err;
+	}
+
+	ret = test_statx_invalid_path(&ring);
+	if (ret) {
+		fprintf(stderr, "test_statx_invalid_path failed: %d\n", ret);
+		goto err;
+	}
+
+	ret = test_statx_invalid_buf(&ring, fname);
+	if (ret) {
+		fprintf(stderr, "test_statx_invalid_buf failed: %d\n", ret);
 		goto err;
 	}
 
