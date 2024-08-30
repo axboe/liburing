@@ -286,7 +286,7 @@ static int ublk_ctrl_add_dev(struct ublk_dev *dev)
 	struct ublk_ctrl_cmd_data data = {
 		.cmd_op	= UBLK_U_CMD_ADD_DEV,
 		.flags	= CTRL_CMD_HAS_BUF,
-		.addr = (__u64)&dev->dev_info,
+		.addr = (__u64) (uintptr_t) &dev->dev_info,
 		.len = sizeof(struct ublksrv_ctrl_dev_info),
 	};
 
@@ -308,7 +308,7 @@ static int ublk_ctrl_get_info(struct ublk_dev *dev)
 	struct ublk_ctrl_cmd_data data = {
 		.cmd_op	= UBLK_U_CMD_GET_DEV_INFO,
 		.flags	= CTRL_CMD_HAS_BUF,
-		.addr = (__u64)&dev->dev_info,
+		.addr = (__u64) (uintptr_t) &dev->dev_info,
 		.len = sizeof(struct ublksrv_ctrl_dev_info),
 	};
 
@@ -321,7 +321,7 @@ static int ublk_ctrl_set_params(struct ublk_dev *dev,
 	struct ublk_ctrl_cmd_data data = {
 		.cmd_op	= UBLK_U_CMD_SET_PARAMS,
 		.flags	= CTRL_CMD_HAS_BUF,
-		.addr = (__u64)params,
+		.addr = (__u64) (uintptr_t) params,
 		.len = sizeof(*params),
 	};
 	params->len = sizeof(*params);
@@ -334,7 +334,7 @@ static int ublk_ctrl_get_features(struct ublk_dev *dev,
 	struct ublk_ctrl_cmd_data data = {
 		.cmd_op	= UBLK_U_CMD_GET_FEATURES,
 		.flags	= CTRL_CMD_HAS_BUF,
-		.addr = (__u64)features,
+		.addr = (__u64) (uintptr_t) features,
 		.len = sizeof(*features),
 	};
 
@@ -534,7 +534,7 @@ static int ublk_queue_io_cmd(struct ublk_queue *q,
 	sqe->flags	= IOSQE_FIXED_FILE;
 	sqe->rw_flags	= 0;
 	cmd->tag	= tag;
-	cmd->addr	= (__u64)io->buf_addr;
+	cmd->addr	= (__u64) (uintptr_t) io->buf_addr;
 	cmd->q_id	= q->q_id;
 
 	user_data = build_user_data(tag, _IOC_NR(cmd_op), 0, 0);
@@ -1116,7 +1116,7 @@ static int test_io(struct io_ctx *ctx)
 				offset);
 		if (ret != T_SETUP_OK) {
 			fprintf(stderr, "/dev/ublkb%d read failed: offset %lu ret %d\n",
-					ctx->dev_id, offset, ret);
+					ctx->dev_id, (unsigned long) offset, ret);
 			break;
 		}
 	}
