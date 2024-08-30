@@ -221,6 +221,7 @@ test_srcs := \
 	wakeup-hang.c \
 	wq-aff.c \
 	xattr.c \
+	uring_cmd_ublk.c \
 	# EOL
 
 all_targets :=
