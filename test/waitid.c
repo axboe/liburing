@@ -19,6 +19,38 @@ static void child(long usleep_time)
 	exit(0);
 }
 
+static int test_invalid_infop(struct io_uring *ring)
+{
+	struct io_uring_sqe *sqe;
+	struct io_uring_cqe *cqe;
+	siginfo_t *si = (siginfo_t *) (uintptr_t) 0x1234;
+	pid_t pid;
+	int ret;
+
+	pid = fork();
+	if (!pid) {
+		child(200000);
+		exit(0);
+	}
+
+	sqe = io_uring_get_sqe(ring);
+	io_uring_prep_waitid(sqe, P_PID, pid, si, WEXITED, 0);
+	sqe->user_data = 1;
+	io_uring_submit(ring);
+
+	ret = io_uring_wait_cqe(ring, &cqe);
+	if (ret) {
+		fprintf(stderr, "cqe wait: %d\n", ret);
+		return T_EXIT_FAIL;
+	}
+	if (cqe->res != -EFAULT) {
+		fprintf(stderr, "Bad return on invalid infop: %d\n", cqe->res);
+		return T_EXIT_FAIL;
+	}
+	io_uring_cqe_seen(ring, cqe);
+	return T_EXIT_PASS;
+}
+
 /*
  * Test linked timeout with child not exiting in time
  */
@@ -357,6 +389,12 @@ int main(int argc, char *argv[])
 	ret = test_cancel(&ring);
 	if (ret == T_EXIT_FAIL) {
 		fprintf(stderr, "test_cancel failed\n");
+		return T_EXIT_FAIL;
+	}
+
+	ret = test_invalid_infop(&ring);
+	if (ret == T_EXIT_FAIL) {
+		fprintf(stderr, "test_invalid_infop failed\n");
 		return T_EXIT_FAIL;
 	}
 
