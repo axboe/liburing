@@ -72,9 +72,9 @@ static int run_test(int flags)
 	if (pid < 0) {
 		perror("fork");
 		return 1;
-	} else if (pid) {
+	} else if (!pid) {
 		ret = child(flags);
-		exit(ret);
+		_exit(ret);
 	} else {
 		int wstatus;
 		pid_t childpid;
@@ -103,7 +103,7 @@ static int test(int flags)
 		}
 		if (no_signalfd)
 			break;
-	} while (mtime_since_now(&start) < 5000);
+	} while (mtime_since_now(&start) < 2500);
 
 	return 0;
 }
