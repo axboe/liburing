@@ -20,12 +20,12 @@ static int child(int flags)
 {
 	struct io_uring_sqe *sqe;
 	struct io_uring ring;
-	struct signalfd_siginfo *si;
+	struct signalfd_siginfo si;
 	static unsigned long index;
 	sigset_t mask;
 	int ret, fd;
 
-	ret = io_uring_queue_init(1, &ring, flags);
+	ret = io_uring_queue_init(4, &ring, flags);
 	if (ret) {
 		fprintf(stderr, "queue init failed %d\n", ret);
 		return ret;
@@ -42,11 +42,22 @@ static int child(int flags)
 	}
 
 	sqe = io_uring_get_sqe(&ring);
-	si = malloc(sizeof(*si));
-	io_uring_prep_read(sqe, fd, si, sizeof(*si), 0);
+	io_uring_prep_read(sqe, fd, &si, sizeof(si), 0);
+	sqe->user_data = 1;
 	io_uring_submit(&ring);
 
-	if (!(++index & 127))
+	sqe = io_uring_get_sqe(&ring);
+	io_uring_prep_read(sqe, fd, &si, sizeof(si), 0);
+	sqe->user_data = 2;
+	sqe->flags |= IOSQE_ASYNC;
+	io_uring_submit(&ring);
+
+	sqe = io_uring_get_sqe(&ring);
+	io_uring_prep_read(sqe, fd, &si, sizeof(si), 0);
+	sqe->user_data = 3;
+	io_uring_submit(&ring);
+
+	if (!(++index & 7))
 		usleep(100);
 
 	return 0;
@@ -80,17 +91,19 @@ static int run_test(int flags)
 
 static int test(int flags)
 {
-	int i, ret;
+	struct timeval start;
+	int ret;
 
-	for (i = 0; i < 5000; i++) {
+	gettimeofday(&start, NULL);
+	do {
 		ret = run_test(flags);
 		if (ret) {
-			fprintf(stderr, "test %d with flags %x failed\n", i, flags);
+			fprintf(stderr, "test failed with flags %x\n", flags);
 			return 1;
 		}
 		if (no_signalfd)
 			break;
-	}
+	} while (mtime_since_now(&start) < 5000);
 
 	return 0;
 }
