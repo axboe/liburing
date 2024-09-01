@@ -1599,6 +1599,11 @@ complete; see
 .BR signal(7).
 Can happen while waiting for events with
 .B IORING_ENTER_GETEVENTS.
+.TP
+.B EOWNERDEAD
+The ring has been setup with
+.B IORING_SETUP_SQPOLL
+and the sq poll kernel thread has been killed.
 
 .SH CQE ERRORS
 These io_uring-specific errors are returned as a negative value in the
