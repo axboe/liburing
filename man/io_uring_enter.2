@@ -44,6 +44,12 @@ number of events in
 before returning. This flag can be set along with
 .I to_submit
 to both submit and complete events in a single system call.
+If this flag is set the thread issuing the syscall must either be the
+thread that created the io_uring associated with
+.I fd
+or must not have the flag
+.B IORING_SETUP_DEFER_TASKRUN
+set.
 .TP
 .B IORING_ENTER_SQ_WAKEUP
 If the ring has been created with
@@ -1562,7 +1568,13 @@ the CQ ring, or if the application attempts to wait for more events without
 having reaped the ones already present in the CQ ring.
 .TP
 .B EEXIST
-The thread submitting the work is invalid.
+The thread submitting the work is invalid. This may occur if
+.B IORING_ENTER_GETEVENTS
+and
+.B IORING_SETUP_DEFER_TASKRUN
+is set, but the submitting thread is not the thread that initially created the
+io_uring associated with
+.I fd.
 .TP
 .B EINVAL
 Some bits in the
