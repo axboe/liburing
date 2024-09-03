@@ -2,6 +2,10 @@
 #ifndef LIB_URING_H
 #define LIB_URING_H
 
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE
+#endif
+
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/uio.h>
@@ -232,10 +236,8 @@ int io_uring_register_restrictions(struct io_uring *ring,
 				   unsigned int nr_res);
 int io_uring_enable_rings(struct io_uring *ring);
 int __io_uring_sqring_wait(struct io_uring *ring);
-#ifdef _GNU_SOURCE
 int io_uring_register_iowq_aff(struct io_uring *ring, size_t cpusz,
 				const cpu_set_t *mask);
-#endif
 int io_uring_unregister_iowq_aff(struct io_uring *ring);
 int io_uring_register_iowq_max_workers(struct io_uring *ring,
 				       unsigned int *values);
@@ -1261,13 +1263,11 @@ IOURINGINLINE void io_uring_prep_fixed_fd_install(struct io_uring_sqe *sqe,
 	sqe->install_fd_flags = flags;
 }
 
-#ifdef _GNU_SOURCE
 IOURINGINLINE void io_uring_prep_ftruncate(struct io_uring_sqe *sqe,
 				       int fd, loff_t len)
 {
 	io_uring_prep_rw(IORING_OP_FTRUNCATE, sqe, fd, 0, 0, len);
 }
-#endif
 
 /*
  * Returns number of unconsumed (if SQPOLL) or unsubmitted entries exist in
