@@ -38,6 +38,12 @@ For unregistration,
 .BR io_uring_unregister_iowq_aff (3)
 may be called to restore CPU affinities to the default.
 
+Applications must define
+.B _GNU_SOURCE
+to obtain the definition of this helper, as
+.I cpu_set_t
+will not be defined without it.
+
 .SH RETURN VALUE
 Returns
 .B 0
