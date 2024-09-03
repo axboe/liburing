@@ -8,6 +8,8 @@ liburing-2.8 release
 - Add support for using different clock sources for completion waiting.
 - Great increase coverage of test cases, test case improvements and
   fixes.
+- Man page updates
+- Don't leak _GNU_SOURCE via pkb-config --cflags
 
 liburing-2.7 release
 
