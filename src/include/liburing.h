@@ -2,8 +2,17 @@
 #ifndef LIB_URING_H
 #define LIB_URING_H
 
+/*
+ * Define _GNU_SOURCE so we get cpu_set_t and loff_t. Pretty ugly and
+ * really should be up to the application to do so, however there's already
+ * been a release where it unfortunately leaked out of liburing, so better
+ * play it safe rather risk breaking compilation for people. If _GNU_SOURCE
+ * needs defining, undef it at the end of this header, guarded by
+ * LIBURING_UNDEF_GNU_SOURCE.
+ */
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE
+#define LIBURING_UNDEF_GNU_SOURCE
 #endif
 
 #include <sys/socket.h>
@@ -1601,6 +1610,10 @@ bool io_uring_check_version(int major, int minor);
 
 #ifdef IOURINGINLINE
 #undef IOURINGINLINE
+#endif
+
+#ifdef LIBURING_UNDEF_GNU_SOURCE
+#undef _GNU_SOURCE
 #endif
 
 #endif
