@@ -277,12 +277,16 @@ int main(int argc, char *argv[])
 			fprintf(stdout, "openat2 not supported, skipping\n");
 			goto done;
 		}
+		if (ret == -EPERM || ret == -EACCES)
+			return T_EXIT_SKIP;
 		fprintf(stderr, "test_openat2 absolute failed: %d\n", ret);
 		goto err;
 	}
 
 	ret = test_openat2(&ring, path_rel, AT_FDCWD, false, 0, 0);
 	if (ret < 0) {
+		if (ret == -EPERM || ret == -EACCES)
+			return T_EXIT_SKIP;
 		fprintf(stderr, "test_openat2 relative failed: %d\n", ret);
 		goto err;
 	}

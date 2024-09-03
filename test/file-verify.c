@@ -346,6 +346,8 @@ static int test(struct io_uring *ring, const char *fname, int buffered,
 		flags |= O_DIRECT;
 	fd = open(fname, flags);
 	if (fd < 0) {
+		if (errno == EINVAL || errno == EPERM || errno == EACCES)
+			return T_EXIT_SKIP;
 		perror("open");
 		return 1;
 	}
@@ -505,6 +507,8 @@ static int fill_pattern(const char *fname)
 
 	fd = open(fname, O_WRONLY);
 	if (fd < 0) {
+		if (errno == EPERM || errno == EACCES)
+			return T_EXIT_SKIP;
 		perror("open");
 		return 1;
 	}
@@ -557,10 +561,15 @@ int main(int argc, char *argv[])
 		goto err;
 	}
 
-	if (fill_pattern(fname))
+	ret = fill_pattern(fname);
+	if (ret == T_EXIT_SKIP)
+		return T_EXIT_SKIP;
+	else if (ret)
 		goto err;
 
 	ret = test(&ring, fname, 1, 0, 0, 0, 0);
+	if (ret == T_EXIT_SKIP)
+		return T_EXIT_SKIP;
 	if (ret) {
 		fprintf(stderr, "Buffered novec test failed\n");
 		goto err;

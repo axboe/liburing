@@ -99,7 +99,7 @@ static int test_file(struct io_uring *ring, char *__fname)
 
 	fd = open(fname, O_RDONLY | O_DIRECT);
 	if (fd < 0) {
-		if (errno == EINVAL) {
+		if (errno == EINVAL || errno == EPERM || errno == EACCES) {
 			if (!__fname)
 				unlink(fname);
 			return T_EXIT_SKIP;

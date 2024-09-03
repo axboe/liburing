@@ -76,7 +76,7 @@ static int __test_io(const char *file, struct io_uring *ring, int write,
 
 	fd = open(file, open_flags);
 	if (fd < 0) {
-		if (errno == EINVAL)
+		if (errno == EINVAL || errno == EPERM || errno == EACCES)
 			return 0;
 		perror("file open");
 		goto err;
@@ -266,6 +266,8 @@ static int read_poll_link(const char *file)
 
 	fd = open(file, O_WRONLY);
 	if (fd < 0) {
+		if (errno == EACCES || errno == EPERM)
+			return T_EXIT_SKIP;
 		perror("open");
 		return 1;
 	}
@@ -696,6 +698,8 @@ static int test_io_link(const char *file)
 
 	fd = open(file, O_WRONLY);
 	if (fd < 0) {
+		if (errno == EPERM || errno == EACCES)
+			return 0;
 		perror("file open");
 		goto err;
 	}
@@ -929,7 +933,7 @@ int main(int argc, char *argv[])
 	}
 
 	ret = read_poll_link(fname);
-	if (ret) {
+	if (ret == T_EXIT_FAIL) {
 		fprintf(stderr, "read_poll_link failed\n");
 		goto err;
 	}

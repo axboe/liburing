@@ -95,6 +95,8 @@ static int __test_io(const char *file, struct io_uring *ring, int tc, int read,
 
 	fd = open(file, open_flags);
 	if (fd < 0) {
+		if (errno == EACCES || errno == EPERM)
+			return T_EXIT_SKIP;
 		perror("file open");
 		goto err;
 	}

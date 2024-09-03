@@ -80,7 +80,7 @@ static int __test_io(const char *file, struct io_uring *ring, int write,
 	if (fixed) {
 		ret = t_register_buffers(ring, vecs, BUFFERS);
 		if (ret == T_SETUP_SKIP)
-			return 0;
+			return T_EXIT_SKIP;
 		if (ret != T_SETUP_OK) {
 			fprintf(stderr, "buffer reg failed: %d\n", ret);
 			goto err;
@@ -91,6 +91,8 @@ static int __test_io(const char *file, struct io_uring *ring, int write,
 	if (fd < 0) {
 		if (errno == EINVAL)
 			return 0;
+		if (errno == EPERM || errno == EACCES)
+			return T_EXIT_SKIP;
 		perror("file open");
 		goto err;
 	}
@@ -384,6 +386,8 @@ int main(int argc, char *argv[])
 
 		ret = test_io(fname, write, buffered, sqthread, fixed, nonvec,
 			      BS);
+		if (ret == T_EXIT_SKIP)
+			continue;
 		if (ret) {
 			fprintf(stderr, "test_io failed %d/%d/%d/%d/%d\n",
 				write, buffered, sqthread, fixed, nonvec);

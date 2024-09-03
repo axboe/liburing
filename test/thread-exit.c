@@ -102,6 +102,8 @@ int main(int argc, char *argv[])
 	if (do_unlink)
 		unlink(fname);
 	if (fd < 0) {
+		if (errno == EPERM || errno == EACCES)
+			goto skip;
 		perror("open");
 		return 1;
 	}
@@ -140,4 +142,7 @@ int main(int argc, char *argv[])
 err:
 	free_g_buf();
 	return 1;
+skip:
+	free_g_buf();
+	return T_EXIT_SKIP;
 }

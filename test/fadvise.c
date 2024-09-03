@@ -91,6 +91,8 @@ static int test_fadvise(struct io_uring *ring, const char *filename)
 
 	fd = open(filename, O_RDONLY);
 	if (fd < 0) {
+		if (errno == EPERM || errno == EACCES)
+			return T_EXIT_SKIP;
 		perror("open");
 		return 1;
 	}
@@ -150,6 +152,8 @@ int main(int argc, char *argv[])
 	good = bad = 0;
 	for (i = 0; i < LOOPS; i++) {
 		ret = test_fadvise(&ring, fname);
+		if (ret == T_EXIT_SKIP)
+			return T_EXIT_SKIP;
 		if (ret == 1) {
 			fprintf(stderr, "read_fadvise failed\n");
 			goto err;

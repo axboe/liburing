@@ -161,6 +161,8 @@ static int test_statx_fd(struct io_uring *ring, const char *path)
 
 	fd = open(path, O_RDONLY);
 	if (fd < 0) {
+		if (errno == EPERM || errno == EACCES)
+			return 0;
 		perror("open");
 		return 1;
 	}

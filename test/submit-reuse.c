@@ -137,6 +137,8 @@ static int test_reuse(int argc, char *argv[], int split, int async)
 	if (do_unlink)
 		unlink(fname1);
 	if (fd1 < 0) {
+		if (errno == EPERM || errno == EACCES)
+			return T_EXIT_SKIP;
 		perror("open fname1");
 		goto err;
 	}
@@ -186,7 +188,6 @@ static int test_reuse(int argc, char *argv[], int split, int async)
 err:
 	io_uring_queue_exit(&ring);
 	return 1;
-
 }
 
 int main(int argc, char *argv[])
@@ -200,6 +201,8 @@ int main(int argc, char *argv[])
 		async = (i & 2) != 0;
 
 		ret = test_reuse(argc, argv, split, async);
+		if (ret == T_EXIT_SKIP)
+			continue;
 		if (ret) {
 			fprintf(stderr, "test_reuse %d %d failed\n", split, async);
 			return ret;

@@ -59,6 +59,8 @@ static int test(const char *filename, int dio, int async)
 		fd = open(filename, O_RDONLY);
 	}
 	if (fd < 0) {
+		if (errno == EPERM || errno == EACCES)
+			return T_EXIT_SKIP;
 		perror("open");
 		return 1;
 	}
@@ -144,6 +146,8 @@ int main(int argc, char *argv[])
 
 	fd = open(fname, O_WRONLY);
 	if (fd < 0) {
+		if (errno == EPERM || errno == EACCES)
+			return T_EXIT_SKIP;
 		perror("open");
 		goto err;
 	}
