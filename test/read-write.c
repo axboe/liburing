@@ -340,6 +340,7 @@ out:
 	if (!(p->ops[IORING_OP_READ].flags & IO_URING_OP_SUPPORTED))
 		goto out;
 	io_uring_queue_exit(&ring);
+	free(p);
 	return 1;
 }
 
@@ -973,6 +974,12 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "test_rem_buf async failed\n");
 		goto err;
 	}
+
+	if(vecs != NULL) {
+		for (i = 0; i < BUFFERS; i++)
+			free(vecs[i].iov_base);
+	}
+	free(vecs);
 
 	srand((unsigned)time(NULL));
 	if (create_nonaligned_buffers()) {

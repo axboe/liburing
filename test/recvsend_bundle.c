@@ -114,6 +114,9 @@ static int recv_prep(struct io_uring *ring, struct recv_data *rd, int *sock)
 
 		pthread_barrier_wait(&rd->connect);
 
+		if (rd->abort)
+			goto err;
+
 		socklen = sizeof(saddr);
 		use_fd = accept(sockfd, (struct sockaddr *)&saddr, &socklen);
 		if (use_fd < 0) {
@@ -325,6 +328,7 @@ static void *recv_fn(void *data)
 	close(rd->accept_fd);
 	io_uring_queue_exit(&ring);
 err:
+	free(buf);
 	return (void *)(intptr_t)ret;
 }
 
@@ -592,8 +596,13 @@ static int test(int backlog, unsigned int max_sends, int *to_eagain,
 	}
 
 	ret = do_send(&rd);
-	if (no_send_mshot)
+	if (no_send_mshot) {
+		fprintf(stderr, "no_send_mshot, aborting (ignore other errors)\n");
+		rd.abort = 1;
+		pthread_barrier_wait(&rd.connect);
+		pthread_join(recv_thread, &retval);
 		return 0;
+	}
 
 	if (ret)
 		return ret;

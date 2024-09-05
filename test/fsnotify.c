@@ -90,6 +90,7 @@ int main(int argc, char *argv[])
 		wait(&wstat);
 		if (!WEXITSTATUS(wstat))
 			err = T_EXIT_PASS;
+		free(buf);
 	} else {
 		struct fanotify_event_metadata m;
 		int fret;

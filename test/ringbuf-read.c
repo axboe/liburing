@@ -125,6 +125,7 @@ static int test(const char *filename, int dio, int async)
 		if (verify_buffer(buf + ((bid - 1) * BUF_SIZE), ud))
 			return 1;
 	}
+	free(buf);
 
 	return 0;
 }

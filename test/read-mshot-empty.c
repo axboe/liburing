@@ -116,8 +116,10 @@ int main(int argc, char *argv[])
 	 */
 	ret = io_uring_peek_cqe(&ring, &cqe);
 	if (!ret) {
-		if (cqe->res == -EINVAL || cqe->res == -EBADF)
+		if (cqe->res == -EINVAL || cqe->res == -EBADF) {
+			free(buf);
 			return T_EXIT_SKIP;
+		}
 	}
 
 	pthread_create(&thread, NULL, thread_fn, fds);
@@ -149,5 +151,6 @@ int main(int argc, char *argv[])
 	}
 
 	pthread_join(thread, &tret);
+	free(buf);
 	return T_EXIT_PASS;
 }

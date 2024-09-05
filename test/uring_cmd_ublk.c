@@ -354,8 +354,10 @@ static struct ublk_dev *ublk_ctrl_init(void)
 	int ret;
 
 	dev->ctrl_fd = open(CTRL_DEV, O_RDWR);
-	if (dev->ctrl_fd < 0)
+	if (dev->ctrl_fd < 0) {
+		free(dev);
 		return NULL;
+	}
 
 	info->max_io_buf_bytes = UBLK_IO_MAX_BYTES;
 
