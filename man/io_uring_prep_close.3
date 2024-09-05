@@ -42,7 +42,10 @@ None
 The CQE
 .I res
 field will contain the result of the operation. See the related man page for
-details on possible values. Note that where synchronous system calls will return
+details on possible values. For closing of a direct descriptor, the only
+failure cases are the kernel running completely out of memory, or if the
+application has specified an invalid direct descriptor. Note that where
+synchronous system calls will return
 .B -1
 on failure and set
 .I errno
