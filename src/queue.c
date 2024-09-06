@@ -5,6 +5,7 @@
 #include "syscall.h"
 #include "liburing.h"
 #include "int_flags.h"
+#include "liburing/sanitize.h"
 #include "liburing/compat.h"
 #include "liburing/io_uring.h"
 
@@ -404,6 +405,8 @@ static int __io_uring_submit(struct io_uring *ring, unsigned submitted,
 	bool cq_needs_enter = getevents || wait_nr || cq_ring_needs_enter(ring);
 	unsigned flags;
 	int ret;
+
+	liburing_sanitize_ring(ring);
 
 	flags = 0;
 	if (sq_ring_needs_enter(ring, submitted, &flags) || cq_needs_enter) {

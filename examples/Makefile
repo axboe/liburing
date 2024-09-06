@@ -13,6 +13,12 @@ endif
 LDFLAGS ?=
 override LDFLAGS += -L../src/ -luring -lpthread
 
+ifeq ($(CONFIG_USE_SANITIZER),y)
+	override CFLAGS += -fsanitize=address,undefined -fno-omit-frame-pointer -fno-optimize-sibling-calls
+	override CPPFLAGS += -fsanitize=address,undefined -fno-omit-frame-pointer -fno-optimize-sibling-calls
+	override LDFLAGS += -fsanitize=address,undefined
+endif
+
 example_srcs := \
 	io_uring-close-test.c \
 	io_uring-cp.c \

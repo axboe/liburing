@@ -27,6 +27,10 @@ ifdef CONFIG_HAVE_ARRAY_BOUNDS
 	XCFLAGS += -Warray-bounds=0
 endif
 
+ifeq ($(CONFIG_USE_SANITIZER),y)
+	XCFLAGS += -fsanitize=address,undefined -fno-omit-frame-pointer -fno-optimize-sibling-calls
+endif
+
 CXXFLAGS ?= $(CFLAGS)
 override CFLAGS += $(XCFLAGS) -DLIBURING_BUILD_TEST
 override CXXFLAGS += $(XCFLAGS) -std=c++11 -DLIBURING_BUILD_TEST
