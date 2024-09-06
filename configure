@@ -480,6 +480,12 @@ cat > $TMPC << EOF
 int main(int argc, char **argv)
 {
   struct ublksrv_ctrl_cmd cmd = { };
+
+  struct ublk_ctrl_cmd_data data = {
+    .cmd_op	= UBLK_U_CMD_START_DEV,
+    .flags	= CTRL_CMD_HAS_DATA,
+  };
+
   return cmd.queue_id;
 }
 EOF
