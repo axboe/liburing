@@ -476,16 +476,13 @@ print_config "has_fanotify" "$has_fanotify"
 ublk_header="no"
 cat > $TMPC << EOF
 #include <string.h>
+#include <sys/ioctl.h>
 #include <linux/ublk_cmd.h>
 int main(int argc, char **argv)
 {
   struct ublksrv_ctrl_cmd cmd = { };
 
-  struct ublk_ctrl_cmd_data data = {
-    .cmd_op	= UBLK_U_CMD_START_DEV,
-    .flags	= CTRL_CMD_HAS_DATA,
-  };
-
+  cmd.addr = UBLK_U_CMD_START_DEV;
   return cmd.queue_id;
 }
 EOF
