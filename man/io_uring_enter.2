@@ -1370,6 +1370,23 @@ must contain the length to which the file will be truncated.
 
 Available since 6.9.
 
+.TP
+.B IORING_OP_READ_MULTISHOT
+Like
+.IR IORING_OP_READ ,
+but similar to requests prepared with
+.IR io_uring_prep_multishoot_accept (3)
+additional reads and thus CQEs will be performed based on this single SQE once
+there is more data available.
+Is restricted to pollable files and will fall back to single shoot if the file
+does not support
+.IR NOWAIT .
+Like other multishot type requests, the application should look at the CQE
+flags and see if
+.I IORING_CQE_F_MORE
+is set on completion as an indication of whether or not the read request will
+generate further CQEs.
+
 .PP
 The
 .I flags
