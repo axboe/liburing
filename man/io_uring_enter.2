@@ -297,6 +297,10 @@ submission queue cannot expect the fsync to apply to the write.  The
 two operations execute in parallel, so the fsync may complete before
 the write is issued to the storage.  The same is also true for
 previously issued writes that have not completed prior to the fsync.
+To enforce ordering one may utilize linked SQEs,
+.I IOSQE_IO_DRAIN
+or wait for the arrival of CQEs of requests which have to be ordered
+before a given request before submitting its SQE.
 
 .TP
 .B IORING_OP_POLL_ADD
