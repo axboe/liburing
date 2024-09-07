@@ -1258,6 +1258,22 @@ for details on how to setup a context for fixed buffer I/O.
 .PP
 
 .TP
+.B IORING_OP_SENDMSG_ZC
+Issue the zerocopy equivalent of a
+.BR sendmsg (2)
+system call.
+Works just like
+.IR IORING_OP_SENDMSG ,
+but like
+.I IORING_OP_SEND_ZC
+supports
+.IR IORING_RECVSEND_FIXED_BUF .
+For additional notes regarding zero copy see
+.IR IORING_OP_SEND_ZC .
+
+Available since 6.1
+
+.TP
 .B IORING_OP_WAITID
 Issue the equivalent of a
 .BR waitid(2)
