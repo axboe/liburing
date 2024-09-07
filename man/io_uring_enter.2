@@ -1329,6 +1329,19 @@ must contain the length of the address.
 
 Available since 6.11.
 
+.TP
+.B IORING_OP_LISTEN
+Issues the equivalent of the
+.IR listen(2)
+system call.
+.I fd
+must contain the file descriptor of the socket and
+.I addr
+must contain the backlog parameter, i.e. the maximum amount of pending
+queued connections.
+
+Available since 6.11.
+
 .PP
 The
 .I flags
