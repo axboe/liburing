@@ -1387,6 +1387,31 @@ flags and see if
 is set on completion as an indication of whether or not the read request will
 generate further CQEs.
 
+.TP
+.B IORING_OP_FUTEX_WAIT
+Issues the equivalent of the
+.IR futex_wait (2)
+system call.
+.I addr
+must hold a pointer to the futex,
+.I addr2
+must hold the value to which the futex has to be changed so this caller to
+.IR futex_wait (2)
+can be woken by a call to
+.IR futex_wake (2),
+.I addr3
+must hold the bitmask of this
+.IR futex_wait (2)
+caller.
+For a caller of
+.IR futex_wake (2)
+to wake a waiter additionally the bitmask of the waiter and waker must have
+at least one set bit in common.
+.IR fd
+must contain additional flags passed in.
+
+Available since 6.7.
+
 .PP
 The
 .I flags
