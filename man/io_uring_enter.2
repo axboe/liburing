@@ -1342,6 +1342,18 @@ queued connections.
 
 Available since 6.11.
 
+.TP
+.B IORING_OP_FTRUNCATE
+Issues the equivalent of the
+.IR ftruncate (2)
+system call.
+.I fd
+must contain the file descriptor of the file to truncate and
+.I off
+must contain the length to which the file will be truncated.
+
+Available since 6.9.
+
 .PP
 The
 .I flags
