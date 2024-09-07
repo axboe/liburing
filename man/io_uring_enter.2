@@ -290,6 +290,12 @@ for details on how to setup a context for fixed reads and writes.
 .B IORING_OP_FSYNC
 File sync.  See also
 .BR fsync (2).
+Optionally
+.I off
+and
+.I len
+can be used to specify a range within the file to be synced rather than
+syncing the entire file, which is the default behavior.
 Note that, while I/O is initiated in the order in which it appears in
 the submission queue, completions are unordered.  For example, an
 application which places a write I/O followed by an fsync in the
