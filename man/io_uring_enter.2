@@ -1187,6 +1187,15 @@ and
 Available since 5.19.
 
 .TP
+.B IORING_OP_URING_CMD
+Issues an asynchronous, per-file private operation, similar to
+.BR ioctl (2).
+Further information may be found in the dedicated man page of
+.BR IORING_OP_URING_CMD .
+
+Available since 5.19.
+
+.TP
 .B IORING_OP_SEND_ZC
 Issue the zerocopy equivalent of a
 .BR send(2)
