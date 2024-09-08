@@ -339,6 +339,17 @@ This command works like
 an async
 .BR poll(2)
 and the completion event result is the returned mask of events.
+
+Without
+.B IORING_POLL_ADD_MULTI
+and the initial poll operation with
+.B IORING_POLL_ADD_MULTI
+the operation is level triggered, i.e. if there is data ready or events
+pending etc. at the time of submission a corresponding CQE will be posted.
+Potential further completions beyond the first caused by a
+.B IORING_POLL_ADD_MULTI
+are edge triggered.
+
 .TP
 .B IORING_OP_POLL_REMOVE
 Remove or update an existing poll request.  If found, the
