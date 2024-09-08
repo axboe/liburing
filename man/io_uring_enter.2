@@ -1455,6 +1455,25 @@ smaller than FUTEX_WAITV_MAX (as of 6.11 == 128).
 
 Available since 6.7.
 
+.TP
+.B IORING_OP_FIXED_FD_INSTALL
+This operation is used to insert a registered file into the regular process
+file table.
+Consequently
+.I fd
+must contain the file index and
+.B IOSQE_FIXED_FILE
+must be set.
+Additional flags may be passed in via
+.IR install_fd_flags .
+Currently supported flags are:
+.BR IORING_FIXED_FD_NO_CLOEXEC ,
+which overrides a potentially set
+.B O_CLOEXEC
+flag set on the initial file.
+
+Available since 6.8.
+
 .PP
 The
 .I flags
