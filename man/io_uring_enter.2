@@ -290,6 +290,12 @@ for details on how to setup a context for fixed reads and writes.
 .B IORING_OP_FSYNC
 File sync.  See also
 .BR fsync (2).
+Optionally
+.I off
+and
+.I len
+can be used to specify a range within the file to be synced rather than
+syncing the entire file, which is the default behavior.
 Note that, while I/O is initiated in the order in which it appears in
 the submission queue, completions are unordered.  For example, an
 application which places a write I/O followed by an fsync in the
@@ -297,6 +303,10 @@ submission queue cannot expect the fsync to apply to the write.  The
 two operations execute in parallel, so the fsync may complete before
 the write is issued to the storage.  The same is also true for
 previously issued writes that have not completed prior to the fsync.
+To enforce ordering one may utilize linked SQEs,
+.I IOSQE_IO_DRAIN
+or wait for the arrival of CQEs of requests which have to be ordered
+before a given request before submitting its SQE.
 
 .TP
 .B IORING_OP_POLL_ADD
@@ -329,6 +339,17 @@ This command works like
 an async
 .BR poll(2)
 and the completion event result is the returned mask of events.
+
+Without
+.B IORING_POLL_ADD_MULTI
+and the initial poll operation with
+.B IORING_POLL_ADD_MULTI
+the operation is level triggered, i.e. if there is data ready or events
+pending etc. at the time of submission a corresponding CQE will be posted.
+Potential further completions beyond the first caused by a
+.B IORING_POLL_ADD_MULTI
+are edge triggered.
+
 .TP
 .B IORING_OP_POLL_REMOVE
 Remove or update an existing poll request.  If found, the
@@ -1177,6 +1198,15 @@ and
 Available since 5.19.
 
 .TP
+.B IORING_OP_URING_CMD
+Issues an asynchronous, per-file private operation, similar to
+.BR ioctl (2).
+Further information may be found in the dedicated man page of
+.BR IORING_OP_URING_CMD .
+
+Available since 5.19.
+
+.TP
 .B IORING_OP_SEND_ZC
 Issue the zerocopy equivalent of a
 .BR send(2)
@@ -1258,6 +1288,22 @@ for details on how to setup a context for fixed buffer I/O.
 .PP
 
 .TP
+.B IORING_OP_SENDMSG_ZC
+Issue the zerocopy equivalent of a
+.BR sendmsg (2)
+system call.
+Works just like
+.IR IORING_OP_SENDMSG ,
+but like
+.I IORING_OP_SEND_ZC
+supports
+.IR IORING_RECVSEND_FIXED_BUF .
+For additional notes regarding zero copy see
+.IR IORING_OP_SEND_ZC .
+
+Available since 6.1
+
+.TP
 .B IORING_OP_WAITID
 Issue the equivalent of a
 .BR waitid(2)
@@ -1272,6 +1318,181 @@ is the 'options' being set (the child state changes to wait for).
 is a pointer to siginfo_t, if any, being filled in. See also
 .BR waitid(2)
 for the general description of the related system call. Available since 6.5.
+
+.TP
+.B IORING_OP_SETXATTR
+.TP
+.B IORING_OP_GETXATTR
+.TP
+.B IORING_OP_FSETXATTR
+.TP
+.B IORING_OP_FGETXATTR
+Issue the equivalent of a
+.BR setxattr(2)
+or
+.BR getxattr(2)
+or
+.BR fsetxattr(2)
+or
+.BR fgetxattr(2)
+system call.
+.I addr
+must contain a pointer to a buffer containing the name of the extended
+attribute.
+.I addr2
+must contain a pointer to a buffer of maximum length
+.IR len ,
+in which the value of the extended attribute is to be placed or is read from.
+Additional flags maybe provided in
+.IR xattr_flags .
+For
+.IR setxattr(2)
+or
+.IR getxattr(2)
+.I addr3
+must contain a pointer to the path of the file.
+For
+.IR fsetxattr(2)
+or
+.IR fgetxattr(2)
+.I fd
+must contain the file descriptor of the file.
+
+Available since 5.19.
+
+.TP
+.B IORING_OP_BIND
+Issues the equivalent of the
+.IR bind (2)
+system call.
+.I fd
+must contain the file descriptor of the socket,
+.I addr
+must contain a pointer to the sockaddr struct containing the address to assign
+and
+.I addr2
+must contain the length of the address.
+
+Available since 6.11.
+
+.TP
+.B IORING_OP_LISTEN
+Issues the equivalent of the
+.IR listen(2)
+system call.
+.I fd
+must contain the file descriptor of the socket and
+.I addr
+must contain the backlog parameter, i.e. the maximum amount of pending
+queued connections.
+
+Available since 6.11.
+
+.TP
+.B IORING_OP_FTRUNCATE
+Issues the equivalent of the
+.IR ftruncate (2)
+system call.
+.I fd
+must contain the file descriptor of the file to truncate and
+.I off
+must contain the length to which the file will be truncated.
+
+Available since 6.9.
+
+.TP
+.B IORING_OP_READ_MULTISHOT
+Like
+.IR IORING_OP_READ ,
+but similar to requests prepared with
+.IR io_uring_prep_multishoot_accept (3)
+additional reads and thus CQEs will be performed based on this single SQE once
+there is more data available.
+Is restricted to pollable files and will fall back to single shoot if the file
+does not support
+.IR NOWAIT .
+Like other multishot type requests, the application should look at the CQE
+flags and see if
+.I IORING_CQE_F_MORE
+is set on completion as an indication of whether or not the read request will
+generate further CQEs.
+
+.TP
+.B IORING_OP_FUTEX_WAIT
+Issues the equivalent of the
+.IR futex_wait (2)
+system call.
+.I addr
+must hold a pointer to the futex,
+.I addr2
+must hold the value to which the futex has to be changed so this caller to
+.IR futex_wait (2)
+can be woken by a call to
+.IR futex_wake (2),
+.I addr3
+must hold the bitmask of this
+.IR futex_wait (2)
+caller.
+For a caller of
+.IR futex_wake (2)
+to wake a waiter additionally the bitmask of the waiter and waker must have
+at least one set bit in common.
+.IR fd
+must contain additional flags passed in.
+
+Available since 6.7.
+
+.TP
+.B IORING_OP_FUTEX_WAKE
+Issues the equivalent of the
+.IR futex_wake (2)
+system call.
+.I addr
+must hold a pointer to the futex,
+.I addr2
+must hold the maximum number of waiters waiting on this futex to wake,
+.I addr3
+must hold the bitmask of this
+.IR futex_wake (2)
+call.
+To wake a waiter additionally the bitmask of the waiter and waker must have
+at least one set bit in common.
+.IR fd
+must contain additional flags passed in.
+
+Available since 6.7.
+
+.TP
+.B IORING_OP_FUTEX_WAITV
+Issues the equivalent of the
+.IR futex_waitv (2)
+system call.
+.I addr
+must hold a pointer to the futexv struct,
+.I len
+must hold the length of the futexv struct, which may not be 0 and must be
+smaller than FUTEX_WAITV_MAX (as of 6.11 == 128).
+
+Available since 6.7.
+
+.TP
+.B IORING_OP_FIXED_FD_INSTALL
+This operation is used to insert a registered file into the regular process
+file table.
+Consequently
+.I fd
+must contain the file index and
+.B IOSQE_FIXED_FILE
+must be set.
+Additional flags may be passed in via
+.IR install_fd_flags .
+Currently supported flags are:
+.BR IORING_FIXED_FD_NO_CLOEXEC ,
+which overrides a potentially set
+.B O_CLOEXEC
+flag set on the initial file.
+
+Available since 6.8.
 
 .PP
 The
