@@ -1405,10 +1405,10 @@ Available since 6.9.
 Like
 .IR IORING_OP_READ ,
 but similar to requests prepared with
-.IR io_uring_prep_multishoot_accept (3)
+.IR io_uring_prep_multishot_accept (3)
 additional reads and thus CQEs will be performed based on this single SQE once
 there is more data available.
-Is restricted to pollable files and will fall back to single shoot if the file
+Is restricted to pollable files and will fall back to single shot if the file
 does not support
 .IR NOWAIT .
 Like other multishot type requests, the application should look at the CQE
