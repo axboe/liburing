@@ -1415,7 +1415,7 @@ Like other multishot type requests, the application should look at the CQE
 flags and see if
 .I IORING_CQE_F_MORE
 is set on completion as an indication of whether or not the read request will
-generate further CQEs.
+generate further CQEs. Available since 6.7.
 
 .TP
 .B IORING_OP_FUTEX_WAIT
