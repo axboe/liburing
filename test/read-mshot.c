@@ -75,6 +75,11 @@ static int test_inc(int use_mshot, int flags)
 
 	br = io_uring_setup_buf_ring(&ring, 32, BUF_BGID, IOU_PBUF_RING_INC, &ret);
 	if (!br) {
+		if (ret == -EINVAL) {
+			no_buf_ring_inc = 1;
+			free(buf);
+			return 0;
+		}
 		fprintf(stderr, "Buffer ring register failed %d\n", ret);
 		return 1;
 	}
