@@ -698,7 +698,7 @@ static int test_tcp(void)
 	use_tcp = 1;
 	ret = run_tests(false);
 	if (ret == T_EXIT_FAIL)
-		fprintf(stderr, "TCP test case failed\n");
+		fprintf(stderr, "TCP test case (classic=%d) failed\n", classic_buffers);
 	return ret;
 }
 
@@ -710,7 +710,7 @@ static int test_udp(void)
 	use_port++;
 	ret = run_tests(true);
 	if (ret == T_EXIT_FAIL)
-		fprintf(stderr, "UDP test case failed\n");
+		fprintf(stderr, "UDP test case (classic=%d) failed\n", classic_buffers);
 	return ret;
 }
 
