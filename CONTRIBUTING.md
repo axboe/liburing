@@ -58,7 +58,10 @@ Signed-off-by: ```My Identity <my@email.com>```
 
 That is, a descriptive title on the first line, then an empty line, then
 the body of the commit message, then an empty line, and finally an SOB
-tag. Example:
+tag. The signed-off-by exists to provide proof of origin, see the
+[DCO](https://developercertificate.org/).
+
+Example commit:
 
 ```
 commit 513ed8e5a0e0705fc2b3e98f0eeea8eea5cf2d3f
