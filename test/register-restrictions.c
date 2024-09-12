@@ -13,12 +13,7 @@
 #include <sys/eventfd.h>
 
 #include "liburing.h"
-
-enum {
-	TEST_OK,
-	TEST_SKIPPED,
-	TEST_FAILED
-};
+#include "helpers.h"
 
 static int test_restrictions_sqe_op(void)
 {
@@ -36,15 +31,15 @@ static int test_restrictions_sqe_op(void)
 
 	if (pipe(pipe1) != 0) {
 		perror("pipe");
-		return TEST_FAILED;
+		return T_EXIT_FAIL;
 	}
 
 	ret = io_uring_queue_init(8, &ring, IORING_SETUP_R_DISABLED);
 	if (ret) {
 		if (ret == -EINVAL)
-			return TEST_SKIPPED;
+			return T_EXIT_SKIP;
 		fprintf(stderr, "ring setup failed: %d\n", ret);
-		return TEST_FAILED;
+		return T_EXIT_FAIL;
 	}
 
 	res[0].opcode = IORING_RESTRICTION_SQE_OP;
@@ -56,16 +51,16 @@ static int test_restrictions_sqe_op(void)
 	ret = io_uring_register_restrictions(&ring, res, 2);
 	if (ret) {
 		if (ret == -EINVAL)
-			return TEST_SKIPPED;
+			return T_EXIT_SKIP;
 
 		fprintf(stderr, "failed to register restrictions: %d\n", ret);
-		return TEST_FAILED;
+		return T_EXIT_FAIL;
 	}
 
 	ret = io_uring_enable_rings(&ring);
 	if (ret) {
 		fprintf(stderr, "ring enabling failed: %d\n", ret);
-		return TEST_FAILED;
+		return T_EXIT_FAIL;
 	}
 
 	sqe = io_uring_get_sqe(&ring);
@@ -79,28 +74,28 @@ static int test_restrictions_sqe_op(void)
 	ret = io_uring_submit(&ring);
 	if (ret != 2) {
 		fprintf(stderr, "submit: %d\n", ret);
-		return TEST_FAILED;
+		return T_EXIT_FAIL;
 	}
 
 	for (int i = 0; i < 2; i++) {
 		ret = io_uring_wait_cqe(&ring, &cqe);
 		if (ret) {
 			fprintf(stderr, "wait: %d\n", ret);
-			return TEST_FAILED;
+			return T_EXIT_FAIL;
 		}
 
 		switch (cqe->user_data) {
 		case 1: /* writev */
 			if (cqe->res != sizeof(ptr)) {
 				fprintf(stderr, "write res: %d\n", cqe->res);
-				return TEST_FAILED;
+				return T_EXIT_FAIL;
 			}
 
 			break;
 		case 2: /* readv should be denied */
 			if (cqe->res != -EACCES) {
 				fprintf(stderr, "read res: %d\n", cqe->res);
-				return TEST_FAILED;
+				return T_EXIT_FAIL;
 			}
 			break;
 		}
@@ -108,7 +103,7 @@ static int test_restrictions_sqe_op(void)
 	}
 
 	io_uring_queue_exit(&ring);
-	return TEST_OK;
+	return T_EXIT_PASS;
 }
 
 static int test_restrictions_register_op(void)
@@ -125,13 +120,13 @@ static int test_restrictions_register_op(void)
 
 	if (pipe(pipe1) != 0) {
 		perror("pipe");
-		return TEST_FAILED;
+		return T_EXIT_FAIL;
 	}
 
 	ret = io_uring_queue_init(8, &ring, IORING_SETUP_R_DISABLED);
 	if (ret) {
 		fprintf(stderr, "ring setup failed: %d\n", ret);
-		return TEST_FAILED;
+		return T_EXIT_FAIL;
 	}
 
 	res[0].opcode = IORING_RESTRICTION_REGISTER_OP;
@@ -140,32 +135,32 @@ static int test_restrictions_register_op(void)
 	ret = io_uring_register_restrictions(&ring, res, 1);
 	if (ret) {
 		if (ret == -EINVAL)
-			return TEST_SKIPPED;
+			return T_EXIT_SKIP;
 
 		fprintf(stderr, "failed to register restrictions: %d\n", ret);
-		return TEST_FAILED;
+		return T_EXIT_FAIL;
 	}
 
 	ret = io_uring_enable_rings(&ring);
 	if (ret) {
 		fprintf(stderr, "ring enabling failed: %d\n", ret);
-		return TEST_FAILED;
+		return T_EXIT_FAIL;
 	}
 
 	ret = io_uring_register_buffers(&ring, &vec, 1);
 	if (ret) {
 		fprintf(stderr, "io_uring_register_buffers failed: %d\n", ret);
-		return TEST_FAILED;
+		return T_EXIT_FAIL;
 	}
 
 	ret = io_uring_register_files(&ring, pipe1, 2);
 	if (ret != -EACCES) {
 		fprintf(stderr, "io_uring_register_files ret: %d\n", ret);
-		return TEST_FAILED;
+		return T_EXIT_FAIL;
 	}
 
 	io_uring_queue_exit(&ring);
-	return TEST_OK;
+	return T_EXIT_PASS;
 }
 
 static int test_restrictions_fixed_file(void)
@@ -184,13 +179,13 @@ static int test_restrictions_fixed_file(void)
 
 	if (pipe(pipe1) != 0) {
 		perror("pipe");
-		return TEST_FAILED;
+		return T_EXIT_FAIL;
 	}
 
 	ret = io_uring_queue_init(8, &ring, IORING_SETUP_R_DISABLED);
 	if (ret) {
 		fprintf(stderr, "ring setup failed: %d\n", ret);
-		return TEST_FAILED;
+		return T_EXIT_FAIL;
 	}
 
 	res[0].opcode = IORING_RESTRICTION_SQE_OP;
@@ -208,22 +203,22 @@ static int test_restrictions_fixed_file(void)
 	ret = io_uring_register_restrictions(&ring, res, 4);
 	if (ret) {
 		if (ret == -EINVAL)
-			return TEST_SKIPPED;
+			return T_EXIT_SKIP;
 
 		fprintf(stderr, "failed to register restrictions: %d\n", ret);
-		return TEST_FAILED;
+		return T_EXIT_FAIL;
 	}
 
 	ret = io_uring_enable_rings(&ring);
 	if (ret) {
 		fprintf(stderr, "ring enabling failed: %d\n", ret);
-		return TEST_FAILED;
+		return T_EXIT_FAIL;
 	}
 
 	ret = io_uring_register_files(&ring, pipe1, 2);
 	if (ret) {
 		fprintf(stderr, "io_uring_register_files ret: %d\n", ret);
-		return TEST_FAILED;
+		return T_EXIT_FAIL;
 	}
 
 	sqe = io_uring_get_sqe(&ring);
@@ -243,34 +238,34 @@ static int test_restrictions_fixed_file(void)
 	ret = io_uring_submit(&ring);
 	if (ret != 3) {
 		fprintf(stderr, "submit: %d\n", ret);
-		return TEST_FAILED;
+		return T_EXIT_FAIL;
 	}
 
 	for (int i = 0; i < 3; i++) {
 		ret = io_uring_wait_cqe(&ring, &cqe);
 		if (ret) {
 			fprintf(stderr, "wait: %d\n", ret);
-			return TEST_FAILED;
+			return T_EXIT_FAIL;
 		}
 
 		switch (cqe->user_data) {
 		case 1: /* writev */
 			if (cqe->res != sizeof(ptr)) {
 				fprintf(stderr, "write res: %d\n", cqe->res);
-				return TEST_FAILED;
+				return T_EXIT_FAIL;
 			}
 
 			break;
 		case 2: /* readv */
 			if (cqe->res != sizeof(ptr)) {
 				fprintf(stderr, "read res: %d\n", cqe->res);
-				return TEST_FAILED;
+				return T_EXIT_FAIL;
 			}
 			break;
 		case 3: /* writev without fixed_file should be denied */
 			if (cqe->res != -EACCES) {
 				fprintf(stderr, "write res: %d\n", cqe->res);
-				return TEST_FAILED;
+				return T_EXIT_FAIL;
 			}
 			break;
 		}
@@ -278,7 +273,7 @@ static int test_restrictions_fixed_file(void)
 	}
 
 	io_uring_queue_exit(&ring);
-	return TEST_OK;
+	return T_EXIT_PASS;
 }
 
 static int test_restrictions_flags(void)
@@ -297,13 +292,13 @@ static int test_restrictions_flags(void)
 
 	if (pipe(pipe1) != 0) {
 		perror("pipe");
-		return TEST_FAILED;
+		return T_EXIT_FAIL;
 	}
 
 	ret = io_uring_queue_init(8, &ring, IORING_SETUP_R_DISABLED);
 	if (ret) {
 		fprintf(stderr, "ring setup failed: %d\n", ret);
-		return TEST_FAILED;
+		return T_EXIT_FAIL;
 	}
 
 	res[0].opcode = IORING_RESTRICTION_SQE_OP;
@@ -318,22 +313,22 @@ static int test_restrictions_flags(void)
 	ret = io_uring_register_restrictions(&ring, res, 3);
 	if (ret) {
 		if (ret == -EINVAL)
-			return TEST_SKIPPED;
+			return T_EXIT_SKIP;
 
 		fprintf(stderr, "failed to register restrictions: %d\n", ret);
-		return TEST_FAILED;
+		return T_EXIT_FAIL;
 	}
 
 	ret = io_uring_register_files(&ring, pipe1, 2);
 	if (ret) {
 		fprintf(stderr, "io_uring_register_files ret: %d\n", ret);
-		return TEST_FAILED;
+		return T_EXIT_FAIL;
 	}
 
 	ret = io_uring_enable_rings(&ring);
 	if (ret) {
 		fprintf(stderr, "ring enabling failed: %d\n", ret);
-		return TEST_FAILED;
+		return T_EXIT_FAIL;
 	}
 
 	sqe = io_uring_get_sqe(&ring);
@@ -354,7 +349,7 @@ static int test_restrictions_flags(void)
 	ret = io_uring_submit(&ring);
 	if (ret != 3) {
 		fprintf(stderr, "submit: %d\n", ret);
-		return TEST_FAILED;
+		return T_EXIT_FAIL;
 	}
 
 	sqe = io_uring_get_sqe(&ring);
@@ -365,7 +360,7 @@ static int test_restrictions_flags(void)
 	ret = io_uring_submit(&ring);
 	if (ret != 1) {
 		fprintf(stderr, "submit: %d\n", ret);
-		return TEST_FAILED;
+		return T_EXIT_FAIL;
 	}
 
 	sqe = io_uring_get_sqe(&ring);
@@ -376,7 +371,7 @@ static int test_restrictions_flags(void)
 	ret = io_uring_submit(&ring);
 	if (ret != 1) {
 		fprintf(stderr, "submit: %d\n", ret);
-		return TEST_FAILED;
+		return T_EXIT_FAIL;
 	}
 
 	sqe = io_uring_get_sqe(&ring);
@@ -387,7 +382,7 @@ static int test_restrictions_flags(void)
 	ret = io_uring_submit(&ring);
 	if (ret != 1) {
 		fprintf(stderr, "submit: %d\n", ret);
-		return TEST_FAILED;
+		return T_EXIT_FAIL;
 	}
 
 	sqe = io_uring_get_sqe(&ring);
@@ -397,14 +392,14 @@ static int test_restrictions_flags(void)
 	ret = io_uring_submit(&ring);
 	if (ret != 1) {
 		fprintf(stderr, "submit: %d\n", ret);
-		return TEST_FAILED;
+		return T_EXIT_FAIL;
 	}
 
 	for (int i = 0; i < 7; i++) {
 		ret = io_uring_wait_cqe(&ring, &cqe);
 		if (ret) {
 			fprintf(stderr, "wait: %d\n", ret);
-			return TEST_FAILED;
+			return T_EXIT_FAIL;
 		}
 
 		switch (cqe->user_data) {
@@ -414,7 +409,7 @@ static int test_restrictions_flags(void)
 			if (cqe->res != sizeof(ptr)) {
 				fprintf(stderr, "write res: %d user_data %" PRIu64 "\n",
 					cqe->res, (uint64_t) cqe->user_data);
-				return TEST_FAILED;
+				return T_EXIT_FAIL;
 			}
 
 			break;
@@ -425,7 +420,7 @@ static int test_restrictions_flags(void)
 			if (cqe->res != -EACCES) {
 				fprintf(stderr, "write res: %d user_data %" PRIu64 "\n",
 					cqe->res, (uint64_t) cqe->user_data);
-				return TEST_FAILED;
+				return T_EXIT_FAIL;
 			}
 			break;
 		}
@@ -433,7 +428,7 @@ static int test_restrictions_flags(void)
 	}
 
 	io_uring_queue_exit(&ring);
-	return TEST_OK;
+	return T_EXIT_PASS;
 }
 
 static int test_restrictions_empty(void)
@@ -452,40 +447,40 @@ static int test_restrictions_empty(void)
 
 	if (pipe(pipe1) != 0) {
 		perror("pipe");
-		return TEST_FAILED;
+		return T_EXIT_FAIL;
 	}
 
 	ret = io_uring_queue_init(8, &ring, IORING_SETUP_R_DISABLED);
 	if (ret) {
 		fprintf(stderr, "ring setup failed: %d\n", ret);
-		return TEST_FAILED;
+		return T_EXIT_FAIL;
 	}
 
 	ret = io_uring_register_restrictions(&ring, res, 0);
 	if (ret) {
 		if (ret == -EINVAL)
-			return TEST_SKIPPED;
+			return T_EXIT_SKIP;
 
 		fprintf(stderr, "failed to register restrictions: %d\n", ret);
-		return TEST_FAILED;
+		return T_EXIT_FAIL;
 	}
 
 	ret = io_uring_enable_rings(&ring);
 	if (ret) {
 		fprintf(stderr, "ring enabling failed: %d\n", ret);
-		return TEST_FAILED;
+		return T_EXIT_FAIL;
 	}
 
 	ret = io_uring_register_buffers(&ring, &vec, 1);
 	if (ret != -EACCES) {
 		fprintf(stderr, "io_uring_register_buffers ret: %d\n", ret);
-		return TEST_FAILED;
+		return T_EXIT_FAIL;
 	}
 
 	ret = io_uring_register_files(&ring, pipe1, 2);
 	if (ret != -EACCES) {
 		fprintf(stderr, "io_uring_register_files ret: %d\n", ret);
-		return TEST_FAILED;
+		return T_EXIT_FAIL;
 	}
 
 	sqe = io_uring_get_sqe(&ring);
@@ -494,24 +489,24 @@ static int test_restrictions_empty(void)
 	ret = io_uring_submit(&ring);
 	if (ret != 1) {
 		fprintf(stderr, "submit: %d\n", ret);
-		return TEST_FAILED;
+		return T_EXIT_FAIL;
 	}
 
 	ret = io_uring_wait_cqe(&ring, &cqe);
 	if (ret) {
 		fprintf(stderr, "wait: %d\n", ret);
-		return TEST_FAILED;
+		return T_EXIT_FAIL;
 	}
 
 	if (cqe->res != -EACCES) {
 		fprintf(stderr, "write res: %d\n", cqe->res);
-		return TEST_FAILED;
+		return T_EXIT_FAIL;
 	}
 
 	io_uring_cqe_seen(&ring, cqe);
 
 	io_uring_queue_exit(&ring);
-	return TEST_OK;
+	return T_EXIT_PASS;
 }
 
 static int test_restrictions_rings_not_disabled(void)
@@ -523,7 +518,7 @@ static int test_restrictions_rings_not_disabled(void)
 	ret = io_uring_queue_init(8, &ring, 0);
 	if (ret) {
 		fprintf(stderr, "ring setup failed: %d\n", ret);
-		return TEST_FAILED;
+		return T_EXIT_FAIL;
 	}
 
 	res[0].opcode = IORING_RESTRICTION_SQE_OP;
@@ -533,11 +528,11 @@ static int test_restrictions_rings_not_disabled(void)
 	if (ret != -EBADFD) {
 		fprintf(stderr, "io_uring_register_restrictions ret: %d\n",
 			ret);
-		return TEST_FAILED;
+		return T_EXIT_FAIL;
 	}
 
 	io_uring_queue_exit(&ring);
-	return TEST_OK;
+	return T_EXIT_PASS;
 }
 
 static int test_restrictions_rings_disabled(void)
@@ -549,7 +544,7 @@ static int test_restrictions_rings_disabled(void)
 	ret = io_uring_queue_init(8, &ring, IORING_SETUP_R_DISABLED);
 	if (ret) {
 		fprintf(stderr, "ring setup failed: %d\n", ret);
-		return TEST_FAILED;
+		return T_EXIT_FAIL;
 	}
 
 	sqe = io_uring_get_sqe(&ring);
@@ -558,11 +553,11 @@ static int test_restrictions_rings_disabled(void)
 	ret = io_uring_submit(&ring);
 	if (ret != -EBADFD) {
 		fprintf(stderr, "submit: %d\n", ret);
-		return TEST_FAILED;
+		return T_EXIT_FAIL;
 	}
 
 	io_uring_queue_exit(&ring);
-	return TEST_OK;
+	return T_EXIT_PASS;
 }
 
 int main(int argc, char *argv[])
@@ -573,61 +568,67 @@ int main(int argc, char *argv[])
 		return 0;
 
 	ret = test_restrictions_sqe_op();
-	if (ret == TEST_SKIPPED) {
+	if (ret == T_EXIT_SKIP) {
 		printf("test_restrictions_sqe_op: skipped\n");
-		return 0;
-	} else if (ret == TEST_FAILED) {
+		return T_EXIT_SKIP;
+	} else if (ret == T_EXIT_FAIL) {
 		fprintf(stderr, "test_restrictions_sqe_op failed\n");
 		return ret;
 	}
 
 	ret = test_restrictions_register_op();
-	if (ret == TEST_SKIPPED) {
+	if (ret == T_EXIT_SKIP) {
 		printf("test_restrictions_register_op: skipped\n");
-	} else if (ret == TEST_FAILED) {
+		return T_EXIT_SKIP;
+	} else if (ret == T_EXIT_FAIL) {
 		fprintf(stderr, "test_restrictions_register_op failed\n");
 		return ret;
 	}
 
 	ret = test_restrictions_fixed_file();
-	if (ret == TEST_SKIPPED) {
+	if (ret == T_EXIT_SKIP) {
 		printf("test_restrictions_fixed_file: skipped\n");
-	} else if (ret == TEST_FAILED) {
+		return T_EXIT_SKIP;
+	} else if (ret == T_EXIT_FAIL) {
 		fprintf(stderr, "test_restrictions_fixed_file failed\n");
 		return ret;
 	}
 
 	ret = test_restrictions_flags();
-	if (ret == TEST_SKIPPED) {
+	if (ret == T_EXIT_SKIP) {
 		printf("test_restrictions_flags: skipped\n");
-	} else if (ret == TEST_FAILED) {
+		return T_EXIT_SKIP;
+	} else if (ret == T_EXIT_FAIL) {
 		fprintf(stderr, "test_restrictions_flags failed\n");
 		return ret;
 	}
 
 	ret = test_restrictions_empty();
-	if (ret == TEST_SKIPPED) {
+	if (ret == T_EXIT_SKIP) {
 		printf("test_restrictions_empty: skipped\n");
-	} else if (ret == TEST_FAILED) {
+		return T_EXIT_SKIP;
+	} else if (ret == T_EXIT_FAIL) {
 		fprintf(stderr, "test_restrictions_empty failed\n");
 		return ret;
 	}
 
 	ret = test_restrictions_rings_not_disabled();
-	if (ret == TEST_SKIPPED) {
+	if (ret == T_EXIT_SKIP) {
 		printf("test_restrictions_rings_not_disabled: skipped\n");
-	} else if (ret == TEST_FAILED) {
+		return T_EXIT_SKIP;
+	} else if (ret == T_EXIT_FAIL) {
 		fprintf(stderr, "test_restrictions_rings_not_disabled failed\n");
 		return ret;
 	}
 
 	ret = test_restrictions_rings_disabled();
-	if (ret == TEST_SKIPPED) {
+	if (ret == T_EXIT_SKIP) {
 		printf("test_restrictions_rings_disabled: skipped\n");
-	} else if (ret == TEST_FAILED) {
+		return T_EXIT_SKIP;
+	} else if (ret == T_EXIT_FAIL) {
 		fprintf(stderr, "test_restrictions_rings_disabled failed\n");
 		return ret;
 	}
 
-	return 0;
+	return T_EXIT_PASS;
 }
