@@ -54,7 +54,7 @@ Title
 
 Body of commit
 
-Signed-off-by: My Identity <my@email.com>
+Signed-off-by: ```My Identity <my@email.com>```
 
 That is, a descriptive title on the first line, then an empty line, then
 the body of the commit message, then an empty line, and finally an SOB
