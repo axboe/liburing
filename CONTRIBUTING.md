@@ -108,7 +108,7 @@ Testing changes
 ===============
 
 You should ALWAYS test your changes, no matter how trivial or obviously
-correect they may seem. Nobody is infallible, and making mistakes is only
+correct they may seem. Nobody is infallible, and making mistakes is only
 human.
 
 liburing contains a wide variety of functional tests. If you make changes
