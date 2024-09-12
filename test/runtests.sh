@@ -114,8 +114,11 @@ run_test()
 	elif [ "$status" -eq 77 ]; then
 		echo "Skipped"
 		SKIPPED+=("<$test_string>")
-	elif [ "$status" -ne 0 ]; then
+	elif [[ $test_string != xfail* ]] && [ "$status" -ne 0 ]; then
 		echo "Test $test_name failed with ret $status"
+		FAILED+=("<$test_string>")
+	elif [[ $test_string == xfail* ]] && [ "$status" -ne 1 ]; then
+		echo "Test $test_name expected fail status 1 but returned $status"
 		FAILED+=("<$test_string>")
 	elif ! _check_dmesg "$dmesg_marker" "$test_name"; then
 		echo "Test $test_name failed dmesg check"
