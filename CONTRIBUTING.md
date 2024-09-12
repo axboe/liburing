@@ -10,6 +10,14 @@ the guidelines in this document. The main reasons for the rules are:
 2) Keep the git repository consistent
 3) Maintain bisectability
 
+Coding style
+============
+
+Generally, all the code in liburing should follow the same style. A few
+known exceptions exist, like syzbot test cases that got committed rather
+than re-writing them in a saner format. Any change you make, please
+follow the style of the code around you.
+
 Commit format
 =============
 
