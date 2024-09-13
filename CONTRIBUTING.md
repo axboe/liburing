@@ -45,10 +45,17 @@ result is buildable. See reason 3 in the introduction for why that's the
 case.
 
 No fixup commits! Sometimes people post a change and errors are pointed
-out in the commit, and the author then does a followup fix for that error.
-This isn't acceptable, please squash fixup commits into the commit that
-introduced the problem in the first place. See reasons 1-3 in the
-introduction series for why that is.
+out in the commit, and the author then does a followup fix for that
+error. This isn't acceptable, please squash fixup commits into the
+commit that introduced the problem in the first place. This is done by
+amending the fix into the original commit that caused the issue. You can
+do that with git rebase -i <sha> and arrange the commit order such that
+the fixup is right after the original commit, and then use 's' (for
+squash) to squash the fixup into the original commit. Don't forget to
+edit the commit message while doing that, as git will combine the two
+commit messages into one. Or you can do it manually. Once done, force
+push your rewritten git history. See reasons 1-3 in the introduction
+series for why that is.
 
 Commit message
 ==============
@@ -108,12 +115,13 @@ Most contributors seem to use GH for sending patches, which is fine. If
 you prefer using email, then patches can also be sent to the io_uring
 mailing list: io-uring@vger.kernel.org.
 
-liburing doesn't squash-on-rebase, or other heinous practices sometimes
-seen elsewhere. Patches are applied directly, and pull requests are
-merged with a merge commit. If meta data needs to go into the merge
-commit, then it will go into the merge commit message. This means that
-you don't need to continually rebase your changes on top of the master
-branch.
+liburing doesn't squash/rebase-on-merge, or other heinous practices
+sometimes seen elsewhere. Whatever sha your commit has in your tree is
+what it'll have in the upstream tree. Patches are applied directly, and
+pull requests are merged with a merge commit. If meta data needs to go
+into the merge commit, then it will go into the merge commit message.
+This means that you don't need to continually rebase your changes on top
+of the master branch.
 
 Testing changes
 ===============
