@@ -62,8 +62,10 @@ Commit message
 
 A good commit explains the WHY of a commit - explain the reason for this
 commit to exist. Don't explain what the code in commit does, that should
-be readily apparent from just reading the code. liburing commits follow
-the following format:
+be readily apparent from just reading the code. If that isn't the case,
+then a comment in the code is going to be more useful than a lengthy
+explanation in the commit message. liburing commits use the following
+format:
 
 Title
 
@@ -79,21 +81,45 @@ tag. The signed-off-by exists to provide proof of origin, see the
 Example commit:
 
 ```
-commit 513ed8e5a0e0705fc2b3e98f0eeea8eea5cf2d3f
+commit 0fe5c09195c0918f89582dd6ff098a58a0bdf62a
 Author: Jens Axboe <axboe@kernel.dk>
-Date:   Thu Sep 12 09:38:56 2024 -0600
+Date:   Fri Sep 6 15:54:04 2024 -0600
 
-    test/register-restrictions: use T_* exit values
+    configure: fix ublk_cmd header check
     
-    This test invents its own exit codes, for some reason. Switch it to
-    using the normal exit values.
+    The previous commit is mixing private structures and defines with public
+    uapi ones. Testing for UBLK_U_CMD_START_DEV is fine, CTRL_CMD_HAS_DATA
+    is not. And struct ublk_ctrl_cmd_data is not a public struct.
     
+    Fixes: 83bc535a3118 ("configure: don't enable ublk if modern commands not available")
     Signed-off-by: Jens Axboe <axboe@kernel.dk>
 ```
 
 Since this change is pretty trivial, a huge explanation need not be given
 as to the reasonings for the change. However, for more complicated
 changes, better reasonings should be given.
+
+A Fixes line can be added if this commit fixes an issue in a previous
+commit. That kind of meta data can be useful down the line for finding
+dependencies between commits. Adding the following to your .gitconfig:
+
+```
+[pretty]
+	fixes = Fixes: %h (\"%s\")
+```
+
+and running git fixes <sha> will then generate the correctly formatted
+Fixes line for the commit. Likewise, other meta data can be:
+
+Link: https://somesite/somewhere
+
+can be useful to link to a discussion around the issue that led to this
+commit, perhaps a bug report. This can be a GitHub issue as well. If a
+commit closes/solves a GitHub issue, than:
+
+Closes: https://github.com/axboe/liburing/issues/XXXX
+
+can also be used.
 
 Each commit message should be formatted so each full line is 72-74 chars
 wide. For many of us, GitHub is not the primary location, and git log is
