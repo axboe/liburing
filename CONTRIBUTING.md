@@ -108,8 +108,8 @@ dependencies between commits. Adding the following to your .gitconfig:
 	fixes = Fixes: %h (\"%s\")
 ```
 
-and running git fixes <sha> will then generate the correctly formatted
-Fixes line for the commit. Likewise, other meta data can be:
+and running ```git fixes <sha>``` will then generate the correctly
+formatted Fixes line for the commit. Likewise, other meta data can be:
 
 Link: https://somesite/somewhere
 
