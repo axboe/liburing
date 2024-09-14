@@ -16,10 +16,20 @@ void liburing_sanitize_region(const void *addr, unsigned int len);
 void liburing_sanitize_iovecs(const struct iovec *iovecs, unsigned nr);
 #else
 #define __maybe_unused	__attribute__((__unused__))
-static inline void liburing_sanitize_ring(struct io_uring __maybe_unused *ring) {}
-static inline void liburing_sanitize_address(const void __maybe_unused *addr) {}
-static inline void liburing_sanitize_region(const void __maybe_unused *addr, unsigned int __maybe_unused len) {}
-static inline void liburing_sanitize_iovecs(const struct iovec __maybe_unused *iovecs, unsigned __maybe_unused nr) {}
+static inline void liburing_sanitize_ring(struct io_uring __maybe_unused *ring)
+{
+}
+static inline void liburing_sanitize_address(const void __maybe_unused *addr)
+{
+}
+static inline void liburing_sanitize_region(const void __maybe_unused *addr,
+					    unsigned int __maybe_unused len)
+{
+}
+static inline void liburing_sanitize_iovecs(const struct iovec __maybe_unused *iovecs,
+					    unsigned __maybe_unused nr)
+{
+}
 #endif
 
 #ifdef __cplusplus
