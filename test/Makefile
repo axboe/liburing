@@ -171,7 +171,7 @@ test_srcs := \
 	reg-fd-only.c \
 	reg-hint.c \
 	reg-reg-ring.c \
-	regbuf-copy.c \
+	regbuf-clone.c \
 	regbuf-merge.c \
 	register-restrictions.c \
 	rename.c \

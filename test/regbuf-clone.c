@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MIT */
 /*
- * Description: test buffer copying between rings
+ * Description: test buffer cloning between rings
  *
  */
 #include <errno.h>
@@ -51,7 +51,7 @@ static int test(int reg_src, int reg_dst)
 	}
 
 	/* test fail with no buffers in src */
-	ret = io_uring_copy_buffers(&dst, &src);
+	ret = io_uring_clone_buffers(&dst, &src);
 	if (ret == -EINVAL) {
 		/* no buffer copy support */
 		return T_EXIT_SKIP;
@@ -74,14 +74,14 @@ static int test(int reg_src, int reg_dst)
 	}
 
 	/* copy should work now */
-	ret = io_uring_copy_buffers(&dst, &src);
+	ret = io_uring_clone_buffers(&dst, &src);
 	if (ret) {
 		fprintf(stderr, "buffer copy: %d\n", ret);
 		return T_EXIT_FAIL;
 	}
 
 	/* try copy again, should get -EBUSY */
-	ret = io_uring_copy_buffers(&dst, &src);
+	ret = io_uring_clone_buffers(&dst, &src);
 	if (ret != -EBUSY) {
 		fprintf(stderr, "busy copy: %d\n", ret);
 		return T_EXIT_FAIL;
@@ -111,7 +111,7 @@ static int test(int reg_src, int reg_dst)
 		return T_EXIT_FAIL;
 	}
 
-	ret = io_uring_copy_buffers(&src, &dst);
+	ret = io_uring_clone_buffers(&src, &dst);
 	if (ret) {
 		fprintf(stderr, "buffer copy reverse: %d\n", ret);
 		return T_EXIT_FAIL;

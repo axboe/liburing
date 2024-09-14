@@ -252,7 +252,7 @@ static int __test_io(const char *file, struct io_uring *ring, int write,
 			return 1;
 		}
 
-		ret = io_uring_copy_buffers(&ring2, ring);
+		ret = io_uring_clone_buffers(&ring2, ring);
 		if (ret) {
 			if (ret == -EINVAL) {
 				no_buf_copy = 1;

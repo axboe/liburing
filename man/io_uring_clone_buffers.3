@@ -2,22 +2,22 @@
 .\"
 .\" SPDX-License-Identifier: LGPL-2.0-or-later
 .\"
-.TH io_uring_copy_buffers 3 "September 12, 2024" "liburing-2.8" "liburing Manual"
+.TH io_uring_clone_buffers 3 "September 12, 2024" "liburing-2.8" "liburing Manual"
 .SH NAME
-io_uring_copy_buffers \- Copies registered buffers between rings
+io_uring_clone_buffers \- Clones registered buffers between rings
 .SH SYNOPSIS
 .nf
 .B #include <liburing.h>
 .PP
-.BI "int io_uring_copy_buffers(struct io_uring *" dst ","
-.BI "                          struct io_uring * " src ");"
+.BI "int io_uring_clone_buffers(struct io_uring *" dst ","
+.BI "                           struct io_uring * " src ");"
 .PP
 .fi
 .SH DESCRIPTION
 .PP
 The
-.BR io_uring_copy_buffers (3)
-function copies registered buffers from the ring indicated by
+.BR io_uring_clone_buffers (3)
+function clones registered buffers from the ring indicated by
 .I src
 to the ring indicated by
 .I dst .
@@ -42,7 +42,7 @@ registered on the destination ring, they must be unregistered with
 first.
 
 On success
-.BR io_uring_copy_buffers (3)
+.BR io_uring_clone_buffers (3)
 returns 0.
 On failure, it returns
 .BR -errno ,
