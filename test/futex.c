@@ -168,7 +168,8 @@ static int test_order(int vectored, int async)
 {
 	struct io_uring_sqe *sqe;
 	struct io_uring_cqe *cqe;
-	struct futex_waitv fw;
+	struct futex_waitv fw = { };
+	struct io_uring_sync_cancel_reg reg = { };
 	struct io_uring ring;
 	unsigned int *futex;
 	int ret, i;
@@ -180,10 +181,8 @@ static int test_order(int vectored, int async)
 	futex = malloc(sizeof(*futex));
 	*futex = 0;
 
-	fw.val = 0;
 	fw.uaddr = (unsigned long) futex;
 	fw.flags = FUTEX2_SIZE_U32;
-	fw.__reserved = 0;
 
 	/*
 	 * Submit two futex waits
@@ -240,6 +239,13 @@ static int test_order(int vectored, int async)
 	ret = io_uring_peek_cqe(&ring, &cqe);
 	if (ret != -EAGAIN) {
 		fprintf(stderr, "Unexpected cqe available: %d\n", cqe->res);
+		return 1;
+	}
+
+	reg.addr = 2;
+	ret = io_uring_register_sync_cancel(&ring, &reg);
+	if (ret != 1) {
+		fprintf(stderr, "Failed to cancel pending futex wait: %d\n", ret);
 		return 1;
 	}
 
