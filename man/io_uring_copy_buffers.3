@@ -1,0 +1,64 @@
+.\" Copyright (C) 2024 Jens Axboe <axboe@kernel.dk>
+.\"
+.\" SPDX-License-Identifier: LGPL-2.0-or-later
+.\"
+.TH io_uring_copy_buffers 3 "September 12, 2024" "liburing-2.8" "liburing Manual"
+.SH NAME
+io_uring_copy_buffers \- Copies registered buffers between rings
+.SH SYNOPSIS
+.nf
+.B #include <liburing.h>
+.PP
+.BI "int io_uring_copy_buffers(struct io_uring *" dst ","
+.BI "                          struct io_uring * " src ");"
+.PP
+.fi
+.SH DESCRIPTION
+.PP
+The
+.BR io_uring_copy_buffers (3)
+function copies registered buffers from the ring indicated by
+.I src
+to the ring indicated by
+.I dst .
+Upon successful completion of this operation,
+.I src
+and
+.I dst
+will have the same set of registered buffers. This operation is identical to
+performing a
+.BR io_uring_register_buffers (3)
+operation on the
+.I dst
+ring, if the
+.I src
+ring previously had that same buffer registration operating done.
+
+The
+.I dst
+ring must not have any buffers currently registered. If buffers are currently
+registered on the destination ring, they must be unregistered with
+.BR io_uring_unregister_buffers (3)
+first.
+
+On success
+.BR io_uring_copy_buffers (3)
+returns 0.
+On failure, it returns
+.BR -errno ,
+specifically
+.TP
+.B -EBUSY
+The destination ring already has buffers registered.
+.TP
+.B -ENOMEM
+The kernel ran out of memory.
+.TP
+.B -ENXIO
+The source ring doesn't have any buffers registered.
+.SH SEE ALSO
+.BR io_uring_register (2),
+.BR io_uring_unregister_buffers (3),
+.BR io_uring_register_buffers (3),
+.BR io_uring_prep_read_fixed (3),
+.BR io_uring_prep_write_fixed (3)

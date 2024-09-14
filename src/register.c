@@ -393,3 +393,17 @@ int io_uring_register_clock(struct io_uring *ring,
 {
 	return do_register(ring, IORING_REGISTER_CLOCK, arg, 0);
 }
+
+int io_uring_copy_buffers(struct io_uring *dst, struct io_uring *src)
+{
+	struct io_uring_copy_buffers buf = { .src_fd = src->ring_fd, };
+
+	if (src->int_flags & INT_FLAG_REG_REG_RING) {
+		buf.src_fd = src->enter_ring_fd;
+		buf.flags = IORING_REGISTER_SRC_REGISTERED;
+	} else {
+		buf.src_fd = src->ring_fd;
+	}
+
+	return do_register(dst, IORING_REGISTER_COPY_BUFFERS, &buf, 1);
+}

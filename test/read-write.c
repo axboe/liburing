@@ -15,6 +15,7 @@
 
 #include "helpers.h"
 #include "liburing.h"
+#include "../src/syscall.h"
 
 #define FILE_SIZE	(256 * 1024)
 #define BS		8192
@@ -23,6 +24,7 @@
 static struct iovec *vecs;
 static int no_read;
 static int no_buf_select;
+static int no_buf_copy;
 static int warned;
 
 static int create_nonaligned_buffers(void)
@@ -42,9 +44,9 @@ static int create_nonaligned_buffers(void)
 	return 0;
 }
 
-static int __test_io(const char *file, struct io_uring *ring, int write,
-		     int buffered, int sqthread, int fixed, int nonvec,
-		     int buf_select, int seq, int exp_len)
+static int _test_io(const char *file, struct io_uring *ring, int write,
+		    int buffered, int sqthread, int fixed, int nonvec,
+		    int buf_select, int seq, int exp_len)
 {
 	struct io_uring_sqe *sqe;
 	struct io_uring_cqe *cqe;
@@ -64,7 +66,7 @@ static int __test_io(const char *file, struct io_uring *ring, int write,
 	if (!buffered)
 		open_flags |= O_DIRECT;
 
-	if (fixed) {
+	if (fixed == 1) {
 		ret = t_register_buffers(ring, vecs, BUFFERS);
 		if (ret == T_SETUP_SKIP)
 			return 0;
@@ -201,13 +203,6 @@ static int __test_io(const char *file, struct io_uring *ring, int write,
 		io_uring_cqe_seen(ring, cqe);
 	}
 
-	if (fixed) {
-		ret = io_uring_unregister_buffers(ring);
-		if (ret) {
-			fprintf(stderr, "buffer unreg failed: %d\n", ret);
-			goto err;
-		}
-	}
 	if (sqthread) {
 		ret = io_uring_unregister_files(ring);
 		if (ret) {
@@ -229,6 +224,65 @@ err:
 		close(fd);
 	return 1;
 }
+
+static int __test_io(const char *file, struct io_uring *ring, int write,
+		     int buffered, int sqthread, int fixed, int nonvec,
+		     int buf_select, int seq, int exp_len)
+{
+	int ret;
+
+	ret = _test_io(file, ring, write, buffered, sqthread, fixed, nonvec,
+		       buf_select, seq, exp_len);
+	if (ret)
+		return ret;
+
+	if (fixed) {
+		struct io_uring ring2;
+		int ring_flags = 0;
+
+		if (no_buf_copy)
+			return 0;
+		if (sqthread)
+			ring_flags = IORING_SETUP_SQPOLL;
+		ret = t_create_ring(64, &ring2, ring_flags);
+		if (ret == T_SETUP_SKIP)
+			return 0;
+		if (ret != T_SETUP_OK) {
+			fprintf(stderr, "ring create failed: %d\n", ret);
+			return 1;
+		}
+
+		ret = io_uring_copy_buffers(&ring2, ring);
+		if (ret) {
+			if (ret == -EINVAL) {
+				no_buf_copy = 1;
+				io_uring_queue_exit(&ring2);
+				return 0;
+			}
+			fprintf(stderr, "copy buffers: %d\n", ret);
+			return ret;
+		}
+		ret = _test_io(file, &ring2, write, buffered, sqthread, 2,
+			       nonvec, buf_select, seq, exp_len);
+		if (ret)
+			return ret;
+
+		ret = io_uring_unregister_buffers(ring);
+		if (ret) {
+			fprintf(stderr, "buffer unreg failed: %d\n", ret);
+			return ret;
+		}
+		ret = io_uring_unregister_buffers(&ring2);
+		if (ret) {
+			fprintf(stderr, "buffer copy unreg failed: %d\n", ret);
+			return ret;
+		}
+		io_uring_queue_exit(&ring2);
+	}
+
+	return ret;
+}
+
 static int test_io(const char *file, int write, int buffered, int sqthread,
 		   int fixed, int nonvec, int exp_len)
 {

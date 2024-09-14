@@ -210,4 +210,5 @@ LIBURING_2.8 {
 		io_uring_register_clock;
 		io_uring_submit_and_wait_min_timeout;
 		io_uring_wait_cqes_min_timeout;
+		io_uring_copy_buffers;
 } LIBURING_2.7;
