@@ -68,6 +68,7 @@ static int setup_ctx(struct ctx *ctx, struct q_entries *q)
 static void clean_ctx(struct ctx *ctx)
 {
 	io_uring_queue_exit(&ctx->ring);
+	free(ctx->mem);
 }
 
 static int check_red(struct ctx *ctx, unsigned long i)
@@ -94,10 +95,12 @@ static int test(struct q_entries *q)
 	int j, ret, batch;
 
 	ret = setup_ctx(&ctx, q);
-	if (ret == T_EXIT_SKIP)
+	if (ret == T_EXIT_SKIP) {
+		clean_ctx(&ctx);
 		return T_EXIT_SKIP;
-	else if (ret != T_EXIT_PASS)
+	} else if (ret != T_EXIT_PASS) {
 		return ret;
+	}
 
 	batch = 64;
 	if (batch > q->sqes)

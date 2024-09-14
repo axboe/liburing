@@ -57,6 +57,7 @@ static int test_mixed_reg2(int bgid)
 
 	io_uring_free_buf_ring(&ring, br, 32, bgid);
 	io_uring_queue_exit(&ring);
+	free(bufs);
 	return 0;
 }
 
@@ -99,6 +100,7 @@ static int test_mixed_reg(int bgid)
 	}
 
 	io_uring_queue_exit(&ring);
+	free(bufs);
 	return 0;
 }
 

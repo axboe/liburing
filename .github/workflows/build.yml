@@ -19,6 +19,15 @@ jobs:
             cxx_pkg: g++-x86-64-linux-gnu
             cc: x86_64-linux-gnu-gcc
             cxx: x86_64-linux-gnu-g++
+            sanitize: 0
+
+          # x86-64 gcc asan
+          - arch: x86_64
+            cc_pkg: gcc-x86-64-linux-gnu
+            cxx_pkg: g++-x86-64-linux-gnu
+            cc: x86_64-linux-gnu-gcc
+            cxx: x86_64-linux-gnu-g++
+            sanitize: 1
 
           # x86-64 clang
           - arch: x86_64
@@ -28,6 +37,7 @@ jobs:
             cxx: clang++
             liburing_extra_flags: -Wshorten-64-to-32
             extra_flags: -Wmissing-prototypes -Wstrict-prototypes -Wunreachable-code-loop-increment -Wunreachable-code -Wmissing-variable-declarations -Wextra-semi-stmt
+            sanitize: 0
 
           # x86 (32-bit) gcc
           - arch: i686
@@ -35,6 +45,7 @@ jobs:
             cxx_pkg: g++-i686-linux-gnu
             cc: i686-linux-gnu-gcc
             cxx: i686-linux-gnu-g++
+            sanitize: 0
 
           # aarch64 gcc
           - arch: aarch64
@@ -42,6 +53,7 @@ jobs:
             cxx_pkg: g++-aarch64-linux-gnu
             cc: aarch64-linux-gnu-gcc
             cxx: aarch64-linux-gnu-g++
+            sanitize: 0
 
           # arm (32-bit) gcc
           - arch: arm
@@ -49,6 +61,7 @@ jobs:
             cxx_pkg: g++-arm-linux-gnueabi
             cc: arm-linux-gnueabi-gcc
             cxx: arm-linux-gnueabi-g++
+            sanitize: 0
 
           # riscv64
           - arch: riscv64
@@ -56,6 +69,7 @@ jobs:
             cxx_pkg: g++-riscv64-linux-gnu
             cc: riscv64-linux-gnu-gcc
             cxx: riscv64-linux-gnu-g++
+            sanitize: 0
 
           # powerpc64
           - arch: powerpc64
@@ -63,6 +77,7 @@ jobs:
             cxx_pkg: g++-powerpc64-linux-gnu
             cc: powerpc64-linux-gnu-gcc
             cxx: powerpc64-linux-gnu-g++
+            sanitize: 0
 
           # powerpc
           - arch: powerpc
@@ -70,6 +85,7 @@ jobs:
             cxx_pkg: g++-powerpc-linux-gnu
             cc: powerpc-linux-gnu-gcc
             cxx: powerpc-linux-gnu-g++
+            sanitize: 0
 
           # alpha
           - arch: alpha
@@ -77,6 +93,7 @@ jobs:
             cxx_pkg: g++-alpha-linux-gnu
             cc: alpha-linux-gnu-gcc
             cxx: alpha-linux-gnu-g++
+            sanitize: 0
 
           # mips64
           - arch: mips64
@@ -84,6 +101,7 @@ jobs:
             cxx_pkg: g++-mips64-linux-gnuabi64
             cc: mips64-linux-gnuabi64-gcc
             cxx: mips64-linux-gnuabi64-g++
+            sanitize: 0
 
           # mips
           - arch: mips
@@ -91,6 +109,7 @@ jobs:
             cxx_pkg: g++-mips-linux-gnu
             cc: mips-linux-gnu-gcc
             cxx: mips-linux-gnu-g++
+            sanitize: 0
 
           # hppa
           - arch: hppa
@@ -98,9 +117,11 @@ jobs:
             cxx_pkg: g++-hppa-linux-gnu
             cc: hppa-linux-gnu-gcc
             cxx: hppa-linux-gnu-g++
+            sanitize: 0
 
     env:
       FLAGS: -g -O3 -Wall -Wextra -Werror -Wno-sign-compare ${{matrix.extra_flags}}
+      SANITIZE: ${{matrix.sanitize}}
 
       # Flags for building sources in src/ dir only.
       LIBURING_CFLAGS: ${{matrix.liburing_extra_flags}}
@@ -128,8 +149,15 @@ jobs:
         ${{matrix.cxx}} --version;
 
     - name: Build
+      if: ${{matrix.sanitizer == '0'}}
       run: |
         ./configure --cc=${{matrix.cc}} --cxx=${{matrix.cxx}};
+        make -j$(nproc) V=1 CPPFLAGS="-Werror" CFLAGS="$FLAGS" CXXFLAGS="$FLAGS";
+
+    - name: Build
+      if: ${{matrix.sanitizer == '1'}}
+      run: |
+        ./configure --cc=${{matrix.cc}} --cxx=${{matrix.cxx}} --enable-sanitizer;
         make -j$(nproc) V=1 CPPFLAGS="-Werror" CFLAGS="$FLAGS" CXXFLAGS="$FLAGS";
 
     - name: Test install command

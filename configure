@@ -28,6 +28,8 @@ for opt do
   ;;
   --use-libc) use_libc=yes
   ;;
+  --enable-sanitizer) use_sanitizer=yes
+  ;;
   *)
     echo "ERROR: unknown option $opt"
     echo "Try '$0 --help' for more information"
@@ -76,6 +78,7 @@ Options: [defaults in brackets after descriptions]
   --cc=CMD                 use CMD as the C compiler
   --cxx=CMD                use CMD as the C++ compiler
   --use-libc               use libc for liburing (useful for hardening)
+  --enable-sanitizer       compile liburing with the address and undefined behaviour sanitizers. (useful for debugging)
 EOF
 exit 0
 fi
@@ -532,6 +535,12 @@ if test "$futexv" = "yes"; then
 fi
 if test "$ublk_header" = "yes"; then
   output_sym "CONFIG_HAVE_UBLK_HEADER"
+fi
+if test "$use_sanitizer" = "yes"; then
+  output_sym "CONFIG_USE_SANITIZER"
+  print_config "use sanitizer" "yes"
+else
+  print_config "use sanitizer" "no"
 fi
 
 echo "CC=$cc" >> $config_host_mak

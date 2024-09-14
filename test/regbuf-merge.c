@@ -13,6 +13,7 @@
 
 #include "helpers.h"
 
+#ifndef CONFIG_USE_SANITIZER
 #ifndef __NR_io_uring_register
 #define __NR_io_uring_register 427
 #endif
@@ -89,3 +90,9 @@ int main(int argc, char *argv[])
 	syscall(__NR_io_uring_register, r[0], 0ul, 0x20002840ul, 2ul);
 	return T_EXIT_PASS;
 }
+#else
+int main(int argc, char *argv[])
+{
+	return T_EXIT_SKIP;
+}
+#endif

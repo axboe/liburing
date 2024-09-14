@@ -109,6 +109,7 @@ static int test(int invalid)
 	if (!br) {
 		if (ret == -EINVAL) {
 			no_buf_ring = 1;
+			free(buf);
 			return 0;
 		}
 		fprintf(stderr, "Buffer ring register failed %d\n", ret);
@@ -131,10 +132,13 @@ static int test(int invalid)
 	if (ret) {
 		if (ret == -EINVAL) {
 			no_buf_ring_status = 1;
+			free(buf);
 			return T_EXIT_SKIP;
 		}
-		if (invalid && ret == -ENOENT)
+		if (invalid && ret == -ENOENT) {
+			free(buf);
 			return T_EXIT_PASS;
+		}
 		fprintf(stderr, "buf_ring_head: %d\n", ret);
 		return T_EXIT_FAIL;
 	}

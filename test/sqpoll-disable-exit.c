@@ -22,8 +22,10 @@
 #include <unistd.h>
 
 #include "liburing.h"
+#include "helpers.h"
 #include "../src/syscall.h"
 
+#ifndef CONFIG_USE_SANITIZER
 static void sleep_ms(uint64_t ms)
 {
   usleep(ms * 1000);
@@ -194,3 +196,9 @@ int main(void)
   loop();
   return 0;
 }
+#else
+int main(int argc, char *argv[])
+{
+	return T_EXIT_SKIP;
+}
+#endif

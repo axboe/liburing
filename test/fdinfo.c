@@ -292,6 +292,7 @@ static int has_nonvec_read(void)
 	if (ret == -EINVAL) {
 out:
 		io_uring_queue_exit(&ring);
+		free(p);
 		return 0;
 	} else if (ret) {
 		fprintf(stderr, "register_probe: %d\n", ret);
@@ -303,6 +304,7 @@ out:
 	if (!(p->ops[IORING_OP_READ].flags & IO_URING_OP_SUPPORTED))
 		goto out;
 	io_uring_queue_exit(&ring);
+	free(p);
 	return 1;
 }
 

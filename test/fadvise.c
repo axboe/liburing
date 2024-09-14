@@ -68,7 +68,7 @@ static long do_read(int fd, char *buf)
 		perror("lseek");
 		return -1;
 	}
-	
+
 	gettimeofday(&tv, NULL);
 	ret = read(fd, buf, FILE_SIZE);
 	t = utime_since_now(&tv);
@@ -126,9 +126,12 @@ static int test_fadvise(struct io_uring *ring, const char *filename)
 		return 1;
 
 	if (cached_read < uncached_read &&
-	    cached_read2 < uncached_read)
+		cached_read2 < uncached_read) {
+		free(buf);
 		return 0;
+	}
 
+	free(buf);
 	return 2;
 }
 

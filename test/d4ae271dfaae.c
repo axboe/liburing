@@ -22,7 +22,7 @@ int main(int argc, char *argv[])
 	int i, fd, ret, __e;
 	struct io_uring_sqe *sqe;
 	struct io_uring_cqe *cqe;
-	struct iovec *iovecs;
+	struct iovec *iovecs = NULL;
 	struct io_uring_params p;
 	char *fname;
 	void *buf;
@@ -95,5 +95,10 @@ int main(int argc, char *argv[])
 	close(fd);
 out:
 	io_uring_queue_exit(&ring);
+	if (iovecs != NULL) { //
+		for (i = 0; i < 10; i++)
+			free(iovecs[i].iov_base);
+		free(iovecs);
+	}
 	return ret;
 }

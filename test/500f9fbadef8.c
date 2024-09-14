@@ -78,10 +78,12 @@ int main(int argc, char *argv[])
 
 	close(fd);
 	unlink(buf);
+	free(iov.iov_base);
 	return T_EXIT_PASS;
 err:
 	close(fd);
 	unlink(buf);
+	free(iov.iov_base);
 	return T_EXIT_FAIL;
 skipped:
 	fprintf(stderr, "Polling not supported in current dir, test skipped\n");

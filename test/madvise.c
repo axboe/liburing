@@ -121,9 +121,12 @@ static int test_madvise(struct io_uring *ring, const char *filename)
 		return 1;
 
 	if (cached_read < uncached_read &&
-	    cached_read2 < uncached_read)
+	    cached_read2 < uncached_read) {
+		free(buf);
 		return 0;
+	}
 
+	free(buf);
 	return 2;
 }
 

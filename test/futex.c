@@ -120,6 +120,7 @@ static int __test(struct io_uring *ring, int vectored, int async,
 
 		if (cqe->res == -EINVAL || cqe->res == -EOPNOTSUPP) {
 			no_futex = 1;
+			free(futex);
 			return 0;
 		}
 		io_uring_cqe_seen(ring, cqe);
@@ -134,6 +135,7 @@ static int __test(struct io_uring *ring, int vectored, int async,
 	for (i = 0; i < nfutex; i++)
 		pthread_join(threads[i], &tret);
 
+	free(futex);
 	return 0;
 }
 
@@ -145,7 +147,7 @@ static int test(int flags, int vectored)
 	ret = io_uring_queue_init(8, &ring, flags);
 	if (ret)
 		return ret;
-	
+
 	for (i = 0; i < LOOPS; i++) {
 		int async_cancel = (!i % 2);
 		int async_wait = !(i % 3);
@@ -242,6 +244,7 @@ static int test_order(int vectored, int async)
 	}
 
 	io_uring_queue_exit(&ring);
+	free(futex);
 	return 0;
 }
 
@@ -322,6 +325,7 @@ static int test_multi_wake(int vectored)
 	}
 
 	io_uring_queue_exit(&ring);
+	free(futex);
 	return 0;
 }
 
@@ -378,6 +382,7 @@ static int test_wake_zero(void)
 	}
 
 	io_uring_queue_exit(&ring);
+	free(futex);
 	return 0;
 }
 
@@ -459,6 +464,7 @@ static int test_invalid(void)
 	io_uring_cqe_seen(&ring, cqe);
 
 	io_uring_queue_exit(&ring);
+	free(futex);
 	return 0;
 }
 

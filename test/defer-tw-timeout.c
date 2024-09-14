@@ -128,6 +128,7 @@ static int test_file(struct io_uring *ring, char *__fname)
 	if (ret != 1) {
 		fprintf(stderr, "unexpected wait ret %d\n", ret);
 		close(fd);
+		free(buf);
 		return T_EXIT_FAIL;
 	}
 
@@ -141,10 +142,12 @@ static int test_file(struct io_uring *ring, char *__fname)
 	if (i != 1) {
 		fprintf(stderr, "Got %d request, expected 1\n", i);
 		close(fd);
+		free(buf);
 		return T_EXIT_FAIL;
 	}
 
 	close(fd);
+	free(buf);
 	return T_EXIT_PASS;
 }
 

@@ -317,6 +317,7 @@ static int do_send(struct recv_data *rd)
 		if (cqe->res == -EINVAL) {
 			fprintf(stdout, "send not supported, skipping\n");
 			close(sockfd);
+			free(buf);
 			return 0;
 		}
 		if (cqe->res != iov.iov_len) {
@@ -328,10 +329,12 @@ static int do_send(struct recv_data *rd)
 
 	shutdown(sockfd, SHUT_RDWR);
 	close(sockfd);
+	free(buf);
 	return 0;
 err:
 	shutdown(sockfd, SHUT_RDWR);
 	close(sockfd);
+	free(buf);
 	return 1;
 }
 

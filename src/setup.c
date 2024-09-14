@@ -433,7 +433,7 @@ __cold void io_uring_queue_exit(struct io_uring *ring)
 	struct io_uring_cq *cq = &ring->cq;
 	size_t sqe_size;
 
-	if (!sq->ring_sz) {
+	if (!sq->ring_sz && !(ring->int_flags & INT_FLAG_APP_MEM)) {
 		sqe_size = sizeof(struct io_uring_sqe);
 		if (ring->flags & IORING_SETUP_SQE128)
 			sqe_size += 64;

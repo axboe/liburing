@@ -41,6 +41,8 @@ static int do_iopoll(const char *fname)
 	io_uring_submit(&ring);
 
 	close(fd);
+	free(iov->iov_base);
+	free(iov);
 	return T_EXIT_PASS;
 }
 

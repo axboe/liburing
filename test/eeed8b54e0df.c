@@ -113,8 +113,10 @@ int main(int argc, char *argv[])
 	}
 
 	close(fd);
+	free(iov.iov_base);
 	return ret;
 err:
 	close(fd);
+	free(iov.iov_base);
 	return T_EXIT_FAIL;
 }

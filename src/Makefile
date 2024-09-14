@@ -16,8 +16,6 @@ override CFLAGS += -Wno-unused-parameter \
 	$(LIBURING_CFLAGS)
 SO_CFLAGS=-fPIC $(CFLAGS)
 L_CFLAGS=$(CFLAGS)
-LINK_FLAGS=-Wl,-z,defs
-LINK_FLAGS+=$(LDFLAGS)
 ENABLE_SHARED ?= 1
 
 soname=liburing.so.$(VERSION_MAJOR)
@@ -39,6 +37,13 @@ ifneq ($(MAKECMDGOALS),clean)
 include ../config-host.mak
 endif
 
+ifeq ($(CONFIG_USE_SANITIZER),y)
+	LINK_FLAGS=
+else
+	LINK_FLAGS=-Wl,-z,defs
+endif
+LINK_FLAGS+=$(LDFLAGS)
+
 all: $(all_targets)
 
 liburing_srcs := setup.c queue.c register.c syscall.c version.c
@@ -48,6 +53,13 @@ ifeq ($(CONFIG_NOLIBC),y)
 	override CFLAGS += -nostdlib -nodefaultlibs -ffreestanding -fno-builtin -fno-stack-protector
 	override CPPFLAGS += -nostdlib -nodefaultlibs -ffreestanding -fno-builtin -fno-stack-protector
 	override LINK_FLAGS += -nostdlib -nodefaultlibs $(libgcc_link_flag)
+endif
+
+ifeq ($(CONFIG_USE_SANITIZER),y)
+	override CFLAGS += -fsanitize=address,undefined -g -fno-omit-frame-pointer -fno-optimize-sibling-calls
+	override CPPFLAGS += -fsanitize=address,undefined -g -fno-omit-frame-pointer -fno-optimize-sibling-calls
+	override LINK_FLAGS += -fsanitize=address,undefined
+	liburing_srcs += sanitize.c
 endif
 
 override CPPFLAGS += -MT "$@" -MMD -MP -MF "$@.d"
@@ -89,6 +101,7 @@ install: $(all_targets)
 	install -D -m 644 include/liburing.h $(includedir)/liburing.h
 	install -D -m 644 include/liburing/compat.h $(includedir)/liburing/compat.h
 	install -D -m 644 include/liburing/barrier.h $(includedir)/liburing/barrier.h
+	install -D -m 644 include/liburing/sanitize.h $(includedir)/liburing/sanitize.h
 	install -D -m 644 include/liburing/io_uring_version.h $(includedir)/liburing/io_uring_version.h
 	install -D -m 644 liburing.a $(libdevdir)/liburing.a
 	install -D -m 644 liburing-ffi.a $(libdevdir)/liburing-ffi.a
@@ -106,6 +119,7 @@ uninstall:
 	@rm -f $(includedir)/liburing.h
 	@rm -f $(includedir)/liburing/compat.h
 	@rm -f $(includedir)/liburing/barrier.h
+	@rm -f $(includedir)/liburing/sanitize.h
 	@rm -f $(includedir)/liburing/io_uring_version.h
 	@rm -f $(libdevdir)/liburing.a
 	@rm -f $(libdevdir)/liburing-ffi.a
