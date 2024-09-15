@@ -1544,6 +1544,7 @@ Consequently
 must contain the file index and
 .B IOSQE_FIXED_FILE
 must be set.
+The resulting regular fd is returned via cqe->res.
 Additional flags may be passed in via
 .IR install_fd_flags .
 Currently supported flags are:
