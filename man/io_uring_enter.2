@@ -576,7 +576,7 @@ or the specified number of events have completed. Either condition will
 trigger the event. If set to 0, completed events are not counted, which
 effectively acts like a timer. io_uring timeouts use the
 .B CLOCK_MONOTONIC
-clock source. The request will complete with
+as the default clock source. The request will complete with
 .B -ETIME
 if the timeout got completed through expiration of the timer, or
 .I 0
