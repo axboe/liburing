@@ -609,6 +609,23 @@ instead of
 
 .PP
 .in +7
+Since 5.16,
+.B IORING_TIMEOUT_ETIME_SUCCESS
+can be set in
+.IR timeout_flags ,
+which will result in the expiration of the timer and subsequent completion
+with
+.B -ETIME
+not being interpreted as an error. This is mostly relevant for linked SQEs, as
+subsequent requests in the chain would not get canceled by the timeout, if
+this flag is set. See
+.B IOSQE_IO_LINK
+for more details on linked SQEs.
+.in
+.PP
+
+.PP
+.in +7
 Since 6.4,
 .B IORING_TIMEOUT_MULTISHOT
 can be set in
