@@ -607,6 +607,25 @@ instead of
 .in
 .PP
 
+.PP
+.in +7
+Since 6.4,
+.B IORING_TIMEOUT_MULTISHOT
+can be set in
+.IR timeout_flags ,
+which will result in the timer producing multiple consecutive completions
+like other multi shot operations e.g.
+.B IORING_OP_READ_MULTISHOT
+or
+.BR IORING_POLL_ADD_MULTI .
+.I off
+must be set to the amount of desired completions.
+.B IORING_TIMEOUT_MULTISHOT
+must not be used with
+.BR IORING_TIMEOUT_ABS .
+.in
+.PP
+
 .TP
 .B IORING_OP_TIMEOUT_REMOVE
 If
@@ -2010,3 +2029,12 @@ was set in the
 field of the submission queue entry, but the
 .I opcode
 doesn't support buffer selection.
+.TP
+.B EINVAL
+.B IORING_OP_TIMEOUT
+was specified, but
+.I timeout_flags
+specified more than one clock source or
+.B IORING_TIMEOUT_MULTISHOT
+was set alongside
+.BR IORING_TIMEOUT_ABS .
