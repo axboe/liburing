@@ -721,6 +721,36 @@ The application must have registered a file table first.
 Available since 6.0.
 
 .TP
+.B IORING_REGISTER_PBUF_STATUS
+Can be used to retrieve the current head of a ringbuffer provided earlier via
+.BR IORING_REGISTER_PBUF_RING .
+.I arg
+must point to a
+.PP
+.in +12
+.EX
+struct io_uring_buf_status {
+	__u32	buf_group;	/* input */
+	__u32	head;		/* output */
+	__u32	resv[8];
+};
+.EE
+.in
+.PP
+.in +8
+of which
+.I arg->buf_group
+should contain the buffer group ID for the buffer ring in question,
+.I nr_args
+should be set to 1 and
+.I arg->resv
+should be zeroed out.
+The current head of the ringbuffer will be returned in
+.IR arg->head .
+
+Available since 6.8.
+
+.TP
 .B IORING_REGISTER_CLOCK
 Specifies which clock id io_uring will use for timers while waiting for
 completion events with
@@ -860,3 +890,16 @@ User buffers point to file-backed memory.
 .TP
 .B EFAULT
 User buffers point to file-backed memory (newer kernels).
+.TP
+.B ENOENT
+.B IORING_REGISTER_PBUF_STATUS
+was specified, but
+.I buf_group
+did not refer to a currently valid buffer group.
+.TP
+.B EINVAL
+.B IORING_REGISTER_PBUF_STATUS
+was specified, but the valid buffer group specified by
+.I buf_group
+did not refer to a buffer group registered via
+.BR IORING_REGISTER_PBUF_RING .
