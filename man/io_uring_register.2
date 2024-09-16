@@ -751,6 +751,46 @@ The current head of the ringbuffer will be returned in
 Available since 6.8.
 
 .TP
+.B IORING_REGISTER_NAPI
+Registers a napi instance with the io_uring instance of
+.IR fd .
+.I arg
+should point to a
+.PP
+.in +12
+.EX
+struct io_uring_napi {
+	__u32	busy_poll_to;
+	__u8	prefer_busy_poll;
+	__u8	pad[3];
+	__u64	resv;
+};
+.EE
+.in
+.PP
+.in +8
+in which
+.I arg->busy_poll_to
+should contain the busy poll timeout in micro seconds and
+.I arg->prefer_busy_poll
+should specify whether busy polling should be used rather than IRQs.
+.I nr_args
+should be set to 1 and
+.I arg->pad
+and
+.I arg->resv
+should be zeroed out.
+On successful return the
+.I io_uring_napi
+struct pointed to by
+.I arg
+will contain the previously used settings.
+Must be used with a ring initially created with
+.BR IORING_SETUP_IOPOLL .
+
+Available since 6.9.
+
+.TP
 .B IORING_REGISTER_CLOCK
 Specifies which clock id io_uring will use for timers while waiting for
 completion events with
@@ -903,3 +943,10 @@ was specified, but the valid buffer group specified by
 .I buf_group
 did not refer to a buffer group registered via
 .BR IORING_REGISTER_PBUF_RING .
+.TP
+.B EINVAL
+.B IORING_REGISTER_NAPI
+was specified, but the ring associated with
+.I fd
+has not been created with
+.BR IORING_SETUP_IOPOLL .
