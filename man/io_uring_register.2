@@ -791,6 +791,24 @@ Must be used with a ring initially created with
 Available since 6.9.
 
 .TP
+.B IORING_UNREGISTER_NAPI
+Unregisters a napi instance previously registered via
+.B IORING_REGISTER_NAPI
+to the io_uring instance of
+.IR fd .
+.I arg
+should point to a
+.I struct
+.IR io_uring_napi .
+On successful return the
+.I io_uring_napi
+struct pointed to by
+.I arg
+will contain the previously used settings.
+
+Available since 6.9.
+
+.TP
 .B IORING_REGISTER_CLOCK
 Specifies which clock id io_uring will use for timers while waiting for
 completion events with
