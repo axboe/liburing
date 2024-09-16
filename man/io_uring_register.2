@@ -113,7 +113,7 @@ but aims to have a more extensible ABI.
 
 .I arg
 points to a
-.I struct io_uring_rsrc_register,
+.IR struct io_uring_rsrc_register ,
 and
 .I nr_args
 should be set to the number of bytes in the structure.
@@ -155,7 +155,7 @@ posted with
 set to the specified tag and all other fields zeroed.
 
 Note that resource updates, e.g.
-.B IORING_REGISTER_BUFFERS_UPDATE,
+.BR IORING_REGISTER_BUFFERS_UPDATE ,
 don't necessarily deallocate resources by the time it returns, but they might
 be held alive until all requests using it complete.
 
@@ -167,9 +167,13 @@ Updates registered buffers with new ones, either turning a sparse entry into
 a real one, or replacing an existing entry.
 
 .I arg
-must contain a pointer to a struct io_uring_rsrc_update2, which contains
+must contain a pointer to a
+.I struct
+.IR io_uring_rsrc_update2 ,
+which contains
 an offset on which to start the update, and an array of
-.I struct iovec.
+.I struct
+.IR iovec .
 .I tags
 points to an array of tags.
 .I nr
@@ -226,7 +230,7 @@ member is set to the index of the file in the file descriptor array.
 The file set may be sparse, meaning that the
 .B fd
 field in the array may be set to
-.B -1.
+.BR -1 .
 See
 .B IORING_REGISTER_FILES_UPDATE
 for how to update files in place.
@@ -244,11 +248,12 @@ register a new set of fds. Available since 5.1.
 .TP
 .B IORING_REGISTER_FILES2
 Register files for I/O. Similar to
-.B IORING_REGISTER_FILES.
+.BR IORING_REGISTER_FILES .
 
 .I arg
 points to a
-.I struct io_uring_rsrc_register,
+.I struct
+.IR io_uring_rsrc_register ,
 and
 .I nr_args
 should be set to the number of bytes in the structure.
@@ -266,7 +271,7 @@ field should either be 0 or or point to an array of
 for more info on resource tagging.
 
 Note that resource updates, e.g.
-.B IORING_REGISTER_FILES_UPDATE,
+.BR IORING_REGISTER_FILES_UPDATE ,
 don't necessarily deallocate resources, they might be held until all requests
 using that resource complete.
 
@@ -276,14 +281,15 @@ Available since 5.13.
 .B IORING_REGISTER_FILES_UPDATE
 This operation replaces existing files in the registered file set with new
 ones, either turning a sparse entry (one where fd is equal to
-.B -1
-) into a real one, removing an existing entry (new one is set to
-.B -1
-), or replacing an existing entry with a new existing entry.
+.BR -1 )
+into a real one, removing an existing entry (new one is set to
+.BR -1 ),
+or replacing an existing entry with a new existing entry.
 
 .I arg
 must contain a pointer to a
-.I struct io_uring_files_update,
+.I struct
+.IR io_uring_files_update ,
 which contains
 an offset on which to start the update, and an array of file descriptors to
 use for the update.
@@ -292,27 +298,30 @@ must contain the number of descriptors in the passed in array. Available
 since 5.5.
 
 File descriptors can be skipped if they are set to
-.B IORING_REGISTER_FILES_SKIP.
+.BR IORING_REGISTER_FILES_SKIP .
 Skipping an fd will not touch the file associated with the previous
 fd at that index. Available since 5.12.
 
 .TP
 .B IORING_REGISTER_FILES_UPDATE2
-Similar to IORING_REGISTER_FILES_UPDATE, replaces existing files in the
+Similar to
+.BR IORING_REGISTER_FILES_UPDATE ,
+replaces existing files in the
 registered file set with new ones, either turning a sparse entry (one where
 fd is equal to
-.B -1
-) into a real one, removing an existing entry (new one is set to
-.B -1
-), or replacing an existing entry with a new existing entry.
+.BR -1 )
+into a real one, removing an existing entry (new one is set to
+.BR -1 ),
+or replacing an existing entry with a new existing entry.
 
 .I arg
 must contain a pointer to a
-.I struct io_uring_rsrc_update2,
+.I struct
+.IR io_uring_rsrc_update2 ,
 which contains
 an offset on which to start the update, and an array of file descriptors to
 use for the update stored in
-.I data.
+.IR data .
 .I tags
 points to an array of tags.
 .I nr
@@ -332,7 +341,9 @@ with the io_uring instance will be unregistered. Available since 5.1.
 
 .TP
 .B IORING_REGISTER_EVENTFD
-It's possible to use eventfd(2) to get notified of completion events on an
+It's possible to use
+.BR eventfd (2)
+to get notified of completion events on an
 io_uring instance. If this is desired, an eventfd file descriptor can be
 registered through this operation.
 .I arg
@@ -357,12 +368,12 @@ Available since 5.8.
 .TP
 .B IORING_REGISTER_EVENTFD_ASYNC
 This works just like
-.B IORING_REGISTER_EVENTFD
-, except notifications are only posted for events that complete in an async
+.BR IORING_REGISTER_EVENTFD ,
+except notifications are only posted for events that complete in an async
 manner. This means that events that complete inline while being submitted
 do not trigger a notification event. The arguments supplied are the same as
 for
-.B IORING_REGISTER_EVENTFD.
+.BR IORING_REGISTER_EVENTFD .
 Available since 5.6.
 
 .TP
@@ -413,7 +424,7 @@ must be set to NULL. Available since 5.6.
 .TP
 .B IORING_REGISTER_ENABLE_RINGS
 This operation enables an io_uring ring started in a disabled state
-.RB (IORING_SETUP_R_DISABLED
+.RB ( IORING_SETUP_R_DISABLED
 was specified in the call to
 .BR io_uring_setup (2)).
 While the io_uring ring is disabled, submissions are not allowed and
@@ -439,7 +450,7 @@ entries.
 
 With an entry it is possible to allow an
 .BR io_uring_register (2)
-.I opcode,
+.IR opcode ,
 or specify which
 .I opcode
 and
@@ -456,7 +467,7 @@ are not allowed).
 
 Restrictions can be registered only if the io_uring ring started in a disabled
 state
-.RB (IORING_SETUP_R_DISABLED
+.RB ( IORING_SETUP_R_DISABLED
 must be specified in the call to
 .BR io_uring_setup (2)).
 
@@ -480,7 +491,7 @@ Available since 5.14.
 .TP
 .B IORING_UNREGISTER_IOWQ_AFF
 Undoes a CPU mask previously set with
-.B IORING_REGISTER_IOWQ_AFF.
+.BR IORING_REGISTER_IOWQ_AFF .
 Must not have
 .I arg
 or
@@ -567,7 +578,7 @@ Available since 5.18.
 .TP
 .B IORING_UNREGISTER_RING_FDS
 Unregister descriptors previously registered with
-.B IORING_REGISTER_RING_FDS.
+.BR IORING_REGISTER_RING_FDS .
 
 .I arg
 must be set to a pointer to an array of type
@@ -656,7 +667,7 @@ field set to the buffer group ID of the previously registered provided buffer
 group.
 .I nr_args
 must be set to 1. Also see
-.B IORING_REGISTER_PBUF_RING .
+.BR IORING_REGISTER_PBUF_RING .
 
 Available since 5.19.
 
@@ -685,7 +696,7 @@ Available since 6.0.
 .B IORING_REGISTER_FILE_ALLOC_RANGE
 sets the allowable range for fixed file index allocations within the
 kernel. When requests that can instantiate a new fixed file are used with
-.B IORING_FILE_INDEX_ALLOC ,
+.BR IORING_FILE_INDEX_ALLOC ,
 the application is asking the kernel to allocate a new fixed file descriptor
 rather than pass in a specific value for one. By default, the kernel will
 pick any available fixed file descriptor within the range available.
@@ -721,24 +732,112 @@ The application must have registered a file table first.
 Available since 6.0.
 
 .TP
+.B IORING_REGISTER_PBUF_STATUS
+Can be used to retrieve the current head of a ringbuffer provided earlier via
+.BR IORING_REGISTER_PBUF_RING .
+.I arg
+must point to a
+.PP
+.in +12
+.EX
+struct io_uring_buf_status {
+	__u32	buf_group;	/* input */
+	__u32	head;		/* output */
+	__u32	resv[8];
+};
+.EE
+.in
+.PP
+.in +8
+of which
+.I arg->buf_group
+should contain the buffer group ID for the buffer ring in question,
+.I nr_args
+should be set to 1 and
+.I arg->resv
+should be zeroed out.
+The current head of the ringbuffer will be returned in
+.IR arg->head .
+
+Available since 6.8.
+
+.TP
+.B IORING_REGISTER_NAPI
+Registers a napi instance with the io_uring instance of
+.IR fd .
+.I arg
+should point to a
+.PP
+.in +12
+.EX
+struct io_uring_napi {
+	__u32	busy_poll_to;
+	__u8	prefer_busy_poll;
+	__u8	pad[3];
+	__u64	resv;
+};
+.EE
+.in
+.PP
+.in +8
+in which
+.I arg->busy_poll_to
+should contain the busy poll timeout in micro seconds and
+.I arg->prefer_busy_poll
+should specify whether busy polling should be used rather than IRQs.
+.I nr_args
+should be set to 1 and
+.I arg->pad
+and
+.I arg->resv
+should be zeroed out.
+On successful return the
+.I io_uring_napi
+struct pointed to by
+.I arg
+will contain the previously used settings.
+Must be used with a ring initially created with
+.BR IORING_SETUP_IOPOLL .
+
+Available since 6.9.
+
+.TP
+.B IORING_UNREGISTER_NAPI
+Unregisters a napi instance previously registered via
+.B IORING_REGISTER_NAPI
+to the io_uring instance of
+.IR fd .
+.I arg
+should point to a
+.I struct
+.IR io_uring_napi .
+On successful return the
+.I io_uring_napi
+struct pointed to by
+.I arg
+will contain the previously used settings.
+
+Available since 6.9.
+
+.TP
 .B IORING_REGISTER_CLOCK
 Specifies which clock id io_uring will use for timers while waiting for
 completion events with
-.B IORING_ENTER_GETEVENTS.
+.BR IORING_ENTER_GETEVENTS .
 It's only effective if the timeout argument in
 .I struct io_uring_getevents_arg
 is passed, ignored otherwise.
 When used in conjunction with
-.B IORING_ENTER_ABS_TIMER,
+.BR IORING_ENTER_ABS_TIMER ,
 interprets the timeout argument as absolute time of the specified clock.
 
 The default clock is
-.B CLOCK_MONOTONIC.
+.BR CLOCK_MONOTONIC .
 
 Available since 6.12 and supports
 .B CLOCK_MONOTONIC
 and
-.B CLOCK_BOOTTIME.
+.BR CLOCK_BOOTTIME .
 
 .SH RETURN VALUE
 
@@ -831,8 +930,7 @@ was specified and adding
 .I nr_args
 file references would exceed the maximum allowed number of files the user
 is allowed to have according to the
-.B
-RLIMIT_NOFILE
+.B RLIMIT_NOFILE
 resource limit and the caller does not have
 .B CAP_SYS_RESOURCE
 capability. Note that this is a per user limit, not per process.
@@ -860,3 +958,23 @@ User buffers point to file-backed memory.
 .TP
 .B EFAULT
 User buffers point to file-backed memory (newer kernels).
+.TP
+.B ENOENT
+.B IORING_REGISTER_PBUF_STATUS
+was specified, but
+.I buf_group
+did not refer to a currently valid buffer group.
+.TP
+.B EINVAL
+.B IORING_REGISTER_PBUF_STATUS
+was specified, but the valid buffer group specified by
+.I buf_group
+did not refer to a buffer group registered via
+.BR IORING_REGISTER_PBUF_RING .
+.TP
+.B EINVAL
+.B IORING_REGISTER_NAPI
+was specified, but the ring associated with
+.I fd
+has not been created with
+.BR IORING_SETUP_IOPOLL .
