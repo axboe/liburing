@@ -135,7 +135,6 @@ test_srcs := \
 	multicqes_drain.c \
 	napi-test.c \
 	no-mmap-inval.c \
-	nolibc.c \
 	nop-all-sizes.c \
 	nop.c \
 	ooo-file-unreg.c \
@@ -240,6 +239,10 @@ asan_test_srcs := \
 
 all_targets :=
 include ../Makefile.quiet
+
+ifeq ($(CONFIG_NOLIBC),y)
+	test_srcs += nolibc.c
+endif
 
 ifdef CONFIG_HAVE_STATX
 	test_srcs += statx.c
