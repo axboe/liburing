@@ -13,7 +13,6 @@
 #include <netinet/udp.h>
 #include <arpa/inet.h>
 #include <net/if.h>
-#include <error.h>
 
 #include "liburing.h"
 #include "helpers.h"
