@@ -124,6 +124,7 @@ test_srcs := \
 	link.c \
 	link_drain.c \
 	link-timeout.c \
+	linked-defer-close.c \
 	madvise.c \
 	min-timeout.c \
 	min-timeout-wait.c \
