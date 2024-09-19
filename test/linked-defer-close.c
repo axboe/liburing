@@ -25,6 +25,7 @@ enum {
 	IS_ACCEPT = 0,
 	IS_SEND = 0x100,
 	IS_SEND2 = 0x101,
+	IS_SEND3 = 0x102,
 	IS_CLOSE = 0x200,
 };
 
@@ -88,6 +89,7 @@ int main(int argc, char *argv[])
 	struct sockaddr_in saddr;
 	char *msg1 = "message number 1\n";
 	char *msg2 = "message number 2\n";
+	char *msg3 = "message number 3\n";
 	int val, send_fd, ret, sockfd;
 	struct sigaction act[2] = { };
 	struct thread_data td;
@@ -182,7 +184,7 @@ int main(int argc, char *argv[])
 			sqe = io_uring_get_sqe(&ring);
 			io_uring_prep_send(sqe, send_fd, msg1, strlen(msg1), 0);
 			sqe->user_data = IS_SEND;
-			sqe->flags = IOSQE_CQE_SKIP_SUCCESS;
+			sqe->flags = IOSQE_CQE_SKIP_SUCCESS | IOSQE_IO_LINK;
 
 			sqe = io_uring_get_sqe(&ring);
 			io_uring_prep_send(sqe, send_fd, msg2, strlen(msg2), 0);
@@ -190,9 +192,14 @@ int main(int argc, char *argv[])
 			sqe->flags = IOSQE_CQE_SKIP_SUCCESS | IOSQE_IO_LINK;
 
 			sqe = io_uring_get_sqe(&ring);
+			io_uring_prep_send(sqe, send_fd, msg3, strlen(msg3), 0);
+			sqe->user_data = IS_SEND3;
+			sqe->flags = IOSQE_CQE_SKIP_SUCCESS | IOSQE_IO_LINK;
+
+			sqe = io_uring_get_sqe(&ring);
 			io_uring_prep_close(sqe, send_fd);
 			sqe->user_data = IS_CLOSE;
-			sqe->flags = IOSQE_CQE_SKIP_SUCCESS | IOSQE_IO_LINK;
+			sqe->flags = IOSQE_CQE_SKIP_SUCCESS;
 			break;
 		case IS_SEND:
 		case IS_SEND2:
