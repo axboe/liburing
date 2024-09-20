@@ -200,7 +200,10 @@ This flag should be set in conjunction with
 being set to an existing io_uring ring file descriptor. When set, the
 io_uring instance being created will share the asynchronous worker
 thread backend of the specified io_uring ring, rather than create a new
-separate thread pool.
+separate thread pool. Additionally the sq polling thread will be shared,
+if
+.B IORING_SETUP_SQPOLL
+is set.
 .TP
 .B IORING_SETUP_R_DISABLED
 If this flag is specified, the io_uring ring starts in a disabled state.
