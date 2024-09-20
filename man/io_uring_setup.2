@@ -128,7 +128,7 @@ described below.
 .TP
 .BR
 Note that, when using a ring setup with
-.B IORING_SETUP_SQPOLL,
+.BR IORING_SETUP_SQPOLL ,
 you never directly call the
 .BR io_uring_enter (2)
 system call. That is usually taken care of by liburing's
@@ -145,7 +145,7 @@ application must register a set of files to be used for IO through
 using the
 .B IORING_REGISTER_FILES
 opcode. Failure to do so will result in submitted IO being errored with
-.B EBADF.
+.BR EBADF .
 The presence of this feature can be detected by the
 .B IORING_FEAT_SQPOLL_NONFIXED
 feature flag.
@@ -171,7 +171,7 @@ changed as well.
 .TP
 .B IORING_SETUP_CQSIZE
 Create the completion queue with
-.IR "struct io_uring_params.cq_entries"
+.I "struct io_uring_params.cq_entries"
 entries.  The value must be greater than
 .IR entries ,
 and may be rounded up to the next power-of-two.
@@ -182,13 +182,13 @@ If this flag is specified, and if
 exceeds
 .BR IORING_MAX_ENTRIES ,
 then
-.IR entries
+.I entries
 will be clamped at
 .BR IORING_MAX_ENTRIES .
 If the flag
 .B IORING_SETUP_CQSIZE
 is set, and if the value of
-.IR "struct io_uring_params.cq_entries"
+.I "struct io_uring_params.cq_entries"
 exceeds
 .BR IORING_MAX_CQ_ENTRIES ,
 then it will be clamped at
@@ -196,11 +196,14 @@ then it will be clamped at
 .TP
 .B IORING_SETUP_ATTACH_WQ
 This flag should be set in conjunction with
-.IR "struct io_uring_params.wq_fd"
+.I "struct io_uring_params.wq_fd"
 being set to an existing io_uring ring file descriptor. When set, the
 io_uring instance being created will share the asynchronous worker
 thread backend of the specified io_uring ring, rather than create a new
-separate thread pool.
+separate thread pool. Additionally the sq polling thread will be shared,
+if
+.B IORING_SETUP_SQPOLL
+is set.
 .TP
 .B IORING_SETUP_R_DISABLED
 If this flag is specified, the io_uring ring starts in a disabled state.
@@ -236,9 +239,9 @@ use cases, setting this flag will improve performance. Available since 5.19.
 .TP
 .B IORING_SETUP_TASKRUN_FLAG
 Used in conjunction with
-.B IORING_SETUP_COOP_TASKRUN,
+.BR IORING_SETUP_COOP_TASKRUN ,
 this provides a flag,
-.B IORING_SQ_TASKRUN,
+.BR IORING_SQ_TASKRUN ,
 which is set in the SQ ring
 .I flags
 whenever completions are pending that should be processed. liburing will check
@@ -279,22 +282,22 @@ Note that when
 is set it is considered that the polling task is doing all submissions
 on behalf of the userspace and so it always complies with the rule disregarding
 how many userspace tasks do
-.BR io_uring_enter(2).
+.BR io_uring_enter (2).
 Available since 6.0.
 .TP
 .B IORING_SETUP_DEFER_TASKRUN
 By default, io_uring will process all outstanding work at the end of any system
 call or thread interrupt. This can delay the application from making other progress.
 Setting this flag will hint to io_uring that it should defer work until an
-.BR io_uring_enter(2)
+.BR io_uring_enter (2)
 call with the 
 .B IORING_ENTER_GETEVENTS
 flag set. This allows the application to request work to run just before it wants to
 process completions.
 This flag requires the
-.BR IORING_SETUP_SINGLE_ISSUER
+.B IORING_SETUP_SINGLE_ISSUER
 flag to be set, and also enforces that the call to
-.BR io_uring_enter(2)
+.BR io_uring_enter (2)
 is called from the same thread that submitted requests.
 Note that if this flag is set then it is the application's responsibility to periodically
 trigger work (for example via any of the CQE waiting functions) or else completions may
@@ -326,7 +329,7 @@ file descriptor. The caller will need to use
 when calling
 .BR io_uring_register (2).
 This flag only makes sense when used alongside with
-.B IORING_SETUP_NO_MMAP,
+.BR IORING_SETUP_NO_MMAP ,
 which also needs to be set.
 Available since 6.5.
 
@@ -358,9 +361,9 @@ by current kernel version.
 .TP
 .B IORING_FEAT_SINGLE_MMAP
 If this flag is set, the two SQ and CQ rings can be mapped with a single
-.I mmap(2)
+.BR mmap (2)
 call. The SQEs must still be allocated separately. This brings the necessary
-.I mmap(2)
+.BR mmap (2)
 calls down from three to two. Available since kernel 5.4.
 .TP
 .B IORING_FEAT_NODROP
@@ -394,19 +397,18 @@ If this flag is set, applications can specify
 ==
 .B -1
 with
-.B IORING_OP_{READV,WRITEV}
-,
-.B IORING_OP_{READ,WRITE}_FIXED
-, and
+.BR IORING_OP_{READV,WRITEV} ,
+.BR IORING_OP_{READ,WRITE}_FIXED ,
+and
 .B IORING_OP_{READ,WRITE}
 to mean current file position, which behaves like
-.I preadv2(2)
+.BR preadv2 (2)
 and
-.I pwritev2(2)
+.BR pwritev2 (2)
 with
 .I offset
 ==
-.B -1.
+.BR -1 .
 It'll use (and update) the current file position. This obviously comes
 with the caveat that if the application has multiple reads or writes in flight,
 then the end result will not be as expected. This is similar to threads sharing
@@ -416,15 +418,13 @@ kernel 5.6.
 .B IORING_FEAT_CUR_PERSONALITY
 If this flag is set, then io_uring guarantees that both sync and async
 execution of a request assumes the credentials of the task that called
-.I
-io_uring_enter(2)
+.BR io_uring_enter (2)
 to queue the requests. If this flag isn't set, then requests are issued with
 the credentials of the task that originally registered the io_uring. If only
 one task is using a ring, then this flag doesn't matter as the credentials
 will always be the same. Note that this is the default behavior, tasks can
 still register different personalities through
-.I
-io_uring_register(2)
+.BR io_uring_register (2)
 with
 .B IORING_REGISTER_PERSONALITY
 and specify the personality to use in the sqe. Available since kernel 5.6.
@@ -458,12 +458,12 @@ kernel 5.11.
 If this flag is set, then the
 .BR io_uring_enter (2)
 system call supports passing in an extended argument instead of just the
-.IR "sigset_t"
+.I "sigset_t"
 of earlier kernels. This.
 extended argument is of type
-.IR "struct io_uring_getevents_arg"
+.I "struct io_uring_getevents_arg"
 and allows the caller to pass in both a
-.IR "sigset_t"
+.I sigset_t
 and a timeout argument for waiting on events. The struct layout is as follows:
 .TP
 .in +8n
@@ -504,7 +504,7 @@ kernel 5.17.
 .B IORING_FEAT_LINKED_FILE
 If this flag is set, then io_uring supports sane assignment of files for SQEs
 that have dependencies. For example, if a chain of SQEs are submitted with
-.B IOSQE_IO_LINK,
+.BR IOSQE_IO_LINK ,
 then kernels without this flag will prepare the file for each link upfront.
 If a previous link opens a file with a known index, eg if direct descriptors
 are used with open or accept, then file assignment needs to happen post
@@ -525,6 +525,13 @@ timeout. See
 .BR io_uring_submit_and_wait_min_timeout (3)
 for more details.
 
+.TP
+.B IORING_FEAT_RECVSEND_BUNDLE
+If this flag is set, then io_uring supports bundled send and recv operations.
+See
+.BR io_uring_prep_send_bundle (3)
+for more information. Also implies support for provided buffers in send
+operations.
 .PP
 The rest of the fields in the
 .I struct io_uring_params
@@ -684,7 +691,8 @@ variable.
 .SH ERRORS
 .TP
 .B EFAULT
-params is outside your accessible address space.
+.I params
+is outside your accessible address space.
 .TP
 .B EINVAL
 The resv array contains non-zero data, p.flags contains an unsupported
@@ -728,7 +736,14 @@ privileges.
 has the value 2, or it has the value 1 and the calling process does not hold the
 .B CAP_SYS_ADMIN
 capability or is not a member of
-.I /proc/sys/kernel/io_uring_group.
+.IR /proc/sys/kernel/io_uring_group .
+.TP
+.B ENXIO
+.B IORING_SETUP_ATTACH_WQ
+was set, but
+.I params.wq_fd
+did not refer to an io_uring instance or refers to an instance that is in the
+process of shutting down.
 .SH SEE ALSO
 .BR io_uring_register (2),
 .BR io_uring_enter (2)
