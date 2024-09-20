@@ -95,6 +95,9 @@ int main(int argc, char *argv[])
 	struct thread_data td;
 	pthread_t thread;
 
+	if (argc > 1)
+		return T_EXIT_SKIP;
+
 	memset(&saddr, 0, sizeof(saddr));
 	saddr.sin_family = AF_INET;
 	saddr.sin_addr.s_addr = htonl(INADDR_ANY);
