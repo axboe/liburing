@@ -54,7 +54,7 @@ static int connect_client(struct io_uring *ring, unsigned short peer_port)
 
 	sqe = io_uring_get_sqe(ring);
 	io_uring_prep_send(sqe, CLI_INDEX, magic, strlen(magic), 0);
-	sqe->flags |= IOSQE_FIXED_FILE | IOSQE_IO_LINK;
+	sqe->flags |= IOSQE_FIXED_FILE;
 
 	submitted = ret = io_uring_submit(ring);
 	if (ret < 0)
