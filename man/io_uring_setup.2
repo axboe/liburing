@@ -730,6 +730,13 @@ has the value 2, or it has the value 1 and the calling process does not hold the
 .B CAP_SYS_ADMIN
 capability or is not a member of
 .IR /proc/sys/kernel/io_uring_group .
+.TP
+.B ENXIO
+.B IORING_SETUP_ATTACH_WQ
+was set, but
+.I params.wq_fd
+did not refer to an io_uring instance or refers to an instance that is in the
+process of shutting down.
 .SH SEE ALSO
 .BR io_uring_register (2),
 .BR io_uring_enter (2)
