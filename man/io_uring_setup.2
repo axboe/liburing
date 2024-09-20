@@ -525,6 +525,13 @@ timeout. See
 .BR io_uring_submit_and_wait_min_timeout (3)
 for more details.
 
+.TP
+.B IORING_FEAT_RECVSEND_BUNDLE
+If this flag is set, then io_uring supports bundled send and recv operations.
+See
+.BR io_uring_prep_send_bundle (3)
+for more information. Also implies support for provided buffers in send
+operations.
 .PP
 The rest of the fields in the
 .I struct io_uring_params
