@@ -32,6 +32,8 @@ If an application using liburing is threaded, then an application should call
 this function to register the ring descriptor when a ring is set up. See NOTES
 for restrictions when a ring is shared.
 
+Available since kernel 5.18.
+
 .SH NOTES
 When the ring descriptor is registered, it is stored internally in the
 .I struct io_uring
