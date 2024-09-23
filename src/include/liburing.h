@@ -250,6 +250,7 @@ int io_uring_unregister_buf_ring(struct io_uring *ring, int bgid);
 int io_uring_buf_ring_head(struct io_uring *ring, int buf_group, uint16_t *head);
 int io_uring_register_sync_cancel(struct io_uring *ring,
 				 struct io_uring_sync_cancel_reg *reg);
+int io_uring_register_sync_msg_ring(struct io_uring_sqe *sqe);
 
 int io_uring_register_file_alloc_range(struct io_uring *ring,
 					unsigned off, unsigned len);

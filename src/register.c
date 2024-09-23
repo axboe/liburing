@@ -408,3 +408,8 @@ int io_uring_clone_buffers(struct io_uring *dst, struct io_uring *src)
 
 	return do_register(dst, IORING_REGISTER_CLONE_BUFFERS, &buf, 1);
 }
+
+int io_uring_register_sync_msg_ring(struct io_uring_sqe *sqe)
+{
+	return __sys_io_uring_register(-1, IORING_REGISTER_SEND_MSG_RING, sqe, 1);
+}
