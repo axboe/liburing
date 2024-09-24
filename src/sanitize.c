@@ -2,8 +2,6 @@
 
 #include "liburing/sanitize.h"
 
-#if defined(CONFIG_USE_SANITIZER)
-
 #include <sanitizer/asan_interface.h>
 #include <stdlib.h>
 #include "liburing.h"
@@ -176,20 +174,3 @@ void liburing_sanitize_iovecs(const struct iovec *iovecs, unsigned nr)
 		}
 	}
 }
-#else
-void liburing_sanitize_ring(struct io_uring *ring)
-{
-}
-
-void liburing_sanitize_address(const void *addr)
-{
-}
-
-void liburing_sanitize_region(const void *addr, unsigned int len)
-{
-}
-
-void liburing_sanitize_iovecs(const struct iovec *iovecs, unsigned nr)
-{
-}
-#endif
