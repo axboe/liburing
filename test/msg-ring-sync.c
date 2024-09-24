@@ -181,6 +181,11 @@ static int test_invalid(void)
 
 	ret = io_uring_register_sync_msg_ring(&sqe);
 	
+	if (ret == -EINVAL) {
+		no_msg = 1;
+		return 0;
+	}
+
 	if (ret != -EBADFD) {
 		fprintf(stderr, "res %d\n", ret);
 		return -1;
@@ -223,6 +228,8 @@ static int test(int ring_flags)
 		fprintf(stderr, "test_invalid failed\n");
 		return T_EXIT_FAIL;
 	}
+	if (no_msg)
+		return T_EXIT_SKIP;
 
 	ret = test_remote(ring_flags, 0);
 	if (ret) {
@@ -271,12 +278,12 @@ int main(int argc, char *argv[])
 
 	for (i = 0; i < 5; i++) {
 		ret = test(0);
+		if (no_msg)
+			return T_EXIT_SKIP;
 		if (ret != T_EXIT_PASS) {
 			fprintf(stderr, "ring flags 0 failed\n");
 			return ret;
 		}
-		if (no_msg)
-			return T_EXIT_SKIP;
 	}
 
 	for (i = 0; i < 5; i++) {
