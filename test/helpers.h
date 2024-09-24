@@ -69,6 +69,11 @@ void t_create_file_pattern(const char *file, size_t size, char pattern);
 struct iovec *t_create_buffers(size_t buf_num, size_t buf_size);
 
 /*
+ * Helper for freeing buffers created with t_create buffers
+ */
+void t_destroy_buffers(struct iovec *vecs, int nr_vecs);
+
+/*
  * Helper for creating connected socket pairs
  */
 int t_create_socket_pair(int fd[2], bool stream);

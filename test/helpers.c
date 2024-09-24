@@ -120,6 +120,18 @@ struct iovec *t_create_buffers(size_t buf_num, size_t buf_size)
 	return vecs;
 }
 
+void t_destroy_buffers(struct iovec *vecs, int nr_vecs)
+{
+	int i;
+
+	if (!vecs)
+		return;
+
+	for (i = 0; i < nr_vecs; i++)
+		free(vecs[i].iov_base);
+	free(vecs);
+}
+
 /*
  * Helper for setting up an io_uring instance, skipping if the given user isn't
  * allowed to.
