@@ -18,7 +18,6 @@
 #include "liburing/io_uring.h"
 #include "liburing/io_uring_version.h"
 #include "liburing/barrier.h"
-#include "liburing/sanitize.h"
 
 
 #ifndef uring_unlikely
@@ -1513,8 +1512,6 @@ IOURINGINLINE void io_uring_buf_ring_add(struct io_uring_buf_ring *br,
 					 int buf_offset)
 {
 	struct io_uring_buf *buf = &br->bufs[(br->tail + buf_offset) & mask];
-
-	liburing_sanitize_region(addr, len);
 
 	buf->addr = (unsigned long) (uintptr_t) addr;
 	buf->len = len;
