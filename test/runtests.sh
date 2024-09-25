@@ -45,6 +45,7 @@ _check_dmesg()
 	fi
 
 	dmesg 2> /dev/null | bash -c "$DMESG_FILTER" | grep -A 9999 "$dmesg_marker" >"${seqres}.dmesg"
+	# shellcheck disable=SC2181
 	if [[ $? -ne 0 ]]; then
 		DO_DMESG="0"
 		return 0
