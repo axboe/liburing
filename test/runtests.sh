@@ -156,6 +156,11 @@ for tst in "${TESTS[@]}"; do
 	fi
 done
 
+for dmesg_file in *.dmesg; do
+	echo "$dmesg_file exists"
+	cat $dmesg_file
+done
+
 if [ "${#TIMED_OUT[*]}" -ne 0 ]; then
 	echo "Tests timed out (${#TIMED_OUT[*]}): ${TIMED_OUT[*]}"
 fi
