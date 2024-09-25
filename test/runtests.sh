@@ -158,7 +158,7 @@ done
 
 for dmesg_file in *.dmesg; do
 	echo "$dmesg_file exists"
-	cat $dmesg_file
+	cat "$dmesg_file"
 done
 
 if [ "${#TIMED_OUT[*]}" -ne 0 ]; then
