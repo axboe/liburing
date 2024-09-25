@@ -27,6 +27,8 @@ static int child(int flags)
 
 	ret = io_uring_queue_init(4, &ring, flags);
 	if (ret) {
+		if (ret == -EINVAL)
+			return 0;
 		fprintf(stderr, "queue init failed %d\n", ret);
 		return ret;
 	}

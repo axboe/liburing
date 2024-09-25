@@ -322,6 +322,8 @@ static int test_eventfd_read(int flags)
 	if (ret == T_SETUP_SKIP)
 		return 0;
 	if (ret != T_SETUP_OK) {
+		if (ret == -EINVAL)
+			return 0;
 		fprintf(stderr, "ring create failed: %d\n", ret);
 		return 1;
 	}

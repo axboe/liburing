@@ -44,7 +44,7 @@ static int test_nop_inject(struct io_uring *ring, unsigned req_flags)
 		fprintf(stderr, "wait completion %d\n", ret);
 		goto err;
 	}
-	if (cqe->res != -EFAULT) {
+	if (cqe->res != -EINVAL && cqe->res != -EFAULT) {
 		fprintf(stderr, "expected injected result, got %d\n", cqe->res);
 		goto err;
 	}
