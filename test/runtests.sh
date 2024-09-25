@@ -10,9 +10,6 @@ TIMED_OUT=()
 TEST_FILES=""
 declare -A TEST_MAP
 
-# assume we can use dmesg, disable if we fail
-DO_DMESG="1"
-
 # Only use /dev/kmsg if running as root
 DO_KMSG="1"
 [ "$(id -u)" != "0" ] && DO_KMSG="0"
@@ -40,17 +37,11 @@ _check_dmesg()
 	local dmesg_marker="$1"
 	local seqres="$2.seqres"
 
-	if [ "$DO_DMESG" -eq 0 ]; then
+	if [ "$DO_KMSG" -eq 0 ]; then
 		return 0
 	fi
 
-	dmesg 2> /dev/null | bash -c "$DMESG_FILTER" | grep -A 9999 "$dmesg_marker" >"${seqres}.dmesg"
-	# shellcheck disable=SC2181
-	if [[ $? -ne 0 ]]; then
-		DO_DMESG="0"
-		return 0
-	fi
-
+	dmesg | bash -c "$DMESG_FILTER" | grep -A 9999 "$dmesg_marker" >"${seqres}.dmesg"
 	grep -q -e "kernel BUG at" \
 	     -e "WARNING:" \
 	     -e "BUG:" \
