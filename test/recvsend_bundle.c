@@ -297,7 +297,8 @@ static void *recv_fn(void *data)
 	if (!classic_buffers) {
 		br = io_uring_setup_buf_ring(&ring, RECV_BIDS, RECV_BGID, 0, &ret);
 		if (!br) {
-			fprintf(stderr, "failed setting up recv ring %d\n", ret);
+			if (ret != -EINVAL)
+				fprintf(stderr, "failed setting up recv ring %d\n", ret);
 			goto err;
 		}
 
@@ -599,7 +600,6 @@ static int test(int backlog, unsigned int max_sends, int *to_eagain,
 	if (no_send_mshot) {
 		fprintf(stderr, "no_send_mshot, aborting (ignore other errors)\n");
 		rd.abort = 1;
-		pthread_barrier_wait(&rd.connect);
 		pthread_join(recv_thread, &retval);
 		return 0;
 	}
