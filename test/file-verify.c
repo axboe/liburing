@@ -90,6 +90,8 @@ static int test_truncate(struct io_uring *ring, const char *fname, int buffered,
 	else
 		fd = open(fname, O_DIRECT | O_RDWR);
 	if (fd < 0) {
+		if (!buffered && errno == EINVAL)
+			return T_EXIT_SKIP;
 		perror("open");
 		return 1;
 	}
@@ -575,80 +577,80 @@ int main(int argc, char *argv[])
 		goto err;
 	}
 	ret = test(&ring, fname, 1, 0, 0, 1, 0);
-	if (ret) {
+	if (ret == T_EXIT_FAIL) {
 		fprintf(stderr, "Buffered novec reg test failed\n");
 		goto err;
 	}
 	ret = test(&ring, fname, 1, 0, 0, 0, 1);
-	if (ret) {
+	if (ret == T_EXIT_FAIL) {
 		fprintf(stderr, "Buffered novec provide test failed\n");
 		goto err;
 	}
 	ret = test(&ring, fname, 1, 1, 0, 0, 0);
-	if (ret) {
+	if (ret == T_EXIT_FAIL) {
 		fprintf(stderr, "Buffered vec test failed\n");
 		goto err;
 	}
 	ret = test(&ring, fname, 1, 1, 1, 0, 0);
-	if (ret) {
+	if (ret == T_EXIT_FAIL) {
 		fprintf(stderr, "Buffered small vec test failed\n");
 		goto err;
 	}
 
 	ret = test(&ring, fname, 0, 0, 0, 0, 0);
-	if (ret) {
+	if (ret == T_EXIT_FAIL) {
 		fprintf(stderr, "O_DIRECT novec test failed\n");
 		goto err;
 	}
 	ret = test(&ring, fname, 0, 0, 0, 1, 0);
-	if (ret) {
+	if (ret == T_EXIT_FAIL) {
 		fprintf(stderr, "O_DIRECT novec reg test failed\n");
 		goto err;
 	}
 	ret = test(&ring, fname, 0, 0, 0, 0, 1);
-	if (ret) {
+	if (ret == T_EXIT_FAIL) {
 		fprintf(stderr, "O_DIRECT novec provide test failed\n");
 		goto err;
 	}
 	ret = test(&ring, fname, 0, 1, 0, 0, 0);
-	if (ret) {
+	if (ret == T_EXIT_FAIL) {
 		fprintf(stderr, "O_DIRECT vec test failed\n");
 		goto err;
 	}
 	ret = test(&ring, fname, 0, 1, 1, 0, 0);
-	if (ret) {
+	if (ret == T_EXIT_FAIL) {
 		fprintf(stderr, "O_DIRECT small vec test failed\n");
 		goto err;
 	}
 
 	ret = test_truncate(&ring, fname, 1, 0, 0);
-	if (ret) {
+	if (ret == T_EXIT_FAIL) {
 		fprintf(stderr, "Buffered end truncate read failed\n");
 		goto err;
 	}
 	ret = test_truncate(&ring, fname, 1, 1, 0);
-	if (ret) {
+	if (ret == T_EXIT_FAIL) {
 		fprintf(stderr, "Buffered end truncate vec read failed\n");
 		goto err;
 	}
 	ret = test_truncate(&ring, fname, 1, 0, 1);
-	if (ret) {
+	if (ret == T_EXIT_FAIL) {
 		fprintf(stderr, "Buffered end truncate pbuf read failed\n");
 		goto err;
 	}
 
 	ret = test_truncate(&ring, fname, 0, 0, 0);
-	if (ret) {
+	if (ret == T_EXIT_FAIL) {
 		fprintf(stderr, "O_DIRECT end truncate read failed\n");
 		goto err;
 	}
 	ret = test_truncate(&ring, fname, 0, 1, 0);
-	if (ret) {
+	if (ret == T_EXIT_FAIL) {
 		fprintf(stderr, "O_DIRECT end truncate vec read failed\n");
 		goto err;
 	}
 	ret = test_truncate(&ring, fname, 0, 0, 1);
-	if (ret) {
+	if (ret == T_EXIT_FAIL) {
 		fprintf(stderr, "O_DIRECT end truncate pbuf read failed\n");
 		goto err;
 	}
