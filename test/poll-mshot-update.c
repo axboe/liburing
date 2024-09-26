@@ -15,10 +15,13 @@
 #include <pthread.h>
 
 #include "liburing.h"
+#include "helpers.h"
 
 #define	NFILES	5000
 #define BATCH	500
 #define NLOOPS	1000
+
+static int nfiles = NFILES;
 
 #define RING_SIZE	512
 
@@ -160,7 +163,7 @@ static int trigger_polls(void)
 		int off;
 
 		do {
-			off = rand() % NFILES;
+			off = rand() % nfiles;
 			if (!p[off].triggered)
 				break;
 		} while (1);
@@ -184,7 +187,7 @@ static void *trigger_polls_fn(void *data)
 
 static int arm_polls(struct io_uring *ring)
 {
-	int ret, to_arm = NFILES, i, off;
+	int ret, to_arm = nfiles, i, off;
 
 	off = 0;
 	while (to_arm) {
@@ -220,7 +223,7 @@ static int run(int cqe)
 	pthread_t thread;
 	int i, j, ret;
 
-	for (i = 0; i < NFILES; i++) {
+	for (i = 0; i < nfiles; i++) {
 		if (pipe(p[i].fd) < 0) {
 			perror("pipe");
 			return 1;
@@ -252,12 +255,12 @@ static int run(int cqe)
 			goto err;
 		pthread_join(thread, NULL);
 
-		for (j = 0; j < NFILES; j++)
+		for (j = 0; j < nfiles; j++)
 			p[j].triggered = 0;
 	}
 
 	io_uring_queue_exit(&ring);
-	for (i = 0; i < NFILES; i++) {
+	for (i = 0; i < nfiles; i++) {
 		close(p[i].fd[0]);
 		close(p[i].fd[1]);
 	}
@@ -273,7 +276,7 @@ int main(int argc, char *argv[])
 	int ret;
 
 	if (argc > 1)
-		return 0;
+		return T_EXIT_SKIP;
 
 	ret = has_poll_update();
 	if (ret < 0) {
@@ -290,13 +293,15 @@ int main(int argc, char *argv[])
 	}
 
 	if (rlim.rlim_cur < (2 * NFILES + 5)) {
-		rlim.rlim_cur = (2 * NFILES + 5);
-		rlim.rlim_max = rlim.rlim_cur;
+		rlim.rlim_cur = rlim.rlim_max;
+		nfiles = (rlim.rlim_cur / 2) - 5;
+		if (nfiles <= 0)
+			goto err_nofail;
 		if (setrlimit(RLIMIT_NOFILE, &rlim) < 0) {
 			if (errno == EPERM)
 				goto err_nofail;
 			perror("setrlimit");
-			goto err;
+			return T_EXIT_FAIL;
 		}
 	}
 
@@ -319,5 +324,5 @@ err:
 err_nofail:
 	fprintf(stderr, "poll-many: not enough files available (and not root), "
 			"skipped\n");
-	return 0;
+	return T_EXIT_SKIP;
 }
