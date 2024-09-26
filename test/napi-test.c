@@ -37,11 +37,22 @@ static void do_setsockopt(int fd, int level, int optname, int val)
 	assert(ret == 0);
 }
 
-static int sender(void)
+static int sender(int queue_flags)
 {
 	unsigned long long written = 0;
 	struct sockaddr_in addr;
+	struct io_uring ring;
 	int i, ret, fd;
+
+	/*
+	 * Sender doesn't use the ring, but try and set one up with the same
+	 * flags that the receiver will use. If that fails, we know the
+	 * receiver will have failed too - just skip the test in that case.
+	 */
+	ret = io_uring_queue_init(1, &ring, queue_flags);
+	if (ret)
+		return T_EXIT_SKIP;
+	io_uring_queue_exit(&ring);
 
 	memset(&addr, 0, sizeof(addr));
 	addr.sin_family = AF_INET;
@@ -100,6 +111,8 @@ static int receiver(int queue_flags)
 
 	ret = io_uring_queue_init(8, &ring, queue_flags);
 	if (ret < 0) {
+		if (ret == -EINVAL)
+			return T_EXIT_SKIP;
 		fprintf(stderr, "queue_init: %s\n", strerror(-ret));
 		return 1;
 	}
@@ -211,5 +224,5 @@ int main(int argc, char **argv)
 	if (is_rx)
 		return receiver(queue_flags);
 
-	return sender();
+	return sender(queue_flags);
 }
