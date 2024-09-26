@@ -340,13 +340,13 @@ int main(int argc, char *argv[])
 	}
 
 	ret = do_fd_test(&ring, fname, POLLOUT);
-	if (ret) {
+	if (ret == T_EXIT_FAIL) {
 		fprintf(stderr, "fd test OUT failed\n");
 		return ret;
 	}
 
 	ret = do_fd_test(&ring, fname, POLLOUT | POLLIN);
-	if (ret) {
+	if (ret == T_EXIT_FAIL) {
 		fprintf(stderr, "fd test IN|OUT failed\n");
 		return ret;
 	}
