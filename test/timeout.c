@@ -955,6 +955,7 @@ static int test_update_timeout(struct io_uring *ring, unsigned long ms,
 	struct io_uring_cqe *cqe;
 	struct __kernel_timespec ts, ts_upd;
 	unsigned long long exp_ms, base_ms = 10000;
+	bool update_ealready = false;
 	struct timeval tv;
 	int ret, i, nr = 2;
 	__u32 mode = abs ? IORING_TIMEOUT_ABS : 0;
@@ -1017,6 +1018,16 @@ static int test_update_timeout(struct io_uring *ring, unsigned long ms,
 			}
 			break;
 		case 2:
+			/*
+			 * We should not be hitting this case, but for
+			 * a kernel with PREEMPT_RT, even an instant attempt
+			 * to remove a timer will return that the timer is
+			 * already running... Deal with it.
+			 */
+			if (cqe->res == -EALREADY) {
+				update_ealready = true;
+				break;
+			}
 			if (cqe->res != 0) {
 				fprintf(stderr, "%s: got %d, wanted %d\n",
 						__FUNCTION__, cqe->res,
@@ -1037,7 +1048,7 @@ static int test_update_timeout(struct io_uring *ring, unsigned long ms,
 	}
 
 	exp_ms = mtime_since_now(&tv);
-	if (exp_ms >= base_ms / 2) {
+	if (!update_ealready && exp_ms >= base_ms / 2) {
 		fprintf(stderr, "too long, timeout wasn't updated\n");
 		goto err;
 	}
