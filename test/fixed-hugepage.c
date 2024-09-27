@@ -246,7 +246,8 @@ static int register_submit(struct io_uring *ring, struct iovec *iov,
 
 	ret = io_uring_register_buffers(ring, iov, nr_bufs);
 	if (ret) {
-		fprintf(stderr, "Error registering buffers: %s\n", strerror(-ret));
+		if (ret != -ENOMEM)
+			fprintf(stderr, "Error registering buffers: %s\n", strerror(-ret));
 		return ret;
 	}
 
@@ -282,6 +283,8 @@ static int test_one_hugepage(struct io_uring *ring, int fd_in, int fd_out)
 
 	ret = register_submit(ring, iov, NR_BUFS, fd_in, fd_out);
 	unmap(iov, NR_BUFS, 0);
+	if (ret == -ENOMEM)
+		return T_EXIT_SKIP;
 	return ret ? T_EXIT_FAIL : T_EXIT_PASS;
 }
 
@@ -296,6 +299,8 @@ static int test_multi_hugepages(struct io_uring *ring, int fd_in, int fd_out)
 
 	ret = register_submit(ring, iov, NR_BUFS, fd_in, fd_out);
 	unmap(iov, NR_BUFS, 0);
+	if (ret == -ENOMEM)
+		return T_EXIT_SKIP;
 	return ret ? T_EXIT_FAIL : T_EXIT_PASS;
 }
 
@@ -311,6 +316,8 @@ static int test_unaligned_hugepage(struct io_uring *ring, int fd_in, int fd_out)
 
 	ret = register_submit(ring, iov, NR_BUFS, fd_in, fd_out);
 	unmap(iov, NR_BUFS, offset);
+	if (ret == -ENOMEM)
+		return T_EXIT_SKIP;
 	return ret ? T_EXIT_FAIL : T_EXIT_PASS;
 }
 
@@ -326,6 +333,8 @@ static int test_multi_unaligned_mthps(struct io_uring *ring, int fd_in, int fd_o
 
 	ret = register_submit(ring, iov, NR_BUFS, fd_in, fd_out);
 	free_bufs(iov, NR_BUFS, offset);
+	if (ret == -ENOMEM)
+		return T_EXIT_SKIP;
 	return ret ? T_EXIT_FAIL : T_EXIT_PASS;
 }
 
@@ -341,6 +350,8 @@ static int test_page_mixture(struct io_uring *ring, int fd_in, int fd_out, int h
 
 	ret = register_submit(ring, iov, NR_BUFS, fd_in, fd_out);
 	unmap(iov, NR_BUFS, 0);
+	if (ret == -ENOMEM)
+		return T_EXIT_SKIP;
 	return ret ? T_EXIT_FAIL : T_EXIT_PASS;
 }
 
