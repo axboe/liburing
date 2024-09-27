@@ -173,6 +173,8 @@ int main(int argc, char *argv[])
 	if (rlim.rlim_cur < (2 * NFILES + 5)) {
 		rlim.rlim_cur = rlim.rlim_max;
 		nfiles = (rlim.rlim_cur / 2) - 5;
+		if (nfiles > NFILES)
+			nfiles = NFILES;
 		if (nfiles <= 0)
 			goto err_nofail;
 		if (setrlimit(RLIMIT_NOFILE, &rlim) < 0) {
