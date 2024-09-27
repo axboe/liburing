@@ -1,0 +1,57 @@
+.\" Copyright (C) 2024 Jens Axboe <axboe@kernel.dk>
+.\"
+.\" SPDX-License-Identifier: LGPL-2.0-or-later
+.\"
+.TH io_uring_register_sync_msg_ring 3 "September 27, 2024" "liburing-2.8" "liburing Manual"
+.SH NAME
+io_uring_register_sync_msg_ring \- issue a synchronous message ring request
+.SH SYNOPSIS
+.nf
+.B #include <liburing.h>
+.PP
+.BI "int io_uring_register_sync_msg_ring(struct io_uring_sqe *" sqe ");
+.PP
+.SH DESCRIPTION
+.PP
+The
+.BR io_uring_register_sync_msg_ring (3)
+function performs a synchronous message ring request based on the parameters
+specified in
+.I sqe .
+
+This works exactly like an async issued message ring request, as prepared
+through the
+.BR io_uring_prep_msg_ring (3)
+helper, but doesn't require a source ring to prepare and send the request.
+It is intended to be used by applications that need to send a message to
+a destination ring, without necessarily having a ring to do that from.
+
+Since there's no source ring for this request, the only CQE posted will
+be the one on the destination ring.
+
+The SQE being passed in can reside on the stack of the application. Note
+that
+.BR io_uring_prep_msg_ring (3)
+doesn't necessarily clear all the memory in the SQE, and hence it's advised
+to initialize the SQE with zeroes first before calling this helper.
+
+Likewise, since there's no source ring, certain SQE flags do not make
+sense in the context of synchronous issue. It is invalid to pass in anything
+in the
+.I flags
+field.
+
+.SH RETURN VALUE
+See
+.BR io_uring_prep_msg_ring (3)
+for details on the return value. Anything that an async message ring request
+would have returned in the CQE
+.I res
+field,
+.BR io_uring_register_sync_msg_ring (3)
+will return directly as a return value. If an unknown value is set in the
+request, then
+.I -EINVAL
+is returned.
+.SH SEE ALSO
+.BR io_uring_prep_msg_ring (3)
