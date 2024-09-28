@@ -391,6 +391,9 @@ switch happened.
 We use memory barriers to enforce this coherency.
 Being significantly large subjects on their own,
 memory barriers are out of scope for further discussion on this man page.
+For more information on modern memory models the reader may refer to the
+Documentation/memory-barriers.txt in the kernel tree or to the documentation
+of the formal C11 or kernel memory model.
 .TP
 .B Letting the kernel know about I/O submissions
 Once you place one or more SQEs on to the SQ,
