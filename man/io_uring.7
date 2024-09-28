@@ -144,6 +144,17 @@ The kernel reads SQEs off the head of the queue.
 .IP \(bu
 The kernel adds CQEs to the tail of the CQ.
 You read CQEs off the head of the queue.
+.PP
+It should be noted that depending on the configuration io_uring's behavior
+can deviate from the behavior outlined above, like not posting a CQE for
+every SQE when setting
+.B IOSQE_CQE_SKIP_SUCCESS
+in the SQE or posting multiple CQEs for a single SQE for multi shot operations
+or requiring an
+.BR io_uring_enter (2)
+syscall to make the kernel begin processing newly added SQEs when using
+submission queue polling.
+
 .SS Submission queue polling
 One of the goals of 
 .B io_uring
