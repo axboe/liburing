@@ -101,15 +101,15 @@ will contain what the equivalent system call would have returned in case
 of success, and in case of error
 .I res
 will contain
-.I -errno .
+.IR -errno .
 For example, if the normal read system call would have returned -1 and set
 .I errno
 to
-.B EINVAL ,
+.BR EINVAL ,
 then
 .I res
 would contain
-.B -EINVAL .
+.BR -EINVAL .
 If the normal system call would have returned a read size of 1024, then
 .I res
 would contain 1024.
