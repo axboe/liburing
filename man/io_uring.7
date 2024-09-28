@@ -55,6 +55,16 @@ in essence,
 the equivalent of a system call you would have made otherwise,
 if you were not using
 .BR io_uring .
+For instance,
+a SQE with the
+.I opcode
+set to
+.B IORING_OP_READ
+will request a read operation to be issued that is similar to the
+.BR read (2)
+system call. Refer to the opcode documentation in
+.BR io_uring_enter (2)
+for all supported opcodes and their properties.
 You can add more than one SQE to the queue depending on the number of
 operations you want to request.
 .IP \(bu
@@ -79,21 +89,9 @@ which corresponds to the return value of the system
 call's equivalent,
 had you used it directly without using 
 .BR io_uring .
-For instance,
-a read operation under 
-.BR io_uring ,
-started with the
-.BR IORING_OP_READ
-operation, issues the equivalent of the
-.BR read (2) 
-system call. In practice, it mixes the semantics of
-.BR pread (2)
-and
-.BR preadv2 (2)
-in that it takes an explicit offset, and supports using -1 for the offset to
-indicate that the current file position should be used instead of passing in
-an explicit offset. See the opcode documentation for more details. Given that
-io_uring is an async interface,
+Given that
+.B io_uring
+is an async interface,
 .I errno
 is never used for passing back error information. Instead,
 .I res
