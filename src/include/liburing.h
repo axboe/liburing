@@ -738,6 +738,20 @@ IOURINGINLINE void io_uring_prep_openat_direct(struct io_uring_sqe *sqe,
 	__io_uring_set_target_fixed_file(sqe, file_index);
 }
 
+IOURINGINLINE void io_uring_prep_open(struct io_uring_sqe *sqe,
+					const char *path, int flags, mode_t mode)
+{
+	io_uring_prep_openat(sqe, AT_FDCWD, path, flags, mode);
+}
+
+/* open directly into the fixed file table */
+IOURINGINLINE void io_uring_prep_open_direct(struct io_uring_sqe *sqe,
+							const char *path, int flags, mode_t mode,
+							unsigned file_index)
+{
+	io_uring_prep_openat_direct(sqe, AT_FDCWD, path, flags, mode, file_index);
+}
+
 IOURINGINLINE void io_uring_prep_close(struct io_uring_sqe *sqe, int fd)
 {
 	io_uring_prep_rw(IORING_OP_CLOSE, sqe, fd, NULL, 0, 0);
