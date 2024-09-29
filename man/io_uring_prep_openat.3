@@ -12,6 +12,17 @@ io_uring_prep_openat \- prepare an openat request
 .B #include <fcntl.h>
 .B #include <liburing.h>
 .PP
+.BI "void io_uring_prep_open(struct io_uring_sqe *" sqe ","
+.BI "                          const char *" path ","
+.BI "                          int " flags ","
+.BI "                          mode_t " mode ");"
+.PP
+.BI "void io_uring_prep_open_direct(struct io_uring_sqe *" sqe ","
+.BI "                                 const char *" path ","
+.BI "                                 int " flags ","
+.BI "                                 mode_t " mode ","
+.BI "                                 unsigned " file_index ");"
+.PP
 .BI "void io_uring_prep_openat(struct io_uring_sqe *" sqe ","
 .BI "                          int " dfd ","
 .BI "                          const char *" path ","
@@ -39,6 +50,9 @@ and using the open flags in
 .I flags
 and using the file mode bits specified in
 .IR mode .
+Similarly
+.BR io_uring_prep_open (3)
+prepares an open request.
 
 For a direct descriptor open request, the offset is specified by the
 .I file_index
@@ -81,6 +95,8 @@ is returned instead.
 
 These functions prepare an async
 .BR openat (2)
+or
+.BR open (2)
 request. See that man page for details.
 
 .SH RETURN VALUE
