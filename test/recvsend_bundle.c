@@ -447,7 +447,9 @@ static int do_send(struct recv_data *rd)
 		return 1;
 	}
 	if (!(p.features & IORING_FEAT_RECVSEND_BUNDLE)) {
+		rd->abort = 1;
 		no_send_mshot = 1;
+		pthread_barrier_wait(&rd->connect);
 		return 0;
 	}
 
