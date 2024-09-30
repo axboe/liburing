@@ -169,6 +169,9 @@ if [ "${#TIMED_OUT[*]}" -ne 0 ]; then
 	echo "Tests timed out (${#TIMED_OUT[*]}): ${TIMED_OUT[*]}"
 fi
 
+KVER=$(uname -rv)
+echo "Test run complete, kernel: $KVER"
+
 if [ "${#FAILED[*]}" -ne 0 ]; then
 	echo "Tests failed (${#FAILED[*]}): ${FAILED[*]}"
 	exit 1
