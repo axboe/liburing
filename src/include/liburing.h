@@ -310,9 +310,8 @@ int __io_uring_get_cqe(struct io_uring *ring,
 	 * io_uring_smp_load_acquire() enforces the order of tail	\
 	 * and CQE reads.						\
 	 */								\
-	unsigned __liburing_internal_cached_tail = io_uring_smp_load_acquire((ring)->cq.ktail); \
 	for (head = *(ring)->cq.khead;					\
-	     (cqe = (head != __liburing_internal_cached_tail ? \
+	     (cqe = (head != io_uring_smp_load_acquire((ring)->cq.ktail) ? \
 		&(ring)->cq.cqes[io_uring_cqe_index(ring, head, (ring)->cq.ring_mask)] : NULL)); \
 	     head++)							\
 
