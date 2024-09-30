@@ -305,15 +305,22 @@ int __io_uring_get_cqe(struct io_uring *ring,
 #define io_uring_cqe_index(ring,ptr,mask)				\
 	(((ptr) & (mask)) << io_uring_cqe_shift(ring))
 
+/*
+ * NOTE: we should just get rid of the 'head' being passed in here, it doesn't
+ * serve a purpose anymore. The below is a bit of a work-around to ensure that
+ * the compiler doesn't complain about 'head' being unused (or only written,
+ * never read), as we use a local iterator for both the head and tail tracking.
+ */
 #define io_uring_for_each_cqe(ring, head, cqe)				\
 	/*								\
 	 * io_uring_smp_load_acquire() enforces the order of tail	\
 	 * and CQE reads.						\
 	 */								\
-	for (head = *(ring)->cq.khead;					\
-	     (cqe = (head != io_uring_smp_load_acquire((ring)->cq.ktail) ? \
-		&(ring)->cq.cqes[io_uring_cqe_index(ring, head, (ring)->cq.ring_mask)] : NULL)); \
-	     head++)							\
+	for (__u32 __HEAD__ = (head) = *(ring)->cq.khead,		\
+	     __TAIL__ = io_uring_smp_load_acquire((ring)->cq.ktail);	\
+	     (cqe = ((head) != __TAIL__ ?				\
+	     &(ring)->cq.cqes[io_uring_cqe_index(ring, __HEAD__, (ring)->cq.ring_mask)] : NULL)); \
+	     (head) = ++__HEAD__)
 
 /*
  * Must be called after io_uring_for_each_cqe()
