@@ -459,10 +459,12 @@ int main(int argc, char *argv[])
 	if (ret == T_EXIT_FAIL) {
 		fprintf(stderr, "ring flags 0 failed\n");
 		return ret;
+	} else if (ret == T_EXIT_SKIP) {
+		return T_EXIT_SKIP;
 	}
 
 	ret = test(IORING_SETUP_SINGLE_ISSUER|IORING_SETUP_DEFER_TASKRUN);
-	if (ret != T_EXIT_FAIL) {
+	if (ret == T_EXIT_FAIL) {
 		fprintf(stderr, "ring flags defer failed\n");
 		return ret;
 	}
