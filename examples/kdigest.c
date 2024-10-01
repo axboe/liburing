@@ -103,6 +103,10 @@ static int reap_completions(struct io_uring *ring, int *inflight,
 	return ret;
 }
 
+/*
+ * Add buffers to the outgoing ring, and submit a single bundle send that
+ * will finish when all of them have completed.
+ */
 static void submit_sends_br(struct kdigest *kdigest, int *write_idx,
 			    int *inflight)
 {
@@ -119,6 +123,12 @@ static void submit_sends_br(struct kdigest *kdigest, int *write_idx,
 		req = &kdigest->reqs[*write_idx];
 		io_uring_buf_ring_add(br, req->iov.iov_base, req->iov.iov_len,
 					*write_idx, BID_MASK, nr++);
+		/*
+		 * Mark as a write/send if it's the first one, that serve
+		 * as the "barrier" in the array. The rest can be marked
+		 * complete upfront, if there's more in this bundle, as
+		 * the first will serve a the stopping point.
+		 */
 		if (!first_req) {
 			req->state = IO_WRITE;
 			first_req = req;
@@ -144,6 +154,12 @@ static void submit_sends_br(struct kdigest *kdigest, int *write_idx,
 	}
 }
 
+/*
+ * Serialize multiple writes with IOSQE_IO_LINK. Not the most efficient
+ * way, as it's both more expensive on the kernel side to handle link, and
+ * if there's bundle support, all of the below can be done with a single
+ * send rather than multiple ones.
+ */
 static void submit_sends_linked(struct kdigest *kdigest, int *write_idx,
 				int *inflight)
 {
@@ -246,28 +262,28 @@ static int get_result(struct io_uring *ring, const char *alg, const char *file)
 	uint8_t buf[128];
 
 	sqe = io_uring_get_sqe(ring);
-	io_uring_prep_read(sqe, outfd, buf, sizeof(buf), 0);
-	if (io_uring_submit(ring) < 0)
+	io_uring_prep_recv(sqe, outfd, buf, sizeof(buf), 0);
+
+	if (io_uring_submit_and_wait(ring, 1) < 0)
 		return 1;
 
-	ret = io_uring_wait_cqe(ring, &cqe);
+	ret = io_uring_peek_cqe(ring, &cqe);
 	if (ret < 0) {
-		fprintf(stderr, "wait cqe: %s\n", strerror(-ret));
+		fprintf(stderr, "peek cqe: %s\n", strerror(-ret));
 		return 1;
 	}
 
-	if (cqe->res < 0 || cqe->res > sizeof(buf)) {
+	if (cqe->res < 0) {
 		fprintf(stderr, "cqe error: %s\n", strerror(-cqe->res));
-		ret = 1;
-	} else {
-		fprintf(stdout, "uring %s(%s) returned(len=%u): ",
-			alg, file, cqe->res);
-		for (i = 0; i < cqe->res; i++)
-			fprintf(stdout, "%02x", buf[i]);
-		putc('\n', stdout);
-		ret = 0;
+		goto err;
 	}
 
+	fprintf(stdout, "uring %s(%s) returned(len=%u): ", alg, file, cqe->res);
+	for (i = 0; i < cqe->res; i++)
+		fprintf(stdout, "%02x", buf[i]);
+	putc('\n', stdout);
+	ret = 0;
+err:
 	io_uring_cqe_seen(ring, cqe);
 	return ret;
 }
@@ -276,16 +292,14 @@ int main(int argc, char *argv[])
 {
 	const char *alg;
 	const char *infile;
-	size_t alg_len;
+	size_t alg_len, insize;
 	struct sockaddr_alg sa = {
 		.salg_family = AF_ALG,
 		.salg_type = "hash",
 	};
-	int sfd = -1;
-	size_t insize;
-	int ret;
 	struct kdigest kdigest = { };
 	struct io_uring_params p = { };
+	int sfd, ret;
 
 	if (argc < 3) {
 		fprintf(stderr, "%s: algorithm infile\n", argv[0]);
