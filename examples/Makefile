@@ -30,7 +30,8 @@ example_srcs := \
 	poll-bench.c \
 	send-zerocopy.c \
 	rsrc-update-bench.c \
-	proxy.c
+	proxy.c \
+	kdigest.c
 
 all_targets :=
 

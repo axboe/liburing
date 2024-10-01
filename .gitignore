@@ -26,6 +26,7 @@
 /examples/proxy
 /examples/send-zerocopy
 /examples/rsrc-update-bench
+/examples/kdigest
 
 /test/*.t
 /test/*.dmesg
