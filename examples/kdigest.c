@@ -17,8 +17,12 @@
 #include <linux/if_alg.h>
 #include "liburing.h"
 
-#define QD	64
-#define BS	(32*1024)
+#define QD		64
+#define WAIT_BATCH	(QD / 8)
+#define BS		(64*1024)
+
+#define BGID		1
+#define BID_MASK	(QD - 1)
 
 enum req_state {
 	IO_INIT = 0,
@@ -36,6 +40,7 @@ struct req {
 
 struct kdigest {
 	struct io_uring ring;
+	struct io_uring_buf_ring *br;
 	struct req reqs[QD];
 	/* heap allocated, aligned QD*BS buffer */
 	uint8_t *bufs;
@@ -65,6 +70,125 @@ static int get_file_size(int fd, size_t *size)
 	return 0;
 }
 
+static int reap_completions(struct io_uring *ring, int *inflight,
+			    size_t *outsize)
+{
+	struct io_uring_cqe *cqe;
+	unsigned head;
+	int ret, nr;
+
+	nr = 0;
+	io_uring_for_each_cqe(ring, head, cqe) {
+		struct req *req;
+
+		req = io_uring_cqe_get_data(cqe);
+		assert(req->state == IO_READ || req->state == IO_WRITE);
+		ret = cqe->res;
+		if (ret < 0) {
+			if (ret == -ECANCELED && req->state == IO_READ) {
+				struct io_uring_sqe *sqe;
+
+				fprintf(stderr, "canceled read@%lld\n",
+					(long long)req->offset);
+				sqe = io_uring_get_sqe(ring);
+				io_uring_prep_read(sqe, infd,
+					req->iov.iov_base,
+					req->iov.iov_len, req->offset);
+				io_uring_sqe_set_data(sqe, req);
+				if (io_uring_submit(ring) < 0)
+					return 1;
+				continue;
+			} else {
+				fprintf(stderr, "cqe error: %s\n",
+					strerror(-ret));
+				return 1;
+			}
+		}
+
+		(*inflight)--;
+		req->state++;
+		if (req->state == IO_WRITE_COMPLETE)
+			*outsize -= ret;
+		nr++;
+	}
+
+	io_uring_cq_advance(ring, nr);
+	return 0;
+}
+
+static void submit_sends_br(struct kdigest *kdigest, int *write_idx,
+			    int *inflight)
+{
+	struct io_uring_buf_ring *br = kdigest->br;
+	struct req *req, *first_req = NULL;
+	struct io_uring_sqe *sqe;
+	int nr = 0;
+
+	/*
+	 * Find any completed reads, and add the buffers to the outgoing
+	 * send ring. That will serialize the data sent.
+	 */
+	while (kdigest->reqs[*write_idx].state == IO_READ_COMPLETE) {
+		req = &kdigest->reqs[*write_idx];
+		io_uring_buf_ring_add(br, req->iov.iov_base, req->iov.iov_len,
+					*write_idx, BID_MASK, nr++);
+		if (!first_req) {
+			req->state = IO_WRITE;
+			first_req = req;
+		} else {
+			req->state = IO_WRITE_COMPLETE;
+		}
+		*write_idx = (*write_idx + 1) % QD;
+	}
+
+	/*
+	 * If any completed reads were found and we added buffers, advance
+	 * the buffer ring and prepare a single bundle send for all of them.
+	 */
+	if (first_req) {
+		io_uring_buf_ring_advance(br, nr);
+
+		sqe = io_uring_get_sqe(&kdigest->ring);
+		io_uring_prep_send_bundle(sqe, outfd, 0, MSG_MORE);
+		sqe->flags |= IOSQE_BUFFER_SELECT;
+		sqe->buf_group = BGID;
+		io_uring_sqe_set_data(sqe, first_req);
+		(*inflight)++;
+	}
+}
+
+static void submit_sends_linked(struct kdigest *kdigest, int *write_idx,
+				int *inflight)
+{
+	struct io_uring_sqe *sqe;
+	struct req *req;
+
+	/* Queue up any possible writes. Link flag ensures ordering. */
+	sqe = NULL;
+	while (kdigest->reqs[*write_idx].state == IO_READ_COMPLETE) {
+		if (sqe)
+			sqe->flags |= IOSQE_IO_LINK;
+
+		req = &kdigest->reqs[*write_idx];
+		req->state = IO_WRITE;
+		sqe = io_uring_get_sqe(&kdigest->ring);
+		io_uring_prep_send(sqe, outfd, req->iov.iov_base,
+					req->iov.iov_len, MSG_MORE);
+		io_uring_sqe_set_data(sqe, req);
+		(*inflight)++;
+
+		*write_idx = (*write_idx + 1) % QD;
+	}
+}
+
+static void submit_sends(struct kdigest *kdigest, int *write_idx, int *inflight)
+{
+	if (kdigest->br)
+		submit_sends_br(kdigest, write_idx, inflight);
+	else
+		submit_sends_linked(kdigest, write_idx, inflight);
+}
+
 static int digest_file(struct kdigest *kdigest, size_t insize)
 {
 	struct io_uring *ring = &kdigest->ring;
@@ -73,27 +197,11 @@ static int digest_file(struct kdigest *kdigest, size_t insize)
 	int read_idx = 0, write_idx = 0, inflight = 0;
 
 	while (outsize) {
-		int to_wait;
-		struct req *req;
 		struct io_uring_sqe *sqe;
-		int had_inflight = inflight;
+		struct req *req;
+		int to_wait;
 
-		/* Queue up any possible writes. Link flag ensures ordering. */
-		sqe = NULL;
-		while (kdigest->reqs[write_idx].state == IO_READ_COMPLETE) {
-			if (sqe)
-				sqe->flags |= IOSQE_IO_LINK;
-
-			req = &kdigest->reqs[write_idx];
-			req->state = IO_WRITE;
-			sqe = io_uring_get_sqe(ring);
-			io_uring_prep_send(sqe, outfd, req->iov.iov_base,
-					   req->iov.iov_len, MSG_MORE);
-			io_uring_sqe_set_data(sqe, req);
-			inflight++;
-
-			write_idx = (write_idx + 1) % QD;
-		}
+		submit_sends(kdigest, &write_idx, &inflight);
 
 		/* Queue up any reads. Completions may arrive out of order. */
 		while (insize && (kdigest->reqs[read_idx].state == IO_INIT
@@ -107,7 +215,8 @@ static int digest_file(struct kdigest *kdigest, size_t insize)
 			req->iov.iov_len = this_size;
 
 			sqe = io_uring_get_sqe(ring);
-			io_uring_prep_readv(sqe, infd, &req->iov, 1, read_off);
+			io_uring_prep_read(sqe, infd, req->iov.iov_base,
+						req->iov.iov_len, read_off);
 			io_uring_sqe_set_data(sqe, req);
 
 			read_off += this_size;
@@ -117,51 +226,23 @@ static int digest_file(struct kdigest *kdigest, size_t insize)
 			read_idx = (read_idx + 1) % QD;
 		}
 
-		if (had_inflight != inflight) {
-			assert(inflight > had_inflight);
-			if (io_uring_submit(ring) < 0)
-				return 1;
-		}
-
 		/* wait for about half queue completion before resubmit */
 		for (to_wait = (inflight >> 1) | 1; to_wait; to_wait--) {
-			struct io_uring_cqe *cqe;
-			int ret;
+			int ret, wait_nr;
 
-			ret = io_uring_wait_cqe(ring, &cqe);
+			wait_nr = inflight;
+			if (wait_nr > WAIT_BATCH)
+				wait_nr = WAIT_BATCH;
+
+			ret = io_uring_submit_and_wait(ring, wait_nr);
 			if (ret < 0) {
 				fprintf(stderr, "wait cqe: %s\n",
 					strerror(-ret));
 				return 1;
 			}
 
-			req = io_uring_cqe_get_data(cqe);
-			assert(req->state == IO_READ || req->state == IO_WRITE);
-			ret = cqe->res;
-			io_uring_cqe_seen(ring, cqe);
-			if (ret < 0) {
-				if (ret == -ECANCELED && req->state == IO_READ) {
-					fprintf(stderr, "canceled read@%lld\n",
-						(long long)req->offset);
-					sqe = io_uring_get_sqe(ring);
-					io_uring_prep_readv(sqe, infd,
-						&req->iov, 1, req->offset);
-					io_uring_sqe_set_data(sqe, req);
-					if (io_uring_submit(ring) < 0)
-						return 1;
-					continue;
-				} else {
-					fprintf(stderr, "cqe error: %s\n",
-						strerror(-ret));
-					return 1;
-				}
-			}
-
-			inflight--;
-			req->state++;
-
-			if (req->state == IO_WRITE_COMPLETE)
-				outsize -= req->iov.iov_len;
+			if (reap_completions(ring, &inflight, &outsize))
+				return 1;
 		}
 	}
 	assert(!inflight);
@@ -175,10 +256,9 @@ static int get_result(struct io_uring *ring, const char *alg, const char *file)
 	struct io_uring_cqe *cqe;
 	int i, ret;
 	/* buffer must be large enough to carry longest hash result */
-	uint8_t buf[4096];
+	uint8_t buf[128];
 
 	sqe = io_uring_get_sqe(ring);
-	memset(buf, 0, sizeof(buf));
 	io_uring_prep_read(sqe, outfd, buf, sizeof(buf), 0);
 	if (io_uring_submit(ring) < 0)
 		return 1;
@@ -217,7 +297,8 @@ int main(int argc, char *argv[])
 	int sfd = -1;
 	size_t insize;
 	int ret;
-	struct kdigest kdigest = {};
+	struct kdigest kdigest = { };
+	struct io_uring_params p = { };
 
 	if (argc < 3) {
 		fprintf(stderr, "%s: algorithm infile\n", argv[0]);
@@ -272,10 +353,25 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-	ret = io_uring_queue_init(QD, &kdigest.ring, 0);
-	if (ret < 0) {
-		fprintf(stderr, "queue_init: %s\n", strerror(-ret));
-		return 1;
+	p.flags = IORING_SETUP_SINGLE_ISSUER | IORING_SETUP_DEFER_TASKRUN;
+	do {
+		ret = io_uring_queue_init_params(QD, &kdigest.ring, &p);
+		if (!ret)
+			break;
+		if (!p.flags) {
+			fprintf(stderr, "queue_init: %s\n", strerror(-ret));
+			return 1;
+		}
+		p.flags = 0;
+	} while (1);
+
+	/* use send bundles, if available */
+	if (p.features & IORING_FEAT_RECVSEND_BUNDLE) {
+		kdigest.br = io_uring_setup_buf_ring(&kdigest.ring, QD, BGID, 0, &ret);
+		if (!kdigest.br) {
+			fprintf(stderr, "Failed setting up bundle buffer ring: %d\n", ret);
+			return 1;
+		}
 	}
 
 	if (get_file_size(infd, &insize))
@@ -293,6 +389,8 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
+	if (kdigest.br)
+		io_uring_free_buf_ring(&kdigest.ring, kdigest.br, QD, BGID);
 	io_uring_queue_exit(&kdigest.ring);
 	free(kdigest.bufs);
 	if (close(infd) < 0)
