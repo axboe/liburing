@@ -75,7 +75,7 @@ static int reap_completions(struct io_uring *ring, int *inflight,
 {
 	struct io_uring_cqe *cqe;
 	unsigned head;
-	int ret, nr;
+	int ret = 0, nr;
 
 	nr = 0;
 	io_uring_for_each_cqe(ring, head, cqe) {
@@ -83,37 +83,24 @@ static int reap_completions(struct io_uring *ring, int *inflight,
 
 		req = io_uring_cqe_get_data(cqe);
 		assert(req->state == IO_READ || req->state == IO_WRITE);
-		ret = cqe->res;
-		if (ret < 0) {
-			if (ret == -ECANCELED && req->state == IO_READ) {
-				struct io_uring_sqe *sqe;
-
-				fprintf(stderr, "canceled read@%lld\n",
-					(long long)req->offset);
-				sqe = io_uring_get_sqe(ring);
-				io_uring_prep_read(sqe, infd,
-					req->iov.iov_base,
-					req->iov.iov_len, req->offset);
-				io_uring_sqe_set_data(sqe, req);
-				if (io_uring_submit(ring) < 0)
-					return 1;
-				continue;
-			} else {
-				fprintf(stderr, "cqe error: %s\n",
-					strerror(-ret));
-				return 1;
-			}
+		if (cqe->res < 0) {
+			fprintf(stderr, "%s: cqe error %d\n",
+				req->state == IO_WRITE ? "send" : "read",
+				cqe->res);
+			*outsize = 0;
+			ret = 1;
+			break;
 		}
 
 		(*inflight)--;
 		req->state++;
 		if (req->state == IO_WRITE_COMPLETE)
-			*outsize -= ret;
+			*outsize -= cqe->res;
 		nr++;
 	}
 
 	io_uring_cq_advance(ring, nr);
-	return 0;
+	return ret;
 }
 
 static void submit_sends_br(struct kdigest *kdigest, int *write_idx,
