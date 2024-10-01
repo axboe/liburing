@@ -11,6 +11,7 @@ liburing-2.8 release
 - Man page updates
 - Don't leak _GNU_SOURCE via pkb-config --cflags
 - Support for address sanitizer
+- Add examples/kdigest sample program
 
 liburing-2.7 release
 
