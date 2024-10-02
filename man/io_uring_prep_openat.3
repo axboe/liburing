@@ -54,32 +54,17 @@ Similarly
 .BR io_uring_prep_open (3)
 prepares an open request.
 
-For a direct descriptor open request, the offset is specified by the
-.I file_index
-argument. Direct descriptors are io_uring private file descriptors. They
-avoid some of the overhead associated with thread shared file tables, and
-can be used in any io_uring request that takes a file descriptor. To do so,
-.B IOSQE_FIXED_FILE
-must be set in the SQE
-.I flags
-member, and the SQE
-.I fd
-field should use the direct descriptor value rather than the regular file
-descriptor. Direct descriptors are managed like registered files.
-
 If the direct variant is used, the application must first have registered
 a file table using
 .BR io_uring_register_files (3)
 of the appropriate size. Once registered, a direct accept request may use any
-entry in that table, as long as it is within the size of the registered table.
+entry in that table and is specified in
+.I file_index
+, as long as it is within the size of the registered table.
 If a specified entry already contains a file, the file will first be removed
 from the table and closed. It's consistent with the behavior of updating an
 existing file with
 .BR io_uring_register_files_update (3).
-Note that old kernels don't check the SQE
-.I file_index
-field, which is not a problem for liburing helpers, but users of the raw
-io_uring interface need to zero SQEs to avoid unexpected behavior.
 
 If
 .B IORING_FILE_INDEX_ALLOC
@@ -92,6 +77,26 @@ field just like it would be for a non-direct open request. If no more entries
 are available in the direct descriptor table,
 .B -ENFILE
 is returned instead.
+
+Direct descriptors are io_uring private file descriptors. They
+avoid some of the overhead associated with thread shared file tables, and
+can be used in any subsequent io_uring request that takes a file descriptor. To do so,
+.B IOSQE_FIXED_FILE
+must be set in the SQE
+.I flags
+member, and the SQE
+.I fd
+field should use the direct descriptor value rather than the regular file
+descriptor. Direct descriptors are managed like registered files.
+
+The directory file descriptor
+.I dfd
+is always a regular file descriptor.
+
+Note that old kernels don't check the SQE
+.I file_index
+field, which is not a problem for liburing helpers, but users of the raw
+io_uring interface need to zero SQEs to avoid unexpected behavior.
 
 These functions prepare an async
 .BR openat (2)
