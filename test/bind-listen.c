@@ -180,7 +180,7 @@ static int test_good_server(unsigned int ring_flags)
 	io_uring_cqe_seen(&ring, cqe);
 
 	sqe = io_uring_get_sqe(&ring);
-	io_uring_prep_recv(sqe, CONN_INDEX, buf, BUFSIZ, 0);
+	io_uring_prep_recv(sqe, CONN_INDEX, buf, sizeof(buf), 0);
 	sqe->flags |= IOSQE_FIXED_FILE;
 
 	io_uring_submit(&ring);

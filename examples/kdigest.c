@@ -253,16 +253,16 @@ static int digest_file(struct kdigest *kdigest, size_t insize)
 	return 0;
 }
 
-static int get_result(struct io_uring *ring, const char *alg, const char *file)
+static int get_result(struct kdigest *kdigest, const char *alg, const char *file)
 {
+	struct io_uring *ring = &kdigest->ring;
 	struct io_uring_sqe *sqe;
 	struct io_uring_cqe *cqe;
 	int i, ret;
-	/* buffer must be large enough to carry longest hash result */
-	uint8_t buf[128];
+	/* reuse I/O buf block to stash hash result */
 
 	sqe = io_uring_get_sqe(ring);
-	io_uring_prep_recv(sqe, outfd, buf, sizeof(buf), 0);
+	io_uring_prep_recv(sqe, outfd, kdigest->bufs, BS, 0);
 
 	if (io_uring_submit_and_wait(ring, 1) < 0)
 		return 1;
@@ -278,9 +278,10 @@ static int get_result(struct io_uring *ring, const char *alg, const char *file)
 		goto err;
 	}
 
-	fprintf(stdout, "uring %s(%s) returned(len=%u): ", alg, file, cqe->res);
+	fprintf(stdout, "uring %s%s(%s) returned(len=%u): ",
+		kdigest->br ? "bundled " : "", alg, file, cqe->res);
 	for (i = 0; i < cqe->res; i++)
-		fprintf(stdout, "%02x", buf[i]);
+		fprintf(stdout, "%02x", kdigest->bufs[i]);
 	putc('\n', stdout);
 	ret = 0;
 err:
@@ -384,7 +385,7 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-	ret = get_result(&kdigest.ring, alg, infile);
+	ret = get_result(&kdigest, alg, infile);
 	if (ret) {
 		fprintf(stderr, "failed to retrieve %s digest result\n", alg);
 		return 1;
