@@ -278,7 +278,8 @@ static int get_result(struct kdigest *kdigest, const char *alg, const char *file
 		goto err;
 	}
 
-	fprintf(stdout, "uring %s(%s) returned(len=%u): ", alg, file, cqe->res);
+	fprintf(stdout, "uring %s%s(%s) returned(len=%u): ",
+		kdigest->br ? "bundled " : "", alg, file, cqe->res);
 	for (i = 0; i < cqe->res; i++)
 		fprintf(stdout, "%02x", kdigest->bufs[i]);
 	putc('\n', stdout);
