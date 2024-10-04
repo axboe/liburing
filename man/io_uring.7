@@ -480,6 +480,16 @@ socket still had data left on completion of this request.
 .B IORING_CQE_F_NOTIF
 Set for notification CQEs, as seen with the zero-copy networking send and
 receive support.
+.TP
+.B IORING_CQE_F_BUF_MORE
+If set, the buffer ID set in the completion will get more completions. This
+means that the provided buffer has been partially consumed and there's more
+buffer space left, and hence the application should expect more completions
+with this buffer ID. Each completion will continue where the previous one
+left off. This can only happen if the provided buffer ring has been setup
+with
+.B IORING_REGISTER_PBUF_RING
+to allow for incremental / partial consumption of buffers.
 .PP
 The general sequence to read completion events off the completion queue is
 as follows:
