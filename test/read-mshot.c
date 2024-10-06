@@ -144,6 +144,8 @@ static int test_inc(int use_mshot, int flags)
 		}
 	}
 
+	io_uring_free_buf_ring(&ring, br, 32, BUF_BGID);
+	io_uring_queue_exit(&ring);
 	free(ptr);
 	close(fds[0]);
 	close(fds[1]);
@@ -254,6 +256,7 @@ static int test_clamp(void)
 		io_uring_cqe_seen(&ring, cqe);
 	}
 
+	io_uring_free_buf_ring(&ring, br, NR_BUFS, BUF_BGID);
 	io_uring_queue_exit(&ring);
 	free(ptr);
 	return 0;
@@ -408,6 +411,8 @@ static int test(int first_good, int async, int overflow, int incremental)
 		io_uring_cqe_seen(&ring, cqe);
 	}
 
+
+	io_uring_free_buf_ring(&ring, br, NR_BUFS, BUF_BGID);
 	io_uring_queue_exit(&ring);
 	if (incremental) {
 		free(ptr[0]);
@@ -483,6 +488,7 @@ static int test_invalid(int async)
 	}
 
 	io_uring_cqe_seen(&ring, cqe);
+	io_uring_free_buf_ring(&ring, br, 1, BUF_BGID);
 	io_uring_queue_exit(&ring);
 	free(buf);
 	return 0;

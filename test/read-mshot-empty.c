@@ -151,6 +151,8 @@ int main(int argc, char *argv[])
 	}
 
 	pthread_join(thread, &tret);
+	io_uring_free_buf_ring(&ring, br, NR_BUFS, BGID);
+	io_uring_queue_exit(&ring);
 	free(buf);
 	return T_EXIT_PASS;
 }
