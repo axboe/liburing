@@ -5,6 +5,11 @@
  *		arguments, or without the single argument being 'stdin',
  *		the test will just return SKIPPED. Can't be run from the
  *		standard test harness, as it's interactive.
+ *
+ * To run, do run "test/read-mshot-stdin.t stdin" and then input text on
+ * the console, followed by enter / line feed. If it works as it should,
+ * it'll output the received CQE data. If an error is detected, it'll
+ * abort with an error.
  */
 #include <errno.h>
 #include <stdio.h>
@@ -84,6 +89,7 @@ static int test_stdin(void)
 			return T_EXIT_FAIL;
 		}
 		bid = cqe->flags >> 16;
+		printf("CQE res %d, bid %d, flags %x\n", cqe->res, bid, cqe->flags);
 		if (cqe->res > 0 && last_bid != -1 && last_bid + 1 != bid) {
 			fprintf(stderr, "Got bid %d, wanted %d\n", bid, last_bid + 1);
 			return T_EXIT_FAIL;
