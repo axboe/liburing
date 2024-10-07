@@ -13,7 +13,7 @@
 #include "liburing.h"
 #include "helpers.h"
 
-static int no_sync_cancel;
+static int no_sync_cancel, no_sync_cancel_op;
 
 static int test_sync_cancel_timeout(struct io_uring *ring, int async, int by_op)
 {
@@ -47,6 +47,11 @@ static int test_sync_cancel_timeout(struct io_uring *ring, int async, int by_op)
 	reg.opcode = IORING_OP_READ;
 	reg.timeout.tv_nsec = 1;
 	ret = io_uring_register_sync_cancel(ring, &reg);
+	/* earlier kernels had sync cancel, but not per-op */
+	if (ret == -EINVAL) {
+		no_sync_cancel_op = 1;
+		return 0;
+	}
 	if (async) {
 		/* we expect -ETIME here, but can race and get 0 */
 		if (ret != -ETIME && ret != 0) {
@@ -244,6 +249,8 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "test_sync_cancel_timeout 0 0\n");
 		return T_EXIT_FAIL;
 	}
+	if (no_sync_cancel_op)
+		return T_EXIT_PASS;
 
 	ret = test_sync_cancel_timeout(&ring, 0, 1);
 	if (ret) {
