@@ -41,6 +41,15 @@ or
 can be called to retrieve the data pointer or value associated with the
 submitted request.
 
+Note that if neither of these functions are called, or the
+.I user_data
+field in the
+.IR sqe
+isn't set manually either, then the field may contain a value from a previous
+use of this sqe. If an application relies on always having a valid
+.I user_data
+value present, it must always assign one to each sqe.
+
 .SH RETURN VALUE
 None
 .SH SEE ALSO
