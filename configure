@@ -418,6 +418,21 @@ fi
 print_config "futex waitv support" "$futexv"
 
 ##########################################
+# Check block discard cmd support
+discard_cmd="no"
+cat > $TMPC << EOF
+#include <linux/blkdev.h>
+int main(void)
+{
+  return BLOCK_URING_CMD_DISCARD;
+}
+EOF
+if compile_prog "" "" "discard command"; then
+  discard_cmd="yes"
+fi
+print_config "io_uring discard command support" "$discard_cmd"
+
+##########################################
 # Check idtype_t support
 has_idtype_t="no"
 cat > $TMPC << EOF
@@ -651,6 +666,23 @@ typedef enum
 } idtype_t;
 EOF
 fi
+
+if test "$discard_cmd" != "yes"; then
+cat >> $compat_h << EOF
+
+#include <linux/ioctl.h>
+
+#ifndef BLOCK_URING_CMD_DISCARD
+#define BLOCK_URING_CMD_DISCARD                        _IO(0x12, 0)
+#endif
+
+EOF
+else cat >> $discard_cmd << EOF
+#include <linux/blkdev.h>
+
+EOF
+fi
+
 cat >> $compat_h << EOF
 #endif
 EOF

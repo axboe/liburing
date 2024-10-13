@@ -211,6 +211,7 @@ LIBURING_2.8 {
 		io_uring_submit_and_wait_min_timeout;
 		io_uring_wait_cqes_min_timeout;
 		io_uring_clone_buffers;
-        io_uring_prep_open;
-        io_uring_prep_open_direct;
+		io_uring_prep_cmd_discard;
+		io_uring_prep_open;
+		io_uring_prep_open_direct;
 } LIBURING_2.7;

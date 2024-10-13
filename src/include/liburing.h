@@ -1292,6 +1292,16 @@ IOURINGINLINE void io_uring_prep_ftruncate(struct io_uring_sqe *sqe,
 }
 #endif
 
+IOURINGINLINE void io_uring_prep_cmd_discard(struct io_uring_sqe *sqe,
+					     int fd,
+					     uint64_t offset, uint64_t nbytes)
+{
+	io_uring_prep_rw(IORING_OP_URING_CMD, sqe, fd, 0, 0, 0);
+	sqe->cmd_op = BLOCK_URING_CMD_DISCARD;
+	sqe->addr = offset;
+	sqe->addr3 = nbytes;
+}
+
 /*
  * Returns number of unconsumed (if SQPOLL) or unsubmitted entries exist in
  * the SQ ring
