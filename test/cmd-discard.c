@@ -14,16 +14,24 @@
 #define MAX_TEST_LBAS		1024
 
 static const char *filename;
-static int opcodes[] = {
-	BLOCK_URING_CMD_DISCARD,
+struct opcode {
+	int op;
+	bool test;
+	bool not_supported;
+};
+
+#define TEST_BLOCK_URING_CMD_MAX		3
+
+static struct opcode opcodes[TEST_BLOCK_URING_CMD_MAX] = {
+	{ .op = BLOCK_URING_CMD_DISCARD, .test = true, },
+	{ .test = false, },
+	{ .test = false, },
 };
 
 static int lba_size;
 static uint64_t bdev_size;
 static uint64_t bdev_size_lbas;
 static char *buffer;
-
-#define TEST_BLOCK_URING_CMD_MAX		3
 
 static void prep_blk_cmd(struct io_uring_sqe *sqe, int fd,
 			 uint64_t from, uint64_t len,
@@ -181,9 +189,13 @@ static int cmd_issue_verify(struct io_uring *ring, int fd, int lba, int len,
 	return 0;
 }
 
-static int basic_cmd_test(struct io_uring *ring, int cmd_op)
+static int basic_cmd_test(struct io_uring *ring, int op)
 {
+	int cmd_op = opcodes[op].op;
 	int ret, fd;
+
+	if (!opcodes[op].test)
+		return T_EXIT_SKIP;
 
 	fd = open(filename, O_DIRECT | O_RDWR | O_EXCL);
 	if (fd < 0) {
@@ -194,6 +206,7 @@ static int basic_cmd_test(struct io_uring *ring, int cmd_op)
 	ret = cmd_issue_verify(ring, fd, 0, 1, cmd_op);
 	if (ret == T_EXIT_SKIP) {
 		printf("cmd %i not supported, skip\n", cmd_op);
+		opcodes[op].not_supported = 1;
 		close(fd);
 		return T_EXIT_SKIP;
 	} else if (ret) {
@@ -223,9 +236,13 @@ static int basic_cmd_test(struct io_uring *ring, int cmd_op)
 	return 0;
 }
 
-static int test_fail_edge_cases(struct io_uring *ring, int cmd_op)
+static int test_fail_edge_cases(struct io_uring *ring, int op)
 {
+	int cmd_op = opcodes[op].op;
 	int ret, fd;
+
+	if (!opcodes[op].test)
+		return T_EXIT_SKIP;
 
 	fd = open(filename, O_DIRECT | O_RDWR | O_EXCL);
 	if (fd < 0) {
@@ -273,10 +290,13 @@ static int test_fail_edge_cases(struct io_uring *ring, int cmd_op)
 	return 0;
 }
 
-static int test_rdonly(struct io_uring *ring, int cmd_op)
+static int test_rdonly(struct io_uring *ring, int op)
 {
 	int ret, fd;
 	int ro;
+
+	if (!opcodes[op].test)
+		return T_EXIT_SKIP;
 
 	fd = open(filename, O_DIRECT | O_RDONLY | O_EXCL);
 	if (fd < 0) {
@@ -323,7 +343,7 @@ static int test_rdonly(struct io_uring *ring, int cmd_op)
 int main(int argc, char *argv[])
 {
 	struct io_uring ring;
-	int fd, ret, i;
+	int fd, ret, i, fret;
 	int cmd_op;
 
 	if (argc != 2)
@@ -369,9 +389,11 @@ int main(int argc, char *argv[])
 		return T_EXIT_FAIL;
 	}
 
-
+	fret = T_EXIT_SKIP;
 	for (cmd_op = 0; cmd_op < TEST_BLOCK_URING_CMD_MAX; cmd_op++) {
-		ret = basic_cmd_test(&ring, opcodes[cmd_op]);
+		if (!opcodes[cmd_op].test)
+			continue;
+		ret = basic_cmd_test(&ring, cmd_op);
 		if (ret) {
 			if (ret == T_EXIT_SKIP)
 				continue;
@@ -381,22 +403,23 @@ int main(int argc, char *argv[])
 			return T_EXIT_FAIL;
 		}
 
-		ret = test_rdonly(&ring, opcodes[cmd_op]);
+		ret = test_rdonly(&ring, cmd_op);
 		if (ret) {
 			fprintf(stderr, "test_rdonly() failed, cmd %i\n",
 					cmd_op);
 			return T_EXIT_FAIL;
 		}
 
-		ret = test_fail_edge_cases(&ring, opcodes[cmd_op]);
+		ret = test_fail_edge_cases(&ring, cmd_op);
 		if (ret) {
 			fprintf(stderr, "test_fail_edge_cases() failed, cmd %i\n",
 					cmd_op);
 			return T_EXIT_FAIL;
 		}
+		fret = T_EXIT_PASS;
 	}
 
 	io_uring_queue_exit(&ring);
 	free(buffer);
-	return 0;
+	return fret;
 }
