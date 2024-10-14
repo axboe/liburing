@@ -70,7 +70,7 @@ static int _io_uring_get_cqe(struct io_uring *ring,
 
 	do {
 		bool need_enter = false;
-		unsigned flags = 0;
+		unsigned flags = ring_enter_flags(ring);
 		unsigned nr_available;
 		int ret;
 
@@ -94,7 +94,7 @@ static int _io_uring_get_cqe(struct io_uring *ring,
 			need_enter = true;
 		}
 		if (data->wait_nr > nr_available || need_enter) {
-			flags = IORING_ENTER_GETEVENTS | data->get_flags;
+			flags |= IORING_ENTER_GETEVENTS | data->get_flags;
 			need_enter = true;
 		}
 		if (sq_ring_needs_enter(ring, data->submit, &flags))
@@ -109,8 +109,6 @@ static int _io_uring_get_cqe(struct io_uring *ring,
 			break;
 		}
 
-		if (ring->int_flags & INT_FLAG_REG_RING)
-			flags |= IORING_ENTER_REGISTERED_RING;
 		ret = __sys_io_uring_enter2(ring->enter_ring_fd, data->submit,
 					    data->wait_nr, flags, data->arg,
 					    data->sz);
@@ -149,10 +147,8 @@ int __io_uring_get_cqe(struct io_uring *ring, struct io_uring_cqe **cqe_ptr,
 
 int io_uring_get_events(struct io_uring *ring)
 {
-	int flags = IORING_ENTER_GETEVENTS;
+	int flags = IORING_ENTER_GETEVENTS | ring_enter_flags(ring);
 
-	if (ring->int_flags & INT_FLAG_REG_RING)
-		flags |= IORING_ENTER_REGISTERED_RING;
 	return __sys_io_uring_enter(ring->enter_ring_fd, 0, 0, flags, NULL);
 }
 
@@ -403,17 +399,14 @@ static int __io_uring_submit(struct io_uring *ring, unsigned submitted,
 			     unsigned wait_nr, bool getevents)
 {
 	bool cq_needs_enter = getevents || wait_nr || cq_ring_needs_enter(ring);
-	unsigned flags;
+	unsigned flags = ring_enter_flags(ring);
 	int ret;
 
 	liburing_sanitize_ring(ring);
 
-	flags = 0;
 	if (sq_ring_needs_enter(ring, submitted, &flags) || cq_needs_enter) {
 		if (cq_needs_enter)
 			flags |= IORING_ENTER_GETEVENTS;
-		if (ring->int_flags & INT_FLAG_REG_RING)
-			flags |= IORING_ENTER_REGISTERED_RING;
 
 		ret = __sys_io_uring_enter(ring->enter_ring_fd, submitted,
 					   wait_nr, flags, NULL);
@@ -462,10 +455,7 @@ struct io_uring_sqe *io_uring_get_sqe(struct io_uring *ring)
 
 int __io_uring_sqring_wait(struct io_uring *ring)
 {
-	int flags = IORING_ENTER_SQ_WAIT;
-
-	if (ring->int_flags & INT_FLAG_REG_RING)
-		flags |= IORING_ENTER_REGISTERED_RING;
+	int flags = IORING_ENTER_SQ_WAIT | ring_enter_flags(ring);
 
 	return __sys_io_uring_enter(ring->enter_ring_fd, 0, 0, flags, NULL);
 }
