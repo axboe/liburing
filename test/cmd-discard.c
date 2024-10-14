@@ -347,7 +347,7 @@ int main(int argc, char *argv[])
 	int cmd_op;
 
 	if (argc != 2)
-		return T_SETUP_SKIP;
+		return T_EXIT_SKIP;
 	filename = argv[1];
 
 	fd = open(filename, O_DIRECT | O_RDONLY | O_EXCL);
