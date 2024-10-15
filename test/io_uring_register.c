@@ -436,14 +436,14 @@ static int ioring_poll(struct io_uring *ring, int fd, int fixed)
 	return ret;
 }
 
-static int test_poll_ringfd(void)
+static int __test_poll_ringfd(int ring_flags)
 {
 	int status = 0;
 	int ret;
 	int fd;
 	struct io_uring ring;
 
-	ret = io_uring_queue_init(1, &ring, 0);
+	ret = io_uring_queue_init(2, &ring, ring_flags);
 	if (ret) {
 		perror("io_uring_queue_init");
 		return 1;
@@ -464,6 +464,17 @@ static int test_poll_ringfd(void)
 	io_uring_queue_exit(&ring);
 
 	return status;
+}
+
+static int test_poll_ringfd(void)
+{
+	int ret;
+
+	ret = __test_poll_ringfd(0);
+	if (ret)
+		return ret;
+
+	return __test_poll_ringfd(IORING_SETUP_SQPOLL);
 }
 
 int main(int argc, char **argv)
