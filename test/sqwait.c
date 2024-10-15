@@ -43,7 +43,7 @@ int main(int argc, char *argv[])
 {
 	struct io_uring_sqe *sqe;
 	struct io_uring ring;
-	int fd = -1, i, inflight, iov_off, ret, fret;
+	int fd = -1, i, iov_off, ret, fret;
 	struct iovec iovs[INFLIGHT];
 	const char *fname;
 	char buf[256];
