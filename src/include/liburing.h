@@ -262,6 +262,7 @@ int io_uring_register_clock(struct io_uring *ring,
 
 int io_uring_get_events(struct io_uring *ring);
 int io_uring_submit_and_get_events(struct io_uring *ring);
+int io_uring_submit_and_get_events_and_wait(struct io_uring *ring, unsigned wait_nr);
 
 /*
  * io_uring syscalls.

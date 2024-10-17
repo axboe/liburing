@@ -416,9 +416,9 @@ static int __io_uring_submit(struct io_uring *ring, unsigned submitted,
 	return ret;
 }
 
-static int __io_uring_submit_and_wait(struct io_uring *ring, unsigned wait_nr)
+static int __io_uring_submit_and_wait(struct io_uring *ring, unsigned wait_nr, bool getevents)
 {
-	return __io_uring_submit(ring, __io_uring_flush_sq(ring), wait_nr, false);
+	return __io_uring_submit(ring, __io_uring_flush_sq(ring), wait_nr, getevents);
 }
 
 /*
@@ -428,7 +428,7 @@ static int __io_uring_submit_and_wait(struct io_uring *ring, unsigned wait_nr)
  */
 int io_uring_submit(struct io_uring *ring)
 {
-	return __io_uring_submit_and_wait(ring, 0);
+	return __io_uring_submit_and_wait(ring, 0, false);
 }
 
 /*
@@ -438,12 +438,17 @@ int io_uring_submit(struct io_uring *ring)
  */
 int io_uring_submit_and_wait(struct io_uring *ring, unsigned wait_nr)
 {
-	return __io_uring_submit_and_wait(ring, wait_nr);
+	return __io_uring_submit_and_wait(ring, wait_nr, false);
 }
 
 int io_uring_submit_and_get_events(struct io_uring *ring)
 {
 	return __io_uring_submit(ring, __io_uring_flush_sq(ring), 0, true);
+}
+
+int io_uring_submit_and_get_events_and_wait(struct io_uring *ring, unsigned wait_nr)
+{
+	return __io_uring_submit_and_wait(ring, wait_nr, true);
 }
 
 #ifdef LIBURING_INTERNAL
