@@ -94,6 +94,7 @@ test_srcs := \
 	fd-install.c \
 	fd-pass.c \
 	fdinfo.c \
+	fifo-nonblock-read.c \
 	file-register.c \
 	files-exit-hang-poll.c \
 	files-exit-hang-timeout.c \
