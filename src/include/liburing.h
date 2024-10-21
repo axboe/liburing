@@ -197,6 +197,7 @@ int io_uring_submit_and_wait_min_timeout(struct io_uring *ring,
 					 unsigned min_wait,
 					 sigset_t *sigmask);
 
+int io_uring_resize_rings(struct io_uring *ring, struct io_uring_params *p);
 int io_uring_clone_buffers(struct io_uring *dst, struct io_uring *src);
 int io_uring_register_buffers(struct io_uring *ring, const struct iovec *iovecs,
 			      unsigned nr_iovecs);
