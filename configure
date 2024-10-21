@@ -677,7 +677,7 @@ cat >> $compat_h << EOF
 #endif
 
 EOF
-else cat >> $discard_cmd << EOF
+else cat >> $compat_h << EOF
 #include <linux/blkdev.h>
 
 EOF
