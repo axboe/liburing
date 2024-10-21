@@ -234,6 +234,7 @@ test_srcs := \
 	wakeup-hang.c \
 	wq-aff.c \
 	xattr.c \
+	zcrx.c \
 	# EOL
 
 # Please keep this list sorted alphabetically.

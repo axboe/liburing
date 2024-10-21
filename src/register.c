@@ -408,3 +408,9 @@ int io_uring_clone_buffers(struct io_uring *dst, struct io_uring *src)
 
 	return do_register(dst, IORING_REGISTER_CLONE_BUFFERS, &buf, 1);
 }
+
+int io_uring_register_ifq(struct io_uring *ring,
+			  struct io_uring_zcrx_ifq_reg *reg)
+{
+	return do_register(ring, IORING_REGISTER_ZCRX_IFQ, reg, 1);
+}
