@@ -105,4 +105,5 @@ LIBURING_2.8 {
 } LIBURING_2.7;
 
 LIBURING_2.9 {
+		io_uring_resize_rings;
 } LIBURING_2.8;
