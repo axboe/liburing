@@ -4,6 +4,7 @@
 #include "lib.h"
 #include "syscall.h"
 #include "liburing.h"
+#include "setup.h"
 #include "int_flags.h"
 #include "liburing/compat.h"
 #include "liburing/io_uring.h"
@@ -407,4 +408,38 @@ int io_uring_clone_buffers(struct io_uring *dst, struct io_uring *src)
 	}
 
 	return do_register(dst, IORING_REGISTER_CLONE_BUFFERS, &buf, 1);
+}
+
+int io_uring_resize_rings(struct io_uring *ring, struct io_uring_params *p)
+{
+	unsigned sq_entries;
+	int ret;
+
+	if (ring->flags & IORING_SETUP_NO_MMAP)
+		return -EINVAL;
+
+	ret = do_register(ring, IORING_REGISTER_RESIZE_RINGS, p, 1);
+	if (ret < 0)
+		return ret;
+
+	io_uring_unmap_rings(&ring->sq, &ring->cq);
+	ret = io_uring_mmap(ring->ring_fd, p, &ring->sq, &ring->cq);
+	if (ret)
+		return ret;
+
+	/*
+	 * Directly map SQ slots to SQEs
+	 */
+	sq_entries = ring->sq.ring_entries;
+
+	if (!(p->flags & IORING_SETUP_NO_SQARRAY)) {
+		unsigned *sq_array;
+		unsigned index;
+
+		sq_array = ring->sq.array;
+		for (index = 0; index < sq_entries; index++)
+			sq_array[index] = index;
+	}
+
+	return 0;
 }
