@@ -167,6 +167,8 @@ static int __test_io(const char *file, struct io_uring *ring, int tc, int read,
 			}
 		}
 		sqe->opcode = IORING_OP_URING_CMD;
+		if (do_fixed)
+			sqe->uring_cmd_flags |= IORING_URING_CMD_FIXED;
 		sqe->user_data = ((uint64_t)offset << 32) | i;
 		if (sqthread)
 			sqe->flags |= IOSQE_FIXED_FILE;
