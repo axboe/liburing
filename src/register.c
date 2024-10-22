@@ -443,3 +443,9 @@ int io_uring_resize_rings(struct io_uring *ring, struct io_uring_params *p)
 
 	return 0;
 }
+
+int io_uring_register_cqwait_reg(struct io_uring *ring,
+				 struct io_uring_reg_wait *arg, int nr)
+{
+	return do_register(ring, IORING_REGISTER_CQWAIT_REG, arg, nr);
+}

@@ -518,6 +518,7 @@ struct io_cqring_offsets {
 #define IORING_ENTER_EXT_ARG		(1U << 3)
 #define IORING_ENTER_REGISTERED_RING	(1U << 4)
 #define IORING_ENTER_ABS_TIMER		(1U << 5)
+#define IORING_ENTER_EXT_ARG_REG	(1U << 6)
 
 /*
  * Passed in for io_uring_setup(2). Copied back with updated info on success
@@ -613,6 +614,8 @@ enum io_uring_register_op {
 	IORING_REGISTER_CLONE_BUFFERS		= 30,
 
 	IORING_REGISTER_RESIZE_RINGS		= 33,
+
+	IORING_REGISTER_CQWAIT_REG		= 34,
 
 	/* this goes last */
 	IORING_REGISTER_LAST,
@@ -795,6 +798,20 @@ enum io_uring_register_restriction_op {
 	IORING_RESTRICTION_SQE_FLAGS_REQUIRED	= 3,
 
 	IORING_RESTRICTION_LAST
+};
+
+enum {
+	IORING_REG_WAIT_TS		= (1U << 0),
+};
+
+struct io_uring_reg_wait {
+	struct __kernel_timespec	ts;
+	__u32				min_wait_usec;
+	__u32				flags;
+	__u64				sigmask;
+	__u32				sigmask_sz;
+	__u32				pad[3];
+	__u64				pad2[2];
 };
 
 struct io_uring_getevents_arg {
