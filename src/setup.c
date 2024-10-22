@@ -222,9 +222,9 @@ static int io_uring_alloc_huge(unsigned entries, struct io_uring_params *p,
 	ring_mem = KRING_SIZE;
 
 	sqes_mem = sq_entries * sizeof(struct io_uring_sqe);
-	sqes_mem = (sqes_mem + page_size - 1) & ~(page_size - 1);
 	if (!(p->flags & IORING_SETUP_NO_SQARRAY))
 		sqes_mem += sq_entries * sizeof(unsigned);
+	sqes_mem = (sqes_mem + page_size - 1) & ~(page_size - 1);
 
 	cqes_mem = cq_entries * sizeof(struct io_uring_cqe);
 	if (p->flags & IORING_SETUP_CQE32)
