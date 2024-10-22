@@ -178,6 +178,7 @@ test_srcs := \
 	regbuf-merge.c \
 	register-restrictions.c \
 	rename.c \
+	resize-rings.c \
 	ringbuf-read.c \
 	ringbuf-status.c \
 	ring-leak2.c \
