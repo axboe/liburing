@@ -102,9 +102,7 @@ static int _io_uring_get_cqe(struct io_uring *ring,
 		if (!need_enter)
 			break;
 		if (looped && data->has_ts) {
-			struct io_uring_getevents_arg *arg = data->arg;
-
-			if (!cqe && arg->ts && !err)
+			if (!cqe && !err)
 				err = -ETIME;
 			break;
 		}
