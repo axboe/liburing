@@ -321,6 +321,26 @@ int io_uring_wait_cqes_min_timeout(struct io_uring *ring,
 					sigmask);
 }
 
+int io_uring_submit_and_wait_reg(struct io_uring *ring,
+				 struct io_uring_cqe **cqe_ptr,
+				 unsigned wait_nr, int reg_index)
+{
+	struct get_data data = {
+		.submit		= __io_uring_flush_sq(ring),
+		.wait_nr	= wait_nr,
+		.get_flags	= IORING_ENTER_EXT_ARG |
+				  IORING_ENTER_EXT_ARG_REG,
+		.sz		= sizeof(struct io_uring_reg_wait),
+		.has_ts		= true,
+		.arg		= (void *) (uintptr_t) reg_index,
+	};
+
+	if (!(ring->features & IORING_FEAT_EXT_ARG))
+		return -EINVAL;
+
+	return _io_uring_get_cqe(ring, cqe_ptr, &data);
+}
+
 static int __io_uring_submit_and_wait_timeout(struct io_uring *ring,
 			struct io_uring_cqe **cqe_ptr, unsigned wait_nr,
 			struct __kernel_timespec *ts,

@@ -219,4 +219,6 @@ LIBURING_2.8 {
 LIBURING_2.9 {
 	global:
 		io_uring_resize_rings;
+		io_uring_register_cqwait_reg;
+		io_uring_submit_and_wait_reg;
 } LIBURING_2.8;

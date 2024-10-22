@@ -452,3 +452,9 @@ out:
 	p->flags = 0;
 	return ret;
 }
+
+int io_uring_register_cqwait_reg(struct io_uring *ring,
+				 struct io_uring_reg_wait *arg, int nr)
+{
+	return do_register(ring, IORING_REGISTER_CQWAIT_REG, arg, nr);
+}
