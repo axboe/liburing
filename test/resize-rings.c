@@ -18,7 +18,7 @@
 
 #define min(a, b)	((a) < (b) ? (a) : (b))
 
-static int test_busy(struct io_uring *ring, int fd)
+static int test_busy(struct io_uring *ring, int fd, int async)
 {
 	struct io_uring_params p = { };
 	struct io_uring_sqe *sqe;
@@ -66,6 +66,8 @@ static int test_busy(struct io_uring *ring, int fd)
 				break;
 			io_uring_prep_read(sqe, fd, vecs[i].iov_base,
 						vecs[i].iov_len, offset);
+			if (async)
+				sqe->flags |= IOSQE_ASYNC;
 			offset += 8192;
 			if (start_ud == -1UL)
 				start_ud = ud;
@@ -132,7 +134,7 @@ static int test_busy(struct io_uring *ring, int fd)
 	return 0;
 }
 
-static int test_basic(struct io_uring *ring)
+static int test_basic(struct io_uring *ring, int async)
 {
 	struct io_uring_params p = { };
 	struct io_uring_sqe *sqe;
@@ -141,6 +143,8 @@ static int test_basic(struct io_uring *ring)
 
 	sqe = io_uring_get_sqe(ring);
 	io_uring_prep_nop(sqe);
+	if (async)
+		sqe->flags |= IOSQE_ASYNC;
 	sqe->user_data = 1;
 	io_uring_submit(ring);
 
@@ -152,6 +156,8 @@ static int test_basic(struct io_uring *ring)
 
 	sqe = io_uring_get_sqe(ring);
 	io_uring_prep_nop(sqe);
+	if (async)
+		sqe->flags |= IOSQE_ASYNC;
 	sqe->user_data = 2;
 	io_uring_submit(ring);
 
@@ -171,7 +177,7 @@ static int test_basic(struct io_uring *ring)
 	return T_EXIT_PASS;
 }
 
-static int test(int flags, int fd)
+static int test(int flags, int fd, int async)
 {
 	struct io_uring_params p = {
 		.flags = flags,
@@ -185,7 +191,7 @@ static int test(int flags, int fd)
 		return T_EXIT_FAIL;
 	}
 
-	ret = test_basic(&ring);
+	ret = test_basic(&ring, async);
 	if (ret == T_EXIT_SKIP) {
 		return T_EXIT_SKIP;
 	} else if (ret == T_EXIT_FAIL) {
@@ -193,7 +199,7 @@ static int test(int flags, int fd)
 		return T_EXIT_FAIL;
 	}
 
-	ret = test_busy(&ring, fd);
+	ret = test_busy(&ring, fd, async);
 	if (ret == T_EXIT_FAIL) {
 		fprintf(stderr, "test_busy %x failed\n", flags);
 		return T_EXIT_FAIL;
@@ -210,19 +216,32 @@ int main(int argc, char *argv[])
 	if (argc > 1)
 		fd = open("/dev/nvme0n1", O_RDONLY | O_DIRECT);
 
-	ret = test(0, fd);
+	ret = test(0, fd, 0);
 	if (ret == T_EXIT_SKIP)
 		return T_EXIT_SKIP;
 	else if (ret == T_EXIT_FAIL)
 		return T_EXIT_FAIL;
 
-	ret = test(IORING_SETUP_SQPOLL, fd);
+	ret = test(0, fd, 1);
 	if (ret == T_EXIT_FAIL)
 		return T_EXIT_FAIL;
 
-	ret = test(IORING_SETUP_SINGLE_ISSUER | IORING_SETUP_DEFER_TASKRUN, fd);
+	ret = test(IORING_SETUP_SQPOLL, fd, 0);
 	if (ret == T_EXIT_FAIL)
 		return T_EXIT_FAIL;
+
+	ret = test(IORING_SETUP_SQPOLL, fd, 1);
+	if (ret == T_EXIT_FAIL)
+		return T_EXIT_FAIL;
+
+	ret = test(IORING_SETUP_SINGLE_ISSUER | IORING_SETUP_DEFER_TASKRUN, fd, 0);
+	if (ret == T_EXIT_FAIL)
+		return T_EXIT_FAIL;
+
+	ret = test(IORING_SETUP_SINGLE_ISSUER | IORING_SETUP_DEFER_TASKRUN, fd, 1);
+	if (ret == T_EXIT_FAIL)
+		return T_EXIT_FAIL;
+
 
 	return T_EXIT_PASS;
 }
