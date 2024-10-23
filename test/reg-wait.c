@@ -42,6 +42,28 @@ static int test_invalid_reg2(void)
 		return T_EXIT_FAIL;
 	}
 
+	free(buf);
+	buf = (void *) 0x1000;
+	ret = io_uring_register_cqwait_reg(&ring, buf, 1);
+	if (ret != -EFAULT) {
+		fprintf(stderr, "register cqwait: %d\n", ret);
+		return T_EXIT_FAIL;
+	}
+
+	buf = (void *) 0x1240;
+	ret = io_uring_register_cqwait_reg(&ring, buf, 1);
+	if (ret != -EFAULT) {
+		fprintf(stderr, "register cqwait: %d\n", ret);
+		return T_EXIT_FAIL;
+	}
+
+	buf = (void *) 0x1241;
+	ret = io_uring_register_cqwait_reg(&ring, buf, 1);
+	if (ret != -EINVAL) {
+		fprintf(stderr, "register cqwait: %d\n", ret);
+		return T_EXIT_FAIL;
+	}
+
 	io_uring_queue_exit(&ring);
 	return T_EXIT_PASS;
 }
