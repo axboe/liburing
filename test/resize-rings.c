@@ -119,8 +119,10 @@ static int test_pipes(struct io_uring *ring, int async)
 			if (i == 0) {
 				ret = io_uring_resize_rings(ring, &p);
 				if (ret < 0) {
-					fprintf(stderr, "resize failed: %d\n", ret);
-					return T_EXIT_FAIL;
+					if (ret != -EOVERFLOW) {
+						fprintf(stderr, "resize failed: %d\n", ret);
+						return T_EXIT_FAIL;
+					}
 				}
 				p.sq_entries = 32;
 				p.cq_entries = 128;
@@ -147,6 +149,8 @@ static int test_pipes(struct io_uring *ring, int async)
 			if (!(i % 17)) {
 				ret = io_uring_resize_rings(ring, &p);
 				if (ret < 0) {
+					if (ret == -EOVERFLOW)
+						continue;
 					fprintf(stderr, "resize failed: %d\n", ret);
 					return T_EXIT_FAIL;
 				}
@@ -330,6 +334,97 @@ static int test_basic(struct io_uring *ring, int async)
 	return T_EXIT_PASS;
 }
 
+static int test_all_copy(struct io_uring *ring)
+{
+	struct io_uring_params p = { };
+	struct io_uring_sqe *sqe;
+	struct io_uring_cqe *cqe;
+	unsigned head;
+	int i, ret;
+
+	p.sq_entries = 32;
+	p.cq_entries = 64;
+	ret = io_uring_resize_rings(ring, &p);
+	if (ret) {
+		fprintf(stderr, "resize failed: %d\n", ret);
+		return T_EXIT_FAIL;
+	}
+
+	for (i = 0; i < 32; i++) {
+		sqe = io_uring_get_sqe(ring);
+		io_uring_prep_nop(sqe);
+		sqe->user_data = i + 1;
+	}
+
+	io_uring_submit(ring);
+
+	memset(&p, 0, sizeof(p));
+	p.sq_entries = 64;
+	p.cq_entries = 128;
+	ret = io_uring_resize_rings(ring, &p);
+	if (ret) {
+		fprintf(stderr, "resize failed: %d\n", ret);
+		return T_EXIT_FAIL;
+	}
+
+	i = 1;
+	io_uring_for_each_cqe(ring, head, cqe) {
+		if (cqe->user_data != i) {
+			fprintf(stderr, "Found cqe at wrong offset\n");
+			return T_EXIT_FAIL;
+		}
+		i++;
+	}
+	io_uring_cq_advance(ring, 32);
+	return T_EXIT_PASS;
+}
+
+static int test_overflow(struct io_uring *ring)
+{
+	struct io_uring_params p = { };
+	struct io_uring_sqe *sqe;
+	int i, ret;
+
+	p.sq_entries = 32;
+	p.cq_entries = 64;
+	ret = io_uring_resize_rings(ring, &p);
+	if (ret) {
+		fprintf(stderr, "resize failed: %d\n", ret);
+		return T_EXIT_FAIL;
+	}
+
+	for (i = 0; i < 32; i++) {
+		sqe = io_uring_get_sqe(ring);
+		io_uring_prep_nop(sqe);
+		sqe->user_data = i + 1;
+	}
+
+	io_uring_submit(ring);
+
+	/* have 32 CQEs pending, resize to CQ size 32 which should work */
+	memset(&p, 0, sizeof(p));
+	p.sq_entries = 32;
+	p.cq_entries = 32;
+	ret = io_uring_resize_rings(ring, &p);
+	if (ret) {
+		fprintf(stderr, "resize failed: %d\n", ret);
+		return T_EXIT_FAIL;
+	}
+
+	/* now resize to CQ size 16, which should fail with -EOVERFLOW */
+	memset(&p, 0, sizeof(p));
+	p.sq_entries = 8;
+	p.cq_entries = 16;
+	ret = io_uring_resize_rings(ring, &p);
+	if (ret != -EOVERFLOW) {
+		fprintf(stderr, "Expected overflow, got %d\n", ret);
+		return T_EXIT_FAIL;
+	}
+
+	io_uring_cq_advance(ring, 32);
+	return T_EXIT_PASS;
+}
+
 static int test(int flags, int fd, int async)
 {
 	struct io_uring_params p = {
@@ -361,6 +456,18 @@ static int test(int flags, int fd, int async)
 	ret = test_pipes(&ring, async);
 	if (ret == T_EXIT_FAIL) {
 		fprintf(stderr, "test_pipes %x failed\n", flags);
+		return T_EXIT_FAIL;
+	}
+
+	ret = test_all_copy(&ring);
+	if (ret == T_EXIT_FAIL) {
+		fprintf(stderr, "test_all_copy %x failed\n", flags);
+		return T_EXIT_FAIL;
+	}
+
+	ret = test_overflow(&ring);
+	if (ret == T_EXIT_FAIL) {
+		fprintf(stderr, "test_overflow %x failed\n", flags);
 		return T_EXIT_FAIL;
 	}
 
@@ -400,7 +507,6 @@ int main(int argc, char *argv[])
 	ret = test(IORING_SETUP_SINGLE_ISSUER | IORING_SETUP_DEFER_TASKRUN, fd, 1);
 	if (ret == T_EXIT_FAIL)
 		return T_EXIT_FAIL;
-
 
 	return T_EXIT_PASS;
 }
