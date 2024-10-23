@@ -81,7 +81,6 @@ static int test_pipes(struct io_uring *ring, int async)
 	d.fd = fds[1];
 	p.sq_entries = 64;
 	p.cq_entries = 256;
-	p.flags = 0;
 
 	pthread_create(&d.thread, NULL, thread_fn, &d);
 
@@ -126,7 +125,6 @@ static int test_pipes(struct io_uring *ring, int async)
 				}
 				p.sq_entries = 32;
 				p.cq_entries = 128;
-				p.flags = 0;
 			}
 			if (d.failed)
 				break;
@@ -164,7 +162,6 @@ static int test_pipes(struct io_uring *ring, int async)
 					p.cq_entries = 256;
 				else
 					p.cq_entries = 128;
-				p.flags = 0;
 			}
 		}
 	}
@@ -210,7 +207,6 @@ static int test_reads(struct io_uring *ring, int fd, int async)
 	to_read = 64*1024*1024;
 	p.sq_entries = 64;
 	p.cq_entries = 256;
-	p.flags = 0;
 	offset = 0;
 	while (to_read) {
 		unsigned long start_ud = -1UL, end_ud;
@@ -242,12 +238,13 @@ static int test_reads(struct io_uring *ring, int fd, int async)
 			if (i == 0) {
 				ret = io_uring_resize_rings(ring, &p);
 				if (ret < 0) {
-					fprintf(stderr, "resize failed: %d\n", ret);
-					return T_EXIT_FAIL;
+					if (ret != -EOVERFLOW) {
+						fprintf(stderr, "resize failed: %d\n", ret);
+						return T_EXIT_FAIL;
+					}
 				}
 				p.sq_entries = 32;
 				p.cq_entries = 128;
-				p.flags = 0;
 			}
 			ret = io_uring_wait_cqe(ring, &cqe);
 			if (ret) {
@@ -270,6 +267,8 @@ static int test_reads(struct io_uring *ring, int fd, int async)
 			if (!(i % 17)) {
 				ret = io_uring_resize_rings(ring, &p);
 				if (ret < 0) {
+					if (ret == -EOVERFLOW)
+						continue;
 					fprintf(stderr, "resize failed: %d\n", ret);
 					return T_EXIT_FAIL;
 				}
@@ -283,7 +282,6 @@ static int test_reads(struct io_uring *ring, int fd, int async)
 					p.cq_entries = 256;
 				else
 					p.cq_entries = 128;
-				p.flags = 0;
 			}
 		}
 	}
