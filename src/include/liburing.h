@@ -282,6 +282,13 @@ int io_uring_register(unsigned int fd, unsigned int opcode, const void *arg,
 		      unsigned int nr_args);
 
 /*
+ * Mapped/registered wait regions
+ */
+struct io_uring_reg_wait *io_uring_setup_reg_wait(struct io_uring *ring,
+						  unsigned nentries, int *err);
+void io_uring_free_reg_wait(struct io_uring_reg_wait *reg, unsigned nentries);
+
+/*
  * Mapped buffer ring alloc/register + unregister/free helpers
  */
 struct io_uring_buf_ring *io_uring_setup_buf_ring(struct io_uring *ring,
