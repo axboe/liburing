@@ -423,6 +423,51 @@ static int test_overflow(struct io_uring *ring)
 	return T_EXIT_PASS;
 }
 
+static int test_same_resize(int flags)
+{
+	struct io_uring_params p = { };
+	struct io_uring_sqe *sqe;
+	struct io_uring_cqe *cqe;
+	struct io_uring ring;
+	int i, ret;
+
+	ret = io_uring_queue_init(32, &ring, flags);
+	if (ret)
+		return T_EXIT_FAIL;
+
+	p.sq_entries = 32;
+	p.cq_entries = 64;
+	ret = io_uring_resize_rings(&ring, &p);
+	if (ret) {
+		fprintf(stderr, "resize failed: %d\n", ret);
+		return T_EXIT_FAIL;
+	}
+
+	for (i = 0; i < 32; i++) {
+		sqe = io_uring_get_sqe(&ring);
+		io_uring_prep_nop(sqe);
+		sqe->user_data = i + 1;
+	}
+
+	io_uring_submit(&ring);
+
+	for (i = 0; i < 32; i++) {
+		ret = io_uring_wait_cqe(&ring, &cqe);
+		if (ret) {
+			fprintf(stderr, "wait_cqe: %d\n", ret);
+			return T_EXIT_FAIL;
+		}
+		if (cqe->user_data != i + 1) {
+			fprintf(stderr, "Found cqe at wrong offset\n");
+			return T_EXIT_FAIL;
+		}
+		io_uring_cqe_seen(&ring, cqe);
+	}
+
+	io_uring_queue_exit(&ring);
+	return T_EXIT_PASS;
+}
+
 static int test(int flags, int fd, int async)
 {
 	struct io_uring_params p = {
@@ -466,6 +511,12 @@ static int test(int flags, int fd, int async)
 	ret = test_overflow(&ring);
 	if (ret == T_EXIT_FAIL) {
 		fprintf(stderr, "test_overflow %x failed\n", flags);
+		return T_EXIT_FAIL;
+	}
+
+	ret = test_same_resize(flags);
+	if (ret == T_EXIT_FAIL) {
+		fprintf(stderr, "test_same_resize %x failed\n", flags);
 		return T_EXIT_FAIL;
 	}
 
