@@ -412,36 +412,43 @@ int io_uring_clone_buffers(struct io_uring *dst, struct io_uring *src)
 
 int io_uring_resize_rings(struct io_uring *ring, struct io_uring_params *p)
 {
-	unsigned sq_entries;
+	unsigned sq_head, sq_tail;
 	int ret;
 
 	if (ring->flags & IORING_SETUP_NO_MMAP)
 		return -EINVAL;
 
+	memset(&p->sq_off, 0, sizeof(p->sq_off));
+	memset(&p->cq_off, 0, sizeof(p->cq_off));
+
 	ret = do_register(ring, IORING_REGISTER_RESIZE_RINGS, p, 1);
 	if (ret < 0)
-		return ret;
+		goto out;
 
+	sq_head = ring->sq.sqe_head;
+	sq_tail = ring->sq.sqe_tail;
 	io_uring_unmap_rings(&ring->sq, &ring->cq);
+	memset(&ring->sq, 0, sizeof(ring->sq));
+	memset(&ring->cq, 0, sizeof(ring->cq));
 	ret = io_uring_mmap(ring->ring_fd, p, &ring->sq, &ring->cq);
 	if (ret)
-		return ret;
+		goto out;
+
+	ring->sq.sqe_head = sq_head;
+	ring->sq.sqe_tail = sq_tail;
 
 	/*
 	 * Directly map SQ slots to SQEs
 	 */
-	sq_entries = ring->sq.ring_entries;
-
 	if (!(p->flags & IORING_SETUP_NO_SQARRAY)) {
-		unsigned *sq_array;
 		unsigned index;
 
-		sq_array = ring->sq.array;
-		for (index = 0; index < sq_entries; index++)
-			sq_array[index] = index;
+		for (index = 0; index < p->sq_entries; index++)
+			ring->sq.array[index] = index;
 	}
 
 	/* clear for next use */
+out:
 	p->flags = 0;
-	return 0;
+	return ret;
 }
