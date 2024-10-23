@@ -16,6 +16,99 @@
 
 static struct io_uring_reg_wait *reg;
 
+static int test_invalid_reg2(void)
+{
+	struct io_uring ring;
+	void *buf, *ptr;
+	int ret;
+
+	io_uring_queue_init(1, &ring, 0);
+
+	if (posix_memalign(&buf, 4096, 4096))
+		return T_EXIT_FAIL;
+	memset(buf, 0, 4096);
+	ptr = buf + 4096 - 32;
+
+	ret = io_uring_register_cqwait_reg(&ring, ptr, 1);
+	if (ret != -EINVAL) {
+		fprintf(stderr, "register cqwait: %d\n", ret);
+		return T_EXIT_FAIL;
+	}
+
+	ptr = buf + (sizeof(struct io_uring_reg_wait) / 2);
+	ret = io_uring_register_cqwait_reg(&ring, ptr, 1);
+	if (ret != -EINVAL) {
+		fprintf(stderr, "register cqwait: %d\n", ret);
+		return T_EXIT_FAIL;
+	}
+
+	io_uring_queue_exit(&ring);
+	return T_EXIT_PASS;
+}
+
+static int test_invalid_reg(void)
+{
+	struct io_uring_reg_wait *ireg;
+	struct io_uring_cqe *cqe;
+	struct io_uring ring;
+	struct timeval tv;
+	void *buf, *ptr;
+	int ret;
+
+	io_uring_queue_init(1, &ring, 0);
+
+	if (posix_memalign(&buf, 4096, 4096))
+		return T_EXIT_FAIL;
+	memset(buf, 0, 4096);
+	ptr = buf + 512;
+	ireg = ptr;
+
+	ret = io_uring_register_cqwait_reg(&ring, ireg, 56);
+	if (ret) {
+		fprintf(stderr, "register cqwait: %d\n", ret);
+		return T_EXIT_FAIL;
+	}
+
+	ireg = ptr;
+	memset(ireg, 0, sizeof(*ireg));
+	ireg->ts.tv_sec = 1;
+	ireg->ts.tv_nsec = 0;
+	ireg->flags = IORING_REG_WAIT_TS;
+
+	gettimeofday(&tv, NULL);
+	ret = io_uring_submit_and_wait_reg(&ring, &cqe, 1, 0);
+	if (ret != -ETIME) {
+		fprintf(stderr, "wait_reg failed: %d\n", ret);
+		return T_EXIT_FAIL;
+	}
+
+	ret = mtime_since_now(&tv);
+	/* allow some slack, should be around 1.1s */
+	if (ret < 1000 || ret > 1200) {
+		fprintf(stderr, "wait too long or short: %d\n", ret);
+		goto err;
+	}
+
+	memset(ireg, 0, sizeof(*ireg));
+	ireg->ts.tv_sec = 1;
+	ireg->ts.tv_nsec = 0;
+	ireg->flags = IORING_REG_WAIT_TS;
+
+	gettimeofday(&tv, NULL);
+	ret = io_uring_submit_and_wait_reg(&ring, &cqe, 1, 56);
+	if (ret != -EFAULT) {
+		fprintf(stderr, "out-of-range reg_wait failed: %d\n", ret);
+		return T_EXIT_FAIL;
+	}
+
+	free(buf);
+	io_uring_queue_exit(&ring);
+	return T_EXIT_PASS;
+err:
+	io_uring_queue_exit(&ring);
+	return T_EXIT_FAIL;
+}
+
 static int test_invalid_sig(struct io_uring *ring)
 {
 	struct io_uring_cqe *cqe;
@@ -110,6 +203,19 @@ static int test_ring(void)
 		fprintf(stderr, "test_invalid sig failed\n");
 		goto err;
 	}
+
+	ret = test_invalid_reg();
+	if (ret == T_EXIT_FAIL) {
+		fprintf(stderr, "test_invalid_reg failed\n");
+		goto err;
+	}
+
+	ret = test_invalid_reg2();
+	if (ret == T_EXIT_FAIL) {
+		fprintf(stderr, "test_invalid_reg2 failed\n");
+		goto err;
+	}
+
 err:
 	io_uring_queue_exit(&ring);
 	return ret;
