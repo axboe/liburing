@@ -441,5 +441,7 @@ int io_uring_resize_rings(struct io_uring *ring, struct io_uring_params *p)
 			sq_array[index] = index;
 	}
 
+	/* clear for next use */
+	p->flags = 0;
 	return 0;
 }
