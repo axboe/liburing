@@ -174,7 +174,6 @@ static int test_ring(void)
 {
 	struct io_uring ring;
 	struct io_uring_params p = { };
-	void *reg_buf;
 	int ret;
 
 	p.flags = 0;
@@ -184,13 +183,13 @@ static int test_ring(void)
 		return 1;
 	}
 
-	if (posix_memalign(&reg_buf, 4096, 4096))
+	reg = io_uring_setup_reg_wait(&ring, 64, &ret);
+	if (!reg) {
+		if (ret == -EINVAL)
+			return T_EXIT_SKIP;
+		fprintf(stderr, "setup_reg_wait: %d\n", ret);
 		return T_EXIT_FAIL;
-	reg = reg_buf;
-
-	ret = io_uring_register_cqwait_reg(&ring, reg, 64);
-	if (ret == -EINVAL)
-		return T_EXIT_SKIP;
+	}
 
 	ret = test_basic(&ring);
 	if (ret == T_EXIT_FAIL) {
