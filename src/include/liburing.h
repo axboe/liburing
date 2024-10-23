@@ -281,7 +281,7 @@ int io_uring_register(unsigned int fd, unsigned int opcode, const void *arg,
 struct io_uring_buf_ring *io_uring_setup_buf_ring(struct io_uring *ring,
 						  unsigned int nentries,
 						  int bgid, unsigned int flags,
-						  int *ret);
+						  int *err);
 int io_uring_free_buf_ring(struct io_uring *ring, struct io_uring_buf_ring *br,
 			   unsigned int nentries, int bgid);
 

@@ -13,7 +13,7 @@ io_uring_setup_buf_ring \- setup and register buffer ring for provided buffers
 .BI "                            unsigned int " nentries ",
 .BI "                            int " bgid ",
 .BI "                            unsigned int " flags ",
-.BI "                            int *" ret ");"
+.BI "                            int *" err ");"
 .BI "
 .fi
 .SH DESCRIPTION
@@ -41,7 +41,7 @@ a power-of 2 in size.
 is the chosen buffer group ID,
 .I flags
 are modifier flags for the operation, and
-.I *ret
+.I *err
 is is a pointer to an integer for the error value if any part of the ring
 allocation and registration fails.
 
@@ -78,7 +78,7 @@ On success
 returns a pointer to the buffer ring. On failure it returns
 .BR NULL
 and sets
-.I *ret
+.I *err
 to -errno.
 .SH NOTES
 Note that even if the kernel supports this feature, registering a provided
