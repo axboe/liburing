@@ -468,6 +468,78 @@ static int test_same_resize(int flags)
 	return T_EXIT_PASS;
 }
 
+static int mmap_child(struct io_uring *__ring, struct io_uring_params *__p)
+{
+	struct io_uring ring = *__ring;
+	struct timeval tv;
+	int ret;
+
+	gettimeofday(&tv, NULL);
+	do {
+		struct io_uring_params p = *__p;
+		void *sq_ptr, *cq_ptr;
+
+		ret = io_uring_queue_mmap(__ring->ring_fd, &p, &ring);
+		if (ret)
+			continue;
+
+		sq_ptr = ring.sq.ring_ptr + 2 * sizeof(__u32);
+		cq_ptr = ring.cq.ring_ptr + 2 * sizeof(__u32);
+		memset(sq_ptr, 0x5a, ring.sq.ring_sz - 2 * sizeof(__u32));
+		memset(cq_ptr, 0xa5, ring.cq.ring_sz - 2 * sizeof(__u32));
+		io_uring_unmap_rings(&ring.sq, &ring.cq);
+	} while (mtime_since_now(&tv) < 2500);
+
+	exit(T_EXIT_PASS);
+}
+
+static int test_mmap_race(struct io_uring *ring, struct io_uring_params *__p)
+{
+	unsigned long useless_sum;
+	int i, w, nr_children;
+	struct timeval tv;
+	pid_t pid;
+
+	nr_children = sysconf(_SC_NPROCESSORS_ONLN);
+	if (nr_children < 0)
+		nr_children = 4;
+
+	for (i = 0; i < nr_children; i++) {
+		pid = fork();
+		if (!pid) {
+			mmap_child(ring, __p);
+			return T_EXIT_PASS;
+		}
+	}
+
+	useless_sum = 0;
+	gettimeofday(&tv, NULL);
+	do {
+		struct io_uring_params p = { .sq_entries = 32, };
+		void *ptr;
+
+		io_uring_resize_rings(ring, &p);
+
+		ptr = memchr(ring->sq.ring_ptr, 0x5a, ring->sq.ring_sz);
+		if (ptr)
+			useless_sum += ptr - ring->sq.ring_ptr;
+
+		ptr = memchr(ring->cq.ring_ptr, 0xa5, ring->cq.ring_sz);
+		if (ptr)
+			useless_sum += ptr - ring->cq.ring_ptr;
+
+		p.sq_entries = 128;
+		io_uring_resize_rings(ring, &p);
+	} while (mtime_since_now(&tv) < 2500);
+
+	for (i = 0; i < nr_children; i++)
+		wait(&w);
+
+	if (useless_sum)
+		return T_EXIT_PASS;
+	return T_EXIT_PASS;
+}
+
 static int test(int flags, int fd, int async)
 {
 	struct io_uring_params p = {
@@ -502,6 +574,9 @@ static int test(int flags, int fd, int async)
 		return T_EXIT_FAIL;
 	}
 
+	if (async)
+		return T_EXIT_PASS;
+
 	ret = test_all_copy(&ring);
 	if (ret == T_EXIT_FAIL) {
 		fprintf(stderr, "test_all_copy %x failed\n", flags);
@@ -517,6 +592,13 @@ static int test(int flags, int fd, int async)
 	ret = test_same_resize(flags);
 	if (ret == T_EXIT_FAIL) {
 		fprintf(stderr, "test_same_resize %x failed\n", flags);
+		return T_EXIT_FAIL;
+	}
+
+	/* must go at the end, insert more tests above this one */
+	ret = test_mmap_race(&ring, &p);
+	if (ret == T_EXIT_FAIL) {
+		fprintf(stderr, "test_mmap_race %x failed\n", flags);
 		return T_EXIT_FAIL;
 	}
 
