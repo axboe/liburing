@@ -103,3 +103,6 @@ LIBURING_2.8 {
 		io_uring_wait_cqes_min_timeout;
 		io_uring_clone_buffers;
 } LIBURING_2.7;
+
+LIBURING_2.9 {
+} LIBURING_2.8;
