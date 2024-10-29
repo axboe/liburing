@@ -8,6 +8,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <sys/uio.h>
+#include <string.h>
 
 #include "liburing.h"
 #include "helpers.h"
@@ -16,6 +17,41 @@
 #define BUF_SIZE	8192
 
 static int no_buf_clone;
+
+static int use_buf(struct io_uring *ring, void *addr, int index)
+{
+	struct io_uring_sqe *sqe;
+	struct io_uring_cqe *cqe;
+	char src_buf[32];
+	int fds[2], ret;
+
+	if (pipe(fds) < 0)
+		return -errno;
+
+	memset(src_buf, 0xbb, sizeof(src_buf));
+
+	sqe = io_uring_get_sqe(ring);
+	io_uring_prep_read_fixed(sqe, fds[0], addr, sizeof(src_buf), 0, index);
+	io_uring_submit(ring);
+
+	ret = write(fds[1], src_buf, sizeof(src_buf));
+	if (ret < 0)
+		return -errno;
+
+	ret = io_uring_wait_cqe(ring, &cqe);
+	if (ret) {
+		fprintf(stderr, "wait_cqe: %d\n", ret);
+		return ret;
+	}
+
+	ret = cqe->res;
+	io_uring_cqe_seen(ring, cqe);
+	if (ret < 0)
+		return ret;
+	close(fds[0]);
+	close(fds[1]);
+	return 0;
+}
 
 static int test(int reg_src, int reg_dst)
 {
@@ -76,10 +112,28 @@ static int test(int reg_src, int reg_dst)
 		return T_EXIT_FAIL;
 	}
 
+	ret = use_buf(&src, vecs[0].iov_base, 0);
+	if (ret) {
+		fprintf(stderr, "use_buf=%d\n", ret);
+		return T_EXIT_FAIL;
+	}
+
+	ret = use_buf(&dst, vecs[0].iov_base, 0);
+	if (ret != -EFAULT) {
+		fprintf(stderr, "use_buf=%d\n", ret);
+		return T_EXIT_FAIL;
+	}
+
 	/* copy should work now */
 	ret = io_uring_clone_buffers(&dst, &src);
 	if (ret) {
 		fprintf(stderr, "buffer copy: %d\n", ret);
+		return T_EXIT_FAIL;
+	}
+
+	ret = use_buf(&dst, vecs[NR_VECS / 2].iov_base, NR_VECS / 2);
+	if (ret) {
+		fprintf(stderr, "use_buf=%d\n", ret);
 		return T_EXIT_FAIL;
 	}
 
@@ -96,15 +150,33 @@ static int test(int reg_src, int reg_dst)
 		return T_EXIT_FAIL;
 	}
 
+	ret = use_buf(&dst, vecs[NR_VECS / 2].iov_base, NR_VECS / 2);
+	if (ret != -EFAULT) {
+		fprintf(stderr, "use_buf=%d\n", ret);
+		return T_EXIT_FAIL;
+	}
+
 	ret = io_uring_unregister_buffers(&dst);
 	if (ret != -ENXIO) {
 		fprintf(stderr, "dst unregister empty buffers: %d\n", ret);
 		return T_EXIT_FAIL;
 	}
 
+	ret = use_buf(&src, vecs[NR_VECS / 2].iov_base, NR_VECS / 2);
+	if (ret) {
+		fprintf(stderr, "use_buf=%d\n", ret);
+		return T_EXIT_FAIL;
+	}
+
 	ret = io_uring_unregister_buffers(&src);
 	if (ret) {
 		fprintf(stderr, "src unregister buffers: %d\n", ret);
+		return T_EXIT_FAIL;
+	}
+
+	ret = use_buf(&src, vecs[NR_VECS / 2].iov_base, NR_VECS / 2);
+	if (ret != -EFAULT) {
+		fprintf(stderr, "use_buf=%d\n", ret);
 		return T_EXIT_FAIL;
 	}
 
