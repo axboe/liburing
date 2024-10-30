@@ -59,7 +59,7 @@ static int get_sq_cq_entries(unsigned entries, struct io_uring_params *p,
 	return 0;
 }
 
-static void io_uring_unmap_rings(struct io_uring_sq *sq, struct io_uring_cq *cq)
+void io_uring_unmap_rings(struct io_uring_sq *sq, struct io_uring_cq *cq)
 {
 	if (sq->ring_sz)
 		__sys_munmap(sq->ring_ptr, sq->ring_sz);
@@ -67,9 +67,9 @@ static void io_uring_unmap_rings(struct io_uring_sq *sq, struct io_uring_cq *cq)
 		__sys_munmap(cq->ring_ptr, cq->ring_sz);
 }
 
-static void io_uring_setup_ring_pointers(struct io_uring_params *p,
-					 struct io_uring_sq *sq,
-					 struct io_uring_cq *cq)
+void io_uring_setup_ring_pointers(struct io_uring_params *p,
+				  struct io_uring_sq *sq,
+				  struct io_uring_cq *cq)
 {
 	sq->khead = sq->ring_ptr + p->sq_off.head;
 	sq->ktail = sq->ring_ptr + p->sq_off.tail;
@@ -95,8 +95,8 @@ static void io_uring_setup_ring_pointers(struct io_uring_params *p,
 	cq->ring_entries = *cq->kring_entries;
 }
 
-static int io_uring_mmap(int fd, struct io_uring_params *p,
-			 struct io_uring_sq *sq, struct io_uring_cq *cq)
+int io_uring_mmap(int fd, struct io_uring_params *p, struct io_uring_sq *sq,
+		  struct io_uring_cq *cq)
 {
 	size_t size;
 	int ret;
