@@ -44,7 +44,7 @@ way. It is not legal to resize a CQ ring that is in an overflow condition,
 and attempting to do so will fail.
 
 Currently doesn't support resizing rings setup with
-.I IORING_SETUP_NO_MMAP .
+.B IORING_SETUP_NO_MMAP .
 This is purely a liburing limitation, the kernel does support it.
 
 Valid flags in
