@@ -6,7 +6,6 @@
 #include "liburing.h"
 #include "int_flags.h"
 #include "setup.h"
-#include "liburing/compat.h"
 #include "liburing/io_uring.h"
 
 #define KERN_MAX_ENTRIES	32768

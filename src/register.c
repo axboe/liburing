@@ -6,7 +6,6 @@
 #include "liburing.h"
 #include "setup.h"
 #include "int_flags.h"
-#include "liburing/compat.h"
 #include "liburing/io_uring.h"
 #include "liburing/sanitize.h"
 
