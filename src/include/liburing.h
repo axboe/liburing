@@ -196,7 +196,12 @@ int io_uring_submit_and_wait_min_timeout(struct io_uring *ring,
 					 struct __kernel_timespec *ts,
 					 unsigned min_wait,
 					 sigset_t *sigmask);
+int io_uring_submit_and_wait_reg(struct io_uring *ring,
+				 struct io_uring_cqe **cqe_ptr, unsigned wait_nr,
+				 int arg_index);
 
+int io_uring_register_cqwait_reg(struct io_uring *ring,
+				 struct io_uring_reg_wait *reg, int nr);
 int io_uring_resize_rings(struct io_uring *ring, struct io_uring_params *p);
 int io_uring_clone_buffers(struct io_uring *dst, struct io_uring *src);
 int io_uring_register_buffers(struct io_uring *ring, const struct iovec *iovecs,
@@ -275,6 +280,13 @@ int io_uring_enter2(unsigned int fd, unsigned int to_submit,
 int io_uring_setup(unsigned int entries, struct io_uring_params *p);
 int io_uring_register(unsigned int fd, unsigned int opcode, const void *arg,
 		      unsigned int nr_args);
+
+/*
+ * Mapped/registered wait regions
+ */
+struct io_uring_reg_wait *io_uring_setup_reg_wait(struct io_uring *ring,
+						  unsigned nentries, int *err);
+void io_uring_free_reg_wait(struct io_uring_reg_wait *reg, unsigned nentries);
 
 /*
  * Mapped buffer ring alloc/register + unregister/free helpers
