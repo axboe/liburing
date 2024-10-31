@@ -1228,14 +1228,19 @@ static int test_timeout_link_cancel(void)
 		exit(0);
 	}
 
-	if (waitpid(p, &wstatus, 0) == (pid_t)-1) {
-		perror("waitpid()");
-		return 1;
-	}
-	if (!WIFEXITED(wstatus) || WEXITSTATUS(wstatus)) {
-		fprintf(stderr, "child failed %i\n", WEXITSTATUS(wstatus));
-		return 1;
-	}
+	do {
+		if (waitpid(p, &wstatus, 0) == (pid_t)-1) {
+			perror("waitpid()");
+			return 1;
+		}
+		if (!WIFEXITED(wstatus))
+			continue;
+		if (WEXITSTATUS(wstatus)) {
+			fprintf(stderr, "child failed %i\n", WEXITSTATUS(wstatus));
+			return 1;
+		}
+		break;
+	} while (1);
 
 	for (i = 0; i < 2; ++i) {
 		ret = io_uring_wait_cqe(&ring, &cqe);
