@@ -22,7 +22,7 @@ int main(int argc, char *argv[])
 		return 0;
 
 	p.flags = IORING_SETUP_SQPOLL;
-	p.sq_thread_idle = 100;
+	p.sq_thread_idle = 10000;
 
 	ret = io_uring_queue_init_params(1, &ring, &p);
 	if (ret) {
@@ -36,7 +36,7 @@ int main(int argc, char *argv[])
 
 	gettimeofday(&tv, NULL);
 	do {
-		usleep(1000);
+		usleep(100000);
 		if ((*ring.sq.kflags) & IORING_SQ_NEED_WAKEUP)
 			return 0;
 	} while (mtime_since_now(&tv) < 1000);
