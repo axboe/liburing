@@ -2,7 +2,7 @@
 .\"
 .\" SPDX-License-Identifier: LGPL-2.0-or-later
 .\"
-.TH io_uring_clone_buffers 3 "September 12, 2024" "liburing-2.8" "liburing Manual"
+.TH io_uring_clone_buffers 3 "September 12, 2024" "liburing-2.9" "liburing Manual"
 .SH NAME
 io_uring_clone_buffers \- Clones registered buffers between rings
 .SH SYNOPSIS
@@ -12,44 +12,93 @@ io_uring_clone_buffers \- Clones registered buffers between rings
 .BI "int io_uring_clone_buffers(struct io_uring *" dst ","
 .BI "                           struct io_uring * " src ");"
 .PP
+.BI "int io_uring_clone_buffers_offset(struct io_uring *" dst ","
+.BI "                                  struct io_uring * " src ","
+.BI "                                  unsigned int " dst_off ","
+.BI "                                  unsigned int " src_off ","
+.BI "                                  unsigned int " nr ","
+.BI "                                  unsigned int " flags ");"
+.PP
 .fi
 .SH DESCRIPTION
 .PP
 The
 .BR io_uring_clone_buffers (3)
 function clones registered buffers from the ring indicated by
-.I src
+.IR src
 to the ring indicated by
-.I dst .
+.IR dst .
 Upon successful completion of this operation,
-.I src
+.IR src
 and
-.I dst
+.IR dst
 will have the same set of registered buffers. This operation is identical to
 performing a
 .BR io_uring_register_buffers (3)
 operation on the
-.I dst
+.IR dst
 ring, if the
-.I src
+.IR src
 ring previously had that same buffer registration operating done.
 
 The
-.I dst
+.IR dst
 ring must not have any buffers currently registered. If buffers are currently
 registered on the destination ring, they must be unregistered with
 .BR io_uring_unregister_buffers (3)
 first.
 
+The
+.BR io_uring_clone_buffers_offset (3)
+function also clones buffers from the
+.IR src
+ring to the
+.IR dst
+ring, however it supports cloning only a subset of the buffers, where
+.BR io_uring_clone_buffers (3)
+always clones all of them.
+.IR dst_off
+indicates at what offset cloning should start in the destination,
+.IR src_off
+indicates at what offset cloning should start in the source, and
+.IR nr
+indicates how many buffers to clone at the given offset. If both
+.IR dst_off ,
+.IR src_off ,
+and
+.IR nr
+are given as
+.B 0 ,
+then
+.BR io_uring_clone_buffers_offset (3)
+performs the same action as
+.BR io_uring_clone_buffers (3) .
+
+.IR flags
+may be set to the following value:
+.TP
+.B IORING_REGISTER_DST_REPLACE
+If set, cloning may happen for a destination ring that already has a buffer
+table assigned. In that case, existing nodes that overlap with the specified
+range will be released and replaced.IORING_REGISTER_DST_REPLACE
+If set, cloning may happen for a destination ring that already has a buffer
+table assigned. In that case, existing nodes that overlap with the specified
+range will be released and replaced.
+.PP
+
 On success
 .BR io_uring_clone_buffers (3)
-returns 0.
-On failure, it returns
+and
+.BR io_uring_clone_buffers_offset (3)
+return 0.
+On failure, they returns
 .BR -errno ,
 specifically
 .TP
 .B -EBUSY
-The destination ring already has buffers registered.
+The destination ring already has buffers registered, and
+.B IORING_REGISTER_DST_REPLACE
+wasn't set.
 .TP
 .B -ENOMEM
 The kernel ran out of memory.
