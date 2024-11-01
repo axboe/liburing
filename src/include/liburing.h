@@ -203,6 +203,9 @@ int io_uring_submit_and_wait_reg(struct io_uring *ring,
 int io_uring_register_cqwait_reg(struct io_uring *ring,
 				 struct io_uring_reg_wait *reg, int nr);
 int io_uring_resize_rings(struct io_uring *ring, struct io_uring_params *p);
+int io_uring_clone_buffers_offset(struct io_uring *dst, struct io_uring *src,
+				  unsigned int dst_off, unsigned int src_off,
+				  unsigned int nr, unsigned int flags);
 int io_uring_clone_buffers(struct io_uring *dst, struct io_uring *src);
 int io_uring_register_buffers(struct io_uring *ring, const struct iovec *iovecs,
 			      unsigned nr_iovecs);

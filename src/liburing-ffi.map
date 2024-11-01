@@ -223,4 +223,5 @@ LIBURING_2.9 {
 		io_uring_submit_and_wait_reg;
 		io_uring_free_reg_wait;
 		io_uring_setup_reg_wait;
+		io_uring_clone_buffers_offset;
 } LIBURING_2.8;
