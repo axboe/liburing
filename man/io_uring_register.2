@@ -931,8 +931,8 @@ for details. Note that while liburing takes care of the ring unmap and mapping
 for a resize operation, manual users of this register syscall must perform
 those operations, similarly to when a new ring is created. The
 .IR struct io_uring_params
-structure will get the necessary offsets copied back upon succesful completion
-of this sytem call, which can be used to memory map the ring just like how
+structure will get the necessary offsets copied back upon successful completion
+of this system call, which can be used to memory map the ring just like how
 a new ring would've been mapped. Available since kernel 6.13.
 
 .TP
