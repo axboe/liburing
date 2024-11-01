@@ -898,6 +898,18 @@ must be set in the
 .IR flags
 member.
 
+.TP
+.B IORING_REGISTER_SEND_MSG_RING
+Supports sending of the equivalent of a
+.B IORING_OP_MSG_RING
+request, but without having a source ring available. Takes a pointer to a
+.IR struct io_uring_sqe
+which must be prepared with
+.BR io_uring_prep_msg_ring (3)
+before being submitted. Only supports
+.B IORING_MSG_DATA
+type of requests. Available since kernel 6.12.
+
 .SH RETURN VALUE
 On success,
 .BR io_uring_register (2)
