@@ -128,6 +128,19 @@ until which the waiting should end.
 
 Available since 6.12
 
+.TP
+.B IORING_ENTER_EXT_ARG_REG
+
+When this flag is set,
+.IR arg
+is not a pointer to a
+.IR struct io_uring_getevents_arg ,
+but merely an offset into an area of wait regions previously registered with
+.BR io_uring_register (2)
+using the
+.B IORING_REGISTER_CQWAIT_REG
+operation. Available since 6.12
+
 .PP
 .PP
 If the io_uring instance was configured for polling, by specifying
