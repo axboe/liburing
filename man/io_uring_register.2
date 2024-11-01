@@ -910,6 +910,31 @@ before being submitted. Only supports
 .B IORING_MSG_DATA
 type of requests. Available since kernel 6.12.
 
+.TP
+.B IORING_REGISTER_RESIZE_RINGS
+Supports resizing the SQ and CQ rings. Takes a pointer to a
+.IR struct io_uring_params
+as the argument, where
+.IR sq_entries
+and
+.IR cq_entries
+may be set to the desired values. Only supports a limited set of flags set
+in the
+.IR struct io_uring_params
+argument, notably
+.B IORING_SETUP_CQSIZE
+and
+.B IORING_SETUP_CLAMP
+to modify the CQ ring sizing. See
+.BR io_uring_resize_rings (3)
+for details. Note that while liburing takes care of the ring unmap and mapping
+for a resize operation, manual users of this register syscall must perform
+those operations, similarly to when a new ring is created. The
+.IR struct io_uring_params
+structure will get the necessary offsets copied back upon succesful completion
+of this sytem call, which can be used to memory map the ring just like how
+a new ring would've been mapped. Available since kernel 6.13.
+
 .SH RETURN VALUE
 On success,
 .BR io_uring_register (2)
