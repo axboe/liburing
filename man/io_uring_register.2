@@ -839,8 +839,66 @@ Available since 6.12 and supports
 and
 .BR CLOCK_BOOTTIME .
 
-.SH RETURN VALUE
+.TP
+.B IORING_REGISTER_CLONE_BUFFERS
+Supports cloning buffers from a source ring to a destination ring, duplicating
+previously registered buffers from source to destination.
+.IR arg
+must be set to a pointer to a
+.I struct io_uring_clone_buffers
+and
+.IR nr_args
+must be set to
+.B 1 .
+.I struct io_uring_buf_reg
+looks as follows:
+.PP
+.in +12n
+.EX
+struct io_uring_clone_buffers {
+    __u32 src_fd;
+    __u32 flags;
+    __u32 src_off;
+    __u32 dst_off;
+    __u32 nr;
+    __u32 pad[3];
+};
+.EE
+.in
+.TP
+.PP
+where
+.IR src_fd
+indicates the fd of the source ring,
+.IR flags
+are modifier flags for the operation,
+.IR src_off
+indicates the offset from where to start the cloning from the source ring,
+.IR dst_off
+indicates the offset from where to start the cloning into the destination ring,
+and
+.IR nr
+indicates the number of buffers to clone at the given offsets.
+.IR pad
+must be zero filled.
+Kernel 6.12 added support for full range cloning, where
+.IR src_off ,
+.IR dst_off ,
+and
+.IR nr
+must all be set to 0, indicating cloning of the entire table in source to
+destination. Kernel 6.13 added support for specifying the offsets and
+how many buffers to clone. Additionally, it added support for cloning into
+a previously registered table in the destination as well, 6.12 would fail
+that operation with
+.B -EBUSY
+if attempted. To replace existing nodes, or clone into an existing table,
+.B IORING_REGISTER_DST_REPLACE
+must be set in the
+.IR flags
+member.
 
+.SH RETURN VALUE
 On success,
 .BR io_uring_register (2)
 returns either 0 or a positive value, depending on the
