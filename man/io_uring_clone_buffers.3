@@ -48,6 +48,8 @@ registered on the destination ring, they must be unregistered with
 .BR io_uring_unregister_buffers (3)
 first.
 
+Available since kernel 6.12.
+
 The
 .BR io_uring_clone_buffers_offset (3)
 function also clones buffers from the
@@ -85,6 +87,8 @@ If set, cloning may happen for a destination ring that already has a buffer
 table assigned. In that case, existing nodes that overlap with the specified
 range will be released and replaced.
 .PP
+
+Available since kernel 6.13.
 
 On success
 .BR io_uring_clone_buffers (3)
