@@ -935,6 +935,100 @@ structure will get the necessary offsets copied back upon succesful completion
 of this sytem call, which can be used to memory map the ring just like how
 a new ring would've been mapped. Available since kernel 6.13.
 
+.TP
+.B IORING_REGISTER_CQWAIT_REG
+Supports registering fixed wait regions, avoiding unnecessary copying in
+of
+.IR struct io_uring_getevents_arg
+for wait operations that specify a timeout or minimum timeout. Takes a pointer
+to a
+.IR struct io_uring_cqwait_reg_arg
+structure, which looks as follows:
+.PP
+.in +12n
+.EX
+struct io_uring_cqwait_reg_arg {
+    __u32 flags;
+    __u32 struct_size;
+    __u32 nr_entries;
+    __u32 pad;
+    __u64 user_addr;
+    __u64 pad2[2];
+};
+.EE
+.in
+.TP
+.PP
+where
+.IR flags
+specifies modifier flags (must currently be
+.B 0 ),
+.IR struct_size
+must be set to the size of the struct, and
+.IR user_addr
+must be set to the region being registered as wait regions. The pad fields
+must all be cleared to
+.B 0 .
+Each wait regions looks as follows:
+.PP
+.in +12n
+.EX
+struct io_uring_cqwait_reg {
+    struct __kernel_timespec ts;
+    __u32                    min_wait_usec;
+    __u32                    flags;
+    __u64                    sigmask;
+    __u32                    sigmask_sz;
+    __u32                    pad[3];
+    __u64                    pad2[2];
+};
+.EE
+.in
+.TP
+.PP
+where
+.IR ts
+holds the timeout information for this region
+.IR flags
+holds information about the timeout region,
+.IR sigmask
+is a pointer to a signal mask, if used, and
+.IR sigmask_sz
+is the size of that signal mask. The pad fields must all be cleared to
+.B 0 .
+Currently the only valid flag is
+.B IORING_REG_WAIT_TS ,
+which, if set, says that the values in
+.IR ts
+are valid and should be used for a timeout operation. The
+.IR user_addr
+field of
+.IR struct io_uring_cqwait_reg_arg
+must be set to an address of
+.IR struct io_uring_cqwait_reg
+members, an up to a page size can be mapped. At the size of 64 bytes per
+region, that allows at least 64 individual regions on a 4k page size system.
+The offsets of these regions are used for an
+.BR io_uring_enter (2)
+system call, with the first one being 0, second one 1, and so forth. After
+registration of the wait regions,
+.BR io_uring_enter (2)
+may be used with the enter flag of
+.B IORING_ENTER_EXT_ARG_REG and an
+.IR argp
+set to the wait region offset, rather than a pointer to a
+.IR struct io_uring_getevent_arg
+structure. If used with
+.B IORING_ENTER_GETEVENTS ,
+then the wait operation will use the information in the registered wait
+region rather than needing a io_uring_getevent_arg structure copied for each
+operation. For high frequency waits, this can save considerable CPU cycles.
+Note: once a region has been registered, it cannot get unregistered. It lives
+for the life of the ring. Individual wait region offset may be modified before
+any
+.BR io_uring_enter (2)
+system call. Available since kernel 6.13.
+
 .SH RETURN VALUE
 On success,
 .BR io_uring_register (2)
