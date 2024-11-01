@@ -199,6 +199,8 @@ static int basic_cmd_test(struct io_uring *ring, int op)
 
 	fd = open(filename, O_DIRECT | O_RDWR | O_EXCL);
 	if (fd < 0) {
+		if (errno == -EINVAL || errno == -EBUSY)
+			return T_EXIT_SKIP;
 		fprintf(stderr, "open failed %i\n", errno);
 		return T_EXIT_FAIL;
 	}
