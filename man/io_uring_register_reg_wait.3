@@ -1,0 +1,62 @@
+.\" Copyright (C) 2024 Jens Axboe <axboe@kernel.dk>
+.\"
+.\" SPDX-License-Identifier: LGPL-2.0-or-later
+.\"
+.TH io_uring_register_reg_wait 3 "November 2, 2024" "liburing-2.9" "liburing Manual"
+.SH NAME
+io_uring_register_reg_wait \- Registers fixed wait regions
+.SH SYNOPSIS
+.nf
+.B #include <liburing.h>
+.PP
+.BI "int io_uring_register_reg_wait(struct io_uring *" ring ","
+.BI "                               struct io_uring_reg_wait *"reg ","
+.BI "                               int "nr ");"
+.PP
+.fi
+.SH DESCRIPTION
+.PP
+The
+.BR io_uring_register_reg_wait (3)
+registers a fixed wait region starting at
+.IR reg
+and of
+.IR nentries
+entries with the ring indicated by
+.IR ring .
+
+This function works like
+.BR io_uring_setup_reg_wait (3) ,
+except it doesn't allocate any memory on behalf of the application. The
+application must pass in previously allocated memory in
+.IR reg ,
+which must be of the right size to hold
+.IR nr
+entries and suitably aligned on a page boundary.
+
+The memory registered should not be freed until the ring for which it is
+registered is closed.
+
+Once a wait region has been setup, it persists for the life time of the ring.
+It's currently not possible to unregister or resize a wait region.
+Additionally, a wait region may currently only use a single page of memory.
+On a 4k page size system, this means an application is limited to
+.B 64
+wait regions. That should be enough, as each wait index may be modified as
+needed. With at least 64 indices available, hopefully applications can just
+use the appropriately setup wait region for each specific type of wait, with
+different indices having different wait settings.
+
+Available since kernel 6.13.
+
+.SH RETURN VALUE
+On success
+.BR io_uring_register_reg_wait (3)
+returns
+.B 0 .
+On failure, it returns a
+.BR -errno
+value.
+.SH SEE ALSO
+.BR io_uring_submit_and_wait_reg (3),
+.BR io_uring_setup_reg_wait (3)
