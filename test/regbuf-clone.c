@@ -11,6 +11,7 @@
 #include <string.h>
 #include <limits.h>
 #include <sys/mman.h>
+#include <linux/mman.h>
 
 #include "liburing.h"
 #include "helpers.h"
