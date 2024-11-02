@@ -48,6 +48,11 @@ int main(int argc, char *argv[])
 	struct timeval tv;
 	int ret, fds[2];
 
+	if (argc > 1) {
+		fprintf(stdout, "%s: takes no arguments\n", argv[0]);
+		return 0;
+	}
+
 	if (pipe(fds) < 0) {
 		perror("pipe");
 		return 1;
@@ -122,7 +127,11 @@ int main(int argc, char *argv[])
 	io_uring_prep_read(sqe, fds[0], b2, sizeof(b2), 0);
 
 	/* trigger one read */
-	write(fds[1], "Hello", 5);
+	ret = write(fds[1], "Hello", 5);
+	if (ret < 0) {
+		perror("write");
+		return 1;
+	}
 
 	/*
 	 * This should will wait for 2 entries, where 1 is already available.
