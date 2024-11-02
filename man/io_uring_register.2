@@ -973,7 +973,7 @@ Each wait regions looks as follows:
 .PP
 .in +12n
 .EX
-struct io_uring_cqwait_reg {
+struct io_uring_reg_wait {
     struct __kernel_timespec ts;
     __u32                    min_wait_usec;
     __u32                    flags;
