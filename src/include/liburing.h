@@ -198,7 +198,7 @@ int io_uring_submit_and_wait_min_timeout(struct io_uring *ring,
 					 sigset_t *sigmask);
 int io_uring_submit_and_wait_reg(struct io_uring *ring,
 				 struct io_uring_cqe **cqe_ptr, unsigned wait_nr,
-				 int arg_index);
+				 int reg_index);
 
 int io_uring_register_cqwait_reg(struct io_uring *ring,
 				 struct io_uring_reg_wait *reg, int nr);
