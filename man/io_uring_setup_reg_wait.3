@@ -106,8 +106,9 @@ may no longer be modified by the application.
 
 Available since kernel 6.13.
 
+.SH RETURN VALUE
 On success
-.BR io_uring_register_reg_wait (3)
+.BR io_uring_setup_reg_wait (3)
 returns a pointer to the start of the wait regions. On failure, it returns
 .B NULL
 and sets
