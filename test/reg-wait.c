@@ -29,14 +29,14 @@ static int test_invalid_reg2(void)
 	memset(buf, 0, 4096);
 	ptr = buf + 4096 - 32;
 
-	ret = io_uring_register_cqwait_reg(&ring, ptr, 1);
+	ret = io_uring_register_wait_reg(&ring, ptr, 1);
 	if (ret != -EINVAL) {
 		fprintf(stderr, "register cqwait: %d\n", ret);
 		return T_EXIT_FAIL;
 	}
 
 	ptr = buf + (sizeof(struct io_uring_reg_wait) / 2);
-	ret = io_uring_register_cqwait_reg(&ring, ptr, 1);
+	ret = io_uring_register_wait_reg(&ring, ptr, 1);
 	if (ret != -EINVAL) {
 		fprintf(stderr, "register cqwait: %d\n", ret);
 		return T_EXIT_FAIL;
@@ -44,21 +44,21 @@ static int test_invalid_reg2(void)
 
 	free(buf);
 	buf = (void *) 0x1000;
-	ret = io_uring_register_cqwait_reg(&ring, buf, 1);
+	ret = io_uring_register_wait_reg(&ring, buf, 1);
 	if (ret != -EFAULT) {
 		fprintf(stderr, "register cqwait: %d\n", ret);
 		return T_EXIT_FAIL;
 	}
 
 	buf = (void *) 0x1240;
-	ret = io_uring_register_cqwait_reg(&ring, buf, 1);
+	ret = io_uring_register_wait_reg(&ring, buf, 1);
 	if (ret != -EFAULT) {
 		fprintf(stderr, "register cqwait: %d\n", ret);
 		return T_EXIT_FAIL;
 	}
 
 	buf = (void *) 0x1241;
-	ret = io_uring_register_cqwait_reg(&ring, buf, 1);
+	ret = io_uring_register_wait_reg(&ring, buf, 1);
 	if (ret != -EINVAL) {
 		fprintf(stderr, "register cqwait: %d\n", ret);
 		return T_EXIT_FAIL;
@@ -85,7 +85,7 @@ static int test_invalid_reg(void)
 	ptr = buf + 512;
 	ireg = ptr;
 
-	ret = io_uring_register_cqwait_reg(&ring, ireg, 56);
+	ret = io_uring_register_wait_reg(&ring, ireg, 56);
 	if (ret) {
 		fprintf(stderr, "register cqwait: %d\n", ret);
 		return T_EXIT_FAIL;

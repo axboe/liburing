@@ -707,7 +707,7 @@ struct io_uring_reg_wait *io_uring_setup_reg_wait(struct io_uring *ring,
 	}
 
 	memset(reg, 0, size);
-	ret = io_uring_register_cqwait_reg(ring, reg, nentries);
+	ret = io_uring_register_wait_reg(ring, reg, nentries);
 	if (!ret)
 		return reg;
 

@@ -465,8 +465,8 @@ out:
 	return ret;
 }
 
-int io_uring_register_cqwait_reg(struct io_uring *ring,
-				 struct io_uring_reg_wait *reg, int nr)
+int io_uring_register_wait_reg(struct io_uring *ring,
+			       struct io_uring_reg_wait *reg, int nr)
 {
 	struct io_uring_cqwait_reg_arg arg = {
 		.flags		= 0,
