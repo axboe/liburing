@@ -10,6 +10,7 @@
 #include <sys/uio.h>
 #include <string.h>
 #include <limits.h>
+#include <sys/mman.h>
 
 #include "liburing.h"
 #include "helpers.h"
@@ -519,12 +520,73 @@ static int test_dummy(void)
 	return T_EXIT_PASS;
 }
 
+/*
+ * Register sparse buffer table, then try updating that with a few huge
+ * page entries.
+ */
+static int test_merge(void)
+{
+	int ret, res = T_EXIT_SKIP;
+	struct iovec vecs[8];
+	struct io_uring ring;
+	__u64 tags[2];
+	void *p1;
+
+	p1 = mmap(NULL, 2*1024*1024, PROT_READ|PROT_WRITE,
+			MAP_PRIVATE|MAP_HUGETLB | MAP_HUGE_2MB | MAP_ANONYMOUS,
+			-1, 0);
+	if (p1 == MAP_FAILED)
+		return T_EXIT_SKIP;
+
+	ret = io_uring_queue_init(1, &ring, 0);
+	if (ret) {
+		fprintf(stderr, "ring_init: %d\n", ret);
+		return T_EXIT_FAIL;
+	}
+
+	memset(vecs, 0, sizeof(vecs));
+
+	ret = io_uring_register_buffers(&ring, vecs, 8);
+	if (ret < 0) {
+		if (ret == -EINVAL)
+			goto skip;
+		fprintf(stderr, "failed to register initial buffers: %d\n", ret);
+		return T_EXIT_FAIL;
+	}
+
+	vecs[0].iov_base = p1;
+	vecs[0].iov_len = 4096;
+	vecs[1].iov_base = p1 + 4096;
+	vecs[1].iov_len = 4096;
+
+	tags[0] = 1;
+	tags[1] = 2;
+	ret = io_uring_register_buffers_update_tag(&ring, 4, vecs, tags, 2);
+	if (ret < 0) {
+		if (ret == -EINVAL)
+			goto skip;
+		fprintf(stderr, "failed to register merge buffers: %d\n", ret);
+		return T_EXIT_FAIL;
+	}
+	res = T_EXIT_PASS;
+skip:
+	munmap(p1, 2*1024*1024);
+	io_uring_queue_exit(&ring);
+	return res;
+}
+
 int main(int argc, char *argv[])
 {
 	int ret;
 
 	if (argc > 1)
 		return T_EXIT_SKIP;
+
+	ret = test_merge();
+	if (ret == T_EXIT_FAIL) {
+		fprintf(stderr, "test_merge failed\n");
+		return T_EXIT_FAIL;
+	}
 
 	ret = test(0, 0);
 	if (ret == T_EXIT_SKIP) {
