@@ -1,0 +1,35 @@
+.\" Copyright (C) 2024 Jens Axboe <axboe@kernel.dk>
+.\"
+.\" SPDX-License-Identifier: LGPL-2.0-or-later
+.\"
+.TH io_uring_free_reg_wait 3 "November 2, 2024" "liburing-2.9" "liburing Manual"
+.SH NAME
+io_uring_free_reg_wait \- Frees a previously registered wait region
+.SH SYNOPSIS
+.nf
+.B #include <liburing.h>
+.PP
+.BI "void io_uring_free_reg_wait(struct io_uring *" ring ","
+.BI "                            unsigned " nentries ");"
+.PP
+.fi
+.SH DESCRIPTION
+.PP
+The
+.BR io_uring_free_reg_wait (3)
+function frees a wait region for the ring
+.IR ring
+of
+.IR nentries
+previously setup with
+.BR io_uring_setup_reg_wait (3) .
+As registered wait regions persist for the life time of the ring, on the
+kernel side the wait regions still remain active, and may in fact still
+be used by the application for wait operations. They may just no longer
+be modified by the application.
+
+Available since kernel 6.13.
+
+.SH SEE ALSO
+.BR io_uring_submit_and_wait_reg (3),
+.BR io_uring_free_reg_wait (3)
