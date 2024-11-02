@@ -12,7 +12,8 @@
 #include <assert.h>
 #include <liburing.h>
 
-static unsigned long long mtime_since(const struct timeval *s, const struct timeval *e)
+static unsigned long long mtime_since(const struct timeval *s,
+				      const struct timeval *e)
 {
 	long long sec, usec;
 
@@ -123,6 +124,12 @@ int main(int argc, char *argv[])
 	/* trigger one read */
 	write(fds[1], "Hello", 5);
 
+	/*
+	 * This should will wait for 2 entries, where 1 is already available.
+	 * Since we're using min_wait_usec == 10 msec here with an overall
+	 * wait of 100 msec, we expect the wait to abort after 10 msec since
+	 * one or more events are available.
+	 */
 	gettimeofday(&tv, NULL);
 	ret = io_uring_submit_and_wait_reg(&ring, cqe, 2, 1);
 	msec = mtime_since_now(&tv);
@@ -130,10 +137,13 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "Should have submitted 2: %d\n", ret);
 		return 1;
 	}
-	if (msec < 8 || msec > 12) {
+	if (msec < 8 || msec > 12)
 		fprintf(stderr, "min_wait_usec should take ~10 msec: %lu\n", msec);
-		return 1;
-	}
 
+	/*
+	 * Cleanup after ourselves
+	 */
+	io_uring_queue_exit(&ring);
+	io_uring_free_reg_wait(reg, 32);
 	return 0;
 }
