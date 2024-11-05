@@ -37,7 +37,7 @@ int main(int argc, char *argv[])
 	ret = io_uring_register_files_tags(&ring, fds, tags, 2);
 	if (ret == -EINVAL) {
 		return T_EXIT_SKIP;
-	} else {
+	} else if (ret < 0) {
 		fprintf(stderr, "file_register_init: %d\n", ret);
 		return T_EXIT_FAIL;
 	}
