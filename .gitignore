@@ -27,6 +27,7 @@
 /examples/send-zerocopy
 /examples/rsrc-update-bench
 /examples/kdigest
+/examples/reg-wait
 
 /test/*.t
 /test/*.dmesg
