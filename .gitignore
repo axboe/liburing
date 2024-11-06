@@ -33,6 +33,10 @@
 /test/*.dmesg
 /test/output/
 
+# Clang's compilation database file and directory.
+/.cache
+/compile_commands.json
+
 config-host.h
 config-host.mak
 config.log
