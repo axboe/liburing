@@ -488,7 +488,6 @@ static void usage(const char *filepath)
 	printf("  -D <address>\tDestination address\n");
 	printf("  -p <port>\tServer port to listen on/connect to\n");
 	printf("  -s <size>\tBytes per request\n");
-	printf("  -s <size>\tBytes per request\n");
 	printf("  -n <nr>\tNumber of parallel requests\n");
 	printf("  -z <mode>\tZerocopy mode, 0 to disable, enabled otherwise\n");
 	printf("  -b <mode>\tUse registered buffers\n");
