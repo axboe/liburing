@@ -324,6 +324,8 @@ int io_uring_submit_and_wait_reg(struct io_uring *ring,
 				 struct io_uring_cqe **cqe_ptr,
 				 unsigned wait_nr, int reg_index)
 {
+	unsigned long offset = reg_index * sizeof(struct io_uring_reg_wait);
+
 	struct get_data data = {
 		.submit		= __io_uring_flush_sq(ring),
 		.wait_nr	= wait_nr,
@@ -331,7 +333,7 @@ int io_uring_submit_and_wait_reg(struct io_uring *ring,
 				  IORING_ENTER_EXT_ARG_REG,
 		.sz		= sizeof(struct io_uring_reg_wait),
 		.has_ts		= true,
-		.arg		= (void *) (uintptr_t) reg_index,
+		.arg		= (void *) (uintptr_t) offset,
 	};
 
 	if (!(ring->features & IORING_FEAT_EXT_ARG))

@@ -470,3 +470,9 @@ int io_uring_register_wait_reg(struct io_uring *ring,
 {
 	return -EINVAL;
 }
+
+int io_uring_register_region(struct io_uring *ring,
+			     struct io_uring_mem_region_reg *reg)
+{
+	return do_register(ring, IORING_REGISTER_MEM_REGION, reg, 1);
+}
