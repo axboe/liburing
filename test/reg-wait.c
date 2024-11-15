@@ -13,6 +13,18 @@
 #include "liburing.h"
 #include "helpers.h"
 #include "test.h"
+#include "../src/syscall.h"
+
+static int test_wait_reg_offset(struct io_uring *ring,
+				 unsigned wait_nr, unsigned long offset)
+{
+	return __sys_io_uring_enter2(ring->ring_fd, 0, wait_nr,
+				     IORING_ENTER_GETEVENTS |
+				     IORING_ENTER_EXT_ARG |
+				     IORING_ENTER_EXT_ARG_REG,
+				     (void *)offset,
+				     sizeof(struct io_uring_reg_wait));
+}
 
 static int page_size;
 static struct io_uring_reg_wait *reg;
@@ -55,6 +67,7 @@ static int test_offsets(struct io_uring *ring)
 	struct io_uring_cqe *cqe;
 	int max_index = page_size / sizeof(struct io_uring_reg_wait);
 	struct io_uring_reg_wait *rw;
+	unsigned long offset;
 	int ret;
 
 	rw = reg + max_index;
@@ -79,6 +92,36 @@ static int test_offsets(struct io_uring *ring)
 		fprintf(stderr, "last index failed: %d\n", ret);
 		return T_EXIT_FAIL;
 	}
+
+	offset = 0UL - sizeof(long);
+	ret = test_wait_reg_offset(ring, 1, offset);
+	if (ret != -EFAULT) {
+		fprintf(stderr, "overflow offset failed: %d\n", ret);
+		return T_EXIT_FAIL;
+	}
+
+	offset = 4096 - sizeof(long);
+	rw = (void *)reg + offset;
+	memset(rw, 0, sizeof(*rw));
+	rw->flags = IORING_REG_WAIT_TS;
+	rw->ts.tv_sec = 0;
+	rw->ts.tv_nsec = 1000;
+
+	ret = test_wait_reg_offset(ring, 1, offset);
+	if (ret != -EFAULT) {
+		fprintf(stderr, "OOB offset failed: %d\n", ret);
+		return T_EXIT_FAIL;
+	}
+
+	offset = 1;
+	rw = (void *)reg + offset;
+	memset(rw, 0, sizeof(*rw));
+	rw->flags = IORING_REG_WAIT_TS;
+	rw->ts.tv_sec = 0;
+	rw->ts.tv_nsec = 1000;
+
+	/* undefined behaviour, check the kernel doesn't crash */
+	(void)test_wait_reg_offset(ring, 1, offset);
 
 	return 0;
 }
