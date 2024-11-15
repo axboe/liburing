@@ -686,13 +686,3 @@ int io_uring_free_buf_ring(struct io_uring *ring, struct io_uring_buf_ring *br,
 	__sys_munmap(br, nentries * sizeof(struct io_uring_buf));
 	return 0;
 }
-
-void io_uring_free_reg_wait(struct io_uring_reg_wait *reg, unsigned nentries)
-{
-}
-
-struct io_uring_reg_wait *io_uring_setup_reg_wait(struct io_uring *ring,
-						  unsigned nentries, int *err)
-{
-	return NULL;
-}
