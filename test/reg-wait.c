@@ -14,122 +14,8 @@
 #include "helpers.h"
 #include "test.h"
 
+static int page_size;
 static struct io_uring_reg_wait *reg;
-
-static int test_invalid_reg2(void)
-{
-	struct io_uring ring;
-	void *buf, *ptr;
-	int ret;
-
-	io_uring_queue_init(1, &ring, 0);
-
-	if (posix_memalign(&buf, 4096, 4096))
-		return T_EXIT_FAIL;
-	memset(buf, 0, 4096);
-	ptr = buf + 4096 - 32;
-
-	ret = io_uring_register_wait_reg(&ring, ptr, 1);
-	if (ret != -EINVAL) {
-		fprintf(stderr, "register cqwait: %d\n", ret);
-		return T_EXIT_FAIL;
-	}
-
-	ptr = buf + (sizeof(struct io_uring_reg_wait) / 2);
-	ret = io_uring_register_wait_reg(&ring, ptr, 1);
-	if (ret != -EINVAL) {
-		fprintf(stderr, "register cqwait: %d\n", ret);
-		return T_EXIT_FAIL;
-	}
-
-	free(buf);
-	buf = (void *) 0x1000;
-	ret = io_uring_register_wait_reg(&ring, buf, 1);
-	if (ret != -EFAULT) {
-		fprintf(stderr, "register cqwait: %d\n", ret);
-		return T_EXIT_FAIL;
-	}
-
-	buf = (void *) 0x1240;
-	ret = io_uring_register_wait_reg(&ring, buf, 1);
-	if (ret != -EFAULT) {
-		fprintf(stderr, "register cqwait: %d\n", ret);
-		return T_EXIT_FAIL;
-	}
-
-	buf = (void *) 0x1241;
-	ret = io_uring_register_wait_reg(&ring, buf, 1);
-	if (ret != -EINVAL) {
-		fprintf(stderr, "register cqwait: %d\n", ret);
-		return T_EXIT_FAIL;
-	}
-
-	io_uring_queue_exit(&ring);
-	return T_EXIT_PASS;
-}
-
-static int test_invalid_reg(void)
-{
-	struct io_uring_reg_wait *ireg;
-	struct io_uring_cqe *cqe;
-	struct io_uring ring;
-	struct timeval tv;
-	void *buf, *ptr;
-	int ret;
-
-	io_uring_queue_init(1, &ring, 0);
-
-	if (posix_memalign(&buf, 4096, 4096))
-		return T_EXIT_FAIL;
-	memset(buf, 0, 4096);
-	ptr = buf + 512;
-	ireg = ptr;
-
-	ret = io_uring_register_wait_reg(&ring, ireg, 56);
-	if (ret) {
-		fprintf(stderr, "register cqwait: %d\n", ret);
-		return T_EXIT_FAIL;
-	}
-
-	ireg = ptr;
-	memset(ireg, 0, sizeof(*ireg));
-	ireg->ts.tv_sec = 1;
-	ireg->ts.tv_nsec = 0;
-	ireg->flags = IORING_REG_WAIT_TS;
-
-	gettimeofday(&tv, NULL);
-	ret = io_uring_submit_and_wait_reg(&ring, &cqe, 1, 0);
-	if (ret != -ETIME) {
-		fprintf(stderr, "wait_reg failed: %d\n", ret);
-		return T_EXIT_FAIL;
-	}
-
-	ret = mtime_since_now(&tv);
-	/* allow some slack, should be around 1.1s */
-	if (ret < 1000 || ret > 1200) {
-		fprintf(stderr, "wait too long or short: %d\n", ret);
-		goto err;
-	}
-
-	memset(ireg, 0, sizeof(*ireg));
-	ireg->ts.tv_sec = 1;
-	ireg->ts.tv_nsec = 0;
-	ireg->flags = IORING_REG_WAIT_TS;
-
-	gettimeofday(&tv, NULL);
-	ret = io_uring_submit_and_wait_reg(&ring, &cqe, 1, 56);
-	if (ret != -EFAULT) {
-		fprintf(stderr, "out-of-range reg_wait failed: %d\n", ret);
-		return T_EXIT_FAIL;
-	}
-
-	free(buf);
-	io_uring_queue_exit(&ring);
-	return T_EXIT_PASS;
-err:
-	io_uring_queue_exit(&ring);
-	return T_EXIT_FAIL;
-}
 
 static int test_invalid_sig(struct io_uring *ring)
 {
@@ -164,6 +50,39 @@ static int test_invalid_sig(struct io_uring *ring)
 	return T_EXIT_PASS;
 }
 
+static int test_offsets(struct io_uring *ring)
+{
+	struct io_uring_cqe *cqe;
+	int max_index = page_size / sizeof(struct io_uring_reg_wait);
+	struct io_uring_reg_wait *rw;
+	int ret;
+
+	rw = reg + max_index;
+	memset(rw, 0, sizeof(*rw));
+	rw->ts.tv_sec = 0;
+	rw->ts.tv_nsec = 1000;
+
+	ret = io_uring_submit_and_wait_reg(ring, &cqe, 1, 0);
+	if (ret != -EFAULT) {
+		fprintf(stderr, "max+1 index failed: %d\n", ret);
+		return T_EXIT_FAIL;
+	}
+
+	rw = reg + max_index - 1;
+	memset(rw, 0, sizeof(*rw));
+	rw->flags = IORING_REG_WAIT_TS;
+	rw->ts.tv_sec = 0;
+	rw->ts.tv_nsec = 1000;
+
+	ret = io_uring_submit_and_wait_reg(ring, &cqe, 1, max_index - 1);
+	if (ret != -ETIME) {
+		fprintf(stderr, "last index failed: %d\n", ret);
+		return T_EXIT_FAIL;
+	}
+
+	return 0;
+}
+
 static int test_basic(struct io_uring *ring)
 {
 	struct io_uring_cqe *cqe;
@@ -192,26 +111,49 @@ err:
 	return T_EXIT_FAIL;
 }
 
-static int test_ring(void)
+static int test_wait_arg(void)
 {
+	struct io_uring_region_desc rd = {};
+	struct io_uring_mem_region_reg mr = {};
 	struct io_uring ring;
-	struct io_uring_params p = { };
+	void *buffer;
 	int ret;
 
-	p.flags = 0;
-	ret = io_uring_queue_init_params(8, &ring, &p);
+	ret = io_uring_queue_init(8, &ring, IORING_SETUP_R_DISABLED);
 	if (ret) {
+		if (ret == -EINVAL) {
+			printf("IORING_SETUP_R_DISABLED not supported, skip\n");
+			return 0;
+		}
 		fprintf(stderr, "ring setup failed: %d\n", ret);
+		return T_EXIT_FAIL;
+	}
+
+	buffer = aligned_alloc(page_size, page_size * 4);
+	if (!buffer) {
+		fprintf(stderr, "allocation failed\n");
+		return T_EXIT_FAIL;
+	}
+
+	rd.user_addr = (__u64)(unsigned long)buffer;
+	rd.size = page_size;
+	rd.flags = IORING_MEM_REGION_TYPE_USER;
+	mr.region_uptr = (__u64)(unsigned long)&rd;
+	mr.flags = IORING_MEM_REGION_REG_WAIT_ARG;
+
+	ret = io_uring_register_region(&ring, &mr);
+	if (ret) {
+		fprintf(stderr, "region reg failed %i\n", ret);
 		return 1;
 	}
 
-	reg = io_uring_setup_reg_wait(&ring, 64, &ret);
-	if (!reg) {
-		if (ret == -EINVAL)
-			return T_EXIT_SKIP;
-		fprintf(stderr, "setup_reg_wait: %d\n", ret);
+	ret = io_uring_enable_rings(&ring);
+	if (ret) {
+		fprintf(stderr, "io_uring_enable_rings failure %i\n", ret);
 		return T_EXIT_FAIL;
 	}
+
+	reg = buffer;
 
 	ret = test_basic(&ring);
 	if (ret == T_EXIT_FAIL) {
@@ -225,27 +167,34 @@ static int test_ring(void)
 		goto err;
 	}
 
-	ret = test_invalid_reg();
+	ret = test_offsets(&ring);
 	if (ret == T_EXIT_FAIL) {
-		fprintf(stderr, "test_invalid_reg failed\n");
+		fprintf(stderr, "test_offsets failed\n");
 		goto err;
 	}
-
-	ret = test_invalid_reg2();
-	if (ret == T_EXIT_FAIL) {
-		fprintf(stderr, "test_invalid_reg2 failed\n");
-		goto err;
-	}
-
 err:
+	free(buffer);
 	io_uring_queue_exit(&ring);
 	return ret;
 }
 
 int main(int argc, char *argv[])
 {
+	int ret;
+
 	if (argc > 1)
 		return 0;
 
-	return test_ring();
+	page_size = sysconf(_SC_PAGESIZE);
+	if (page_size < 0) {
+		perror("sysconf(_SC_PAGESIZE)");
+		return 1;
+	}
+
+	ret = test_wait_arg();
+	if (ret == T_EXIT_FAIL) {
+		fprintf(stderr, "test_wait_arg failed\n");
+		return 1;
+	}
+	return 0;
 }
