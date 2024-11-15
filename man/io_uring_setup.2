@@ -78,7 +78,15 @@ in question. For NVMe devices, the nvme driver must be loaded with the
 parameter set to the desired number of polling queues. The polling queues
 will be shared appropriately between the CPUs in the system, if the number
 is less than the number of online CPU threads.
-
+.TP
+.B IORING_SETUP_HYBRID_IOPOLL
+This flag must be used with
+.B IORING_SETUP_IOPOLL
+flag. Hybrid io polling is a feature based on iopoll, it differs from strict
+polling in that it will delay a bit before doing completion side polling, to
+avoid wasting too much CPU resources. Like
+.B IOPOLL
+, it requires that devices support polling.
 .TP
 .B IORING_SETUP_SQPOLL
 When this flag is specified, a kernel thread is created to perform
