@@ -178,6 +178,134 @@ err:
 	return ret;
 }
 
+static int test_try_register_region(struct io_uring_mem_region_reg *pr,
+				    bool disabled, bool reenable)
+{
+	struct io_uring ring;
+	int flags = 0;
+	int ret;
+
+	if (disabled)
+		flags = IORING_SETUP_R_DISABLED;
+
+	ret = io_uring_queue_init(8, &ring, flags);
+	if (ret) {
+		fprintf(stderr, "ring setup failed: %d\n", ret);
+		return 1;
+	}
+
+	if (reenable) {
+		ret = io_uring_enable_rings(&ring);
+		if (ret) {
+			fprintf(stderr, "io_uring_enable_rings failure %i\n", ret);
+			return 1;
+		}
+	}
+
+	ret = io_uring_register_region(&ring, pr);
+	io_uring_queue_exit(&ring);
+	return ret;
+}
+
+static int test_regions(void)
+{
+	struct io_uring_region_desc rd = {};
+	struct io_uring_mem_region_reg mr = {};
+	void *buffer;
+	int ret;
+
+	buffer = aligned_alloc(4096, 4096 * 4);
+	if (!buffer) {
+		fprintf(stderr, "allocation failed\n");
+		return T_EXIT_FAIL;
+	}
+
+	rd.user_addr = (__u64)(unsigned long)buffer;
+	rd.size = 4096;
+	rd.flags = IORING_MEM_REGION_TYPE_USER;
+
+	mr.region_uptr = (__u64)(unsigned long)&rd;
+	mr.flags = IORING_MEM_REGION_REG_WAIT_ARG;
+
+	ret = test_try_register_region(&mr, true, false);
+	if (ret == -EINVAL)
+		return T_EXIT_SKIP;
+	if (ret) {
+		fprintf(stderr, "test_try_register_region(true, false) fail %i\n", ret);
+		return T_EXIT_FAIL;
+	}
+
+	ret = test_try_register_region(&mr, false, false);
+	if (ret != -EINVAL) {
+		fprintf(stderr, "test_try_register_region(false, false) fail %i\n", ret);
+		return T_EXIT_FAIL;
+	}
+
+	ret = test_try_register_region(&mr, true, true);
+	if (ret != -EINVAL) {
+		fprintf(stderr, "test_try_register_region(true, true) fail %i\n", ret);
+		return T_EXIT_FAIL;
+	}
+
+	rd.size = 4096 * 4;
+	ret = test_try_register_region(&mr, true, false);
+	if (ret) {
+		fprintf(stderr, "test_try_register_region() 16KB fail %i\n", ret);
+		return T_EXIT_FAIL;
+	}
+	rd.size = 4096;
+
+	rd.user_addr = 0;
+	ret = test_try_register_region(&mr, true, false);
+	if (ret != -EFAULT) {
+		fprintf(stderr, "test_try_register_region() null uptr fail %i\n", ret);
+		return T_EXIT_FAIL;
+	}
+	rd.user_addr = (__u64)(unsigned long)buffer;
+
+	rd.flags = 0;
+	ret = test_try_register_region(&mr, true, false);
+	if (!ret) {
+		fprintf(stderr, "test_try_register_region() kernel alloc with uptr fail %i\n", ret);
+		return T_EXIT_FAIL;
+	}
+	rd.flags = IORING_MEM_REGION_TYPE_USER;
+
+	rd.size = 0;
+	ret = test_try_register_region(&mr, true, false);
+	if (!ret) {
+		fprintf(stderr, "test_try_register_region() 0-size fail %i\n", ret);
+		return T_EXIT_FAIL;
+	}
+	rd.size = 4096;
+
+	mr.region_uptr = 0;
+	ret = test_try_register_region(&mr, true, false);
+	if (!ret) {
+		fprintf(stderr, "test_try_register_region() NULL region %i\n", ret);
+		return T_EXIT_FAIL;
+	}
+	mr.region_uptr = (__u64)(unsigned long)&rd;
+
+	rd.user_addr += 16;
+	ret = test_try_register_region(&mr, true, false);
+	if (!ret) {
+		fprintf(stderr, "test_try_register_region() misaligned region %i\n", ret);
+		return T_EXIT_FAIL;
+	}
+
+	rd.user_addr = 0x1000;
+	ret = test_try_register_region(&mr, true, false);
+	if (!ret) {
+		fprintf(stderr, "test_try_register_region() bogus uptr %i\n", ret);
+		return T_EXIT_FAIL;
+	}
+	rd.user_addr = (__u64)(unsigned long)buffer;
+
+	free(buffer);
+	return 0;
+}
+
 int main(int argc, char *argv[])
 {
 	int ret;
@@ -188,6 +316,15 @@ int main(int argc, char *argv[])
 	page_size = sysconf(_SC_PAGESIZE);
 	if (page_size < 0) {
 		perror("sysconf(_SC_PAGESIZE)");
+		return 1;
+	}
+
+	ret = test_regions();
+	if (ret == T_EXIT_SKIP) {
+		printf("regions are not supported, skip\n");
+		return 0;
+	} else if (ret) {
+		fprintf(stderr, "test_region failed\n");
 		return 1;
 	}
 
