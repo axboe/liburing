@@ -38,6 +38,20 @@ static unsigned long long mtime_since_now(struct timeval *tv)
 	return mtime_since(tv, &end);
 }
 
+static int register_memory(struct io_uring *ring, void *ptr, size_t size)
+{
+	struct io_uring_region_desc rd = {};
+	struct io_uring_mem_region_reg mr = {};
+
+	rd.user_addr = (__u64)(unsigned long)ptr;
+	rd.size = size;
+	rd.flags = IORING_MEM_REGION_TYPE_USER;
+	mr.region_uptr = (__u64)(unsigned long)&rd;
+	mr.flags = IORING_MEM_REGION_REG_WAIT_ARG;
+
+	return io_uring_register_region(ring, &mr);
+}
+
 int main(int argc, char *argv[])
 {
 	struct io_uring_reg_wait *reg;
@@ -48,10 +62,17 @@ int main(int argc, char *argv[])
 	unsigned long msec;
 	struct timeval tv;
 	int ret, fds[2];
+	int page_size;
 
 	if (argc > 1) {
 		fprintf(stdout, "%s: takes no arguments\n", argv[0]);
 		return 0;
+	}
+
+	page_size = sysconf(_SC_PAGESIZE);
+	if (page_size < 0) {
+		fprintf(stderr, "sysconf(_SC_PAGESIZE) failed\n");
+		return 1;
 	}
 
 	if (pipe(fds) < 0) {
@@ -59,24 +80,36 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-	ret = io_uring_queue_init(8, &ring, 0);
+	ret = io_uring_queue_init(8, &ring, IORING_SETUP_R_DISABLED);
 	if (ret) {
 		fprintf(stderr, "Queue init: %d\n", ret);
 		return 1;
 	}
 
 	/*
-	 * Setup wait region. We'll use 32 here, but 64 is probably a more
-	 * logical value, as it'll pin a page regardless of size. 64 is the
-	 * max value on a 4k page size architecture.
+	 * Setup a region we'll use to pass wait arguments. It should be
+	 * page aligned, we're using only first two wait entries here and
+	 * the rest of the memory can be reused for other purposes.
 	 */
-	reg = io_uring_setup_reg_wait(&ring, 32, &ret);
+	reg = aligned_alloc(page_size, page_size);
 	if (!reg) {
+		fprintf(stderr, "allocation failed\n");
+		return 1;
+	}
+
+	ret = register_memory(&ring, reg, page_size);
+	if (ret) {
 		if (ret == -EINVAL) {
 			fprintf(stderr, "Kernel doesn't support registered waits\n");
 			return 1;
 		}
 		fprintf(stderr, "Registered wait: %d\n", ret);
+		return 1;
+	}
+
+	ret = io_uring_enable_rings(&ring);
+	if (ret) {
+		fprintf(stderr, "io_uring_enable_rings failure %i\n", ret);
 		return 1;
 	}
 
@@ -154,6 +187,6 @@ int main(int argc, char *argv[])
 	 * Cleanup after ourselves
 	 */
 	io_uring_queue_exit(&ring);
-	io_uring_free_reg_wait(reg, 32);
+	free(reg);
 	return 0;
 }
