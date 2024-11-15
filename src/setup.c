@@ -689,29 +689,10 @@ int io_uring_free_buf_ring(struct io_uring *ring, struct io_uring_buf_ring *br,
 
 void io_uring_free_reg_wait(struct io_uring_reg_wait *reg, unsigned nentries)
 {
-	__sys_munmap(reg, nentries * sizeof(struct io_uring_reg_wait));
 }
 
 struct io_uring_reg_wait *io_uring_setup_reg_wait(struct io_uring *ring,
 						  unsigned nentries, int *err)
 {
-	struct io_uring_reg_wait *reg;
-	size_t size = nentries * sizeof(*reg);
-	int ret;
-
-	reg = __sys_mmap(NULL, size, PROT_READ | PROT_WRITE,
-			MAP_SHARED|MAP_POPULATE|MAP_ANONYMOUS, -1, 0);
-	if (IS_ERR(reg)) {
-		*err = PTR_ERR(reg);
-		return NULL;
-	}
-
-	memset(reg, 0, size);
-	ret = io_uring_register_wait_reg(ring, reg, nentries);
-	if (!ret)
-		return reg;
-
-	__sys_munmap(reg, size);
-	*err = ret;
 	return NULL;
 }
