@@ -618,7 +618,7 @@ enum io_uring_register_op {
 
 	IORING_REGISTER_RESIZE_RINGS		= 33,
 
-	IORING_REGISTER_CQWAIT_REG		= 34,
+	IORING_REGISTER_MEM_REGION		= 34,
 
 	/* this goes last */
 	IORING_REGISTER_LAST,
@@ -638,6 +638,31 @@ struct io_uring_files_update {
 	__u32 offset;
 	__u32 resv;
 	__aligned_u64 /* __s32 * */ fds;
+};
+
+enum {
+	/* initialise with user provided memory pointed by user_addr */
+	IORING_MEM_REGION_TYPE_USER		= 1,
+};
+
+struct io_uring_region_desc {
+	__u64 user_addr;
+	__u64 size;
+	__u32 flags;
+	__u32 id;
+	__u64 mmap_offset;
+	__u64 __resv[4];
+};
+
+enum {
+	/* expose the region as registered wait arguments */
+	IORING_MEM_REGION_REG_WAIT_ARG		= 1,
+};
+
+struct io_uring_mem_region_reg {
+	__u64 region_uptr; /* struct io_uring_region_desc * */
+	__u64 flags;
+	__u64 __resv[2];
 };
 
 /*
