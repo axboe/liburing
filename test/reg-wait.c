@@ -9,6 +9,8 @@
 #include <string.h>
 #include <fcntl.h>
 #include <sys/time.h>
+#include <sys/mman.h>
+#include <linux/mman.h>
 
 #include "liburing.h"
 #include "helpers.h"
@@ -63,6 +65,12 @@ err:
 	return ret;
 }
 
+static int init_ring_with_region(struct io_uring *ring, unsigned ring_flags,
+				 struct io_uring_mem_region_reg *pr)
+{
+	return __init_ring_with_region(ring, ring_flags, pr, true);
+}
+
 static int page_size;
 static struct io_uring_reg_wait *reg;
 
@@ -109,6 +117,14 @@ static int test_offsets(struct io_uring *ring, struct io_uring_reg_wait *base,
 	int copy_size;
 	int ret;
 
+	rw = base;
+	memcpy(rw, &brief_wait, sizeof(brief_wait));
+	ret = io_uring_submit_and_wait_reg(ring, &cqe, 1, 0);
+	if (ret != -ETIME) {
+		fprintf(stderr, "0 index failed: %d\n", ret);
+		return T_EXIT_FAIL;
+	}
+
 	if (overallocated) {
 		rw = base + max_index;
 		memcpy(rw, &brief_wait, sizeof(brief_wait));
@@ -134,7 +150,7 @@ static int test_offsets(struct io_uring *ring, struct io_uring_reg_wait *base,
 		return T_EXIT_FAIL;
 	}
 
-	offset = page_size - sizeof(long);
+	offset = size - sizeof(long);
 	rw = (void *)base + offset;
 	copy_size = overallocated ? sizeof(brief_wait) : sizeof(long);
 	memcpy(rw, &brief_wait, copy_size);
@@ -354,6 +370,62 @@ static int test_regions(void)
 	return 0;
 }
 
+static void *alloc_region_buffer(size_t size, bool huge)
+{
+	int flags = MAP_PRIVATE | MAP_ANONYMOUS;
+	void *p;
+
+	if (huge)
+		flags |= MAP_HUGETLB | MAP_HUGE_2MB;
+	p = mmap(NULL, size, PROT_READ | PROT_WRITE, flags, -1, 0);
+	return p == MAP_FAILED ? NULL : p;
+}
+
+static int test_region_buffer_types(void)
+{
+	const size_t huge_size = 1024 * 1024 * 2;
+	const size_t map_sizes[] = { page_size, page_size * 2, page_size * 16,
+				     huge_size, 2 * huge_size};
+	struct io_uring_region_desc rd = {};
+	struct io_uring_mem_region_reg mr = {};
+	struct io_uring ring;
+	int sz_idx, ret;
+
+	mr.region_uptr = (__u64)(unsigned long)&rd;
+	mr.flags = IORING_MEM_REGION_REG_WAIT_ARG;
+
+	for (sz_idx = 0; sz_idx < ARRAY_SIZE(map_sizes); sz_idx++) {
+		size_t size = map_sizes[sz_idx];
+		void *buffer;
+
+		buffer = alloc_region_buffer(size, size >= huge_size);
+		if (!buffer)
+			continue;
+
+		rd.user_addr = (__u64)(unsigned long)buffer;
+		rd.size = size;
+		rd.flags = IORING_MEM_REGION_TYPE_USER;
+
+		ret = init_ring_with_region(&ring, 0, &mr);
+		if (ret) {
+			fprintf(stderr, "init ring failed %i\n", ret);
+			return 1;
+		}
+
+		ret = test_offsets(&ring, buffer, size, false);
+		if (ret) {
+			fprintf(stderr, "test_offsets failed, size %lu\n",
+				(unsigned long)size);
+			return 1;
+		}
+
+		munmap(buffer, size);
+		io_uring_queue_exit(&ring);
+	}
+
+	return 0;
+}
+
 int main(int argc, char *argv[])
 {
 	int ret;
@@ -381,5 +453,12 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "test_wait_arg failed\n");
 		return 1;
 	}
+
+	ret = test_region_buffer_types();
+	if (ret == T_EXIT_FAIL) {
+		fprintf(stderr, "test_region_buffer_types failed\n");
+		return 1;
+	}
+
 	return 0;
 }
