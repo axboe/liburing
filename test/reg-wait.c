@@ -222,7 +222,7 @@ err:
 }
 
 static int test_try_register_region(struct io_uring_mem_region_reg *pr,
-				    bool disabled, bool reenable)
+				    bool disabled, bool enable)
 {
 	struct io_uring ring;
 	int flags = 0;
@@ -237,7 +237,7 @@ static int test_try_register_region(struct io_uring_mem_region_reg *pr,
 		return 1;
 	}
 
-	if (reenable) {
+	if (enable) {
 		ret = io_uring_enable_rings(&ring);
 		if (ret) {
 			fprintf(stderr, "io_uring_enable_rings failure %i\n", ret);
