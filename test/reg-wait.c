@@ -222,7 +222,7 @@ err:
 }
 
 static int test_try_register_region(struct io_uring_mem_region_reg *pr,
-				    bool disabled, bool enable)
+				    bool disabled)
 {
 	struct io_uring ring;
 	int flags = 0;
@@ -237,15 +237,16 @@ static int test_try_register_region(struct io_uring_mem_region_reg *pr,
 		return 1;
 	}
 
-	if (enable) {
-		ret = io_uring_enable_rings(&ring);
-		if (ret) {
-			fprintf(stderr, "io_uring_enable_rings failure %i\n", ret);
-			return 1;
-		}
-	}
-
 	ret = io_uring_register_region(&ring, pr);
+	if (ret)
+		goto err;
+
+	if (disabled) {
+		ret = io_uring_enable_rings(&ring);
+		if (ret)
+			fprintf(stderr, "io_uring_enable_rings failure %i\n", ret);
+	}
+err:
 	io_uring_queue_exit(&ring);
 	return ret;
 }
@@ -270,28 +271,22 @@ static int test_regions(void)
 	mr.region_uptr = (__u64)(unsigned long)&rd;
 	mr.flags = IORING_MEM_REGION_REG_WAIT_ARG;
 
-	ret = test_try_register_region(&mr, true, false);
+	ret = test_try_register_region(&mr, true);
 	if (ret == -EINVAL)
 		return T_EXIT_SKIP;
 	if (ret) {
-		fprintf(stderr, "test_try_register_region(true, false) fail %i\n", ret);
+		fprintf(stderr, "region: register normal fail %i\n", ret);
 		return T_EXIT_FAIL;
 	}
 
-	ret = test_try_register_region(&mr, false, false);
+	ret = test_try_register_region(&mr, false);
 	if (ret != -EINVAL) {
-		fprintf(stderr, "test_try_register_region(false, false) fail %i\n", ret);
-		return T_EXIT_FAIL;
-	}
-
-	ret = test_try_register_region(&mr, true, true);
-	if (ret != -EINVAL) {
-		fprintf(stderr, "test_try_register_region(true, true) fail %i\n", ret);
+		fprintf(stderr, "region: register with !R_DISABLED fail %i\n", ret);
 		return T_EXIT_FAIL;
 	}
 
 	rd.size = 4096 * 4;
-	ret = test_try_register_region(&mr, true, false);
+	ret = test_try_register_region(&mr, true);
 	if (ret) {
 		fprintf(stderr, "test_try_register_region() 16KB fail %i\n", ret);
 		return T_EXIT_FAIL;
@@ -299,7 +294,7 @@ static int test_regions(void)
 	rd.size = 4096;
 
 	rd.user_addr = 0;
-	ret = test_try_register_region(&mr, true, false);
+	ret = test_try_register_region(&mr, true);
 	if (ret != -EFAULT) {
 		fprintf(stderr, "test_try_register_region() null uptr fail %i\n", ret);
 		return T_EXIT_FAIL;
@@ -307,7 +302,7 @@ static int test_regions(void)
 	rd.user_addr = (__u64)(unsigned long)buffer;
 
 	rd.flags = 0;
-	ret = test_try_register_region(&mr, true, false);
+	ret = test_try_register_region(&mr, true);
 	if (!ret) {
 		fprintf(stderr, "test_try_register_region() kernel alloc with uptr fail %i\n", ret);
 		return T_EXIT_FAIL;
@@ -315,7 +310,7 @@ static int test_regions(void)
 	rd.flags = IORING_MEM_REGION_TYPE_USER;
 
 	rd.size = 0;
-	ret = test_try_register_region(&mr, true, false);
+	ret = test_try_register_region(&mr, true);
 	if (!ret) {
 		fprintf(stderr, "test_try_register_region() 0-size fail %i\n", ret);
 		return T_EXIT_FAIL;
@@ -323,7 +318,7 @@ static int test_regions(void)
 	rd.size = 4096;
 
 	mr.region_uptr = 0;
-	ret = test_try_register_region(&mr, true, false);
+	ret = test_try_register_region(&mr, true);
 	if (!ret) {
 		fprintf(stderr, "test_try_register_region() NULL region %i\n", ret);
 		return T_EXIT_FAIL;
@@ -331,14 +326,14 @@ static int test_regions(void)
 	mr.region_uptr = (__u64)(unsigned long)&rd;
 
 	rd.user_addr += 16;
-	ret = test_try_register_region(&mr, true, false);
+	ret = test_try_register_region(&mr, true);
 	if (!ret) {
 		fprintf(stderr, "test_try_register_region() misaligned region %i\n", ret);
 		return T_EXIT_FAIL;
 	}
 
 	rd.user_addr = 0x1000;
-	ret = test_try_register_region(&mr, true, false);
+	ret = test_try_register_region(&mr, true);
 	if (!ret) {
 		fprintf(stderr, "test_try_register_region() bogus uptr %i\n", ret);
 		return T_EXIT_FAIL;
