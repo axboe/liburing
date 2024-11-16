@@ -234,8 +234,9 @@ static int test_try_register_region(struct io_uring_mem_region_reg *pr,
 
 	ret = io_uring_queue_init(8, &ring, flags);
 	if (ret) {
-		fprintf(stderr, "ring setup failed: %d\n", ret);
-		return 1;
+		if (ret != -EINVAL)
+			fprintf(stderr, "ring setup failed: %d\n", ret);
+		return ret;
 	}
 
 	ret = io_uring_register_region(&ring, pr);
