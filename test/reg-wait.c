@@ -68,23 +68,27 @@ static int test_invalid_sig(struct io_uring *ring)
 	return T_EXIT_PASS;
 }
 
-static int test_offsets(struct io_uring *ring)
+static int test_offsets(struct io_uring *ring, struct io_uring_reg_wait *base,
+			size_t size, bool overallocated)
 {
 	struct io_uring_cqe *cqe;
-	int max_index = page_size / sizeof(struct io_uring_reg_wait);
+	int max_index = size / sizeof(struct io_uring_reg_wait);
 	struct io_uring_reg_wait *rw;
 	unsigned long offset;
+	int copy_size;
 	int ret;
 
-	rw = reg + max_index;
-	memcpy(rw, &brief_wait, sizeof(brief_wait));
+	if (overallocated) {
+		rw = base + max_index;
+		memcpy(rw, &brief_wait, sizeof(brief_wait));
+	}
 	ret = io_uring_submit_and_wait_reg(ring, &cqe, 1, max_index);
 	if (ret != -EFAULT) {
 		fprintf(stderr, "max+1 index failed: %d\n", ret);
 		return T_EXIT_FAIL;
 	}
 
-	rw = reg + max_index - 1;
+	rw = base + max_index - 1;
 	memcpy(rw, &brief_wait, sizeof(brief_wait));
 	ret = io_uring_submit_and_wait_reg(ring, &cqe, 1, max_index - 1);
 	if (ret != -ETIME) {
@@ -100,8 +104,10 @@ static int test_offsets(struct io_uring *ring)
 	}
 
 	offset = page_size - sizeof(long);
-	rw = (void *)reg + offset;
-	memcpy(rw, &brief_wait, sizeof(brief_wait));
+	rw = (void *)base + offset;
+	copy_size = overallocated ? sizeof(brief_wait) : sizeof(long);
+	memcpy(rw, &brief_wait, copy_size);
+
 	ret = test_wait_reg_offset(ring, 1, offset);
 	if (ret != -EFAULT) {
 		fprintf(stderr, "OOB offset failed: %d\n", ret);
@@ -109,7 +115,7 @@ static int test_offsets(struct io_uring *ring)
 	}
 
 	offset = 1;
-	rw = (void *)reg + offset;
+	rw = (void *)base + offset;
 	memcpy(rw, &brief_wait, sizeof(brief_wait));
 	/* undefined behaviour, check the kernel doesn't crash */
 	(void)test_wait_reg_offset(ring, 1, offset);
@@ -201,7 +207,7 @@ static int test_wait_arg(void)
 		goto err;
 	}
 
-	ret = test_offsets(&ring);
+	ret = test_offsets(&ring, buffer, page_size, true);
 	if (ret == T_EXIT_FAIL) {
 		fprintf(stderr, "test_offsets failed\n");
 		goto err;
