@@ -72,10 +72,11 @@ static int test_offsets(struct io_uring *ring)
 
 	rw = reg + max_index;
 	memset(rw, 0, sizeof(*rw));
+	rw->flags = IORING_REG_WAIT_TS;
 	rw->ts.tv_sec = 0;
 	rw->ts.tv_nsec = 1000;
 
-	ret = io_uring_submit_and_wait_reg(ring, &cqe, 1, 0);
+	ret = io_uring_submit_and_wait_reg(ring, &cqe, 1, max_index);
 	if (ret != -EFAULT) {
 		fprintf(stderr, "max+1 index failed: %d\n", ret);
 		return T_EXIT_FAIL;
