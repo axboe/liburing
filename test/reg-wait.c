@@ -32,6 +32,37 @@ static int test_wait_reg_offset(struct io_uring *ring,
 				     sizeof(struct io_uring_reg_wait));
 }
 
+static int __init_ring_with_region(struct io_uring *ring, unsigned ring_flags,
+				   struct io_uring_mem_region_reg *pr,
+				   bool disabled)
+{
+	int flags = disabled ? IORING_SETUP_R_DISABLED : 0;
+	int ret;
+
+	ret = io_uring_queue_init(8, ring, flags);
+	if (ret) {
+		if (ret != -EINVAL)
+			fprintf(stderr, "ring setup failed: %d\n", ret);
+		return ret;
+	}
+
+	ret = io_uring_register_region(ring, pr);
+	if (ret)
+		goto err;
+
+	if (disabled) {
+		ret = io_uring_enable_rings(ring);
+		if (ret) {
+			fprintf(stderr, "io_uring_enable_rings failure %i\n", ret);
+			goto err;
+		}
+	}
+	return 0;
+err:
+	io_uring_queue_exit(ring);
+	return ret;
+}
+
 static int page_size;
 static struct io_uring_reg_wait *reg;
 
@@ -222,30 +253,11 @@ static int test_try_register_region(struct io_uring_mem_region_reg *pr,
 				    bool disabled)
 {
 	struct io_uring ring;
-	int flags = 0;
 	int ret;
 
-	if (disabled)
-		flags = IORING_SETUP_R_DISABLED;
-
-	ret = io_uring_queue_init(8, &ring, flags);
-	if (ret) {
-		if (ret != -EINVAL)
-			fprintf(stderr, "ring setup failed: %d\n", ret);
-		return ret;
-	}
-
-	ret = io_uring_register_region(&ring, pr);
-	if (ret)
-		goto err;
-
-	if (disabled) {
-		ret = io_uring_enable_rings(&ring);
-		if (ret)
-			fprintf(stderr, "io_uring_enable_rings failure %i\n", ret);
-	}
-err:
-	io_uring_queue_exit(&ring);
+	ret = __init_ring_with_region(&ring, 0, pr, disabled);
+	if (!ret)
+		io_uring_queue_exit(&ring);
 	return ret;
 }
 
