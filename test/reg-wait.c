@@ -15,6 +15,12 @@
 #include "test.h"
 #include "../src/syscall.h"
 
+static const struct io_uring_reg_wait brief_wait = {
+	.flags = IORING_REG_WAIT_TS,
+	.ts.tv_sec = 0,
+	.ts.tv_nsec = 1000,
+};
+
 static int test_wait_reg_offset(struct io_uring *ring,
 				 unsigned wait_nr, unsigned long offset)
 {
@@ -71,11 +77,7 @@ static int test_offsets(struct io_uring *ring)
 	int ret;
 
 	rw = reg + max_index;
-	memset(rw, 0, sizeof(*rw));
-	rw->flags = IORING_REG_WAIT_TS;
-	rw->ts.tv_sec = 0;
-	rw->ts.tv_nsec = 1000;
-
+	memcpy(rw, &brief_wait, sizeof(brief_wait));
 	ret = io_uring_submit_and_wait_reg(ring, &cqe, 1, max_index);
 	if (ret != -EFAULT) {
 		fprintf(stderr, "max+1 index failed: %d\n", ret);
@@ -83,11 +85,7 @@ static int test_offsets(struct io_uring *ring)
 	}
 
 	rw = reg + max_index - 1;
-	memset(rw, 0, sizeof(*rw));
-	rw->flags = IORING_REG_WAIT_TS;
-	rw->ts.tv_sec = 0;
-	rw->ts.tv_nsec = 1000;
-
+	memcpy(rw, &brief_wait, sizeof(brief_wait));
 	ret = io_uring_submit_and_wait_reg(ring, &cqe, 1, max_index - 1);
 	if (ret != -ETIME) {
 		fprintf(stderr, "last index failed: %d\n", ret);
@@ -103,11 +101,7 @@ static int test_offsets(struct io_uring *ring)
 
 	offset = page_size - sizeof(long);
 	rw = (void *)reg + offset;
-	memset(rw, 0, sizeof(*rw));
-	rw->flags = IORING_REG_WAIT_TS;
-	rw->ts.tv_sec = 0;
-	rw->ts.tv_nsec = 1000;
-
+	memcpy(rw, &brief_wait, sizeof(brief_wait));
 	ret = test_wait_reg_offset(ring, 1, offset);
 	if (ret != -EFAULT) {
 		fprintf(stderr, "OOB offset failed: %d\n", ret);
@@ -116,11 +110,7 @@ static int test_offsets(struct io_uring *ring)
 
 	offset = 1;
 	rw = (void *)reg + offset;
-	memset(rw, 0, sizeof(*rw));
-	rw->flags = IORING_REG_WAIT_TS;
-	rw->ts.tv_sec = 0;
-	rw->ts.tv_nsec = 1000;
-
+	memcpy(rw, &brief_wait, sizeof(brief_wait));
 	/* undefined behaviour, check the kernel doesn't crash */
 	(void)test_wait_reg_offset(ring, 1, offset);
 
