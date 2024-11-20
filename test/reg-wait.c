@@ -413,6 +413,31 @@ static void t_region_free(struct t_region *r)
 		munmap(r->ptr, r->size);
 }
 
+static int t_region_create_kernel(struct t_region *r,
+				  struct io_uring *ring)
+{
+	struct io_uring_region_desc rd = { .size = r->size, };
+	struct io_uring_mem_region_reg mr = {
+		.region_uptr = (__u64)(unsigned long)&rd,
+		.flags = IORING_MEM_REGION_REG_WAIT_ARG,
+	};
+	void *p;
+	int ret;
+
+	ret = io_uring_register_region(ring, &mr);
+	if (ret)
+		return ret;
+
+	p = mmap(NULL, r->size, PROT_READ | PROT_WRITE,
+		 MAP_SHARED | MAP_POPULATE, ring->ring_fd, rd.mmap_offset);
+	if (p == MAP_FAILED)
+		return -EFAULT;
+
+	r->ptr = p;
+	r->user_mem = false;
+	return 0;
+}
+
 static int t_region_create_user(struct t_region *r,
 				struct io_uring *ring,
 				bool huge)
@@ -446,17 +471,36 @@ static int t_region_create_user(struct t_region *r,
 	return 0;
 }
 
+struct test_param {
+	size_t size;
+	bool huge_page;
+	bool kern_buf;
+};
+
 static int test_region_buffer_types(void)
 {
 	const size_t huge_size = 1024 * 1024 * 2;
-	const size_t map_sizes[] = { page_size, page_size * 2, page_size * 16,
-				     huge_size, 2 * huge_size};
+	struct test_param params[] = {
+		{ .size = page_size },
+		/* forcing vmap */
+		{ .size = page_size * 2 },
+		{ .size = page_size * 16 },
+		/* huge page w/o vmap */
+		{ .size = huge_size, .huge_page = true },
+		/* huge page w/ vmap */
+		{ .size = huge_size * 2, .huge_page = true },
+		{ .size = page_size, .kern_buf = true },
+		/* likely to be a compound page */
+		{ .size = page_size * 2, .kern_buf = true },
+		{ .size = page_size * 8, .kern_buf = true },
+		/* kernel allocation + vmap */
+		{ .size = page_size * 512, .kern_buf = true },
+	};
 	struct io_uring ring;
-	int sz_idx, ret;
+	int i, ret;
 
-	for (sz_idx = 0; sz_idx < ARRAY_SIZE(map_sizes); sz_idx++) {
-		size_t size = map_sizes[sz_idx];
-		struct t_region r = { .size = size, };
+	for (i = 0; i < ARRAY_SIZE(params); i++) {
+		struct t_region r = { .size = params[i].size, };
 
 		ret = io_uring_queue_init(8, &ring, IORING_SETUP_R_DISABLED);
 		if (ret) {
@@ -464,12 +508,15 @@ static int test_region_buffer_types(void)
 			return ret;
 		}
 
-		ret = t_region_create_user(&r, &ring, size >= huge_size);
+		if (params[i].kern_buf)
+			ret = t_region_create_kernel(&r, &ring);
+		else
+			ret = t_region_create_user(&r, &ring, params[i].huge_page);
 		if (ret) {
 			io_uring_queue_exit(&ring);
 			if (ret == -ENOMEM || ret == -EINVAL)
 				continue;
-			fprintf(stderr, "t_region_create_user failed\n");
+			fprintf(stderr, "t_region_create_user failed, idx %i\n", i);
 			return 1;
 		}
 
@@ -479,10 +526,9 @@ static int test_region_buffer_types(void)
 			return ret;
 		}
 
-		ret = test_offsets(&ring, r.ptr, size, false);
+		ret = test_offsets(&ring, r.ptr, r.size, false);
 		if (ret) {
-			fprintf(stderr, "test_offsets failed, size %lu\n",
-				(unsigned long)size);
+			fprintf(stderr, "test_offsets failed, idx %i\n", i);
 			return 1;
 		}
 
