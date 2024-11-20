@@ -365,8 +365,22 @@ static int test_regions(void)
 		return T_EXIT_FAIL;
 	}
 	rd.user_addr = (__u64)(unsigned long)buffer;
-
 	free(buffer);
+
+	buffer = mmap(NULL, page_size, PROT_READ, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+	if (buffer == MAP_FAILED) {
+		fprintf(stderr, "mmap alloc failed\n");
+		return 1;
+	}
+
+	rd.user_addr = (__u64)(unsigned long)buffer;
+	ret = test_try_register_region(&mr, true);
+	if (ret != -EFAULT) {
+		fprintf(stderr, "test_try_register_region() RO uptr %i\n", ret);
+		return T_EXIT_FAIL;
+	}
+
+	munmap(buffer, page_size);
 	return 0;
 }
 
