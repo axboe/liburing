@@ -67,12 +67,6 @@ err:
 	return ret;
 }
 
-static int init_ring_with_region(struct io_uring *ring, unsigned ring_flags,
-				 struct io_uring_mem_region_reg *pr)
-{
-	return __init_ring_with_region(ring, ring_flags, pr, true);
-}
-
 static int page_size;
 static struct io_uring_reg_wait *reg;
 
@@ -407,15 +401,49 @@ out:
 	return 0;
 }
 
-static void *alloc_region_buffer(size_t size, bool huge)
+struct t_region {
+	void *ptr;
+	bool user_mem;
+	size_t size;
+};
+
+static void t_region_free(struct t_region *r)
 {
+	if (r->ptr)
+		munmap(r->ptr, r->size);
+}
+
+static int t_region_create_user(struct t_region *r,
+				struct io_uring *ring,
+				bool huge)
+{
+	struct io_uring_region_desc rd = {};
+	struct io_uring_mem_region_reg mr = {};
 	int flags = MAP_PRIVATE | MAP_ANONYMOUS;
 	void *p;
+	int ret;
 
 	if (huge)
 		flags |= MAP_HUGETLB | MAP_HUGE_2MB;
-	p = mmap(NULL, size, PROT_READ | PROT_WRITE, flags, -1, 0);
-	return p == MAP_FAILED ? NULL : p;
+
+	p = mmap(NULL, r->size, PROT_READ | PROT_WRITE, flags, -1, 0);
+	if (p == MAP_FAILED)
+		return -ENOMEM;
+
+	mr.region_uptr = (__u64)(unsigned long)&rd;
+	mr.flags = IORING_MEM_REGION_REG_WAIT_ARG;
+	rd.user_addr = (__u64)(unsigned long)p;
+	rd.flags = IORING_MEM_REGION_TYPE_USER;
+	rd.size = r->size;
+
+	ret = io_uring_register_region(ring, &mr);
+	if (ret) {
+		munmap(p, r->size);
+		return ret;
+	}
+	r->ptr = p;
+	r->user_mem = true;
+	return 0;
 }
 
 static int test_region_buffer_types(void)
@@ -423,40 +451,42 @@ static int test_region_buffer_types(void)
 	const size_t huge_size = 1024 * 1024 * 2;
 	const size_t map_sizes[] = { page_size, page_size * 2, page_size * 16,
 				     huge_size, 2 * huge_size};
-	struct io_uring_region_desc rd = {};
-	struct io_uring_mem_region_reg mr = {};
 	struct io_uring ring;
 	int sz_idx, ret;
 
-	mr.region_uptr = (__u64)(unsigned long)&rd;
-	mr.flags = IORING_MEM_REGION_REG_WAIT_ARG;
-
 	for (sz_idx = 0; sz_idx < ARRAY_SIZE(map_sizes); sz_idx++) {
 		size_t size = map_sizes[sz_idx];
-		void *buffer;
+		struct t_region r = { .size = size, };
 
-		buffer = alloc_region_buffer(size, size >= huge_size);
-		if (!buffer)
-			continue;
-
-		rd.user_addr = (__u64)(unsigned long)buffer;
-		rd.size = size;
-		rd.flags = IORING_MEM_REGION_TYPE_USER;
-
-		ret = init_ring_with_region(&ring, 0, &mr);
+		ret = io_uring_queue_init(8, &ring, IORING_SETUP_R_DISABLED);
 		if (ret) {
-			fprintf(stderr, "init ring failed %i\n", ret);
+			fprintf(stderr, "ring setup failed: %d\n", ret);
+			return ret;
+		}
+
+		ret = t_region_create_user(&r, &ring, size >= huge_size);
+		if (ret) {
+			io_uring_queue_exit(&ring);
+			if (ret == -ENOMEM || ret == -EINVAL)
+				continue;
+			fprintf(stderr, "t_region_create_user failed\n");
 			return 1;
 		}
 
-		ret = test_offsets(&ring, buffer, size, false);
+		ret = io_uring_enable_rings(&ring);
+		if (ret) {
+			fprintf(stderr, "io_uring_enable_rings failure %i\n", ret);
+			return ret;
+		}
+
+		ret = test_offsets(&ring, r.ptr, size, false);
 		if (ret) {
 			fprintf(stderr, "test_offsets failed, size %lu\n",
 				(unsigned long)size);
 			return 1;
 		}
 
-		munmap(buffer, size);
+		t_region_free(&r);
 		io_uring_queue_exit(&ring);
 	}
 
