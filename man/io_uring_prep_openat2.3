@@ -16,13 +16,11 @@ io_uring_prep_openat2 \- prepare an openat2 request
 .BI "void io_uring_prep_openat2(struct io_uring_sqe *" sqe ","
 .BI "                           int " dfd ","
 .BI "                           const char *" path ","
-.BI "                           int " flags ","
 .BI "                           struct open_how *" how ");"
 .PP
 .BI "void io_uring_prep_openat2_direct(struct io_uring_sqe *" sqe ","
 .BI "                                  int " dfd ","
 .BI "                                  const char *" path ","
-.BI "                                  int " flags ","
 .BI "                                  struct open_how *" how ","
 .BI "                                  unsigned " file_index ");"
 .fi
@@ -36,8 +34,6 @@ is setup to use the directory file descriptor
 .I dfd
 to start opening a file described by
 .I path
-and using the open flags in
-.I flags
 and using the instructions on how to open the file given in
 .IR how .
 
