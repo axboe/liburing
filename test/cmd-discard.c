@@ -248,6 +248,8 @@ static int test_fail_edge_cases(struct io_uring *ring, int op)
 
 	fd = open(filename, O_DIRECT | O_RDWR | O_EXCL);
 	if (fd < 0) {
+		if (errno == EINVAL || errno == EBUSY)
+			return T_EXIT_SKIP;
 		fprintf(stderr, "open failed %i\n", errno);
 		return T_EXIT_FAIL;
 	}
@@ -302,6 +304,8 @@ static int test_rdonly(struct io_uring *ring, int op)
 
 	fd = open(filename, O_DIRECT | O_RDONLY | O_EXCL);
 	if (fd < 0) {
+		if (errno == EINVAL || errno == EBUSY)
+			return T_EXIT_SKIP;
 		fprintf(stderr, "open failed %i\n", errno);
 		return T_EXIT_FAIL;
 	}
@@ -315,6 +319,8 @@ static int test_rdonly(struct io_uring *ring, int op)
 
 	fd = open(filename, O_DIRECT | O_RDWR | O_EXCL);
 	if (fd < 0) {
+		if (errno == EINVAL || errno == EBUSY)
+			return T_EXIT_SKIP;
 		fprintf(stderr, "open failed %i\n", errno);
 		return T_EXIT_FAIL;
 	}
@@ -354,6 +360,8 @@ int main(int argc, char *argv[])
 
 	fd = open(filename, O_DIRECT | O_RDONLY | O_EXCL);
 	if (fd < 0) {
+		if (errno == EINVAL || errno == EBUSY)
+			return T_EXIT_SKIP;
 		fprintf(stderr, "open failed %i\n", errno);
 		return T_EXIT_FAIL;
 	}
