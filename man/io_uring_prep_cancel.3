@@ -83,6 +83,18 @@ a normal file descriptor. Available since 6.0.
 .B IORING_ASYNC_CANCEL_ANY
 Match any request in the ring, regardless of user_data or file descriptor.
 Can be used to cancel any pending request in the ring. Available since 5.19.
+.TP
+.B IORING_ASYNC_CANCEL_USERDATA
+Match request based on the user data field set in the original request. This
+is the default lookup key, if no other key matching has been specified.
+Available since 6.6.
+.TP
+.B IORING_ASYNC_CANCEL_OP
+Use the original request opcode as the matching key. The opcopde requested
+must be set in the sqe
+.I len
+field after using one of the generic cancel preparation helpers. Available
+since 6.6.
 .P
 
 .SH RETURN VALUE
