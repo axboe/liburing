@@ -114,7 +114,7 @@ fatal() {
 
 # Print result for each configuration test
 print_config() {
-  printf "%-30s%s\n" "$1" "$2"
+  printf "%-35s%s\n" "$1" "$2"
 }
 
 # Default CFLAGS
