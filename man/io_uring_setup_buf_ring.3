@@ -10,10 +10,10 @@ io_uring_setup_buf_ring \- setup and register buffer ring for provided buffers
 .B #include <liburing.h>
 .PP
 .BI "struct io_uring_buf_ring *io_uring_setup_buf_ring(struct io_uring *" ring ",
-.BI "                            unsigned int " nentries ",
-.BI "                            int " bgid ",
-.BI "                            unsigned int " flags ",
-.BI "                            int *" err ");"
+.BI "                                                  unsigned int " nentries ",
+.BI "                                                  int " bgid ",
+.BI "                                                  unsigned int " flags ",
+.BI "                                                  int *" err ");"
 .BI "
 .fi
 .SH DESCRIPTION
@@ -49,7 +49,7 @@ The
 .I flags
 argument can be set to one of the following values:
 .TP
-.B IORING_REGISTER_PBUF_RING
+.B IOU_PBUF_RING_INC
 The buffers in this ring can be incrementally consumed. With partial
 consumption, each completion of a given buffer ID will continue where the
 previous one left off, or from the start if no completions have been seen yet.
@@ -58,7 +58,7 @@ have
 .B IORING_CQE_F_BUF_MORE
 set in the
 .I flags
-member.
+member. Available since 6.12.
 .PP
 
 Under the covers, this function uses

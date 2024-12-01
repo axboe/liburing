@@ -113,27 +113,25 @@ but aims to have a more extensible ABI.
 
 .I arg
 points to a
-.IR struct io_uring_rsrc_register ,
+.I struct
+.IR io_uring_rsrc_register ,
 and
 .I nr_args
 should be set to the number of bytes in the structure.
 
-.PP
-.in +8n
+.IP
+.in +4n
 .EX
 struct io_uring_rsrc_register {
     __u32 nr;
-    __u32 resv;
+    __u32 flags;
     __u64 resv2;
     __aligned_u64 data;
     __aligned_u64 tags;
 };
-
 .EE
 .in
-.PP
-
-.in +8n
+.IP
 
 The
 .I data
@@ -153,6 +151,23 @@ resource had been unregistered and it's not used anymore, a CQE will be
 posted with
 .I user_data
 set to the specified tag and all other fields zeroed.
+
+The
+.I flags
+field supports the following flags:
+
+.IP
+.in +4n
+.B IORING_RSRC_REGISTER_SPARSE
+If set, io_uring will register
+.I nr
+empty buffers, which need to be updated before use. When this flag is set,
+.I data
+and
+.I tags
+must be NULL. Available since 5.19.
+.in
+.IP
 
 Note that resource updates, e.g.
 .BR IORING_REGISTER_BUFFERS_UPDATE ,

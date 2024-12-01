@@ -453,8 +453,8 @@ its return value.
 
 The
 .I flags
-field carries request-specific information. As of the 6.0 kernel, the following
-flags are defined:
+field carries request-specific information. As of the 6.12 kernel,
+the following flags are defined:
 
 .TP
 .B IORING_CQE_F_BUFFER
@@ -488,7 +488,7 @@ buffer space left, and hence the application should expect more completions
 with this buffer ID. Each completion will continue where the previous one
 left off. This can only happen if the provided buffer ring has been setup
 with
-.B IORING_REGISTER_PBUF_RING
+.B IOU_PBUF_RING_INC
 to allow for incremental / partial consumption of buffers.
 .PP
 The general sequence to read completion events off the completion queue is
