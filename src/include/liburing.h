@@ -158,6 +158,8 @@ IOURINGINLINE int io_uring_opcode_supported(const struct io_uring_probe *p,
 	return (p->ops[op].flags & IO_URING_OP_SUPPORTED) != 0;
 }
 
+int io_uring_try_setup_flags(struct io_uring_params *p, unsigned flags);
+
 int io_uring_queue_init_mem(unsigned entries, struct io_uring *ring,
 				struct io_uring_params *p,
 				void *buf, size_t buf_size);
