@@ -110,4 +110,5 @@ LIBURING_2.9 {
 		io_uring_submit_and_wait_reg;
 		io_uring_clone_buffers_offset;
 		io_uring_register_region;
+		io_uring_try_setup_flags;
 } LIBURING_2.8;
