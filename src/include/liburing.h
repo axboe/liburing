@@ -409,6 +409,12 @@ IOURINGINLINE void io_uring_sqe_set_flags(struct io_uring_sqe *sqe,
 	sqe->flags = (__u8) flags;
 }
 
+IOURINGINLINE void io_uring_sqe_set_buf_group(struct io_uring_sqe *sqe,
+					      int bgid)
+{
+	sqe->buf_group = (__u16) bgid;
+}
+
 IOURINGINLINE void __io_uring_set_target_fixed_file(struct io_uring_sqe *sqe,
 						    unsigned int file_index)
 {
