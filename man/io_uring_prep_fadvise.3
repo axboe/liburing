@@ -19,7 +19,7 @@ io_uring_prep_fadvise \- prepare a fadvise request
 .BI "void io_uring_prep_fadvise64(struct io_uring_sqe *" sqe ","
 .BI "                             int " fd ","
 .BI "                             __u64 " offset ","
-.BI "                             __u64 " len ","
+.BI "                             off_t " len ","
 .BI "                             int " advice ");"
 .fi
 .SH DESCRIPTION
