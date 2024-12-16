@@ -17,7 +17,7 @@ io_uring_prep_madvise \- prepare a madvise request
 .BI "
 .BI "void io_uring_prep_madvise64(struct io_uring_sqe *" sqe ","
 .BI "                             void *" addr ","
-.BI "                             __u64 " len ","
+.BI "                             off_t " len ","
 .BI "                             int " advice ");"
 .fi
 .SH DESCRIPTION
