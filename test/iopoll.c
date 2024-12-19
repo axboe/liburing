@@ -290,7 +290,7 @@ static int test_io_uring_submit_enters(const char *file)
 	unsigned head;
 	struct io_uring_cqe *cqe;
 
-	if (no_iopoll || no_hybrid)
+	if (no_iopoll)
 		return 0;
 
 	ring_flags = IORING_SETUP_IOPOLL;
