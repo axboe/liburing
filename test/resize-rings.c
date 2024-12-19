@@ -14,6 +14,8 @@
 #include "liburing.h"
 #include "helpers.h"
 
+static bool only_defer, no_defer;
+
 #define NVECS	128
 
 #define min(a, b)	((a) < (b) ? (a) : (b))
@@ -548,6 +550,11 @@ static int test(int flags, int fd, int async)
 	struct io_uring ring;
 	int ret;
 
+	if (no_defer)
+		return T_EXIT_SKIP;
+	if (!(flags & IORING_SETUP_DEFER_TASKRUN) && only_defer)
+		return T_EXIT_SKIP;
+
 	ret = io_uring_queue_init_params(8, &ring, &p);
 	if (ret < 0) {
 		fprintf(stderr, "ring setup failed: %d\n", ret);
@@ -556,6 +563,12 @@ static int test(int flags, int fd, int async)
 
 	ret = test_basic(&ring, async);
 	if (ret == T_EXIT_SKIP) {
+		if (!(flags & IORING_SETUP_DEFER_TASKRUN)) {
+			io_uring_queue_exit(&ring);
+			only_defer = true;
+		} else {
+			no_defer = true;
+		}
 		return T_EXIT_SKIP;
 	} else if (ret == T_EXIT_FAIL) {
 		fprintf(stderr, "test_basic %x failed\n", flags);
@@ -615,7 +628,7 @@ int main(int argc, char *argv[])
 
 	ret = test(0, fd, 0);
 	if (ret == T_EXIT_SKIP)
-		return T_EXIT_SKIP;
+		goto try_defer;
 	else if (ret == T_EXIT_FAIL)
 		return T_EXIT_FAIL;
 
@@ -631,6 +644,7 @@ int main(int argc, char *argv[])
 	if (ret == T_EXIT_FAIL)
 		return T_EXIT_FAIL;
 
+try_defer:
 	ret = test(IORING_SETUP_SINGLE_ISSUER | IORING_SETUP_DEFER_TASKRUN, fd, 0);
 	if (ret == T_EXIT_FAIL)
 		return T_EXIT_FAIL;

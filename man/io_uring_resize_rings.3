@@ -47,6 +47,13 @@ Currently doesn't support resizing rings setup with
 .B IORING_SETUP_NO_MMAP .
 This is purely a liburing limitation, the kernel does support it.
 
+Also note that ring resizing is currently only supported on rings setup
+with
+.B IORING_SETUP_DEFER_TASKRUN .
+Attempting to resize differently configured rings will result in an
+.BR -EINVAL
+error.
+
 Valid flags in
 .IR flags :
 .TP
@@ -97,6 +104,10 @@ was unsuccessful.
 .TP
 .B -EINVAL
 Invalid flags were specified for the operation
+.TP
+.B -EINVAL
+Attempt to resize a ring not setup with
+.BR IORING_SETUP_DEFER_TASKRUN .
 .TP
 .B -EOVERFLOW
 The values specified for SQ or CQ entries would cause an overflow.
