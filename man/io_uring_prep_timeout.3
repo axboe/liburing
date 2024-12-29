@@ -60,6 +60,10 @@ IORING_CQE_F_MORE is set if more timeouts are expected. The value specified in
 is the number of repeats. A value of 0 means the timeout is indefinite and can
 only be stopped by a removal request. Available since the 6.4 kernel.
 .PP
+If no alternate clock source is given in the above flags, then
+.B CLOCK_MONOTONIC
+is used.
+
 The timeout completion event will trigger if either the specified timeout
 has occurred, or the specified number of events to wait for have been posted
 to the CQ ring.
