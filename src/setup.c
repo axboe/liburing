@@ -209,7 +209,7 @@ static int io_uring_alloc_huge(unsigned entries, struct io_uring_params *p,
 {
 	unsigned long page_size = get_page_size();
 	unsigned sq_entries, cq_entries;
-	size_t ring_mem, sqes_mem, cqes_mem;
+	size_t ring_mem, sqes_mem, cqes_mem, sqe_size;
 	unsigned long mem_used = 0;
 	void *ptr;
 	int ret;
@@ -220,7 +220,10 @@ static int io_uring_alloc_huge(unsigned entries, struct io_uring_params *p,
 
 	ring_mem = KRING_SIZE;
 
-	sqes_mem = sq_entries * sizeof(struct io_uring_sqe);
+	sqe_size = sizeof(struct io_uring_sqe);
+	if (p->flags & IORING_SETUP_SQE128)
+		sqe_size <<= 1;
+	sqes_mem = sq_entries * sqe_size;
 	if (!(p->flags & IORING_SETUP_NO_SQARRAY))
 		sqes_mem += sq_entries * sizeof(unsigned);
 	sqes_mem = (sqes_mem + page_size - 1) & ~(page_size - 1);
