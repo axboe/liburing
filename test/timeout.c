@@ -13,6 +13,7 @@
 #include <sys/wait.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/eventfd.h>
 
 #include "helpers.h"
 #include "liburing.h"
@@ -1559,6 +1560,44 @@ err:
 	return 1;
 }
 
+static int test_eventfd(void)
+{
+	struct __kernel_timespec ts = { .tv_sec = 5, };
+	struct io_uring_sqe *sqe;
+	struct io_uring ring;
+	int ev, ret;
+
+	ret = io_uring_queue_init(2, &ring, IORING_SETUP_DEFER_TASKRUN |
+					IORING_SETUP_SINGLE_ISSUER);
+	if (ret == -EINVAL) {
+		return T_EXIT_SKIP;
+	} else if (ret < 0) {
+		fprintf(stderr, "queue_init: %d\n", ret);
+		return T_EXIT_FAIL;
+	}
+
+	ev = eventfd(0, 0);
+	if (ev < 0) {
+		perror("eventfd");
+		return T_EXIT_SKIP;
+	}
+
+	ret = io_uring_register_eventfd(&ring, ev);
+	if (ret) {
+		fprintf(stderr, "register_eventfd: %d\n", ret);
+		return ret;
+	}
+
+	sqe = io_uring_get_sqe(&ring);
+	io_uring_prep_timeout(sqe, &ts, 100, 0);
+	sqe->user_data = 0x1234;
+	sqe->flags |= IOSQE_ASYNC;
+	io_uring_submit(&ring);
+
+	io_uring_queue_exit(&ring);
+	close(ev);
+	return T_EXIT_PASS;
+}
 
 int main(int argc, char *argv[])
 {
@@ -1760,6 +1799,12 @@ int main(int argc, char *argv[])
 				return ret;
 			}
 		}
+	}
+
+	ret = test_eventfd();
+	if (ret == T_EXIT_FAIL) {
+		fprintf(stderr, "test_eventfd failed\n");
+		return ret;
 	}
 
 	/*
