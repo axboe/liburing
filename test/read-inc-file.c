@@ -69,6 +69,9 @@ int main(int argc, char *argv[])
 	char *buf;
 	void *ptr;
 
+	if (argc > 1)
+		return T_EXIT_SKIP;
+
 	sprintf(fname, ".buf-inc-file.%d", getpid());
 	if (create_test_file(fname))
 		return T_EXIT_FAIL;
