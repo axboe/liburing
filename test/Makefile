@@ -270,7 +270,9 @@ all_targets += sq-full-cpp.t
 
 test_targets := $(patsubst %.c,%,$(test_srcs))
 test_targets := $(patsubst %.cc,%,$(test_targets))
+rust_test_targets := $(patsubst %,%.rt,$(test_targets))
 run_test_targets := $(patsubst %,%.run_test,$(test_targets))
+run_rust_test_targets := $(patsubst %,rust-%.run_test,$(test_targets))
 test_targets := $(patsubst %,%.t,$(test_targets))
 all_targets += $(test_targets)
 helpers = helpers.o
@@ -278,7 +280,9 @@ helpers = helpers.o
 ifeq ($(CONFIG_USE_SANITIZER),y)
 	asan_test_targets := $(patsubst %.c,%,$(asan_test_srcs))
 	asan_test_targets := $(patsubst %.cc,%,$(asan_test_targets))
+	asan_rust_test_targets := $(patsubst %,%.rt,$(asan_test_targets))
 	asan_run_test_targets := $(patsubst %,%.run_test,$(asan_test_targets))
+	asan_run_rust_test_targets := $(patsubst %,rust-%.run_test,$(asan_test_targets))
 	asan_test_targets := $(patsubst %,%.t,$(asan_test_targets))
 	all_targets += $(asan_test_targets)
 endif
@@ -316,7 +320,7 @@ uninstall:
 	@rm -rf $(datadir)/liburing-test/
 
 clean:
-	@rm -f $(all_targets) helpers.o output/*
+	@rm -f $(all_targets) $(rust_test_targets) $(asan_rust_test_targets) helpers.o output/* liburing_rs.a liburing_rs.rlib
 	@rm -rf output/
 
 runtests: all
@@ -328,7 +332,37 @@ runtests-loop: all
 %.run_test: %.t
 	@./runtests-quiet.sh $<
 
+rust-%.run_test: %.rt
+	@./runtests-quiet.sh $<
+
 runtests-parallel: $(run_test_targets)
 	@echo "All tests passed"
 
-.PHONY: all install clean runtests runtests-loop runtests-parallel
+rust-runtests-parallel: $(run_rust_test_targets) $(asan_run_rust_test_targets)
+	@echo "All tests passed"
+
+CARGO_TOOLCHAIN ?= x86_64-unknown-linux-gnu
+CARGO_FLAGS := --profile release-with-debug --target $(CARGO_TOOLCHAIN)
+
+ifeq ($(CONFIG_USE_SANITIZER),y)
+	CARGO_FLAGS += -Zbuild-std --features sanitizers
+	RUSTFLAGS='-Zsanitizer=address'
+endif
+
+liburing_rs: liburing.h.in
+	+ CC=$(CC) CXX=$(CXX) RUSTFLAGS=$(RUSTFLAGS) cargo +nightly build $(CARGO_FLAGS) -Z unstable-options --artifact-dir .
+	cp liburing.h.in liburing.h
+
+%.rt: %.c $(helpers) helpers.h liburing_rs
+	$(QUIET_CC)$(CC) $(CPPFLAGS) $(CFLAGS) -o $@ $< $(helpers) liburing_rs_test.a
+
+%.rt: %.cc $(helpers) helpers.h liburing_rs
+	$(QUIET_CXX)$(CXX) \
+	$(patsubst -Wmissing-prototypes,,$(CPPFLAGS)) \
+	$(patsubst -Wmissing-prototypes,,$(CXXFLAGS)) \
+	-o $@ $< $(helpers) liburing_rs_test.a
+
+liburing_rs_tests: $(rust_test_targets) $(asan_rust_test_targets)
+	rm liburing.h
+
+.PHONY: all install clean runtests runtests-loop runtests-parallel liburing_rs_tests

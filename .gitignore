@@ -7,6 +7,9 @@
 *.o
 *.o[ls]
 
+/target/
+/liburing-rs/target/
+
 /src/liburing.a
 /src/liburing.so*
 /src/liburing-ffi.a
@@ -30,8 +33,11 @@
 /examples/reg-wait
 
 /test/*.t
+/test/*.rt
 /test/*.dmesg
 /test/output/
+/test/liburing_rs*
+/test/target/
 
 # Clang's compilation database file and directory.
 /.cache

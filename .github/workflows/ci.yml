@@ -45,7 +45,9 @@ jobs:
             cxx_pkg: g++-x86-64-linux-gnu
             cc: x86_64-linux-gnu-gcc
             cxx: x86_64-linux-gnu-g++
+            objcopy: x86_64-linux-gnu-objcopy
             sanitize: 0
+            cargo_toolchain: x86_64-unknown-linux-gnu
 
           # x86-64 gcc asan
           - arch: x86_64
@@ -53,7 +55,9 @@ jobs:
             cxx_pkg: g++-x86-64-linux-gnu
             cc: x86_64-linux-gnu-gcc
             cxx: x86_64-linux-gnu-g++
+            objcopy: x86_64-linux-gnu-objcopy
             sanitize: 1
+            cargo_toolchain: x86_64-unknown-linux-gnu
 
           # x86-64 clang
           - arch: x86_64
@@ -61,9 +65,11 @@ jobs:
             cxx_pkg: clang
             cc: clang
             cxx: clang++
+            objcopy: x86_64-linux-gnu-objcopy
             liburing_extra_flags: -Wshorten-64-to-32
             extra_flags: -Wmissing-prototypes -Wstrict-prototypes -Wunreachable-code-loop-increment -Wunreachable-code -Wmissing-variable-declarations -Wextra-semi-stmt
             sanitize: 0
+            cargo_toolchain: x86_64-unknown-linux-gnu
 
           # x86 (32-bit) gcc
           - arch: i686
@@ -72,6 +78,9 @@ jobs:
             cc: i686-linux-gnu-gcc
             cxx: i686-linux-gnu-g++
             sanitize: 0
+            # leave disabled because of this bug in bindgen:
+            # https://github.com/rust-lang/rust-bindgen/issues/2991
+            # cargo_toolchain: i686-unknown-linux-gnu
 
           # aarch64 gcc
           - arch: aarch64
@@ -79,7 +88,9 @@ jobs:
             cxx_pkg: g++-aarch64-linux-gnu
             cc: aarch64-linux-gnu-gcc
             cxx: aarch64-linux-gnu-g++
+            objcopy: aarch64-linux-gnu-objcopy
             sanitize: 0
+            cargo_toolchain: aarch64-unknown-linux-gnu
 
           # arm (32-bit) gcc
           - arch: arm
@@ -87,7 +98,9 @@ jobs:
             cxx_pkg: g++-arm-linux-gnueabi
             cc: arm-linux-gnueabi-gcc
             cxx: arm-linux-gnueabi-g++
+            objcopy: arm-linux-gnueabi-objcopy
             sanitize: 0
+            cargo_toolchain: arm-unknown-linux-gnueabi
 
           # riscv64
           - arch: riscv64
@@ -95,7 +108,9 @@ jobs:
             cxx_pkg: g++-riscv64-linux-gnu
             cc: riscv64-linux-gnu-gcc
             cxx: riscv64-linux-gnu-g++
+            objcopy: riscv64-linux-gnu-objcopy
             sanitize: 0
+            cargo_toolchain: riscv64gc-unknown-linux-gnu
 
           # powerpc64
           - arch: powerpc64
@@ -103,7 +118,9 @@ jobs:
             cxx_pkg: g++-powerpc64-linux-gnu
             cc: powerpc64-linux-gnu-gcc
             cxx: powerpc64-linux-gnu-g++
+            objcopy: powerpc64-linux-gnu-objcopy
             sanitize: 0
+            cargo_toolchain: powerpc64-unknown-linux-gnu
 
           # powerpc
           - arch: powerpc
@@ -111,7 +128,9 @@ jobs:
             cxx_pkg: g++-powerpc-linux-gnu
             cc: powerpc-linux-gnu-gcc
             cxx: powerpc-linux-gnu-g++
+            objcopy: powerpc-linux-gnu-objcopy
             sanitize: 0
+            cargo_toolchain: powerpc-unknown-linux-gnu
 
           # alpha
           - arch: alpha
@@ -148,6 +167,7 @@ jobs:
     env:
       FLAGS: -g -O3 -Wall -Wextra -Werror -Wno-sign-compare ${{matrix.build_args.extra_flags}}
       SANITIZE: ${{matrix.build_args.sanitize}}
+      CARGO_TOOLCHAIN: ${{matrix.build_args.cargo_toolchain}}
 
       # Flags for building sources in src/ dir only.
       LIBURING_CFLAGS: ${{matrix.build_args.liburing_extra_flags}}
@@ -172,6 +192,19 @@ jobs:
           ${{matrix.build_args.cc}} --version;
           ${{matrix.build_args.cxx}} --version;
 
+      - name: Install Rust
+        if: ${{matrix.build_args.cargo_toolchain}}
+        run: |
+          sudo apt-get update -y;
+          sudo apt-get install -y curl;
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- --default-toolchain none -y;
+          . "$HOME/.cargo/env";
+          rustup update;
+          rustup update nightly;
+          rustup target add ${{matrix.build_args.cargo_toolchain}} --toolchain stable;
+          rustup target add ${{matrix.build_args.cargo_toolchain}} --toolchain nightly;
+          rustup component add rust-src --toolchain nightly --target ${{matrix.build_args.cargo_toolchain}};
+
       - name: Build
         if: ${{matrix.build_args.sanitize == '0'}}
         run: |
@@ -184,10 +217,26 @@ jobs:
           ./configure --cc=${{matrix.build_args.cc}} --cxx=${{matrix.build_args.cxx}} --enable-sanitizer;
           make -j$(nproc) V=1 CPPFLAGS="-Werror" CFLAGS="$FLAGS" CXXFLAGS="$FLAGS";
 
+      - name: Build liburing-rs
+        if: ${{matrix.build_args.cargo_toolchain && matrix.build_args.sanitize == '0'}}
+        run: |
+          CC=${{matrix.build_args.cc}} CXX=${{matrix.build_args.cxx}} OBJCOPY=${{matrix.build_args.objcopy}} cargo build --target ${{matrix.build_args.cargo_toolchain}};
+          OBJCOPY=${{matrix.build_args.objcopy}} make -j$(nproc) V=1 CPPFLAGS="-Werror" CFLAGS="$FLAGS" CXXFLAGS="$FLAGS" -C test liburing_rs_tests;
+
+      - name: Build liburing-rs
+        if: ${{matrix.build_args.cargo_toolchain && matrix.build_args.sanitize == '1'}}
+        run: |
+          CC=${{matrix.build_args.cc}} CXX=${{matrix.build_args.cxx}} OBJCOPY=${{matrix.build_args.objcopy}} cargo +nightly build --target ${{matrix.build_args.cargo_toolchain}} -Zbuild-std --features sanitizers;
+          OBJCOPY=${{matrix.build_args.objcopy}} make -j$(nproc) V=1 CPPFLAGS="-Werror" CFLAGS="$FLAGS" CXXFLAGS="$FLAGS" -C test liburing_rs_tests;
+
       - name: Test install command
         run: |
           sudo make install;
 
+      - name: Test crate packaging
+        if: ${{matrix.build_args.cargo_toolchain}}
+        run: |
+           CC=${{matrix.build_args.cc}} CXX=${{matrix.build_args.cxx}} OBJCOPY=${{matrix.build_args.objcopy}} cargo package --target ${{matrix.build_args.cargo_toolchain}};
 
   codespell:
     needs: get_commit_list

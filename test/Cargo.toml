@@ -1,0 +1,22 @@
+[package]
+name = "liburing-rs-tests"
+version = "0.1.0"
+edition = "2021"
+description = "Test crate for liburing-rs"
+license = "MIT OR LGPL"
+repository = "https://github.com/axboe/liburing"
+
+[lib]
+crate-type = ["staticlib"]
+name = "uring_rs_test"
+path = "lib.rs"
+
+[features]
+sanitizers = []
+
+[dependencies]
+axboe-liburing = { path = ".." }
+
+[profile.release-with-debug]
+inherits = "release"
+debug = "full"
