@@ -165,6 +165,7 @@ test_srcs := \
 	pollfree.c \
 	probe.c \
 	read-before-exit.c \
+	read-inc-file.c \
 	read-mshot.c \
 	read-mshot-empty.c \
 	read-mshot-stdin.c \
