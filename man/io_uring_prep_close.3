@@ -30,7 +30,12 @@ For a direct descriptor close request, the offset is specified by the
 argument instead of the
 .IR fd .
 This is identical to unregistering the direct descriptor, and is provided as
-a convenience.
+a convenience. Note that even though it's closing a direct descriptor, the
+application must not set
+.B IOSQE_FIXED_FILE
+on the SQE. Otherwise the request will complete with
+.B -EBADF
+as the result.
 
 These functions prepare an async
 .BR close (2)
