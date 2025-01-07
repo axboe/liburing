@@ -1692,6 +1692,39 @@ in the future.
 
 Available since 5.17.
 
+.TP
+.B IOSQE_GROUP_LINK
+This flag is only available if feature flag of
+.B IORING_FEAT_SQE_GROUP
+is set.
+
+When this flag is specified, the SQE forms a group with the next SQE in the
+submission ring. Not like
+.B IOSQE_IO_LINK,
+requests in group may be started in parallel. This, in effect, forms a chain
+of SQEs, which can be arbitrarily long. The tail of the chain is denoted by the
+first SQE that does not have this flag set. Chains are not supported across
+submission boundaries. Even if the last SQE in a submission has this flag set,
+it will still terminate the current chain. The 1st SQE in the chain is group
+leader, the other SQEs in the chain are called group member. The group leader
+won't be completed until all members are completed.
+
+The whole group shares
+.B IOSQE_IO_LINK
+of group leader, and the flag isn't available for group members. When this flag
+is set for group leader, the whole group is linked to one link chain, and the
+next SQE in the chain won't be started until all requests in the group are completed.
+
+The whole group shares
+.B IOSQE_IO_DRAIN
+of group leader, and the flag isn't available for group members. When this flag
+is set for group leader, any request in the group won't be started until previously
+submitted SQEs have completed, and new SQEs will not be started before all requests
+in this group are completed.
+
+
+Available since 6.13.
+
 .PP
 .I ioprio
 specifies the I/O priority.  See
