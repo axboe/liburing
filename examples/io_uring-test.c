@@ -108,5 +108,8 @@ int main(int argc, char *argv[])
 						(unsigned long) fsize);
 	close(fd);
 	io_uring_queue_exit(&ring);
+	for (i = 0; i < QD; i++)
+		free(iovecs[i].iov_base);
+	free(iovecs);
 	return 0;
 }
