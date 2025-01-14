@@ -90,6 +90,10 @@ range will be released and replaced.
 
 Available since kernel 6.13.
 
+.SH NOTES
+The source and target ring must shared address spaces, and hence internal
+kernel accounting.
+.SH RETURN VALUE
 On success
 .BR io_uring_clone_buffers (3)
 and
