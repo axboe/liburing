@@ -203,6 +203,7 @@ test_srcs := \
 	socket.c \
 	socket-io-cmd.c \
 	socket-getsetsock-cmd.c \
+	socket-nb.c \
 	socket-rw.c \
 	socket-rw-eagain.c \
 	socket-rw-offset.c \
