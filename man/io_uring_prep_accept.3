@@ -187,6 +187,12 @@ behavior by inspecting the
 .B IORING_FEAT_SUBMIT_STABLE
 flag passed back from
 .BR io_uring_queue_init_params (3).
+.P
+Note that the direct versions of accept do not accept
+.B SOCK_CLOEXEC ,
+and setting that flag will result in an
+.B -EINVAL
+error in the CQE.
 .SH SEE ALSO
 .BR io_uring_get_sqe (3),
 .BR io_uring_submit (3),
