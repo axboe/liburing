@@ -183,6 +183,7 @@ struct conn_buf_ring {
 	struct io_uring_buf_ring *br;
 	void *buf;
 	int bgid;
+	uint16_t recv_head;  // used to track the buffer position in completions. 
 };
 
 struct conn {
@@ -392,6 +393,7 @@ static int setup_recv_ring(struct io_uring *ring, struct conn *c)
 		ptr += buf_size;
 	}
 	io_uring_buf_ring_advance(cbr->br, nr_bufs);
+	cbr->recv_head = 0;
 	printf("%d: recv buffer ring bgid %d, bufs %d\n", c->tid, cbr->bgid, nr_bufs);
 	return 0;
 }
@@ -923,12 +925,12 @@ static int replenish_buffers(struct conn *c, int *bid, int bytes)
 
 	while (bytes) {
 		int this_len = replenish_buffer(cbr, *bid, nr_packets);
-
+		++cbr->recv_head;
 		if (this_len > bytes)
 			this_len = bytes;
 		bytes -= this_len;
 
-		*bid = (*bid + 1) & (nr_bufs - 1);
+		*bid = cbr->br->bufs[cbr->recv_head & br_mask].bid;
 		nr_packets++;
 	}
 
@@ -1197,7 +1199,7 @@ static int recv_bids(struct conn *c, struct conn_dir *cd, int *bid, int in_bytes
 		int this_bytes;
 		void *data;
 
-		buf = &in_cbr->br->bufs[*bid];
+		buf = &in_cbr->br->bufs[in_cbr->recv_head & br_mask];
 		data = (void *) (unsigned long) buf->addr;
 		this_bytes = buf->len;
 		if (this_bytes > in_bytes)
@@ -1210,8 +1212,8 @@ static int recv_bids(struct conn *c, struct conn_dir *cd, int *bid, int in_bytes
 						br_mask, nr_packets);
 		else
 			send_append(c, cd, data, *bid, this_bytes);
-
-		*bid = (*bid + 1) & (nr_bufs - 1);
+		++in_cbr->recv_head;
+		*bid = in_cbr->br->bufs[in_cbr->recv_head & br_mask].bid;
 		nr_packets++;
 	}
 
@@ -1237,7 +1239,7 @@ static int recv_mshot_msg(struct conn *c, struct conn_dir *cd, int *bid,
 		int this_bytes;
 		void *data;
 
-		buf = &in_cbr->br->bufs[*bid];
+		buf = &in_cbr->br->bufs[in_cbr->recv_head & br_mask];
 
 		/*
 		 * multishot recvmsg puts a header in front of the data - we
@@ -1266,8 +1268,8 @@ static int recv_mshot_msg(struct conn *c, struct conn_dir *cd, int *bid,
 						br_mask, nr_packets);
 		else
 			send_append(c, cd, data, *bid, this_bytes);
-
-		*bid = (*bid + 1) & (nr_bufs - 1);
+		++in_cbr->recv_head;
+		*bid = in_cbr->br->bufs[in_cbr->recv_head & br_mask].bid;
 		nr_packets++;
 	}
 
