@@ -10,6 +10,11 @@
 
 #include "liburing.h"
 
+struct io_uring_sqe *io_uring_get_sqe(struct io_uring *ring)
+{
+	return _io_uring_get_sqe(ring);
+}
+
 #ifdef __clang__
 #pragma clang diagnostic pop
 #endif

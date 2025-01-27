@@ -1624,8 +1624,6 @@ IOURINGINLINE struct io_uring_sqe *io_uring_get_sqe(struct io_uring *ring)
 {
 	return _io_uring_get_sqe(ring);
 }
-#else
-struct io_uring_sqe *io_uring_get_sqe(struct io_uring *ring);
 #endif
 
 ssize_t io_uring_mlock_size(unsigned entries, unsigned flags);

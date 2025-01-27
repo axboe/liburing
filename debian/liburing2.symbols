@@ -11,7 +11,6 @@ liburing.so.2 liburing2 #MINVER#                                                
  io_uring_get_events@LIBURING_2.3 0.7-1
  io_uring_get_probe@LIBURING_2.0 0.7-1
  io_uring_get_probe_ring@LIBURING_2.0 0.7-1
- io_uring_get_sqe@LIBURING_2.0 0.7-1
  io_uring_mlock_size@LIBURING_2.1 0.7-1
  io_uring_mlock_size_params@LIBURING_2.1 0.7-1
  io_uring_peek_batch_cqe@LIBURING_2.0 0.7-1

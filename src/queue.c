@@ -8,6 +8,10 @@
 #include "liburing/sanitize.h"
 #include "liburing/io_uring.h"
 
+#ifdef LIBURING_INTERNAL
+static struct io_uring_sqe *io_uring_get_sqe(struct io_uring *ring);
+#endif
+
 /*
  * Returns true if we're not using SQ thread (thus nobody submits but us)
  * or if IORING_SQ_NEED_WAKEUP is set, so submit thread must be explicitly
@@ -468,7 +472,7 @@ int io_uring_submit_and_get_events(struct io_uring *ring)
 }
 
 #ifdef LIBURING_INTERNAL
-struct io_uring_sqe *io_uring_get_sqe(struct io_uring *ring)
+static struct io_uring_sqe *io_uring_get_sqe(struct io_uring *ring)
 {
 	return _io_uring_get_sqe(ring);
 }
