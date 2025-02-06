@@ -7,8 +7,8 @@
 *.o
 *.o[ls]
 
-/target
-/liburing-rs/target
+/target/
+/liburing-rs/target/
 
 /src/liburing.a
 /src/liburing.so*
