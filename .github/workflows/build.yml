@@ -149,13 +149,13 @@ jobs:
         ${{matrix.cxx}} --version;
 
     - name: Build
-      if: ${{matrix.sanitizer == '0'}}
+      if: ${{matrix.sanitize == '0'}}
       run: |
         ./configure --cc=${{matrix.cc}} --cxx=${{matrix.cxx}};
         make -j$(nproc) V=1 CPPFLAGS="-Werror" CFLAGS="$FLAGS" CXXFLAGS="$FLAGS";
 
     - name: Build
-      if: ${{matrix.sanitizer == '1'}}
+      if: ${{matrix.sanitize == '1'}}
       run: |
         ./configure --cc=${{matrix.cc}} --cxx=${{matrix.cxx}} --enable-sanitizer;
         make -j$(nproc) V=1 CPPFLAGS="-Werror" CFLAGS="$FLAGS" CXXFLAGS="$FLAGS";
