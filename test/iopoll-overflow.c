@@ -73,7 +73,8 @@ int main(int argc, char *argv[])
 	char *fname;
 	int ret, fd;
 
-	p.flags = IORING_SETUP_IOPOLL | IORING_SETUP_CQSIZE;
+	p.flags = IORING_SETUP_IOPOLL | IORING_SETUP_CQSIZE |
+			IORING_SETUP_SUBMIT_ALL;
 	p.cq_entries = 64;
 	ret = t_create_ring_params(64, &ring, &p);
 	if (ret == T_SETUP_SKIP)
