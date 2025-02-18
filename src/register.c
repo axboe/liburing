@@ -422,6 +422,12 @@ int io_uring_clone_buffers(struct io_uring *dst, struct io_uring *src)
 	return io_uring_clone_buffers_offset(dst, src, 0, 0, 0, 0);
 }
 
+int io_uring_register_ifq(struct io_uring *ring,
+			  struct io_uring_zcrx_ifq_reg *reg)
+{
+	return do_register(ring, IORING_REGISTER_ZCRX_IFQ, reg, 1);
+}
+
 int io_uring_resize_rings(struct io_uring *ring, struct io_uring_params *p)
 {
 	unsigned sq_head, sq_tail;
