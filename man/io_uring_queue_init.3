@@ -98,7 +98,7 @@ flag to
 .BR io_uring_setup (2).
 The buffer passed to
 .BR io_uring_queue_init_mem (3)
-must already be zeroed.
+must be page size aligned on the host, and must already be zeroed.
 Typically, the caller should allocate a huge page and pass that in to
 .BR io_uring_queue_init_mem (3).
 Pages allocated by mmap are already zeroed.
