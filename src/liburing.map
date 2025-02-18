@@ -111,3 +111,6 @@ LIBURING_2.9 {
 		io_uring_clone_buffers_offset;
 		io_uring_register_region;
 } LIBURING_2.8;
+
+LIBURING_2.10 {
+} LIBURING_2.9;

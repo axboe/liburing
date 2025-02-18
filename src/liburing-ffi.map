@@ -225,3 +225,6 @@ LIBURING_2.9 {
 		io_uring_register_region;
 		io_uring_sqe_set_buf_group;
 } LIBURING_2.8;
+
+LIBURING_2.10 {
+} LIBURING_2.9;
