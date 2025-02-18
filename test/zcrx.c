@@ -588,6 +588,9 @@ static int do_recv(struct io_uring *ring, struct recv_data *rd,
 	refill_garbage(rd, refill_area_token);
 
 	for (i = 0; i < LOOP_COUNT - 1; i++) {
+		uint64_t off, mask = (1ULL << IORING_ZCRX_AREA_SHIFT) - 1;
+		void *addr;
+
 		ret = io_uring_wait_cqe(ring, &cqe);
 		if (ret) {
 			fprintf(stdout, "wait_cqe: %d\n", ret);
@@ -608,9 +611,8 @@ static int do_recv(struct io_uring *ring, struct recv_data *rd,
 		}
 
 		zcqe = (struct io_uring_zcrx_cqe *)(cqe + 1);
-		uint64_t mask = (1ULL << IORING_ZCRX_AREA_SHIFT) - 1;
-		uint64_t off = zcqe->off & mask;
-		void *addr = (char *)rd->area + off;
+		off = zcqe->off & mask;
+		addr = (char *) rd->area + off;
 		ret = strncmp(str, addr, sizeof(str));
 		if (ret != 0) {
 			fprintf(stderr, "recv incorrect payload: %s\n", (const char *)addr);
@@ -646,6 +648,17 @@ static void *recv_fn(void *data)
 	struct io_uring_params p = { };
 	struct io_uring ring;
 	int ret, sock;
+	struct io_uring_zcrx_area_reg area_reg = {
+		.addr = (__u64)(unsigned long)rd->area,
+		.len = AREA_SZ,
+		.flags = 0,
+	};
+	struct io_uring_zcrx_ifq_reg reg = {
+		.if_idx = ifidx,
+		.if_rxq = rxq,
+		.rq_entries = RQ_ENTRIES,
+		.area_ptr = (__u64)(unsigned long)&area_reg,
+	};
 
 	p.flags = RING_FLAGS;
 	ret = t_create_ring_params(8, &ring, &p);
@@ -655,19 +668,6 @@ static void *recv_fn(void *data)
 	} else if (ret < 0) {
 		goto err;
 	}
-
-	struct io_uring_zcrx_area_reg area_reg = {
-		.addr = (__u64)(unsigned long)rd->area,
-		.len = AREA_SZ,
-		.flags = 0,
-	};
-
-	struct io_uring_zcrx_ifq_reg reg = {
-		.if_idx = ifidx,
-		.if_rxq = rxq,
-		.rq_entries = RQ_ENTRIES,
-		.area_ptr = (__u64)(unsigned long)&area_reg,
-	};
 
 	ret = io_uring_register_ifq(&ring, &reg);
 	if (ret != 0) {
@@ -817,7 +817,7 @@ int main(int argc, char *argv[])
 	int ret;
 
 	if (argc > 1)
-		return 0;
+		return T_EXIT_SKIP;
 
 	area_outer = mmap(NULL, AREA_SZ + 8192, PROT_NONE,
 		MAP_ANONYMOUS | MAP_PRIVATE | MAP_NORESERVE, -1, 0);
@@ -914,5 +914,5 @@ int main(int argc, char *argv[])
 	}
 
 	munmap(area, AREA_SZ);
-	return 0;
+	return T_EXIT_PASS;
 }
