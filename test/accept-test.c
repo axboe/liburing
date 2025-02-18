@@ -7,6 +7,7 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <assert.h>
+#include <string.h>
 #include "liburing.h"
 #include "helpers.h"
 
