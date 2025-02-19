@@ -26,8 +26,10 @@ This feature can only be used when the ring has been setup with
 and hence is using an offloaded approach to request submissions.
 
 .SH RETURN VALUE
-On success it returns the free space. If the kernel does not support the
-feature, -EINVAL is returned.
+On success it returns an amount of free entries in the SQ ring. If the kernel
+does not support the feature, or the ring was not setup with
+.B IORING_SETUP_SQPOLL,
+-EINVAL is returned.
 .SH SEE ALSO
 .BR io_uring_submit (3),
 .BR io_uring_wait_cqe (3),

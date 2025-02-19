@@ -1366,20 +1366,31 @@ IOURINGINLINE unsigned io_uring_sq_space_left(const struct io_uring *ring)
 }
 
 /*
- * Only applicable when using SQPOLL - allows the caller to wait for space
- * to free up in the SQ ring, which happens when the kernel side thread has
- * consumed one or more entries. If the SQ ring is currently non-full, no
- * action is taken. Note: may return -EINVAL if the kernel doesn't support
+ * Only applicable when using SQPOLL - allows the caller to wait for an at
+ * least one free entry in the SQ ring, which happens when the kernel side
+ * thread has consumed one or more entries. If the SQ ring is currently
+ * non-full, no waiting occured and an amout of free entries is returned
+ * immediately. Note: may also return -EINVAL if the kernel doesn't support
  * this feature.
  */
 IOURINGINLINE int io_uring_sqring_wait(struct io_uring *ring)
 {
-	if (!(ring->flags & IORING_SETUP_SQPOLL))
-		return 0;
-	if (io_uring_sq_space_left(ring))
-		return 0;
+	int ret;
 
-	return __io_uring_sqring_wait(ring);
+	if (!(ring->flags & IORING_SETUP_SQPOLL))
+		return -EINVAL;
+
+	do {
+		ret = io_uring_sq_space_left(ring);
+		if (ret)
+			break;
+
+		ret = __io_uring_sqring_wait(ring);
+		if (ret < 0)
+			return ret;
+	} while (ret == 0);
+
+	return ret;
 }
 
 /*
