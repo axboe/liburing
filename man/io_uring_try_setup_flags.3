@@ -1,0 +1,47 @@
+.\" Copyright (C) 2024 Tavian Barnes <tavianator@tavianator.com>
+.\"
+.\" SPDX-License-Identifier: LGPL-2.0-or-later
+.\"
+.TH io_uring_try_setup_flags 3 "December 4, 2024" "liburing-2.9" "liburing Manual"
+.SH NAME
+io_uring_try_setup_flags \- check if the kernel supports some setup flags
+.SH SYNOPSIS
+.nf
+.B #include <liburing.h>
+.PP
+.BI "int io_uring_try_setup_flags(struct io_uring_params *" params ","
+.BI "                             unsigned " flags ");"
+.fi
+.SH DESCRIPTION
+.PP
+The
+.BR io_uring_try_setup_flags (3)
+function checks whether the running kernel supports a combination of
+.B IORING_SETUP_*
+flags. On success,
+.BR io_uring_try_setup_flags (3)
+performs
+.PP
+.nf
+.RS
+.I params\->flags |= flags;
+.RE
+.fi
+.PP
+and returns 0. On failure,
+.I params
+remains unchanged and
+.B \-errno
+is returned.
+.SH RETURN VALUE
+.BR io_uring_try_setup_flags (3)
+returns 0 on success and
+.BR -errno
+on failure.
+.SH ERRORS
+.TP
+.B EINVAL
+The flag combination is invalid.
+.SH SEE ALSO
+.BR io_uring_setup (2),
+.BR io_uring_queue_init (3)
