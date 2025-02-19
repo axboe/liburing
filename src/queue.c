@@ -8,6 +8,10 @@
 #include "liburing/sanitize.h"
 #include "liburing/io_uring.h"
 
+#ifdef LIBURING_RS_INTERNAL
+#pragma weak io_uring_get_sqe
+#endif
+
 /*
  * Returns true if we're not using SQ thread (thus nobody submits but us)
  * or if IORING_SQ_NEED_WAKEUP is set, so submit thread must be explicitly

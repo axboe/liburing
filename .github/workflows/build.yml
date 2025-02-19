@@ -20,6 +20,7 @@ jobs:
             cc: x86_64-linux-gnu-gcc
             cxx: x86_64-linux-gnu-g++
             sanitize: 0
+            cargo_toolchain: x86_64-unknown-linux-gnu
 
           # x86-64 gcc asan
           - arch: x86_64
@@ -28,6 +29,7 @@ jobs:
             cc: x86_64-linux-gnu-gcc
             cxx: x86_64-linux-gnu-g++
             sanitize: 1
+            cargo_toolchain: x86_64-unknown-linux-gnu
 
           # x86-64 clang
           - arch: x86_64
@@ -38,6 +40,7 @@ jobs:
             liburing_extra_flags: -Wshorten-64-to-32
             extra_flags: -Wmissing-prototypes -Wstrict-prototypes -Wunreachable-code-loop-increment -Wunreachable-code -Wmissing-variable-declarations -Wextra-semi-stmt
             sanitize: 0
+            cargo_toolchain: x86_64-unknown-linux-gnu
 
           # x86 (32-bit) gcc
           - arch: i686
@@ -46,6 +49,9 @@ jobs:
             cc: i686-linux-gnu-gcc
             cxx: i686-linux-gnu-g++
             sanitize: 0
+            # leave disabled because of this bug in bindgen:
+            # https://github.com/rust-lang/rust-bindgen/issues/2991
+            # cargo_toolchain: i686-unknown-linux-gnu
 
           # aarch64 gcc
           - arch: aarch64
@@ -54,6 +60,7 @@ jobs:
             cc: aarch64-linux-gnu-gcc
             cxx: aarch64-linux-gnu-g++
             sanitize: 0
+            cargo_toolchain: aarch64-unknown-linux-gnu
 
           # arm (32-bit) gcc
           - arch: arm
@@ -62,6 +69,7 @@ jobs:
             cc: arm-linux-gnueabi-gcc
             cxx: arm-linux-gnueabi-g++
             sanitize: 0
+            cargo_toolchain: arm-unknown-linux-gnueabi
 
           # riscv64
           - arch: riscv64
@@ -70,6 +78,7 @@ jobs:
             cc: riscv64-linux-gnu-gcc
             cxx: riscv64-linux-gnu-g++
             sanitize: 0
+            cargo_toolchain: riscv64gc-unknown-linux-gnu
 
           # powerpc64
           - arch: powerpc64
@@ -78,6 +87,7 @@ jobs:
             cc: powerpc64-linux-gnu-gcc
             cxx: powerpc64-linux-gnu-g++
             sanitize: 0
+            cargo_toolchain: powerpc64-unknown-linux-gnu
 
           # powerpc
           - arch: powerpc
@@ -86,6 +96,7 @@ jobs:
             cc: powerpc-linux-gnu-gcc
             cxx: powerpc-linux-gnu-g++
             sanitize: 0
+            cargo_toolchain: powerpc-unknown-linux-gnu
 
           # alpha
           - arch: alpha
@@ -122,6 +133,7 @@ jobs:
     env:
       FLAGS: -g -O3 -Wall -Wextra -Werror -Wno-sign-compare ${{matrix.extra_flags}}
       SANITIZE: ${{matrix.sanitize}}
+      CARGO_TOOLCHAIN: ${{matrix.cargo_toolchain}}
 
       # Flags for building sources in src/ dir only.
       LIBURING_CFLAGS: ${{matrix.liburing_extra_flags}}
@@ -132,16 +144,21 @@ jobs:
 
     - name: Install Compilers
       run: |
-        if [[ "${{matrix.cc_pkg}}" == "clang" ]]; then \
-            wget https://apt.llvm.org/llvm.sh -O /tmp/llvm.sh; \
-            sudo apt-get purge --auto-remove llvm python3-lldb-14 llvm-14 -y; \
-            sudo bash /tmp/llvm.sh 17; \
-            sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-17 400; \
-            sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-17 400; \
-        else \
-            sudo apt-get update -y; \
-            sudo apt-get install -y ${{matrix.cc_pkg}} ${{matrix.cxx_pkg}}; \
-        fi;
+        sudo apt-get update -y;
+        sudo apt-get install -y ${{matrix.cc_pkg}} ${{matrix.cxx_pkg}};
+
+    - name: Install Rust
+      if: ${{matrix.cargo_toolchain}}
+      run: |
+        sudo apt-get update -y;
+        sudo apt-get install -y curl;
+        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- --default-toolchain none -y;
+        . "$HOME/.cargo/env";
+        rustup update;
+        rustup update nightly;
+        rustup target add ${{matrix.cargo_toolchain}} --toolchain stable;
+        rustup target add ${{matrix.cargo_toolchain}} --toolchain nightly;
+        rustup component add rust-src --toolchain nightly --target ${{matrix.cargo_toolchain}};
 
     - name: Display compiler versions
       run: |
@@ -159,6 +176,18 @@ jobs:
       run: |
         ./configure --cc=${{matrix.cc}} --cxx=${{matrix.cxx}} --enable-sanitizer;
         make -j$(nproc) V=1 CPPFLAGS="-Werror" CFLAGS="$FLAGS" CXXFLAGS="$FLAGS";
+
+    - name: Build liburing-rs
+      if: ${{matrix.cargo_toolchain && matrix.sanitize == '0'}}
+      run: |
+        CC=${{matrix.cc}} CXX=${{matrix.cxx}} cargo build --target ${{matrix.cargo_toolchain}};
+        make -j$(nproc) V=1 CPPFLAGS="-Werror" CFLAGS="$FLAGS" CXXFLAGS="$FLAGS" -C test liburing_rs_tests;
+
+    - name: Build liburing-rs
+      if: ${{matrix.cargo_toolchain && matrix.sanitize == '1'}}
+      run: |
+        CC=${{matrix.cc}} CXX=${{matrix.cxx}} cargo +nightly build --target ${{matrix.cargo_toolchain}} -Zbuild-std --features sanitizers;
+        make -j$(nproc) V=1 CPPFLAGS="-Werror" CFLAGS="$FLAGS" CXXFLAGS="$FLAGS" -C test liburing_rs_tests;
 
     - name: Test install command
       run: |
