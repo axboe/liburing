@@ -1,4 +1,4 @@
-name: Build test
+name: CI
 
 on:
   # Trigger the workflow on push or pull requests.
@@ -153,37 +153,78 @@ jobs:
       LIBURING_CFLAGS: ${{matrix.build_args.liburing_extra_flags}}
 
     steps:
-    - name: Checkout source
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
+      - name: Checkout source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-    - name: Checkout commit
-      run: |
-        git checkout ${{ matrix.commit }};
+      - name: Checkout commit
+        run: |
+          git checkout ${{ matrix.commit }};
 
-    - name: Install Compilers
-      run: |
-        sudo apt-get update -y;
-        sudo apt-get install -y ${{matrix.build_args.cc_pkg}} ${{matrix.build_args.cxx_pkg}};
+      - name: Install Compilers
+        run: |
+          sudo apt-get update -y;
+          sudo apt-get install -y ${{matrix.build_args.cc_pkg}} ${{matrix.build_args.cxx_pkg}};
 
-    - name: Display compiler versions
-      run: |
-        ${{matrix.build_args.cc}} --version;
-        ${{matrix.build_args.cxx}} --version;
+      - name: Display compiler versions
+        run: |
+          ${{matrix.build_args.cc}} --version;
+          ${{matrix.build_args.cxx}} --version;
 
-    - name: Build
-      if: ${{matrix.build_args.sanitize == '0'}}
-      run: |
-        ./configure --cc=${{matrix.build_args.cc}} --cxx=${{matrix.build_args.cxx}};
-        make -j$(nproc) V=1 CPPFLAGS="-Werror" CFLAGS="$FLAGS" CXXFLAGS="$FLAGS";
+      - name: Build
+        if: ${{matrix.build_args.sanitize == '0'}}
+        run: |
+          ./configure --cc=${{matrix.build_args.cc}} --cxx=${{matrix.build_args.cxx}};
+          make -j$(nproc) V=1 CPPFLAGS="-Werror" CFLAGS="$FLAGS" CXXFLAGS="$FLAGS";
 
-    - name: Build
-      if: ${{matrix.build_args.sanitize == '1'}}
-      run: |
-        ./configure --cc=${{matrix.build_args.cc}} --cxx=${{matrix.build_args.cxx}} --enable-sanitizer;
-        make -j$(nproc) V=1 CPPFLAGS="-Werror" CFLAGS="$FLAGS" CXXFLAGS="$FLAGS";
+      - name: Build
+        if: ${{matrix.build_args.sanitize == '1'}}
+        run: |
+          ./configure --cc=${{matrix.build_args.cc}} --cxx=${{matrix.build_args.cxx}} --enable-sanitizer;
+          make -j$(nproc) V=1 CPPFLAGS="-Werror" CFLAGS="$FLAGS" CXXFLAGS="$FLAGS";
 
-    - name: Test install command
-      run: |
-        sudo make install;
+      - name: Test install command
+        run: |
+          sudo make install;
+
+
+  codespell:
+    needs: get_commit_list
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        commit: ${{ fromJson(needs.get_commit_list.outputs.commit_list) }}
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Install codespell
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y codespell
+
+      - name: Display codespell version
+        run: codespell --version
+
+      - name: Execute codespell
+        run: codespell --ignore-words=.github/actions/codespell/stopwords .
+
+
+  shellcheck:
+    needs: get_commit_list
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        commit: ${{ fromJson(needs.get_commit_list.outputs.commit_list) }}
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Display shellcheck version
+        run: shellcheck --version
+
+      - name: Shellcheck execution
+        run: shellcheck test/runtest*.sh
