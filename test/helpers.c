@@ -363,3 +363,13 @@ unsigned long long utime_since_now(struct timeval *tv)
 	gettimeofday(&end, NULL);
 	return utime_since(tv, &end);
 }
+
+void *aligned_alloc(size_t alignment, size_t size)
+{
+	void *ret;
+
+	if (posix_memalign(&ret, alignment, size))
+		return NULL;
+
+	return ret;
+}

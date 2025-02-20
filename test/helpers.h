@@ -13,6 +13,7 @@ extern "C" {
 #include "../src/setup.h"
 #include <arpa/inet.h>
 #include <sys/time.h>
+#include <stdlib.h>
 
 enum t_setup_ret {
 	T_SETUP_OK	= 0,
@@ -24,6 +25,13 @@ enum t_test_result {
 	T_EXIT_FAIL   = 1,
 	T_EXIT_SKIP   = 77,
 };
+
+/*
+ * Some Android versions lack aligned_alloc in stdlib.h.
+ * To avoid making large changes in tests, define a helper
+ * function that wraps posix_memalign as our own aligned_alloc.
+ */
+void *aligned_alloc(size_t alignment, size_t size);
 
 /*
  * Helper for binding socket to an ephemeral port.
