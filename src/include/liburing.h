@@ -1631,6 +1631,25 @@ IOURINGINLINE int io_uring_buf_ring_available(struct io_uring *ring,
 	return (uint16_t) (br->tail - head);
 }
 
+/*
+ * As of liburing-2.2, io_uring_get_sqe() has been converted into a
+ * "static inline" function. However, this change breaks seamless
+ * updates of liburing.so, as applications would need to be recompiled.
+ * To ensure backward compatibility, liburing keeps the original
+ * io_uring_get_sqe() symbol available in the shared library.
+ *
+ * To accomplish this, io_uring_get_sqe() is defined as a non-static
+ * inline function when LIBURING_INTERNAL is set, which only applies
+ * during liburing.so builds.
+ *
+ * This strategy ensures new users adopt the "static inline" version
+ * while preserving compatibility for old applications linked against
+ * the shared library.
+ *
+ * Relevant commits:
+ * 8be8af4afcb4 ("queue: provide io_uring_get_sqe() symbol again")
+ * 52dcdbba35c8 ("src/queue: protect io_uring_get_sqe() with LIBURING_INTERNAL")
+ */
 #ifndef LIBURING_INTERNAL
 IOURINGINLINE struct io_uring_sqe *io_uring_get_sqe(struct io_uring *ring)
 {
