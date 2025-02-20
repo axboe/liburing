@@ -1419,7 +1419,7 @@ IOURINGINLINE int io_uring_cq_eventfd_toggle(struct io_uring *ring,
 {
 	uint32_t flags;
 
-	if (!!enabled == io_uring_cq_eventfd_enabled(ring))
+	if (enabled == io_uring_cq_eventfd_enabled(ring))
 		return 0;
 
 	if (!ring->cq.kflags)
