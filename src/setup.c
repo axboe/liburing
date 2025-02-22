@@ -438,14 +438,9 @@ __cold void io_uring_queue_exit(struct io_uring *ring)
 	if (ring->flags & IORING_SETUP_SQE128)
 		sqe_size <<= 1;
 
-	if (!sq->ring_sz && !(ring->int_flags & INT_FLAG_APP_MEM)) {
+	if (!(ring->int_flags & INT_FLAG_APP_MEM)) {
 		__sys_munmap(sq->sqes, sqe_size * sq->ring_entries);
 		io_uring_unmap_rings(sq, cq);
-	} else {
-		if (!(ring->int_flags & INT_FLAG_APP_MEM)) {
-			__sys_munmap(sq->sqes, *sq->kring_entries * sqe_size);
-			io_uring_unmap_rings(sq, cq);
-		}
 	}
 
 	/*
