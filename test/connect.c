@@ -371,8 +371,10 @@ static int test(int flags)
 	int ret;
 
 	ret = io_uring_queue_init(8, &ring, flags);
+	if (ret == -EINVAL)
+		return T_EXIT_SKIP;
 	if (ret) {
-		fprintf(stderr, "io_uring_queue_setup() = %d\n", ret);
+		fprintf(stderr, "io_uring_queue_init() = %d\n", ret);
 		return T_EXIT_FAIL;
 	}
 
