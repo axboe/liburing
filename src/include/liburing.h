@@ -1533,6 +1533,7 @@ IOURINGINLINE struct io_uring_sqe *_io_uring_get_sqe(struct io_uring *ring)
 {
 	struct io_uring_sq *sq = &ring->sq;
 	unsigned head, tail = sq->sqe_tail;
+	struct io_uring_sqe *sqe;
 	int shift = 0;
 
 	if (ring->flags & IORING_SETUP_SQE128)
@@ -1542,16 +1543,13 @@ IOURINGINLINE struct io_uring_sqe *_io_uring_get_sqe(struct io_uring *ring)
 	else
 		head = io_uring_smp_load_acquire(sq->khead);
 
-	if (tail - head < sq->ring_entries) {
-		struct io_uring_sqe *sqe;
+	if (tail - head >= sq->ring_entries)
+		return NULL;
 
-		sqe = &sq->sqes[(tail & sq->ring_mask) << shift];
-		sq->sqe_tail = tail + 1;
-		io_uring_initialize_sqe(sqe);
-		return sqe;
-	}
-
-	return NULL;
+	sqe = &sq->sqes[(tail & sq->ring_mask) << shift];
+	sq->sqe_tail = tail + 1;
+	io_uring_initialize_sqe(sqe);
+	return sqe;
 }
 
 /*
