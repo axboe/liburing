@@ -1335,26 +1335,28 @@ IOURINGINLINE void io_uring_prep_cmd_discard(struct io_uring_sqe *sqe,
 	sqe->addr3 = nbytes;
 }
 
+/* Read the kernel's SQ head index with appropriate memory ordering */
+IOURINGINLINE unsigned io_uring_load_sq_head(const struct io_uring *ring)
+{
+	/*
+	 * Without acquire ordering, we could overwrite a SQE before the kernel
+	 * finished reading it. We don't need the acquire ordering for
+	 * non-SQPOLL since then we drive updates.
+	 */
+	if (ring->flags & IORING_SETUP_SQPOLL)
+		return io_uring_smp_load_acquire(ring->sq.khead);
+
+	return *ring->sq.khead;
+}
+
 /*
  * Returns number of unconsumed (if SQPOLL) or unsubmitted entries exist in
  * the SQ ring
  */
 IOURINGINLINE unsigned io_uring_sq_ready(const struct io_uring *ring)
 {
-	unsigned khead;
-
-	/*
-	 * Without a barrier, we could miss an update and think the SQ wasn't
-	 * ready. We don't need the load acquire for non-SQPOLL since then we
-	 * drive updates.
-	 */
-	if (ring->flags & IORING_SETUP_SQPOLL)
-		khead = io_uring_smp_load_acquire(ring->sq.khead);
-	else
-		khead = *ring->sq.khead;
-
 	/* always use real head, to avoid losing sync for short submit */
-	return ring->sq.sqe_tail - khead;
+	return ring->sq.sqe_tail - io_uring_load_sq_head(ring);
 }
 
 /*
@@ -1547,13 +1549,8 @@ IOURINGINLINE int io_uring_wait_cqe(struct io_uring *ring,
 IOURINGINLINE struct io_uring_sqe *_io_uring_get_sqe(struct io_uring *ring)
 {
 	struct io_uring_sq *sq = &ring->sq;
-	unsigned head, tail = sq->sqe_tail;
+	unsigned head = io_uring_load_sq_head(ring), tail = sq->sqe_tail;
 	struct io_uring_sqe *sqe;
-
-	if (!(ring->flags & IORING_SETUP_SQPOLL))
-		head = *sq->khead;
-	else
-		head = io_uring_smp_load_acquire(sq->khead);
 
 	if (tail - head >= sq->ring_entries)
 		return NULL;
