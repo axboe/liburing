@@ -1366,6 +1366,21 @@ IOURINGINLINE unsigned io_uring_sq_space_left(const struct io_uring *ring)
 }
 
 /*
+ * Returns the bit shift needed to index the SQ.
+ * This shift is 1 for rings with big SQEs, and 0 for rings with normal SQEs.
+ * SQE `index` can be computed as &sq.sqes[(index & sq.ring_mask) << sqe_shift].
+ */
+IOURINGINLINE unsigned io_uring_sqe_shift_from_flags(unsigned flags)
+{
+	return !!(flags & IORING_SETUP_SQE128);
+}
+
+IOURINGINLINE unsigned io_uring_sqe_shift(const struct io_uring *ring)
+{
+	return io_uring_sqe_shift_from_flags(ring->flags);
+}
+
+/*
  * Only applicable when using SQPOLL - allows the caller to wait for space
  * to free up in the SQ ring, which happens when the kernel side thread has
  * consumed one or more entries. If the SQ ring is currently non-full, no
@@ -1534,10 +1549,7 @@ IOURINGINLINE struct io_uring_sqe *_io_uring_get_sqe(struct io_uring *ring)
 	struct io_uring_sq *sq = &ring->sq;
 	unsigned head, tail = sq->sqe_tail;
 	struct io_uring_sqe *sqe;
-	int shift = 0;
 
-	if (ring->flags & IORING_SETUP_SQE128)
-		shift = 1;
 	if (!(ring->flags & IORING_SETUP_SQPOLL))
 		head = *sq->khead;
 	else
@@ -1546,7 +1558,7 @@ IOURINGINLINE struct io_uring_sqe *_io_uring_get_sqe(struct io_uring *ring)
 	if (tail - head >= sq->ring_entries)
 		return NULL;
 
-	sqe = &sq->sqes[(tail & sq->ring_mask) << shift];
+	sqe = &sq->sqes[(tail & sq->ring_mask) << io_uring_sqe_shift(ring)];
 	sq->sqe_tail = tail + 1;
 	io_uring_initialize_sqe(sqe);
 	return sqe;
