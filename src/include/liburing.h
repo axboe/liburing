@@ -329,11 +329,10 @@ int __io_uring_get_cqe(struct io_uring *ring,
 #define io_uring_cqe_shift(ring)					\
 	(!!((ring)->flags & IORING_SETUP_CQE32))
 
-#define io_uring_cqe_index(ring,ptr,mask)				\
-	(((ptr) & (mask)) << io_uring_cqe_shift(ring))
-
 struct io_uring_cqe_iter {
-	const struct io_uring *ring;
+	struct io_uring_cqe *cqes;
+	unsigned mask;
+	unsigned shift;
 	unsigned head;
 	unsigned tail;
 };
@@ -342,7 +341,9 @@ IOURINGINLINE struct io_uring_cqe_iter
 io_uring_cqe_iter_init(const struct io_uring *ring)
 {
 	return (struct io_uring_cqe_iter) {
-		.ring = ring,
+		.cqes = ring->cq.cqes,
+		.mask = ring->cq.ring_mask,
+		.shift = io_uring_cqe_shift(ring),
 		.head = *ring->cq.khead,
 		/* Acquire ordering ensures tail is loaded before any CQEs */
 		.tail = io_uring_smp_load_acquire(ring->cq.ktail),
@@ -352,13 +353,10 @@ io_uring_cqe_iter_init(const struct io_uring *ring)
 IOURINGINLINE bool io_uring_cqe_iter_next(struct io_uring_cqe_iter *iter,
 					  struct io_uring_cqe **cqe)
 {
-	const struct io_uring *ring = iter->ring;
-	const struct io_uring_cq *cq = &ring->cq;
-
 	if (iter->head == iter->tail)
 		return false;
 
-	*cqe = &cq->cqes[io_uring_cqe_index(ring, iter->head++, cq->ring_mask)];
+	*cqe = &iter->cqes[(iter->head++ & iter->mask) << iter->shift];
 	return true;
 }
 
