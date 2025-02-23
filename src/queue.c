@@ -156,7 +156,7 @@ static inline bool io_uring_peek_batch_cqe_(struct io_uring *ring,
 					    unsigned *count)
 {
 	unsigned ready = io_uring_cq_ready(ring);
-	int shift = 0;
+	unsigned shift;
 	unsigned head;
 	unsigned mask;
 	unsigned last;
@@ -164,8 +164,7 @@ static inline bool io_uring_peek_batch_cqe_(struct io_uring *ring,
 	if (!ready)
 		return false;
 
-	if (ring->flags & IORING_SETUP_CQE32)
-		shift = 1;
+	shift = io_uring_cqe_shift(ring);
 	head = *ring->cq.khead;
 	mask = ring->cq.ring_mask;
 	if (ready < *count)

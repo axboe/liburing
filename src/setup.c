@@ -100,18 +100,19 @@ static size_t params_sqes_size(const struct io_uring_params *p, unsigned sqes)
 	return sqes * sizeof(struct io_uring_sqe);
 }
 
+static size_t params_cq_size(const struct io_uring_params *p, unsigned cqes)
+{
+	cqes <<= io_uring_cqe_shift_from_flags(p->flags);
+	return cqes * sizeof(struct io_uring_cqe);
+}
+
 int io_uring_mmap(int fd, struct io_uring_params *p, struct io_uring_sq *sq,
 		  struct io_uring_cq *cq)
 {
-	size_t size;
 	int ret;
 
-	size = sizeof(struct io_uring_cqe);
-	if (p->flags & IORING_SETUP_CQE32)
-		size += sizeof(struct io_uring_cqe);
-
 	sq->ring_sz = p->sq_off.array + p->sq_entries * sizeof(unsigned);
-	cq->ring_sz = p->cq_off.cqes + p->cq_entries * size;
+	cq->ring_sz = p->cq_off.cqes + params_cq_size(p, p->cq_entries);
 
 	if (p->features & IORING_FEAT_SINGLE_MMAP) {
 		if (cq->ring_sz > sq->ring_sz)
@@ -216,7 +217,7 @@ static int io_uring_alloc_huge(unsigned entries, struct io_uring_params *p,
 {
 	unsigned long page_size = get_page_size();
 	unsigned sq_entries, cq_entries;
-	size_t ring_mem, sqes_mem, cqes_mem;
+	size_t ring_mem, sqes_mem;
 	unsigned long mem_used = 0;
 	void *ptr;
 	int ret;
@@ -232,10 +233,7 @@ static int io_uring_alloc_huge(unsigned entries, struct io_uring_params *p,
 		sqes_mem += sq_entries * sizeof(unsigned);
 	sqes_mem = (sqes_mem + page_size - 1) & ~(page_size - 1);
 
-	cqes_mem = cq_entries * sizeof(struct io_uring_cqe);
-	if (p->flags & IORING_SETUP_CQE32)
-		cqes_mem *= 2;
-	ring_mem += sqes_mem + cqes_mem;
+	ring_mem += sqes_mem + params_cq_size(p, cq_entries);
 	mem_used = ring_mem;
 	mem_used = (mem_used + page_size - 1) & ~(page_size - 1);
 
@@ -505,11 +503,7 @@ static size_t rings_size(struct io_uring_params *p, unsigned entries,
 {
 	size_t pages, sq_size, cq_size;
 
-	cq_size = sizeof(struct io_uring_cqe);
-	if (p->flags & IORING_SETUP_CQE32)
-		cq_size += sizeof(struct io_uring_cqe);
-	cq_size *= cq_entries;
-	cq_size += KRING_SIZE;
+	cq_size = KRING_SIZE + params_cq_size(p, cq_entries);
 	cq_size = (cq_size + 63) & ~63UL;
 	pages = (size_t) 1 << npages(cq_size, page_size);
 

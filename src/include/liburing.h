@@ -323,11 +323,19 @@ int __io_uring_get_cqe(struct io_uring *ring,
 #define LIBURING_UDATA_TIMEOUT	((__u64) -1)
 
 /*
- * Calculates the step size for CQE iteration.
- * 	For standard CQE's its 1, for big CQE's its two.
+ * Returns the bit shift needed to index the CQ.
+ * This shift is 1 for rings with big CQEs, and 0 for rings with normal CQEs.
+ * CQE `index` can be computed as &cq.cqes[(index & cq.ring_mask) << cqe_shift].
  */
-#define io_uring_cqe_shift(ring)					\
-	(!!((ring)->flags & IORING_SETUP_CQE32))
+IOURINGINLINE unsigned io_uring_cqe_shift_from_flags(unsigned flags)
+{
+	return !!(flags & IORING_SETUP_CQE32);
+}
+
+IOURINGINLINE unsigned io_uring_cqe_shift(const struct io_uring *ring)
+{
+	return io_uring_cqe_shift_from_flags(ring->flags);
+}
 
 struct io_uring_cqe_iter {
 	struct io_uring_cqe *cqes;
@@ -1501,10 +1509,7 @@ IOURINGINLINE int __io_uring_peek_cqe(struct io_uring *ring,
 	int err = 0;
 	unsigned available;
 	unsigned mask = ring->cq.ring_mask;
-	int shift = 0;
-
-	if (ring->flags & IORING_SETUP_CQE32)
-		shift = 1;
+	unsigned shift = io_uring_cqe_shift(ring);
 
 	do {
 		unsigned tail = io_uring_smp_load_acquire(ring->cq.ktail);
