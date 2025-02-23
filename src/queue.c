@@ -171,12 +171,11 @@ again:
 		unsigned head = *ring->cq.khead;
 		unsigned mask = ring->cq.ring_mask;
 		unsigned last;
-		int i = 0;
 
 		count = count > ready ? ready : count;
 		last = head + count;
-		for (;head != last; head++, i++)
-			cqes[i] = &ring->cq.cqes[(head & mask) << shift];
+		for (;head != last; head++)
+			*(cqes++) = &ring->cq.cqes[(head & mask) << shift];
 
 		return count;
 	}
