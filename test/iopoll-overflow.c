@@ -77,11 +77,11 @@ int main(int argc, char *argv[])
 			IORING_SETUP_SUBMIT_ALL;
 	p.cq_entries = 64;
 	ret = t_create_ring_params(64, &ring, &p);
-	if (ret == T_SETUP_SKIP)
-		return 0;
+	if (ret == T_SETUP_SKIP || ret == -EINVAL)
+		return T_EXIT_SKIP;
 	if (ret != T_SETUP_OK) {
 		fprintf(stderr, "ring create failed: %d\n", ret);
-		return 1;
+		return T_EXIT_FAIL;
 	}
 
 	if (argc > 1) {
