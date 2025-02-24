@@ -332,22 +332,45 @@ int __io_uring_get_cqe(struct io_uring *ring,
 #define io_uring_cqe_index(ring,ptr,mask)				\
 	(((ptr) & (mask)) << io_uring_cqe_shift(ring))
 
+struct io_uring_cqe_iter {
+	const struct io_uring *ring;
+	unsigned head;
+	unsigned tail;
+};
+
+IOURINGINLINE struct io_uring_cqe_iter
+io_uring_cqe_iter_init(const struct io_uring *ring)
+{
+	return (struct io_uring_cqe_iter) {
+		.ring = ring,
+		.head = *ring->cq.khead,
+		/* Acquire ordering ensures tail is loaded before any CQEs */
+		.tail = io_uring_smp_load_acquire(ring->cq.ktail),
+	};
+}
+
+IOURINGINLINE struct io_uring_cqe *
+io_uring_cqe_iter_next(struct io_uring_cqe_iter *iter)
+{
+	const struct io_uring *ring = iter->ring;
+	const struct io_uring_cq *cq = &ring->cq;
+
+	if (iter->head == iter->tail)
+		return NULL;
+
+	return &cq->cqes[io_uring_cqe_index(ring, iter->head++, cq->ring_mask)];
+}
+
 /*
  * NOTE: we should just get rid of the 'head' being passed in here, it doesn't
  * serve a purpose anymore. The below is a bit of a work-around to ensure that
  * the compiler doesn't complain about 'head' being unused (or only written,
  * never read), as we use a local iterator for both the head and tail tracking.
  */
-#define io_uring_for_each_cqe(ring, head, cqe)				\
-	/*								\
-	 * io_uring_smp_load_acquire() enforces the order of tail	\
-	 * and CQE reads.						\
-	 */								\
-	for (__u32 __HEAD__ = (head) = *(ring)->cq.khead,		\
-	     __TAIL__ = io_uring_smp_load_acquire((ring)->cq.ktail);	\
-	     (cqe = ((head) != __TAIL__ ?				\
-	     &(ring)->cq.cqes[io_uring_cqe_index(ring, __HEAD__, (ring)->cq.ring_mask)] : NULL)); \
-	     (head) = ++__HEAD__)
+#define io_uring_for_each_cqe(ring, head, cqe)					\
+	for (struct io_uring_cqe_iter __ITER__ = io_uring_cqe_iter_init(ring);	\
+	     (head) = __ITER__.head, cqe = io_uring_cqe_iter_next(&__ITER__);	\
+	     (void)(head))
 
 /*
  * Must be called after io_uring_for_each_cqe()
