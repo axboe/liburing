@@ -349,16 +349,17 @@ io_uring_cqe_iter_init(const struct io_uring *ring)
 	};
 }
 
-IOURINGINLINE struct io_uring_cqe *
-io_uring_cqe_iter_next(struct io_uring_cqe_iter *iter)
+IOURINGINLINE bool io_uring_cqe_iter_next(struct io_uring_cqe_iter *iter,
+					  struct io_uring_cqe **cqe)
 {
 	const struct io_uring *ring = iter->ring;
 	const struct io_uring_cq *cq = &ring->cq;
 
 	if (iter->head == iter->tail)
-		return NULL;
+		return false;
 
-	return &cq->cqes[io_uring_cqe_index(ring, iter->head++, cq->ring_mask)];
+	*cqe = &cq->cqes[io_uring_cqe_index(ring, iter->head++, cq->ring_mask)];
+	return true;
 }
 
 /*
@@ -369,7 +370,7 @@ io_uring_cqe_iter_next(struct io_uring_cqe_iter *iter)
  */
 #define io_uring_for_each_cqe(ring, head, cqe)					\
 	for (struct io_uring_cqe_iter __ITER__ = io_uring_cqe_iter_init(ring);	\
-	     (head) = __ITER__.head, cqe = io_uring_cqe_iter_next(&__ITER__);	\
+	     (head) = __ITER__.head, io_uring_cqe_iter_next(&__ITER__, &(cqe));	\
 	     (void)(head))
 
 /*
