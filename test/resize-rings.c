@@ -556,6 +556,8 @@ static int test(int flags, int fd, int async)
 		return T_EXIT_SKIP;
 
 	ret = io_uring_queue_init_params(8, &ring, &p);
+	if (ret == -EINVAL)
+		return T_EXIT_SKIP;
 	if (ret < 0) {
 		fprintf(stderr, "ring setup failed: %d\n", ret);
 		return T_EXIT_FAIL;
