@@ -323,14 +323,50 @@ int __io_uring_get_cqe(struct io_uring *ring,
 #define LIBURING_UDATA_TIMEOUT	((__u64) -1)
 
 /*
- * Calculates the step size for CQE iteration.
- * 	For standard CQE's its 1, for big CQE's its two.
+ * Returns the bit shift needed to index the CQ.
+ * This shift is 1 for rings with big CQEs, and 0 for rings with normal CQEs.
+ * CQE `index` can be computed as &cq.cqes[(index & cq.ring_mask) << cqe_shift].
  */
-#define io_uring_cqe_shift(ring)					\
-	(!!((ring)->flags & IORING_SETUP_CQE32))
+IOURINGINLINE unsigned io_uring_cqe_shift_from_flags(unsigned flags)
+{
+	return !!(flags & IORING_SETUP_CQE32);
+}
 
-#define io_uring_cqe_index(ring,ptr,mask)				\
-	(((ptr) & (mask)) << io_uring_cqe_shift(ring))
+IOURINGINLINE unsigned io_uring_cqe_shift(const struct io_uring *ring)
+{
+	return io_uring_cqe_shift_from_flags(ring->flags);
+}
+
+struct io_uring_cqe_iter {
+	struct io_uring_cqe *cqes;
+	unsigned mask;
+	unsigned shift;
+	unsigned head;
+	unsigned tail;
+};
+
+IOURINGINLINE struct io_uring_cqe_iter
+io_uring_cqe_iter_init(const struct io_uring *ring)
+{
+	return (struct io_uring_cqe_iter) {
+		.cqes = ring->cq.cqes,
+		.mask = ring->cq.ring_mask,
+		.shift = io_uring_cqe_shift(ring),
+		.head = *ring->cq.khead,
+		/* Acquire ordering ensures tail is loaded before any CQEs */
+		.tail = io_uring_smp_load_acquire(ring->cq.ktail),
+	};
+}
+
+IOURINGINLINE bool io_uring_cqe_iter_next(struct io_uring_cqe_iter *iter,
+					  struct io_uring_cqe **cqe)
+{
+	if (iter->head == iter->tail)
+		return false;
+
+	*cqe = &iter->cqes[(iter->head++ & iter->mask) << iter->shift];
+	return true;
+}
 
 /*
  * NOTE: we should just get rid of the 'head' being passed in here, it doesn't
@@ -338,16 +374,10 @@ int __io_uring_get_cqe(struct io_uring *ring,
  * the compiler doesn't complain about 'head' being unused (or only written,
  * never read), as we use a local iterator for both the head and tail tracking.
  */
-#define io_uring_for_each_cqe(ring, head, cqe)				\
-	/*								\
-	 * io_uring_smp_load_acquire() enforces the order of tail	\
-	 * and CQE reads.						\
-	 */								\
-	for (__u32 __HEAD__ = (head) = *(ring)->cq.khead,		\
-	     __TAIL__ = io_uring_smp_load_acquire((ring)->cq.ktail);	\
-	     (cqe = ((head) != __TAIL__ ?				\
-	     &(ring)->cq.cqes[io_uring_cqe_index(ring, __HEAD__, (ring)->cq.ring_mask)] : NULL)); \
-	     (head) = ++__HEAD__)
+#define io_uring_for_each_cqe(ring, head, cqe)					\
+	for (struct io_uring_cqe_iter __ITER__ = io_uring_cqe_iter_init(ring);	\
+	     (head) = __ITER__.head, io_uring_cqe_iter_next(&__ITER__, &(cqe));	\
+	     (void)(head))
 
 /*
  * Must be called after io_uring_for_each_cqe()
@@ -1335,26 +1365,28 @@ IOURINGINLINE void io_uring_prep_cmd_discard(struct io_uring_sqe *sqe,
 	sqe->addr3 = nbytes;
 }
 
+/* Read the kernel's SQ head index with appropriate memory ordering */
+IOURINGINLINE unsigned io_uring_load_sq_head(const struct io_uring *ring)
+{
+	/*
+	 * Without acquire ordering, we could overwrite a SQE before the kernel
+	 * finished reading it. We don't need the acquire ordering for
+	 * non-SQPOLL since then we drive updates.
+	 */
+	if (ring->flags & IORING_SETUP_SQPOLL)
+		return io_uring_smp_load_acquire(ring->sq.khead);
+
+	return *ring->sq.khead;
+}
+
 /*
  * Returns number of unconsumed (if SQPOLL) or unsubmitted entries exist in
  * the SQ ring
  */
 IOURINGINLINE unsigned io_uring_sq_ready(const struct io_uring *ring)
 {
-	unsigned khead;
-
-	/*
-	 * Without a barrier, we could miss an update and think the SQ wasn't
-	 * ready. We don't need the load acquire for non-SQPOLL since then we
-	 * drive updates.
-	 */
-	if (ring->flags & IORING_SETUP_SQPOLL)
-		khead = io_uring_smp_load_acquire(ring->sq.khead);
-	else
-		khead = *ring->sq.khead;
-
 	/* always use real head, to avoid losing sync for short submit */
-	return ring->sq.sqe_tail - khead;
+	return ring->sq.sqe_tail - io_uring_load_sq_head(ring);
 }
 
 /*
@@ -1363,6 +1395,21 @@ IOURINGINLINE unsigned io_uring_sq_ready(const struct io_uring *ring)
 IOURINGINLINE unsigned io_uring_sq_space_left(const struct io_uring *ring)
 {
 	return ring->sq.ring_entries - io_uring_sq_ready(ring);
+}
+
+/*
+ * Returns the bit shift needed to index the SQ.
+ * This shift is 1 for rings with big SQEs, and 0 for rings with normal SQEs.
+ * SQE `index` can be computed as &sq.sqes[(index & sq.ring_mask) << sqe_shift].
+ */
+IOURINGINLINE unsigned io_uring_sqe_shift_from_flags(unsigned flags)
+{
+	return !!(flags & IORING_SETUP_SQE128);
+}
+
+IOURINGINLINE unsigned io_uring_sqe_shift(const struct io_uring *ring)
+{
+	return io_uring_sqe_shift_from_flags(ring->flags);
 }
 
 /*
@@ -1462,10 +1509,7 @@ IOURINGINLINE int __io_uring_peek_cqe(struct io_uring *ring,
 	int err = 0;
 	unsigned available;
 	unsigned mask = ring->cq.ring_mask;
-	int shift = 0;
-
-	if (ring->flags & IORING_SETUP_CQE32)
-		shift = 1;
+	unsigned shift = io_uring_cqe_shift(ring);
 
 	do {
 		unsigned tail = io_uring_smp_load_acquire(ring->cq.ktail);
@@ -1532,26 +1576,16 @@ IOURINGINLINE int io_uring_wait_cqe(struct io_uring *ring,
 IOURINGINLINE struct io_uring_sqe *_io_uring_get_sqe(struct io_uring *ring)
 {
 	struct io_uring_sq *sq = &ring->sq;
-	unsigned int head, next = sq->sqe_tail + 1;
-	int shift = 0;
+	unsigned head = io_uring_load_sq_head(ring), tail = sq->sqe_tail;
+	struct io_uring_sqe *sqe;
 
-	if (ring->flags & IORING_SETUP_SQE128)
-		shift = 1;
-	if (!(ring->flags & IORING_SETUP_SQPOLL))
-		head = *sq->khead;
-	else
-		head = io_uring_smp_load_acquire(sq->khead);
+	if (tail - head >= sq->ring_entries)
+		return NULL;
 
-	if (next - head <= sq->ring_entries) {
-		struct io_uring_sqe *sqe;
-
-		sqe = &sq->sqes[(sq->sqe_tail & sq->ring_mask) << shift];
-		sq->sqe_tail = next;
-		io_uring_initialize_sqe(sqe);
-		return sqe;
-	}
-
-	return NULL;
+	sqe = &sq->sqes[(tail & sq->ring_mask) << io_uring_sqe_shift(ring)];
+	sq->sqe_tail = tail + 1;
+	io_uring_initialize_sqe(sqe);
+	return sqe;
 }
 
 /*

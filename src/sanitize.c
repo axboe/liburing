@@ -122,17 +122,10 @@ void liburing_sanitize_ring(struct io_uring *ring)
 {
 	struct io_uring_sq *sq = &ring->sq;
 	struct io_uring_sqe *sqe;
-	unsigned int head;
-	int shift = 0;
+	unsigned head = io_uring_load_sq_head(ring);
+	unsigned shift = io_uring_sqe_shift(ring);
 
 	initialize_sanitize_handlers();
-
-	if (ring->flags & IORING_SETUP_SQE128)
-		shift = 1;
-	if (!(ring->flags & IORING_SETUP_SQPOLL))
-		head = *sq->khead;
-	else
-		head = io_uring_smp_load_acquire(sq->khead);
 
 	while (head != sq->sqe_tail) {
 		sqe = &sq->sqes[(head & sq->ring_mask) << shift];

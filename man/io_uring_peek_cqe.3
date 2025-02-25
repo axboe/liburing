@@ -12,9 +12,9 @@ io_uring_peek_cqe \- check if an io_uring completion event is available
 .BI "int io_uring_peek_cqe(struct io_uring *" ring ","
 .BI "                      struct io_uring_cqe **" cqe_ptr ");"
 .PP
-.BI "int io_uring_peek_batch_cqe(struct io_uring *" ring ","
-.BI "                            struct io_uring_cqe **" cqe_ptrs ","
-.BI "                            unsigned " count ");"
+.BI "unsigned io_uring_peek_batch_cqe(struct io_uring *" ring ","
+.BI "                                 struct io_uring_cqe **" cqe_ptrs ","
+.BI "                                 unsigned " count ");"
 .fi
 .SH DESCRIPTION
 .PP
@@ -49,7 +49,9 @@ returns
 .B 0
 and the cqe_ptr parameter is filled in. On success
 .BR io_uring_peek_batch_cqe (3)
-returns the number of completions filled in. On failure, they may return
+returns the number of completions filled in. On failure,
+.BR io_uring_peek_cqe (3)
+may return
 .BR -EAGAIN .
 .SH SEE ALSO
 .BR io_uring_submit (3),
