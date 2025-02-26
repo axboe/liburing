@@ -72,6 +72,7 @@ static struct iovec buffers_iov[__BUF_NR];
 static bool has_sendzc;
 static bool has_sendmsg;
 static bool hit_enomem;
+static bool try_hugepages = 1;
 
 static int probe_zc_support(void)
 {
@@ -900,6 +901,15 @@ static int run_basic_tests(void)
 	return 0;
 }
 
+static void free_buffers(void)
+{
+	if (tx_buffer)
+		free(tx_buffer);
+	if (rx_buffer)
+		free(rx_buffer);
+	tx_buffer = rx_buffer = NULL;
+}
+
 int main(int argc, char *argv[])
 {
 	size_t len;
@@ -920,27 +930,29 @@ int main(int argc, char *argv[])
 
 	page_sz = sysconf(_SC_PAGESIZE);
 
-	len = LARGE_BUF_SIZE;
-	tx_buffer = aligned_alloc(page_sz, len);
-	rx_buffer = aligned_alloc(page_sz, len);
-	if (tx_buffer && rx_buffer) {
-		buffers_iov[BUF_T_LARGE].iov_base = tx_buffer;
-		buffers_iov[BUF_T_LARGE].iov_len = len;
-	} else {
-		if (tx_buffer)
-			free(tx_buffer);
-		if (rx_buffer)
-			free(rx_buffer);
+	if (try_hugepages) {
+		len = LARGE_BUF_SIZE;
+		tx_buffer = aligned_alloc(page_sz, len);
+		rx_buffer = aligned_alloc(page_sz, len);
 
-		printf("skip large buffer tests, can't alloc\n");
+		if (tx_buffer && rx_buffer) {
+			buffers_iov[BUF_T_LARGE].iov_base = tx_buffer;
+			buffers_iov[BUF_T_LARGE].iov_len = len;
+		} else {
+			printf("skip large buffer tests, can't alloc\n");
+			free_buffers();
+		}
+	}
 
+	if (!tx_buffer) {
 		len = 2 * page_sz;
 		tx_buffer = aligned_alloc(page_sz, len);
 		rx_buffer = aligned_alloc(page_sz, len);
-	}
-	if (!tx_buffer || !rx_buffer) {
-		fprintf(stderr, "can't allocate buffers\n");
-		return T_EXIT_FAIL;
+
+		if (!tx_buffer || !rx_buffer) {
+			fprintf(stderr, "can't allocate buffers\n");
+			return T_EXIT_FAIL;
+		}
 	}
 
 	srand((unsigned)time(NULL));
