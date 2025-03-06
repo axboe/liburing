@@ -24,8 +24,11 @@ static int test_ready(struct io_uring *ring, int efd)
 	char tmp[16];
 	int i, ret;
 
-	for (i = 0; i < 2; i++)
-		write(fds[i][1], "foo", 3);
+	for (i = 0; i < 2; i++) {
+		ret = write(fds[i][1], "foo", 3);
+		if (ret < 0)
+			perror("write");
+	}
 
 	memset(out, 0, sizeof(out));
 	sqe = io_uring_get_sqe(ring);
@@ -71,7 +74,9 @@ static int test_not_ready(struct io_uring *ring, int efd)
 
 	for (i = 0; i < 2; i++) {
 		usleep(10000);
-		write(fds[i][1], "foo", 3);
+		ret = write(fds[i][1], "foo", 3);
+		if (ret < 0)
+			perror("write");
 	}
 
 	nr = 0;
@@ -120,8 +125,11 @@ static int test_del(struct io_uring *ring, int efd)
 		return T_EXIT_FAIL;
 	}
 
-	for (i = 0; i < 2; i++)
-		write(fds[i][1], "foo", 3);
+	for (i = 0; i < 2; i++) {
+		ret = write(fds[i][1], "foo", 3);
+		if (ret < 0)
+			perror("write");
+	}
 
 	for (i = 0; i < 1; i++) {
 		ret = io_uring_wait_cqe(ring, &cqe);
@@ -165,8 +173,11 @@ static int test_remove(struct io_uring *ring, int efd)
 	close(efd);
 
 	usleep(10000);
-	for (i = 0; i < 2; i++)
-		write(fds[i][1], "foo", 3);
+	for (i = 0; i < 2; i++) {
+		ret = write(fds[i][1], "foo", 3);
+		if (ret < 0)
+			perror("write");
+	}
 
 	for (i = 0; i < 1; i++) {
 		ret = io_uring_peek_cqe(ring, &cqe);
@@ -196,8 +207,13 @@ static void *thread_fn(void *data)
 
 	for (j = 0; j < LOOPS; j++) {
 		usleep(150);
-		for (i = 0; i < NPIPES; i++)
-			write(d->pipes[i][1], "foo", 3);
+		for (i = 0; i < NPIPES; i++) {
+			int ret;
+
+			ret = write(d->pipes[i][1], "foo", 3);
+			if (ret < 0)
+				perror("write");
+		}
 	}
 
 	return NULL;
@@ -378,7 +394,9 @@ int main(int argc, char *argv[])
 		return T_EXIT_SKIP;
 
 	ret = test(0);
-	if (ret) {
+	if (ret == T_EXIT_SKIP)
+		return T_EXIT_SKIP;
+	else if (ret) {
 		fprintf(stderr, "test 0 failed\n");
 		return T_EXIT_FAIL;
 	}
