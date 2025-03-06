@@ -576,6 +576,47 @@ skip:
 	return res;
 }
 
+static int test_same(void)
+{
+	struct iovec vecs[2] = { };
+	struct io_uring src;
+	int ret;
+
+	ret = io_uring_queue_init(1, &src, 0);
+	if (ret) {
+		fprintf(stderr, "ring_init: %d\n", ret);
+		return T_EXIT_FAIL;
+	}
+
+	if (posix_memalign(&vecs[0].iov_base, 4096, BUF_SIZE))
+		return T_EXIT_SKIP;
+	vecs[0].iov_len = BUF_SIZE;
+
+	vecs[1].iov_base = NULL;
+	vecs[1].iov_len = 0;
+
+	ret = io_uring_register_buffers(&src, vecs, 2);
+	if (ret) {
+		fprintf(stderr, "reg buffers: %d\n", ret);
+		return T_EXIT_FAIL;
+	}
+
+	ret = io_uring_clone_buffers_offset(&src, &src, 1, 0, 2, IORING_REGISTER_DST_REPLACE);
+	if (ret) {
+		fprintf(stderr, "clone offset: %d\n", ret);
+		return T_EXIT_FAIL;
+	}
+
+	ret = io_uring_unregister_buffers(&src);
+	if (ret) {
+		fprintf(stderr, "rsc unregister buffers: %d\n", ret);
+		return T_EXIT_FAIL;
+	}
+
+	io_uring_queue_exit(&src);
+	return T_EXIT_PASS;
+}
+
 int main(int argc, char *argv[])
 {
 	int ret;
@@ -640,6 +681,14 @@ int main(int argc, char *argv[])
 	}
 	if (no_buf_offset)
 		return T_EXIT_PASS;
+
+	ret = test_same();
+	if (ret == T_EXIT_SKIP) {
+		return T_EXIT_PASS;
+	} else if (ret != T_EXIT_PASS) {
+		fprintf(stderr, "test_same failed\n");
+		return T_EXIT_FAIL;
+	}
 
 	return T_EXIT_PASS;
 }
