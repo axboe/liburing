@@ -771,6 +771,15 @@ IOURINGINLINE void io_uring_prep_listen(struct io_uring_sqe *sqe, int fd,
 	io_uring_prep_rw(IORING_OP_LISTEN, sqe, fd, 0, backlog, 0);
 }
 
+struct epoll_event;
+IOURINGINLINE void io_uring_prep_epoll_wait(struct io_uring_sqe *sqe, int fd,
+					    struct epoll_event *events,
+					    int maxevents, unsigned flags)
+{
+	io_uring_prep_rw(IORING_OP_EPOLL_WAIT, sqe, fd, events, maxevents, 0);
+	sqe->rw_flags = flags;
+}
+
 IOURINGINLINE void io_uring_prep_files_update(struct io_uring_sqe *sqe,
 					      int *fds, unsigned nr_fds,
 					      int offset)
