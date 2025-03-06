@@ -222,10 +222,13 @@ static void *thread_fn(void *data)
 static void prune(struct epoll_event *evs, int nr)
 {
 	char tmp[32];
-	int i;
+	int i, ret;
 
-	for (i = 0; i < nr; i++)
-		read(evs[i].data.fd, tmp, sizeof(tmp));
+	for (i = 0; i < nr; i++) {
+		ret = read(evs[i].data.fd, tmp, sizeof(tmp));
+		if (ret < 0)
+			perror("read");
+	}
 }
 
 static int test_race(int flags)
