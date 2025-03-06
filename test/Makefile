@@ -81,6 +81,7 @@ test_srcs := \
 	eeed8b54e0df.c \
 	empty-eownerdead.c \
 	eploop.c \
+	epwait.c \
 	eventfd.c \
 	eventfd-disable.c \
 	eventfd-reg.c \
