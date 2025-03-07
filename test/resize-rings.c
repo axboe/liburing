@@ -308,7 +308,7 @@ static int test_basic(struct io_uring *ring, int async)
 	p.sq_entries = 32;
 	p.cq_entries = 64;
 	ret = io_uring_resize_rings(ring, &p);
-	if (ret == -EINVAL || -ENOMEM) {
+	if (ret == -EINVAL || ret == -ENOMEM) {
 		return T_EXIT_SKIP;
 	} else if (ret < 0) {
 		fprintf(stderr, "resize=%d\n", ret);
