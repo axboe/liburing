@@ -575,10 +575,13 @@ static void test_fail(struct buf_desc *bd)
 	}
 }
 
-int main(void)
+int main(int argc, char *argv[])
 {
 	struct buf_desc bd = {};
 	int i = 0;
+
+	if (argc > 1)
+		return T_EXIT_SKIP;
 
 	page_sz = sysconf(_SC_PAGESIZE);
 
