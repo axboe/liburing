@@ -81,6 +81,11 @@ struct iovec *t_create_buffers(size_t buf_num, size_t buf_size);
  */
 int t_create_socket_pair(int fd[2], bool stream);
 
+int t_create_socketpair_ip(struct sockaddr_storage *addr,
+				int *sock_client, int *sock_server,
+				bool ipv6, bool client_connect,
+				bool msg_zc, bool tcp, const char *name);
+
 /*
  * Helper for setting up a ring and checking for user privs
  */
