@@ -241,6 +241,7 @@ test_srcs := \
 	wq-aff.c \
 	xattr.c \
 	zcrx.c \
+	vec-regbuf.c \
 	# EOL
 
 # Please keep this list sorted alphabetically.
