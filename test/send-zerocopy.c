@@ -69,6 +69,7 @@ static size_t page_sz;
 static char *tx_buffer, *rx_buffer;
 static struct iovec buffers_iov[__BUF_NR];
 
+static bool has_regvec;
 static bool has_sendzc;
 static bool has_sendmsg;
 static bool hit_enomem;
@@ -96,6 +97,7 @@ static int probe_zc_support(void)
 
 	has_sendzc = p->ops_len > IORING_OP_SEND_ZC;
 	has_sendmsg = p->ops_len > IORING_OP_SENDMSG_ZC;
+	has_regvec = p->ops_len > IORING_OP_READV_FIXED;
 	io_uring_queue_exit(&ring);
 	free(p);
 	return 0;
@@ -448,6 +450,11 @@ static int do_test_inet_send(struct io_uring *ring, int sock_client, int sock_se
 			else
 				io_uring_prep_sendmsg(sqe, sock_client, &msghdr[i], msg_flags);
 
+			if (real_fixed_buf) {
+				sqe->ioprio |= IORING_RECVSEND_FIXED_BUF;
+				sqe->buf_index = conf->buf_index;
+			}
+
 			if (!conf->iovec) {
 				io = &iov[i];
 				iov_len = 1;
@@ -619,7 +626,11 @@ static int test_inet_send(struct io_uring *ring)
 			conf.tcp = tcp;
 			regbuf = conf.mix_register || conf.fixed_buf;
 
-			if (conf.iovec && (!conf.use_sendmsg || regbuf || conf.cork))
+			if (!tcp && conf.long_iovec)
+				continue;
+			if (conf.use_sendmsg && regbuf && !has_regvec)
+				continue;
+			if (conf.iovec && (!conf.use_sendmsg || conf.cork))
 				continue;
 			if (!conf.zc) {
 				if (regbuf)
@@ -637,7 +648,7 @@ static int test_inet_send(struct io_uring *ring)
 				continue;
 			if (!client_connect && conf.addr == NULL)
 				continue;
-			if (conf.use_sendmsg && (regbuf || !has_sendmsg))
+			if (conf.use_sendmsg && !has_sendmsg)
 				continue;
 			if (msg_zc_set && !conf.zc)
 				continue;
