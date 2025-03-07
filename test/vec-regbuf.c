@@ -75,7 +75,7 @@ static void bind_ring(struct buf_desc *bd, struct io_uring *ring, unsigned buf_i
 	if (ret != 1) {
 		if (geteuid()) {
 			fprintf(stderr, "Not root, skipping\n");
-			exit(0);
+			exit(T_EXIT_SKIP);
 		}
 		fprintf(stderr, "buf reg failed %i\n", ret);
 		exit(1);
@@ -585,7 +585,7 @@ int main(void)
 	probe_support();
 	if (!has_regvec) {
 		printf("doesn't support registered vector ops, skip\n");
-		return 0;
+		return T_EXIT_SKIP;
 	}
 
 	init_buffers(&bd, page_sz * 32);
