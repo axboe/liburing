@@ -556,6 +556,16 @@ IOURINGINLINE void io_uring_prep_read_fixed(struct io_uring_sqe *sqe, int fd,
 	sqe->buf_index = (__u16) buf_index;
 }
 
+IOURINGINLINE void io_uring_prep_readv_fixed(struct io_uring_sqe *sqe, int fd,
+					     const struct iovec *iovecs,
+					     unsigned nr_vecs, __u64 offset,
+					     int flags, int buf_index)
+{
+	io_uring_prep_readv2(sqe, fd, iovecs, nr_vecs, offset, flags);
+	sqe->opcode = IORING_OP_READV_FIXED;
+	sqe->buf_index = (__u16)buf_index;
+}
+
 IOURINGINLINE void io_uring_prep_writev(struct io_uring_sqe *sqe, int fd,
 					const struct iovec *iovecs,
 					unsigned nr_vecs, __u64 offset)
@@ -578,6 +588,16 @@ IOURINGINLINE void io_uring_prep_write_fixed(struct io_uring_sqe *sqe, int fd,
 {
 	io_uring_prep_rw(IORING_OP_WRITE_FIXED, sqe, fd, buf, nbytes, offset);
 	sqe->buf_index = (__u16) buf_index;
+}
+
+IOURINGINLINE void io_uring_prep_writev_fixed(struct io_uring_sqe *sqe, int fd,
+				       const struct iovec *iovecs,
+				       unsigned nr_vecs, __u64 offset,
+				       int flags, int buf_index)
+{
+	io_uring_prep_writev2(sqe, fd, iovecs, nr_vecs, offset, flags);
+	sqe->opcode = IORING_OP_WRITEV_FIXED;
+	sqe->buf_index = (__u16)buf_index;
 }
 
 IOURINGINLINE void io_uring_prep_recvmsg(struct io_uring_sqe *sqe, int fd,
@@ -962,6 +982,17 @@ IOURINGINLINE void io_uring_prep_sendmsg_zc(struct io_uring_sqe *sqe, int fd,
 {
 	io_uring_prep_sendmsg(sqe, fd, msg, flags);
 	sqe->opcode = IORING_OP_SENDMSG_ZC;
+}
+
+IOURINGINLINE void io_uring_prep_sendmsg_zc_fixed(struct io_uring_sqe *sqe,
+						int fd,
+						const struct msghdr *msg,
+						unsigned flags,
+						unsigned buf_index)
+{
+	io_uring_prep_sendmsg_zc(sqe, fd, msg, flags);
+	sqe->ioprio |= IORING_RECVSEND_FIXED_BUF;
+	sqe->buf_index = buf_index;
 }
 
 IOURINGINLINE void io_uring_prep_recv(struct io_uring_sqe *sqe, int sockfd,
