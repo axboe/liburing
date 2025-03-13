@@ -364,6 +364,13 @@ int __io_uring_queue_init_params(unsigned entries, struct io_uring *ring,
 	} else {
 		ring->ring_fd = fd;
 	}
+	/*
+	 * IOPOLL always needs to enter, except if SQPOLL is set as well.
+	 * Use an internal flag to check for this.
+	 */
+	if ((ring->flags & (IORING_SETUP_IOPOLL|IORING_SETUP_SQPOLL)) ==
+			IORING_SETUP_IOPOLL)
+		ring->int_flags |= INT_FLAG_CQ_ENTER;
 
 	return ret;
 }

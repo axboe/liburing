@@ -47,7 +47,7 @@ static inline bool cq_ring_needs_flush(struct io_uring *ring)
 
 static inline bool cq_ring_needs_enter(struct io_uring *ring)
 {
-	return (ring->flags & IORING_SETUP_IOPOLL) || cq_ring_needs_flush(ring);
+	return (ring->int_flags & INT_FLAG_CQ_ENTER) || cq_ring_needs_flush(ring);
 }
 
 struct get_data {
