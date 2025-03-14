@@ -482,3 +482,14 @@ int io_uring_register_region(struct io_uring *ring,
 {
 	return do_register(ring, IORING_REGISTER_MEM_REGION, reg, 1);
 }
+
+int io_uring_set_iowait(struct io_uring *ring, bool enable_iowait)
+{
+	if (!(ring->features & IORING_FEAT_NO_IOWAIT))
+		return -EOPNOTSUPP;
+	if (enable_iowait)
+		ring->int_flags &= ~INT_FLAG_NO_IOWAIT;
+	else
+		ring->int_flags |= INT_FLAG_NO_IOWAIT;
+	return 0;
+}

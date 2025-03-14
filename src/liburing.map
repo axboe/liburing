@@ -115,4 +115,5 @@ LIBURING_2.9 {
 LIBURING_2.10 {
 	global:
 		io_uring_register_ifq;
+		io_uring_set_iowait;
 } LIBURING_2.9;
