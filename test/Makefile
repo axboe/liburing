@@ -195,6 +195,7 @@ test_srcs := \
 	send_recv.c \
 	send_recvmsg.c \
 	send-zerocopy.c \
+	sendmsg_iov_clean.c \
 	shared-wq.c \
 	short-read.c \
 	shutdown.c \
