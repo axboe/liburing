@@ -320,6 +320,11 @@ int __io_uring_get_cqe(struct io_uring *ring,
 			struct io_uring_cqe **cqe_ptr, unsigned submit,
 			unsigned wait_nr, sigset_t *sigmask);
 
+/*
+ * Enable/disable setting of iowait by the kernel.
+ */
+int io_uring_set_iowait(struct io_uring *ring, bool enable_iowait);
+
 #define LIBURING_UDATA_TIMEOUT	((__u64) -1)
 
 /*

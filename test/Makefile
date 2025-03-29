@@ -122,6 +122,7 @@ test_srcs := \
 	io_uring_passthrough.c \
 	io_uring_register.c \
 	io_uring_setup.c \
+	iowait.c \
 	kallsyms.c \
 	lfs-openat.c \
 	lfs-openat-write.c \
