@@ -22,7 +22,7 @@ system call sets up a submission queue (SQ) and completion queue (CQ) with at
 least
 .I entries
 entries, and returns a file descriptor which can be used to perform
-subsequent operations on the io_uring instance.  The submission and
+subsequent operations on the io_uring instance. The submission and
 completion queues are shared between userspace and the kernel, which
 eliminates the need to copy data when initiating and completing I/O.
 
@@ -59,13 +59,13 @@ together:
 .TP
 .B IORING_SETUP_IOPOLL
 Perform busy-waiting for an I/O completion, as opposed to getting
-notifications via an asynchronous IRQ (Interrupt Request).  The file
+notifications via an asynchronous IRQ (Interrupt Request). The file
 system (if any) and block device must support polling in order for
-this to work.  Busy-waiting provides lower latency, but may consume
-more CPU resources than interrupt driven I/O.  Currently, this feature
+this to work. Busy-waiting provides lower latency, but may consume
+more CPU resources than interrupt driven I/O. Currently, this feature
 is usable only on a file descriptor opened using the
 .B O_DIRECT
-flag.  When a read or write is submitted to a polled context, the
+flag. When a read or write is submitted to a polled context, the
 application must poll for completions on the CQ ring by calling
 .BR io_uring_enter (2).
 It is illegal to mix and match polled and non-polled I/O on an io_uring
@@ -90,9 +90,9 @@ avoid wasting too much CPU resources. Like
 .TP
 .B IORING_SETUP_SQPOLL
 When this flag is specified, a kernel thread is created to perform
-submission queue polling.  An io_uring instance configured in this way
+submission queue polling. An io_uring instance configured in this way
 enables an application to issue I/O without ever context switching
-into the kernel.  By using the submission queue to fill in new
+into the kernel. By using the submission queue to fill in new
 submission queue entries and watching for completions on the
 completion queue, the application can submit and reap I/Os without
 doing a single system call.
@@ -107,8 +107,8 @@ field of the
 .IR "struct io_sq_ring" .
 When this happens, the application must call
 .BR io_uring_enter (2)
-to wake the kernel thread.  If I/O is kept busy, the kernel thread
-will never sleep.  An application making use of this feature will need
+to wake the kernel thread. If I/O is kept busy, the kernel thread
+will never sleep. An application making use of this feature will need
 to guard the
 .BR io_uring_enter (2)
 call with the following code sequence:
@@ -147,6 +147,11 @@ polling mode or not and deals with when your program needs to call
 without you having to bother about it.
 .TP
 .BR
+Note that while this may sound immediately appealing
+as an automatic "go faster" flag, evaluations should be done on a case-by-case
+basis to check if it makes sense for the application.
+.TP
+.BR
 Before version 5.11 of the Linux kernel, to successfully use this feature, the
 application must register a set of files to be used for IO through
 .BR io_uring_register (2)
@@ -180,7 +185,7 @@ changed as well.
 .B IORING_SETUP_CQSIZE
 Create the completion queue with
 .I "struct io_uring_params.cq_entries"
-entries.  The value must be greater than
+entries. The value must be greater than
 .IR entries ,
 and may be rounded up to the next power-of-two.
 .TP
@@ -355,7 +360,7 @@ will be set to zero. Available since 6.6.
 
 .PP
 If no flags are specified, the io_uring instance is setup for
-interrupt driven I/O.  I/O may be submitted using
+interrupt driven I/O. I/O may be submitted using
 .BR io_uring_enter (2)
 and can be reaped by polling the completion queue.
 
@@ -572,8 +577,8 @@ Taken together,
 and
 .I sq_off
 provide all of the information necessary for accessing the submission
-queue ring buffer and the submission queue entry array.  The
-submission queue can be mapped with a call like:
+queue ring buffer and the submission queue entry array. The submission queue can
+be mapped with a call like:
 .PP
 .in +4n
 .EX
@@ -594,7 +599,7 @@ is the file descriptor returned from
 The addition of
 .I sq_off.array
 to the length of the region accounts for the fact that the ring is
-located at the end of the data structure.  As an example, the ring
+located at the end of the data structure. As an example, the ring
 buffer head pointer can be accessed by adding
 .I sq_off.head
 to the address returned from
@@ -609,10 +614,10 @@ head = ptr + sq_off.head;
 The
 .I flags
 field is used by the kernel to communicate state information to the
-application.  Currently, it is used to inform the application when a
+application. Currently, it is used to inform the application when a
 call to
 .BR io_uring_enter (2)
-is necessary.  See the documentation for the
+is necessary. See the documentation for the
 .B IORING_SETUP_SQPOLL
 flag above.
 The
@@ -620,10 +625,10 @@ The
 member is incremented for each invalid submission queue entry
 encountered in the ring buffer.
 
-The head and tail track the ring buffer state.  The tail is
+The head and tail track the ring buffer state. The tail is
 incremented by the application when submitting new I/O, and the head
 is incremented by the kernel when the I/O has been successfully
-submitted.  Determining the index of the head or tail into the ring is
+submitted. Determining the index of the head or tail into the ring is
 accomplished by applying a mask:
 .PP
 .in +4n
@@ -683,7 +688,7 @@ resources are freed immediately.
 .PP
 .SH RETURN VALUE
 .BR io_uring_setup (2)
-returns a new file descriptor on success.  The application may then
+returns a new file descriptor on success. The application may then
 provide the file descriptor in a subsequent
 .BR mmap (2)
 call to map the submission and completion queues, or to the
