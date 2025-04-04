@@ -408,6 +408,53 @@ static int test_notag(void)
 	return 0;
 }
 
+static char buffer[16];
+
+static int test_tagged_register_partial_fail(void)
+{
+	__u64 tags[2] = { 1, 2 };
+	int fds[2] = { pipes[0], -1 };
+	struct iovec iovec[2];
+	struct io_uring ring;
+	int ret;
+
+	iovec[0].iov_base = buffer;
+	iovec[0].iov_len = 1;
+	iovec[1].iov_base = (void *)1UL;
+	iovec[1].iov_len = 1;
+
+	ret = io_uring_queue_init(1, &ring, 0);
+	if (ret) {
+		printf("ring setup failed\n");
+		return 1;
+	}
+
+	ret = io_uring_register_buffers_tags(&ring, iovec, tags, 2);
+	if (ret >= 0) {
+		fprintf(stderr, "io_uring_register_buffers_tags returned %i\n", ret);
+		return -EFAULT;
+	}
+
+	if (!check_cq_empty(&ring)) {
+		fprintf(stderr, "stray buffer CQEs found\n");
+		return -EFAULT;
+	}
+
+	ret = io_uring_register_files_tags(&ring, fds, tags, 2);
+	if (ret >= 0) {
+		fprintf(stderr, "io_uring_register_files_tags returned %i\n", ret);
+		return -EFAULT;
+	}
+
+	if (!check_cq_empty(&ring)) {
+		fprintf(stderr, "stray file CQEs found\n");
+		return -EFAULT;
+	}
+
+	io_uring_queue_exit(&ring);
+	return 0;
+}
+
 int main(int argc, char *argv[])
 {
 	int ring_flags[] = {0, IORING_SETUP_IOPOLL, IORING_SETUP_SQPOLL,
@@ -424,6 +471,12 @@ int main(int argc, char *argv[])
 	if (pipe(pipes) < 0) {
 		perror("pipe");
 		return 1;
+	}
+
+	ret = test_tagged_register_partial_fail();
+	if (ret) {
+		printf("test_tagged_register_partial_fail() failed\n");
+		return ret;
 	}
 
 	ret = test_notag();
