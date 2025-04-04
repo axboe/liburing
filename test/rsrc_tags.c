@@ -462,27 +462,28 @@ int main(int argc, char *argv[])
 	int i, ret;
 
 	if (argc > 1)
-		return 0;
+		return T_EXIT_SKIP;
+
 	if (!has_rsrc_update()) {
 		fprintf(stderr, "doesn't support rsrc tags, skip\n");
-		return 0;
+		return T_EXIT_SKIP;
 	}
 
 	if (pipe(pipes) < 0) {
 		perror("pipe");
-		return 1;
+		return T_EXIT_FAIL;
 	}
 
 	ret = test_tagged_register_partial_fail();
 	if (ret) {
 		printf("test_tagged_register_partial_fail() failed\n");
-		return ret;
+		return T_EXIT_FAIL;
 	}
 
 	ret = test_notag();
 	if (ret) {
 		printf("test_notag failed\n");
-		return ret;
+		return T_EXIT_FAIL;
 	}
 
 	for (i = 0; i < sizeof(ring_flags) / sizeof(ring_flags[0]); i++) {
@@ -494,21 +495,21 @@ int main(int argc, char *argv[])
 		ret = test_files(flag);
 		if (ret) {
 			printf("test_tag failed, type %i\n", i);
-			return ret;
+			return T_EXIT_FAIL;
 		}
 	}
 
 	ret = test_buffers_update();
 	if (ret) {
 		printf("test_buffers_update failed\n");
-		return ret;
+		return T_EXIT_FAIL;
 	}
 
 	ret = test_buffers_empty_buffers();
 	if (ret) {
 		printf("test_buffers_empty_buffers failed\n");
-		return ret;
+		return T_EXIT_FAIL;
 	}
 
-	return 0;
+	return T_EXIT_PASS;
 }
