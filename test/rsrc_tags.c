@@ -151,7 +151,7 @@ static int test_buffers_update(void)
 	struct io_uring ring;
 	const int nr = 5;
 	int buf_idx = 1, i, ret;
-	int pipes[2];
+	int fds[2];
 	char tmp_buf[1024];
 	char tmp_buf2[1024];
 	struct iovec vecs[nr];
@@ -172,7 +172,7 @@ static int test_buffers_update(void)
 		printf("ring setup failed\n");
 		return 1;
 	}
-	if (pipe(pipes) < 0) {
+	if (pipe(fds) < 0) {
 		perror("pipe");
 		return 1;
 	}
@@ -184,7 +184,7 @@ static int test_buffers_update(void)
 
 	/* test that CQE is not emitted before we're done with a buffer */
 	sqe = io_uring_get_sqe(&ring);
-	io_uring_prep_read_fixed(sqe, pipes[0], tmp_buf, 10, 0, 1);
+	io_uring_prep_read_fixed(sqe, fds[0], tmp_buf, 10, 0, 1);
 	sqe->user_data = 100;
 	ret = io_uring_submit(&ring);
 	if (ret != 1) {
@@ -204,8 +204,8 @@ static int test_buffers_update(void)
 
 	ret = io_uring_peek_cqe(&ring, &cqe); /* nothing should be there */
 	assert(ret == -EAGAIN);
-	close(pipes[0]);
-	close(pipes[1]);
+	close(fds[0]);
+	close(fds[1]);
 
 	ret = io_uring_wait_cqe(&ring, &cqe);
 	assert(!ret && cqe->user_data == 100);
@@ -311,7 +311,6 @@ static int test_buffers_empty_buffers(void)
 	io_uring_queue_exit(&ring);
 	return 0;
 }
-
 
 static int test_files(int ring_flags)
 {
