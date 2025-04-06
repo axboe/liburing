@@ -141,7 +141,7 @@ field in the request, which is passed back on the completion side.
 Concretely, for operations where strict ordering is required, 
 such as for sends and receives on a stream-oriented TCP socket, 
 it is generally unsafe to have more than one outstanding send,
-or more than one outstanding receive (the two directions are independant)
+or more than one outstanding receive (the two directions are independent)
 on a given socket at a time, as the kernel may reorder their execution 
 if poll arming or other background kernel activities are involved.
 However,
