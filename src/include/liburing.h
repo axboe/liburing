@@ -1652,6 +1652,86 @@ IOURINGINLINE struct io_uring_sqe *_io_uring_get_sqe(struct io_uring *ring)
 	return sqe;
 }
 
+struct io_uring_sqe_iter {
+	struct io_uring_sqe *sqes;
+	unsigned mask;
+	unsigned shift;
+	unsigned head;
+	unsigned tail;
+};
+
+IOURINGINLINE struct io_uring_sqe_iter
+io_uring_sqe_iter_init(const struct io_uring *ring)
+{
+	const struct io_uring_sq *sq = &ring->sq;
+
+	return (struct io_uring_sqe_iter) {
+		.sqes = sq->sqes,
+		.mask = sq->ring_mask,
+		.shift = io_uring_sqe_shift(ring),
+		.head = sq->sqe_head,
+		.tail = sq->sqe_tail,
+	};
+}
+
+IOURINGINLINE struct io_uring_sqe *
+io_uring_sqe_iter_next(struct io_uring_sqe_iter *iter)
+{
+	struct io_uring_sqe *sqe = NULL;
+
+	if (iter->head != iter->tail) {
+		sqe = &iter->sqes[(iter->head++ & iter->mask) << iter->shift];
+		io_uring_initialize_sqe(sqe);
+	}
+	return sqe;
+}
+
+/*
+ * Reserve 'nsqes' worth of SQEs from the ring, if enough are available. Returns
+ * true if successful, and false if not. Application must use
+ * io_uring_for_each_sqe() to iterate and prepare the returned SQEs, passing in
+ * the same 'iter' variable. Before submitting the prepared SQEs, the
+ * application must call io_uring_commit_sqes(), after which io_uring_submit()
+ * can be used to finally submit them to the kernel.
+ *
+ * Note: reservations may nest inside io_uring_get_sqe() calls, but must not
+ * nest inside other reservations. For the latter case, commit SQEs first
+ * before starting a new reservation, using io_uring_commit_sqes().
+ */
+IOURINGINLINE bool io_uring_reserve_sqes(struct io_uring *ring,
+					 unsigned int nsqes,
+					 struct io_uring_sqe_iter *i)
+{
+	struct io_uring_sq *sq = &ring->sq;
+
+	*i = io_uring_sqe_iter_init(ring);
+	i->tail += nsqes;
+	if (i->tail - i->head <= sq->ring_entries) {
+		i->head += sq->sqe_tail - sq->sqe_head;
+		return true;
+	}
+	return false;
+}
+
+/*
+ * Discard 'nsqes' worth of SQEs from a previous reservation. 'nsqes' must
+ * be smaller or equal to the previously reserved number of SQEs.
+ */
+IOURINGINLINE void io_uring_unreserve_sqes(unsigned int nsqes,
+					   struct io_uring_sqe_iter *i)
+{
+	i->tail -= nsqes;
+}
+
+/*
+ * Flush iterator state to the ring.
+ */
+IOURINGINLINE void io_uring_commit_sqes(struct io_uring *ring,
+					struct io_uring_sqe_iter *i)
+{
+	ring->sq.sqe_tail = i->tail;
+}
+
 /*
  * Return the appropriate mask for a buffer ring of size 'ring_entries'
  */
