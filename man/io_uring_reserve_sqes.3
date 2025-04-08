@@ -1,0 +1,78 @@
+.\" Copyright (C) 2022 Jens Axboe <axboe@kernel.dk>
+.\"
+.\" SPDX-License-Identifier: LGPL-2.0-or-later
+.\"
+.TH io_uring_reserve_sqes 3 "April 8, 2025" "liburing-2.10" "liburing Manual"
+.SH NAME
+io_uring_reserve_sqes \- reserve a number of SQEs
+.SH SYNOPSIS
+.nf
+.B #include <liburing.h>
+.PP
+.BI "bool io_uring_reserve_sqes(struct io_uring *" ring ","
+.BI "                              unsigned int " nsqes ","
+.BI "                              struct io_uring_sqe_iter *" iter ");"
+.BI "
+.BI "void io_uring_unreserve_sqes(unsigned int " nsqes ","
+.BI "                             struct io_uring_sqe_iter *" iter ");"
+.BI "
+.BI "void io_uring_commit_sqes(struct io_uring *" ring ",",
+.BI "                          struct io_uring_sqe_iter *" iter ");"
+.BI "
+.BI "struct io_uring_sqe *io_uring_sqe_iter_next(struct io_uring_sqe_iter *" iter ");"
+.PP
+.fi
+.SH DESCRIPTION
+.PP
+The
+.BR io_uring_reserve_sqes (3)
+function attempts to reserve
+.I nsqes
+number of SQEs from the ring
+.I ring
+with the internal state stored in
+.I iter .
+
+Upon successful return, the application may use
+.B io_uring_sqe_iter_next (3)
+to return the next SQE in the reservation. When
+.B io_uring_sqe_iter_next (3)
+returns
+.I NULL ,
+there are no SQEs left in the current reservation.
+
+Once SQEs have been setup, the application must call
+.B io_uring_commit_sqes (3)
+to flush the internal
+.I iter
+state to the ring itself, before calling
+.B io_uring_submit (3)
+to finally submit the requests.
+
+After a successful call to
+.B io_uring_reserve_sqes (3) ,
+the application may call
+.B io_uring_unreserve_sqes (3)
+to drop some of the previously reserved SQEs.
+
+This helper may be useful in cases where a number of SQEs need to be
+available to make progress, or just as a faster way to grab a number of
+SQEs before preparing them. Normally
+.B io_uring_get_sqe (3)
+would be used to get an available SQE, but cases like linked requests may
+need a guarantee of more than 1 SQE being available before setting up a
+chain of requests.
+
+May nest inside normal usage of
+.B io_uring_get_sqe (3)
+without needing to submit previously prepared SQEs first.
+
+.SH RETURN VALUE
+Returns
+.I true
+on success, and
+.I false
+on failure.
+.SH SEE ALSO
+.BR io_uring_get_sqe (3),
+.BR io_uring_submit (3)
