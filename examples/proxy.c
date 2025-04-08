@@ -789,28 +789,28 @@ static void recv_enobufs(struct io_uring *ring, struct conn *c,
  */
 static void queue_shutdown_close(struct io_uring *ring, struct conn *c, int fd)
 {
-	struct io_uring_sqe *sqe1, *sqe2;
+	struct io_uring_sqe_iter iter;
+	struct io_uring_sqe *sqe;
 
-	/*
-	 * On the off chance that we run out of SQEs after the first one,
-	 * grab two upfront. This it to prevent our link not working if
-	 * get_sqe() ends up doing submissions to free up an SQE, as links
-	 * are not valid across separate submissions.
-	 */
-	sqe1 = get_sqe(ring);
-	sqe2 = get_sqe(ring);
+	if (!io_uring_reserve_sqes(ring, 2, &iter)) {
+		io_uring_submit(ring);
+		io_uring_reserve_sqes(ring, 2, &iter);
+	}
 
-	io_uring_prep_shutdown(sqe1, fd, SHUT_RDWR);
+	sqe = io_uring_sqe_iter_next(&iter);
+	io_uring_prep_shutdown(sqe, fd, SHUT_RDWR);
 	if (fixed_files)
-		sqe1->flags |= IOSQE_FIXED_FILE;
-	sqe1->flags |= IOSQE_IO_LINK | IOSQE_CQE_SKIP_SUCCESS;
-	encode_userdata(sqe1, c, __SHUTDOWN, 0, fd);
+		sqe->flags |= IOSQE_FIXED_FILE;
+	sqe->flags |= IOSQE_IO_LINK | IOSQE_CQE_SKIP_SUCCESS;
+	encode_userdata(sqe, c, __SHUTDOWN, 0, fd);
 
+	sqe = io_uring_sqe_iter_next(&iter);
 	if (fixed_files)
-		io_uring_prep_close_direct(sqe2, fd);
+		io_uring_prep_close_direct(sqe, fd);
 	else
-		io_uring_prep_close(sqe2, fd);
-	encode_userdata(sqe2, c, __CLOSE, 0, fd);
+		io_uring_prep_close(sqe, fd);
+	encode_userdata(sqe, c, __CLOSE, 0, fd);
+	io_uring_commit_sqes(ring, &iter);
 }
 
 /*
