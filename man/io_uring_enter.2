@@ -16,7 +16,7 @@ io_uring_enter \- initiate and/or complete asynchronous I/O
 .PP
 .BI "int io_uring_enter2(unsigned int " fd ", unsigned int " to_submit ,
 .BI "                    unsigned int " min_complete ", unsigned int " flags ,
-.BI "                    sigset_t *" sig ", size_t " sz );
+.BI "                    void *" arg ", size_t " sz );
 .fi
 .PP
 .SH DESCRIPTION
@@ -72,22 +72,17 @@ the system call is used with this flag set, then it will wait until at least
 one entry is free in the SQ ring.
 .TP
 .B IORING_ENTER_EXT_ARG
-Since kernel 5.11, the system calls arguments have been modified to look like
-the following:
-
-.nf
-.BI "int io_uring_enter2(unsigned int " fd ", unsigned int " to_submit ,
-.BI "                    unsigned int " min_complete ", unsigned int " flags ,
-.BI "                    const void *" arg ", size_t " argsz );
-.fi
-
-which behaves just like the original definition by default. However, if
-.B IORING_ENTER_EXT_ARG
-is set, then instead of a
+By default,
+.I arg
+is a
 .I sigset_t
-being passed in, a pointer to a
+pointer. If
+.B IORING_ENTER_EXT_ARG
+is set (supported since kernel 5.11), then
+.I arg
+is instead a pointer to a
 .I struct io_uring_getevents_arg
-is used instead and
+and
 .I argsz
 must be set to the size of this structure. The definition is as follows:
 
