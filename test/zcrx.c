@@ -344,7 +344,7 @@ static int test_area_access(void)
 	return T_EXIT_PASS;
 }
 
-static int create_ring_with_ifq(struct io_uring *ring, void *area)
+static int create_ring_with_ifq(struct io_uring *ring, void *area, __u32 *id)
 {
 	struct io_uring_zcrx_area_reg area_reg = {
 		.addr = (__u64)(unsigned long)area,
@@ -371,6 +371,7 @@ static int create_ring_with_ifq(struct io_uring *ring, void *area)
 		fprintf(stderr, "ifq register failed %d\n", ret);
 		return T_EXIT_FAIL;
 	}
+	*id = reg.zcrx_id;
 	return 0;
 }
 
@@ -406,9 +407,10 @@ static int test_invalid_zcrx_request(void *area)
 	struct io_uring_cqe *cqe;
 	struct io_uring_sqe *sqe;
 	struct io_uring ring;
+	__u32 zcrx_id;
 	int ret, fds[2];
 
-	ret = create_ring_with_ifq(&ring, area);
+	ret = create_ring_with_ifq(&ring, area, &zcrx_id);
 	if (ret != T_SETUP_OK) {
 		fprintf(stderr, "ifq-ring create failed: %d\n", ret);
 		return T_EXIT_FAIL;
@@ -422,7 +424,7 @@ static int test_invalid_zcrx_request(void *area)
 
 	/* invalid file */
 	sqe = io_uring_get_sqe(&ring);
-	test_io_uring_prep_zcrx(sqe, ring.ring_fd, 0);
+	test_io_uring_prep_zcrx(sqe, ring.ring_fd, zcrx_id);
 
 	cqe = submit_and_wait_one(&ring);
 	if (!cqe) {
@@ -441,7 +443,7 @@ static int test_invalid_zcrx_request(void *area)
 
 	/* invalid ifq idx */
 	sqe = io_uring_get_sqe(&ring);
-	test_io_uring_prep_zcrx(sqe, fds[0], 1);
+	test_io_uring_prep_zcrx(sqe, fds[0], zcrx_id + 1);
 
 	cqe = submit_and_wait_one(&ring);
 	if (!cqe) {
@@ -478,7 +480,8 @@ struct recv_data {
 	struct io_uring_zcrx_rq rq_ring;
 };
 
-static int recv_prep(struct io_uring *ring, struct recv_data *rd, int *sock)
+static int recv_prep(struct io_uring *ring, struct recv_data *rd, int *sock,
+		     __u32 zcrx_id)
 {
 	struct sockaddr_in saddr;
 	struct io_uring_sqe *sqe;
@@ -526,7 +529,7 @@ static int recv_prep(struct io_uring *ring, struct recv_data *rd, int *sock)
 
 	sqe = io_uring_get_sqe(ring);
 	io_uring_prep_rw(IORING_OP_RECV_ZC, sqe, use_fd, NULL, 0, 0);
-	sqe->zcrx_ifq_idx = 0;
+	sqe->zcrx_ifq_idx = zcrx_id;
 	sqe->ioprio |= IORING_RECV_MULTISHOT;
 	sqe->user_data = 2;
 
@@ -693,7 +696,7 @@ static void *recv_fn(void *data)
 	rd->rq_ring.rq_tail = 0;
 	rd->rq_ring.ring_entries = reg.rq_entries;
 
-	ret = recv_prep(&ring, rd, &sock);
+	ret = recv_prep(&ring, rd, &sock, reg.zcrx_id);
 	if (ret) {
 		fprintf(stderr, "recv_prep failed: %d\n", ret);
 		goto err;
