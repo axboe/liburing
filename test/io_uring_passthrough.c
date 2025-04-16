@@ -17,6 +17,7 @@
 #define BS		8192
 #define BUFFERS		(FILE_SIZE / BS)
 
+static void *meta_mem;
 static struct iovec *vecs;
 static int no_pt;
 
@@ -192,6 +193,12 @@ static int __test_io(const char *file, struct io_uring *ring, int tc, int read,
 		} else {
 			cmd->addr = (__u64)(uintptr_t)&vecs[i];
 			cmd->data_len = 1;
+		}
+
+		if (meta_size) {
+			cmd->metadata = (__u64)(uintptr_t)(meta_mem +
+						meta_size * i * (nlb + 1));
+			cmd->metadata_len = meta_size * (nlb + 1);
 		}
 		cmd->nsid = nsid;
 
@@ -404,6 +411,12 @@ static int test_io_uring_submit_enters(const char *file)
 		cmd->addr = (__u64)(uintptr_t)&vecs[i];
 		cmd->data_len = 1;
 		cmd->nsid = nsid;
+
+		if (meta_size) {
+			cmd->metadata = (__u64)(uintptr_t)(meta_mem +
+						meta_size * i * (nlb + 1));
+			cmd->metadata_len = meta_size * (nlb + 1);
+		}
 	}
 
 	/* submit manually to avoid adding IORING_ENTER_GETEVENTS */
@@ -451,6 +464,9 @@ int main(int argc, char *argv[])
 		return T_EXIT_SKIP;
 
 	vecs = t_create_buffers(BUFFERS, BS);
+	if (meta_size)
+		t_posix_memalign(&meta_mem, 0x1000,
+				 meta_size * BUFFERS * (BS >> lba_shift));
 
 	for (i = 0; i < 32; i++) {
 		int read = (i & 1) != 0;
