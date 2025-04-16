@@ -651,14 +651,18 @@ off_t offset;
 
 int io_uring_setup(unsigned entries, struct io_uring_params *p)
 {
-    return (int) syscall(__NR_io_uring_setup, entries, p);
+    int ret;
+    ret = syscall(__NR_io_uring_setup, entries, p);
+    return (ret < 0) ? -errno : ret;
 }
 
 int io_uring_enter(int ring_fd, unsigned int to_submit,
                    unsigned int min_complete, unsigned int flags)
 {
-    return (int) syscall(__NR_io_uring_enter, ring_fd, to_submit,
-    			 min_complete, flags, NULL, 0);
+    int ret;
+    ret = syscall(__NR_io_uring_enter, ring_fd, to_submit,
+                  min_complete, flags, NULL, 0);
+    return (ret < 0) ? -errno : ret;
 }
 
 int app_setup_uring(void) {
