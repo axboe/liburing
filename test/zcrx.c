@@ -401,7 +401,7 @@ static struct io_uring_cqe *submit_and_wait_one(struct io_uring *ring)
 	return cqe;
 }
 
-static int test_invalid_invalid_request(void *area)
+static int test_invalid_zcrx_request(void *area)
 {
 	struct io_uring_cqe *cqe;
 	struct io_uring_sqe *sqe;
@@ -901,7 +901,7 @@ int main(int argc, char *argv[])
 		return ret;
 	}
 
-	ret = test_invalid_invalid_request(area);
+	ret = test_invalid_zcrx_request(area);
 	if (ret) {
 		fprintf(stderr, "test_invalid_ifq_collision failed\n");
 		return ret;
