@@ -32,6 +32,7 @@ example_srcs := \
 	send-zerocopy.c \
 	rsrc-update-bench.c \
 	proxy.c \
+	zcrx.c \
 	kdigest.c
 
 all_targets :=
