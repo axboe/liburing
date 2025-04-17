@@ -107,6 +107,7 @@ test_srcs := \
 	fixed-hugepage.c \
 	fixed-link.c \
 	fixed-reuse.c \
+	fixed-seg.c \
 	fpos.c \
 	fsnotify.c \
 	fsync.c \
