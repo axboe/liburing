@@ -121,6 +121,12 @@ int main(int argc, char *argv[])
 		goto err;
 	}
 
+	ret = test(&ring, fd, 3584);
+	if (ret) {
+		fprintf(stderr, "test 3584 failed\n");
+		goto err;
+	}
+
 	close(fd);
 	io_uring_queue_exit(&ring);
 	if (fname != argv[1])
