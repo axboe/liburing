@@ -28,6 +28,7 @@
 /examples/rsrc-update-bench
 /examples/kdigest
 /examples/reg-wait
+/examples/zcrx
 
 /test/*.t
 /test/*.dmesg
