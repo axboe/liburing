@@ -19,10 +19,11 @@
 
 static unsigned int ifidx, rxq;
 
+static long page_size;
+
 /* the hw rxq must consume 128 of these pages, leaving 4 left */
 #define AREA_PAGES	132
-#define PAGE_SIZE	4096
-#define AREA_SZ		AREA_PAGES * PAGE_SIZE
+#define AREA_SZ		(AREA_PAGES * page_size)
 #define RQ_ENTRIES	128
 /* this is one more than the # of free pages after filling hw rxq */
 #define LOOP_COUNT	5
@@ -821,6 +822,12 @@ int main(int argc, char *argv[])
 
 	if (argc > 1)
 		return T_EXIT_SKIP;
+
+	page_size = sysconf(_SC_PAGESIZE);
+	if (page_size < 0) {
+		perror("sysconf(_SC_PAGESIZE)");
+		return T_EXIT_FAIL;
+	}
 
 	area_outer = mmap(NULL, AREA_SZ + 8192, PROT_NONE,
 		MAP_ANONYMOUS | MAP_PRIVATE | MAP_NORESERVE, -1, 0);
