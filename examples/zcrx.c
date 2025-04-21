@@ -140,17 +140,7 @@ static void add_accept(struct io_uring *ring, int sockfd)
 	sqe->user_data = 1;
 }
 
-static void add_recvzc(struct io_uring *ring, int sockfd)
-{
-	struct io_uring_sqe *sqe = io_uring_get_sqe(ring);
-
-	io_uring_prep_rw(IORING_OP_RECV_ZC, sqe, sockfd, NULL, 0, 0);
-	sqe->ioprio |= IORING_RECV_MULTISHOT;
-	sqe->zcrx_ifq_idx = zcrx_id;
-	sqe->user_data = 2;
-}
-
-static void add_recvzc_oneshot(struct io_uring *ring, int sockfd, size_t len)
+static void add_recvzc(struct io_uring *ring, int sockfd, size_t len)
 {
 	struct io_uring_sqe *sqe = io_uring_get_sqe(ring);
 
@@ -168,10 +158,7 @@ static void process_accept(struct io_uring *ring, struct io_uring_cqe *cqe)
 		t_error(1, 0, "Unexpected second connection");
 
 	connfd = cqe->res;
-	if (cfg_oneshot)
-		add_recvzc_oneshot(ring, connfd, page_size);
-	else
-		add_recvzc(ring, connfd);
+	add_recvzc(ring, connfd, cfg_oneshot ? page_size : 0);
 }
 
 static void verify_data(char *data, size_t size, unsigned long seq)
@@ -207,11 +194,11 @@ static void process_recvzc(struct io_uring *ring, struct io_uring_cqe *cqe)
 
 	if (cfg_oneshot) {
 		if (cqe->res == 0 && cqe->flags == 0 && cfg_oneshot_recvs) {
-			add_recvzc_oneshot(ring, connfd, page_size);
+			add_recvzc(ring, connfd, page_size);
 			cfg_oneshot_recvs--;
 		}
 	} else if (!(cqe->flags & IORING_CQE_F_MORE)) {
-		add_recvzc(ring, connfd);
+		add_recvzc(ring, connfd, 0);
 	}
 
 	rcqe = (struct io_uring_zcrx_cqe *)(cqe + 1);
