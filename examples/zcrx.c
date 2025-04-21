@@ -46,9 +46,8 @@ static long page_size;
 static int cfg_port = 8000;
 static const char *cfg_ifname;
 static int cfg_queue_id = -1;
-static bool cfg_oneshot;
-static int cfg_oneshot_recvs;
 static bool cfg_verify_data = false;
+static size_t cfg_size = 0;
 static struct sockaddr_in6 cfg_addr;
 
 static void *area_ptr;
@@ -158,7 +157,7 @@ static void process_accept(struct io_uring *ring, struct io_uring_cqe *cqe)
 		t_error(1, 0, "Unexpected second connection");
 
 	connfd = cqe->res;
-	add_recvzc(ring, connfd, cfg_oneshot ? page_size : 0);
+	add_recvzc(ring, connfd, cfg_size);
 }
 
 static void verify_data(char *data, size_t size, unsigned long seq)
@@ -176,7 +175,8 @@ static void verify_data(char *data, size_t size, unsigned long seq)
 	}
 }
 
-static void process_recvzc(struct io_uring *ring, struct io_uring_cqe *cqe)
+static void process_recvzc(struct io_uring __attribute__((unused)) *ring,
+			   struct io_uring_cqe *cqe)
 {
 	unsigned rq_mask = rq_ring.ring_entries - 1;
 	struct io_uring_zcrx_cqe *rcqe;
@@ -184,22 +184,16 @@ static void process_recvzc(struct io_uring *ring, struct io_uring_cqe *cqe)
 	uint64_t mask;
 	char *data;
 
+	if (!(cqe->flags & IORING_CQE_F_MORE)) {
+		if (!cfg_size || cqe->res != 0)
+			t_error(1, 0, "invalid final recvzc ret %i", cqe->res);
+		if (received != cfg_size)
+			t_error(1, 0, "total receive size mismatch %lu / %lu",
+				received, cfg_size);
+		stop = true;
+	}
 	if (cqe->res < 0)
 		t_error(1, 0, "recvzc(): %d", cqe->res);
-
-	if (cqe->res == 0 && cqe->flags == 0 && cfg_oneshot_recvs == 0) {
-		stop = true;
-		return;
-	}
-
-	if (cfg_oneshot) {
-		if (cqe->res == 0 && cqe->flags == 0 && cfg_oneshot_recvs) {
-			add_recvzc(ring, connfd, page_size);
-			cfg_oneshot_recvs--;
-		}
-	} else if (!(cqe->flags & IORING_CQE_F_MORE)) {
-		add_recvzc(ring, connfd, 0);
-	}
 
 	rcqe = (struct io_uring_zcrx_cqe *)(cqe + 1);
 	mask = (1ULL << IORING_ZCRX_AREA_SHIFT) - 1;
@@ -286,7 +280,7 @@ static void parse_opts(int argc, char **argv)
 	if (argc <= 1)
 		usage(argv[0]);
 
-	while ((c = getopt(argc, argv, "vp:i:q:o:")) != -1) {
+	while ((c = getopt(argc, argv, "vp:i:q:s:")) != -1) {
 		switch (c) {
 		case 'p':
 			cfg_port = strtoul(optarg, NULL, 0);
@@ -294,11 +288,9 @@ static void parse_opts(int argc, char **argv)
 		case 'i':
 			cfg_ifname = optarg;
 			break;
-		case 'o': {
-			cfg_oneshot = true;
-			cfg_oneshot_recvs = strtoul(optarg, NULL, 0);
+		case 's':
+			cfg_size = strtoul(optarg, NULL, 0);
 			break;
-		}
 		case 'q':
 			cfg_queue_id = strtoul(optarg, NULL, 0);
 			break;
