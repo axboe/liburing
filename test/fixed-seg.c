@@ -88,7 +88,7 @@ int main(int argc, char *argv[])
 	struct io_uring ring;
 	const char *fname;
 	char buf[256];
-	int fd, rnd_fd, ret, vec_off = 512;
+	int fd, rnd_fd, ret, bs = 512;
 
 	if (argc > 1) {
 		fname = argv[1];
@@ -105,7 +105,10 @@ int main(int argc, char *argv[])
 		perror("open");
 		return 1;
 	}
-	ioctl(fd, BLKSSZGET, &vec_off);
+	if (ioctl(fd, BLKSSZGET, &bs) < 0) {
+		perror("ioctl BLKSSZGET,");
+		return 1;
+	}
 
 	rnd_fd = open("/dev/urandom", O_RDONLY);
 	if (fd < 0) {
@@ -145,13 +148,13 @@ int main(int argc, char *argv[])
 		goto err;
 	}
 
-	ret = test(&ring, fd, vec_off);
+	ret = test(&ring, fd, bs);
 	if (ret) {
-		fprintf(stderr, "test %d failed\n", vec_off);
+		fprintf(stderr, "test %d failed\n", bs);
 		goto err;
 	}
 
-	if ((vec_off == 512) && test(&ring, fd, 3584)) {
+	if ((bs == 512) && test(&ring, fd, 3584)) {
 		fprintf(stderr, "test 3584 failed\n");
 		goto err;
 	}
