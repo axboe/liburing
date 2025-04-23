@@ -35,6 +35,7 @@
 #include <sys/types.h>
 #include <sys/un.h>
 #include <sys/wait.h>
+#include <linux/mman.h>
 
 #include "liburing.h"
 #include "helpers.h"
@@ -48,12 +49,17 @@ enum {
 
 static long page_size;
 #define AREA_SIZE (8192 * page_size)
-#define SEND_SIZE (512 * 4096)
 
 #define REQ_TYPE_SHIFT	3
 #define REQ_TYPE_MASK	((1UL << REQ_TYPE_SHIFT) - 1)
 
-enum request_type {
+enum {
+	AREA_TYPE_NORMAL,
+	AREA_TYPE_HUGE_PAGES,
+	__AREA_TYPE_MAX,
+};
+
+enum {
 	REQ_TYPE_ACCEPT		= 1,
 	REQ_TYPE_RX		= 2,
 };
@@ -64,6 +70,7 @@ static int cfg_queue_id = -1;
 static bool cfg_verify_data = false;
 static size_t cfg_size = 0;
 static unsigned cfg_rq_alloc_mode = RQ_ALLOC_USER;
+static unsigned cfg_area_type = AREA_TYPE_NORMAL;
 static struct sockaddr_in6 cfg_addr;
 
 static void *area_ptr;
@@ -84,8 +91,31 @@ static inline size_t get_refill_ring_size(unsigned int rq_entries)
 	return T_ALIGN_UP(ring_size, page_size);
 }
 
+static void zcrx_populate_area(struct io_uring_zcrx_area_reg *area_reg)
+{
+	unsigned flags = MAP_PRIVATE | MAP_ANONYMOUS;
+	unsigned prot = PROT_READ | PROT_WRITE;
+
+	if (cfg_area_type == AREA_TYPE_NORMAL) {
+		area_ptr = mmap(NULL, AREA_SIZE, prot,
+				flags, 0, 0);
+	} else if (cfg_area_type == AREA_TYPE_HUGE_PAGES) {
+		area_ptr = mmap(NULL, AREA_SIZE, prot,
+				flags | MAP_HUGETLB | MAP_HUGE_2MB, -1, 0);
+	}
+
+	if (area_ptr == MAP_FAILED)
+		t_error(1, 0, "mmap(): area allocation failed");
+
+	memset(area_reg, 0, sizeof(*area_reg));
+	area_reg->addr = (__u64)(unsigned long)area_ptr;
+	area_reg->len = AREA_SIZE;
+	area_reg->flags = 0;
+}
+
 static void setup_zcrx(struct io_uring *ring)
 {
+	struct io_uring_zcrx_area_reg area_reg;
 	unsigned int ifindex;
 	unsigned int rq_entries = 4096;
 	unsigned rq_flags = 0;
@@ -95,17 +125,7 @@ static void setup_zcrx(struct io_uring *ring)
 	if (!ifindex)
 		t_error(1, 0, "bad interface name: %s", cfg_ifname);
 
-	area_ptr = mmap(NULL,
-			AREA_SIZE,
-			PROT_READ | PROT_WRITE,
-			MAP_ANONYMOUS | MAP_PRIVATE,
-			0,
-			0);
-	if (area_ptr == MAP_FAILED)
-		t_error(1, 0, "mmap(): zero copy area");
-
 	ring_size = get_refill_ring_size(rq_entries);
-
 	ring_ptr = NULL;
 	if (cfg_rq_alloc_mode == RQ_ALLOC_USER) {
 		ring_ptr = mmap(NULL, ring_size,
@@ -123,11 +143,7 @@ static void setup_zcrx(struct io_uring *ring)
 		.flags = rq_flags,
 	};
 
-	struct io_uring_zcrx_area_reg area_reg = {
-		.addr = (__u64)(unsigned long)area_ptr,
-		.len = AREA_SIZE,
-		.flags = 0,
-	};
+	zcrx_populate_area(&area_reg);
 
 	struct io_uring_zcrx_ifq_reg reg = {
 		.if_idx = ifindex,
@@ -314,7 +330,7 @@ static void parse_opts(int argc, char **argv)
 	if (argc <= 1)
 		usage(argv[0]);
 
-	while ((c = getopt(argc, argv, "vp:i:q:s:r:")) != -1) {
+	while ((c = getopt(argc, argv, "vp:i:q:s:r:A:")) != -1) {
 		switch (c) {
 		case 'p':
 			cfg_port = strtoul(optarg, NULL, 0);
@@ -335,6 +351,11 @@ static void parse_opts(int argc, char **argv)
 			cfg_rq_alloc_mode = strtoul(optarg, NULL, 0);
 			if (cfg_rq_alloc_mode >= __RQ_ALLOC_MAX)
 				t_error(1, 0, "invalid RQ allocation mode");
+			break;
+		case 'A':
+			cfg_area_type = strtoul(optarg, NULL, 0);
+			if (cfg_area_type >= __AREA_TYPE_MAX)
+				t_error(1, 0, "Invalid area type");
 			break;
 		}
 	}
