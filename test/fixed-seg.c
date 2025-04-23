@@ -12,7 +12,7 @@
 #include "liburing.h"
 #include "helpers.h"
 
-static struct iovec rvec;
+static struct iovec rvec, wvec;
 
 static int read_it(struct io_uring *ring, int fd, int len, int off)
 {
@@ -40,6 +40,12 @@ static int read_it(struct io_uring *ring, int fd, int len, int off)
 		return 1;
 	}
 	io_uring_cqe_seen(ring, cqe);
+
+	if (memcmp(wvec.iov_base, rvec.iov_base + off, len)) {
+		fprintf(stderr, "%d %d verify failed\n", len, off);
+		return 1;
+	}
+
 	return 0;
 }
 
@@ -81,7 +87,7 @@ int main(int argc, char *argv[])
 	struct io_uring ring;
 	const char *fname;
 	char buf[256];
-	int fd, ret;
+	int fd, rnd_fd, ret;
 
 	if (argc > 1) {
 		fname = argv[1];
@@ -93,10 +99,32 @@ int main(int argc, char *argv[])
 		t_create_file(fname, 128*1024);
 	}
 
-	fd = open(fname, O_RDONLY | O_DIRECT);
+	fd = open(fname, O_RDWR | O_DIRECT | O_EXCL);
 	if (fd < 0) {
 		perror("open");
 		return 1;
+	}
+
+	rnd_fd = open("/dev/urandom", O_RDONLY);
+	if (fd < 0) {
+		perror("urandom: open");
+		goto err;
+	}
+
+	if (posix_memalign(&wvec.iov_base, 4096, 512*1024))
+		goto err;
+	wvec.iov_len = 512*1024;
+
+	ret = read(rnd_fd, wvec.iov_base, wvec.iov_len);
+	if (ret != wvec.iov_len) {
+		fprintf(stderr, "Precondition, urandom read failed, ret: %d\n", ret);
+		goto err;
+	}
+
+	ret = write(fd, wvec.iov_base, wvec.iov_len);
+	if (ret != wvec.iov_len) {
+		fprintf(stderr, "Precondition, write failed, ret: %d\n", ret);
+		goto err;
 	}
 
 	if (posix_memalign(&rvec.iov_base, 4096, 512*1024))
