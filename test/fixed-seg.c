@@ -12,7 +12,7 @@
 #include "liburing.h"
 #include "helpers.h"
 
-static struct iovec vec;
+static struct iovec rvec;
 
 static int read_it(struct io_uring *ring, int fd, int len, int off)
 {
@@ -21,7 +21,7 @@ static int read_it(struct io_uring *ring, int fd, int len, int off)
 	int ret;
 
 	sqe = io_uring_get_sqe(ring);
-	io_uring_prep_read_fixed(sqe, fd, vec.iov_base + off, len, 0, 0);
+	io_uring_prep_read_fixed(sqe, fd, rvec.iov_base + off, len, 0, 0);
 	sqe->user_data = 1;
 
 	io_uring_submit(ring);
@@ -45,7 +45,7 @@ static int read_it(struct io_uring *ring, int fd, int len, int off)
 
 static int test(struct io_uring *ring, int fd, int vec_off)
 {
-	struct iovec v = vec;
+	struct iovec v = rvec;
 	int ret;
 
 	v.iov_base += vec_off;
@@ -99,9 +99,9 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-	if (posix_memalign(&vec.iov_base, 4096, 512*1024))
+	if (posix_memalign(&rvec.iov_base, 4096, 512*1024))
 		goto err;
-	vec.iov_len = 512*1024;
+	rvec.iov_len = 512*1024;
 
 	ret = io_uring_queue_init(8, &ring, 0);
 	if (ret) {
