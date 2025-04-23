@@ -220,6 +220,7 @@ static void process_recvzc(struct io_uring __attribute__((unused)) *ring,
 			t_error(1, 0, "total receive size mismatch %lu / %lu",
 				received, cfg_size);
 		stop = true;
+		return;
 	}
 	if (cqe->res < 0)
 		t_error(1, 0, "recvzc(): %d", cqe->res);
