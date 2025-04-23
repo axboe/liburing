@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/time.h>
+#include <sys/ioctl.h>
 #include "liburing.h"
 #include "helpers.h"
 
@@ -87,7 +88,7 @@ int main(int argc, char *argv[])
 	struct io_uring ring;
 	const char *fname;
 	char buf[256];
-	int fd, rnd_fd, ret;
+	int fd, rnd_fd, ret, vec_off = 512;
 
 	if (argc > 1) {
 		fname = argv[1];
@@ -104,6 +105,7 @@ int main(int argc, char *argv[])
 		perror("open");
 		return 1;
 	}
+	ioctl(fd, BLKSSZGET, &vec_off);
 
 	rnd_fd = open("/dev/urandom", O_RDONLY);
 	if (fd < 0) {
@@ -143,14 +145,13 @@ int main(int argc, char *argv[])
 		goto err;
 	}
 
-	ret = test(&ring, fd, 512);
+	ret = test(&ring, fd, vec_off);
 	if (ret) {
-		fprintf(stderr, "test 512 failed\n");
+		fprintf(stderr, "test %d failed\n", vec_off);
 		goto err;
 	}
 
-	ret = test(&ring, fd, 3584);
-	if (ret) {
+	if ((vec_off == 512) && test(&ring, fd, 3584)) {
 		fprintf(stderr, "test 3584 failed\n");
 		goto err;
 	}
