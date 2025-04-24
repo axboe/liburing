@@ -10,6 +10,7 @@
 #include <string.h>
 #include <sys/time.h>
 #include <sys/ioctl.h>
+#include <sys/stat.h>
 #include "liburing.h"
 #include "helpers.h"
 
