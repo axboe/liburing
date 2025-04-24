@@ -83,6 +83,18 @@ static int test(struct io_uring *ring, int fd, int vec_off)
 	return T_EXIT_PASS;
 }
 
+static int is_bdev(int fd)
+{
+	struct stat sb;
+
+	if (fstat(fd, &sb) < 0) {
+		perror("fstat");
+		return -1;
+	}
+
+	return S_ISBLK(sb.st_mode);
+}
+
 int main(int argc, char *argv[])
 {
 	struct io_uring ring;
@@ -105,7 +117,10 @@ int main(int argc, char *argv[])
 		perror("open");
 		return 1;
 	}
-	if (ioctl(fd, BLKSSZGET, &bs) < 0) {
+	ret = is_bdev(fd);
+	if (fd < 0)
+		return 1;
+	if (ret && ioctl(fd, BLKSSZGET, &bs) < 0) {
 		perror("ioctl BLKSSZGET,");
 		return 1;
 	}
