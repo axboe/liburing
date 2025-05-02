@@ -216,7 +216,8 @@ static void verify_data(char *data, size_t size, unsigned long seq)
 		char expected = 'a' + (seq + i) % 26;
 
 		if (data[i] != expected)
-			t_error(1, 0, "payload mismatch at %i", i);
+			t_error(1, 0, "payload mismatch at %i: expected %i vs got %i, seq %li",
+				i, expected, data[i], seq);
 	}
 }
 
