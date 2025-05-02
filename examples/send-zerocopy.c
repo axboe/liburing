@@ -458,7 +458,7 @@ static void do_tx(struct thread_data *td, int domain, int type, int protocol)
 				td->bytes += cqe->res;
 			} else if (cqe->res == -ECONNREFUSED || cqe->res == -EPIPE ||
 				   cqe->res == -ECONNRESET) {
-				fprintf(stderr, "Connection failure\n");
+				printf("Connection failure %i\n", cqe->res);
 				goto out_fail;
 			} else if (cqe->res != -EAGAIN) {
 				t_error(1, cqe->res, "send failed");
@@ -469,9 +469,9 @@ static void do_tx(struct thread_data *td, int domain, int type, int protocol)
 			break;
 	} while ((++loop % 16 != 0) || gettimeofday_ms() < tstart + cfg_runtime_ms);
 
+out_fail:
 	td->dt_ms = gettimeofday_ms() - tstart;
 
-out_fail:
 	shutdown(fd, SHUT_RDWR);
 	if (close(fd))
 		t_error(1, errno, "close");
