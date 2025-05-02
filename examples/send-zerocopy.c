@@ -43,6 +43,8 @@
 
 #include "liburing.h"
 
+#define PATTERN_SIZE	26
+
 #define ZC_TAG 0xfffffffULL
 #define MAX_SUBMIT_NR 512
 #define MAX_THREADS 100
@@ -76,11 +78,12 @@ static int  cfg_payload_len;
 static int  cfg_port		= 8000;
 static int  cfg_runtime_ms	= 4200;
 static bool cfg_rx_poll		= false;
+static bool cfg_verify;
 
 static socklen_t cfg_alen;
 static char *str_addr = NULL;
 
-static char payload_buf[IP_MAXPACKET] __attribute__((aligned(4096)));
+static char payload_buf[IP_MAXPACKET + PATTERN_SIZE] __attribute__((aligned(4096)));
 static char *payload;
 static struct thread_data threads[MAX_THREADS];
 static pthread_barrier_t barrier;
@@ -376,7 +379,7 @@ static void do_tx(struct thread_data *td, int domain, int type, int protocol)
 	}
 
 	iov.iov_base = payload;
-	iov.iov_len = cfg_payload_len;
+	iov.iov_len = cfg_payload_len + PATTERN_SIZE;
 
 	ret = io_uring_register_buffers(&ring, &iov, 1);
 	if (ret)
@@ -403,13 +406,18 @@ static void do_tx(struct thread_data *td, int domain, int type, int protocol)
 		unsigned msg_flags = MSG_WAITALL;
 
 		for (i = 0; i < cfg_nr_reqs; i++) {
+			char *buf = payload;
+
+			if (cfg_verify && cfg_type == SOCK_STREAM)
+				buf += td->bytes % PATTERN_SIZE;
+
 			sqe = io_uring_get_sqe(&ring);
 
 			if (!cfg_zc)
-				io_uring_prep_send(sqe, fd, payload,
+				io_uring_prep_send(sqe, fd, buf,
 						   cfg_payload_len, 0);
 			else {
-				io_uring_prep_send_zc(sqe, fd, payload,
+				io_uring_prep_send_zc(sqe, fd, buf,
 						     cfg_payload_len, msg_flags, 0);
 				if (cfg_fixed_buf) {
 					sqe->ioprio |= IORING_RECVSEND_FIXED_BUF;
@@ -527,7 +535,7 @@ static void parse_opts(int argc, char **argv)
 
 	cfg_payload_len = max_payload_len;
 
-	while ((c = getopt(argc, argv, "46D:p:s:t:n:z:I:b:l:dC:T:Ry")) != -1) {
+	while ((c = getopt(argc, argv, "46D:p:s:t:n:z:I:b:l:dC:T:Ryv")) != -1) {
 		switch (c) {
 		case '4':
 			if (cfg_family != PF_UNSPEC)
@@ -582,6 +590,9 @@ static void parse_opts(int argc, char **argv)
 		case 'R':
 			cfg_rx = 1;
 			break;
+		case 'v':
+			cfg_verify = true;
+			break;
 		case 'y':
 			cfg_rx_poll = 1;
 			break;
@@ -604,13 +615,44 @@ static void parse_opts(int argc, char **argv)
 		t_error(1, 0, "-n: submit batch can't be zero");
 	if (cfg_ifname && cfg_rx)
 		t_error(1, 0, "Interface can only be specified for tx");
-	if (cfg_nr_reqs > 1 && cfg_type == SOCK_STREAM)
+	if (cfg_nr_reqs > 1 && cfg_type == SOCK_STREAM) {
 		printf("warning: submit batching >1 with TCP sockets will cause data reordering");
+		if (cfg_verify)
+			t_error(1, 0, "can't verify data because of reordering");
+	}
+	if (cfg_rx && cfg_verify)
+		t_error(1, 0, "Server mode doesn't support data verification");
 
 	str_addr = daddr;
 
 	if (optind != argc - 1)
 		usage(argv[0]);
+}
+
+static void init_buffers(void)
+{
+	size_t size;
+	int i;
+
+	payload = payload_buf;
+	size = sizeof(payload_buf);
+
+	if (cfg_hugetlb) {
+		size = 1 << 21;
+		payload = mmap(NULL, size, PROT_READ | PROT_WRITE,
+				MAP_PRIVATE | MAP_HUGETLB | MAP_HUGE_2MB | MAP_ANONYMOUS,
+				-1, 0);
+		if (payload == MAP_FAILED)
+			t_error(0, 1, "huge pages alloc failed");
+	}
+
+	if (cfg_payload_len + PATTERN_SIZE > size)
+		t_error(1, 0, "Buffers are too small");
+
+	if (cfg_verify) {
+		for (i = 0; i < size; i++)
+			payload[i] = 'a' + (i % PATTERN_SIZE);
+	}
 }
 
 int main(int argc, char **argv)
@@ -622,24 +664,10 @@ int main(int argc, char **argv)
 	void *res;
 
 	parse_opts(argc, argv);
+	init_buffers();
 	set_cpu_affinity();
 
-	payload = payload_buf;
-	if (cfg_hugetlb) {
-		payload = mmap(NULL, 2*1024*1024, PROT_READ | PROT_WRITE,
-				MAP_PRIVATE | MAP_HUGETLB | MAP_HUGE_2MB | MAP_ANONYMOUS,
-				-1, 0);
-		if (payload == MAP_FAILED) {
-			fprintf(stderr, "hugetlb alloc failed\n");
-			return 1;
-		}
-	}
-
 	pthread_barrier_init(&barrier, NULL, cfg_nr_threads);
-
-	for (i = 0; i < IP_MAXPACKET; i++)
-		payload[i] = 'a' + (i % 26);
-
 	for (i = 0; i < cfg_nr_threads; i++) {
 		td = &threads[i];
 		td->idx = i;
