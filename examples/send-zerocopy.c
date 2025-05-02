@@ -68,6 +68,7 @@ static bool cfg_defer_taskrun = 0;
 static int  cfg_cpu = -1;
 static bool cfg_rx = 0;
 static unsigned  cfg_nr_threads = 1;
+static const char *cfg_ifname;
 
 static int  cfg_family		= PF_UNSPEC;
 static int  cfg_type		= 0;
@@ -343,6 +344,16 @@ static void do_tx(struct thread_data *td, int domain, int type, int protocol)
 	if (fd == -1)
 		t_error(1, errno, "socket t");
 
+	if (cfg_ifname) {
+		struct ifreq ifr;
+
+		memset(&ifr, 0, sizeof(ifr));
+		snprintf(ifr.ifr_name, sizeof(ifr.ifr_name), cfg_ifname);
+
+		if (setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, &ifr, sizeof(ifr)) < 0)
+			t_error(1, errno, "Binding to device failed\n");
+	}
+
 	if (connect(fd, (void *)&td->dst_addr, cfg_alen))
 		t_error(1, errno, "connect, idx %i", td->idx);
 
@@ -516,7 +527,7 @@ static void parse_opts(int argc, char **argv)
 
 	cfg_payload_len = max_payload_len;
 
-	while ((c = getopt(argc, argv, "46D:p:s:t:n:z:b:l:dC:T:Ry")) != -1) {
+	while ((c = getopt(argc, argv, "46D:p:s:t:n:z:I:b:l:dC:T:Ry")) != -1) {
 		switch (c) {
 		case '4':
 			if (cfg_family != PF_UNSPEC)
@@ -529,6 +540,9 @@ static void parse_opts(int argc, char **argv)
 				t_error(1, 0, "Pass one of -4 or -6");
 			cfg_family = PF_INET6;
 			cfg_alen = sizeof(struct sockaddr_in6);
+			break;
+		case 'I':
+			cfg_ifname = optarg;
 			break;
 		case 'D':
 			daddr = optarg;
@@ -588,6 +602,8 @@ static void parse_opts(int argc, char **argv)
 		t_error(1, 0, "-s: payload exceeds max (%d)", max_payload_len);
 	if (!cfg_nr_reqs)
 		t_error(1, 0, "-n: submit batch can't be zero");
+	if (cfg_ifname && cfg_rx)
+		t_error(1, 0, "Interface can only be specified for tx");
 	if (cfg_nr_reqs > 1 && cfg_type == SOCK_STREAM)
 		printf("warning: submit batching >1 with TCP sockets will cause data reordering");
 
