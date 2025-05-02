@@ -501,6 +501,7 @@ static void usage(const char *filepath)
 
 static void parse_opts(int argc, char **argv)
 {
+	const char *cfg_test;
 	const int max_payload_len = IP_MAXPACKET -
 				    sizeof(struct ipv6hdr) -
 				    sizeof(struct tcphdr) -
@@ -573,10 +574,22 @@ static void parse_opts(int argc, char **argv)
 		}
 	}
 
+	cfg_test = argv[argc - 1];
+	if (!strcmp(cfg_test, "tcp"))
+		cfg_type = SOCK_STREAM;
+	else if (!strcmp(cfg_test, "udp"))
+		cfg_type = SOCK_DGRAM;
+	else
+		t_error(1, 0, "unknown cfg_test %s", cfg_test);
+
 	if (cfg_nr_reqs > MAX_SUBMIT_NR)
 		t_error(1, 0, "-n: submit batch nr exceeds max (%d)", MAX_SUBMIT_NR);
 	if (cfg_payload_len > max_payload_len)
 		t_error(1, 0, "-s: payload exceeds max (%d)", max_payload_len);
+	if (!cfg_nr_reqs)
+		t_error(1, 0, "-n: submit batch can't be zero");
+	if (cfg_nr_reqs > 1 && cfg_type == SOCK_STREAM)
+		printf("warning: submit batching >1 with TCP sockets will cause data reordering");
 
 	str_addr = daddr;
 
@@ -589,7 +602,6 @@ int main(int argc, char **argv)
 	unsigned long long tsum = 0;
 	unsigned long long packets = 0, bytes = 0;
 	struct thread_data *td;
-	const char *cfg_test;
 	unsigned int i;
 	void *res;
 
@@ -606,14 +618,6 @@ int main(int argc, char **argv)
 			return 1;
 		}
 	}
-
-	cfg_test = argv[argc - 1];
-	if (!strcmp(cfg_test, "tcp"))
-		cfg_type = SOCK_STREAM;
-	else if (!strcmp(cfg_test, "udp"))
-		cfg_type = SOCK_DGRAM;
-	else
-		t_error(1, 0, "unknown cfg_test %s", cfg_test);
 
 	pthread_barrier_init(&barrier, NULL, cfg_nr_threads);
 
