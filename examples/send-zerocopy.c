@@ -351,7 +351,7 @@ static void do_tx(struct thread_data *td, int domain, int type, int protocol)
 		struct ifreq ifr;
 
 		memset(&ifr, 0, sizeof(ifr));
-		snprintf(ifr.ifr_name, sizeof(ifr.ifr_name), cfg_ifname);
+		strncpy(ifr.ifr_name, cfg_ifname, sizeof(ifr.ifr_name));
 
 		if (setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, &ifr, sizeof(ifr)) < 0)
 			t_error(1, errno, "Binding to device failed\n");
