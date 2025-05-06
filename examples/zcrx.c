@@ -37,6 +37,10 @@
 #include <sys/wait.h>
 #include <linux/mman.h>
 
+#include <linux/memfd.h>
+#include <linux/dma-buf.h>
+#include <linux/udmabuf.h>
+
 #include "liburing.h"
 #include "helpers.h"
 
@@ -56,6 +60,7 @@ static long page_size;
 enum {
 	AREA_TYPE_NORMAL,
 	AREA_TYPE_HUGE_PAGES,
+	AREA_TYPE_DMABUF,
 	__AREA_TYPE_MAX,
 };
 
@@ -83,6 +88,9 @@ static bool stop;
 static size_t received;
 static __u32 zcrx_id;
 
+static int dmabuf_fd;
+static int memfd;
+
 static inline size_t get_refill_ring_size(unsigned int rq_entries)
 {
 	ring_size = rq_entries * sizeof(struct io_uring_zcrx_rqe);
@@ -91,11 +99,58 @@ static inline size_t get_refill_ring_size(unsigned int rq_entries)
 	return T_ALIGN_UP(ring_size, page_size);
 }
 
+static void zcrx_populate_area_udmabuf(struct io_uring_zcrx_area_reg *area_reg)
+{
+	struct udmabuf_create create;
+	int ret, devfd;
+
+	devfd = open("/dev/udmabuf", O_RDWR);
+	if (devfd < 0)
+		t_error(1, devfd, "Failed to open udmabuf dev");
+
+	memfd = memfd_create("udmabuf-test", MFD_ALLOW_SEALING);
+	if (memfd < 0)
+		t_error(1, memfd, "Failed to open udmabuf dev");
+
+	ret = fcntl(memfd, F_ADD_SEALS, F_SEAL_SHRINK);
+	if (ret < 0)
+		t_error(1, 0, "Failed to set seals");
+
+	ret = ftruncate(memfd, AREA_SIZE);
+	if (ret == -1)
+		t_error(1, 0, "Failed to resize udmabuf");
+
+	memset(&create, 0, sizeof(create));
+	create.memfd = memfd;
+	create.offset = 0;
+	create.size = AREA_SIZE;
+	dmabuf_fd = ioctl(devfd, UDMABUF_CREATE, &create);
+	if (dmabuf_fd < 0)
+		t_error(1, dmabuf_fd, "Failed to create udmabuf");
+
+	area_ptr = mmap(NULL, AREA_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED,
+			dmabuf_fd, 0);
+	if (area_ptr == MAP_FAILED)
+		t_error(1, 0, "Failed to mmap udmabuf");
+
+	memset(area_reg, 0, sizeof(*area_reg));
+	area_reg->addr = 0; /* offset into dmabuf */
+	area_reg->len = AREA_SIZE;
+	area_reg->flags |= IORING_ZCRX_AREA_DMABUF;
+	area_reg->dmabuf_fd = dmabuf_fd;
+
+	close(devfd);
+}
+
 static void zcrx_populate_area(struct io_uring_zcrx_area_reg *area_reg)
 {
 	unsigned flags = MAP_PRIVATE | MAP_ANONYMOUS;
 	unsigned prot = PROT_READ | PROT_WRITE;
 
+	if (cfg_area_type == AREA_TYPE_DMABUF) {
+		zcrx_populate_area_udmabuf(area_reg);
+		return;
+	}
 	if (cfg_area_type == AREA_TYPE_NORMAL) {
 		area_ptr = mmap(NULL, AREA_SIZE, prot,
 				flags, 0, 0);
