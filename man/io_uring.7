@@ -807,7 +807,7 @@ int submit_to_sq(int fd, int op) {
 
     /*
     * Tell the kernel we have submitted events with the io_uring_enter()
-    * system call. We also pass in the IOURING_ENTER_GETEVENTS flag which
+    * system call. We also pass in the IORING_ENTER_GETEVENTS flag which
     * causes the io_uring_enter() call to wait until min_complete
     * (the 3rd param) events complete.
     * */
