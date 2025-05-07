@@ -498,6 +498,23 @@ __cold void io_uring_free_probe(struct io_uring_probe *probe)
 	free(probe);
 }
 
+int io_uring_try_setup_flags(struct io_uring_params *p, unsigned flags)
+{
+	struct io_uring ring;
+	unsigned saved = p->flags;
+	int r;
+
+	p->flags |= flags;
+	r = io_uring_queue_init_params(2, &ring, p);
+	if (r == 0) {
+		io_uring_queue_exit(&ring);
+	} else {
+		p->flags = saved;
+	}
+
+	return r;
+}
+
 static size_t npages(size_t size, long page_size)
 {
 	size--;
