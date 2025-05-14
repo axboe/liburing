@@ -111,9 +111,9 @@ int io_uring_register_files_update(struct io_uring *ring, unsigned off,
 {
 	liburing_sanitize_address(files);
 
-	struct io_uring_files_update up = {
+	struct io_uring_rsrc_update up = {
 		.offset	= off,
-		.fds	= (unsigned long) files,
+		.data	= (unsigned long) files,
 	};
 
 	return do_register(ring, IORING_REGISTER_FILES_UPDATE, &up, nr_files);
