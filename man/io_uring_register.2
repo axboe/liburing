@@ -951,40 +951,55 @@ of this system call, which can be used to memory map the ring just like how
 a new ring would've been mapped. Available since kernel 6.13.
 
 .TP
-.B IORING_REGISTER_CQWAIT_REG
-Supports registering fixed wait regions, avoiding unnecessary copying in
-of
+.B IORING_REGISTER_MEM_REGION
+Supports registering multiple purposes memory regions, avoiding unnecessary
+copying in of
 .IR struct io_uring_getevents_arg
 for wait operations that specify a timeout or minimum timeout. Takes a pointer
 to a
-.IR struct io_uring_cqwait_reg_arg
+.IR struct io_uring_mem_region_reg
 structure, which looks as follows:
 .PP
 .in +12n
 .EX
-struct io_uring_cqwait_reg_arg {
-    __u32 flags;
-    __u32 struct_size;
-    __u32 nr_entries;
-    __u32 pad;
-    __u64 user_addr;
-    __u64 pad2[2];
+struct io_uring_mem_region_reg {
+    __u64 region_uptr;
+    __u64 flags;
+    __u64 __resv[2];
 };
 .EE
 .in
 .TP
 .PP
 where
+.IR region_uptr
+must be set to the region being registered as memory regions,
 .IR flags
 specifies modifier flags (must currently be
-.B 0 ),
-.IR struct_size
-must be set to the size of the struct, and
-.IR user_addr
-must be set to the region being registered as wait regions. The pad fields
-must all be cleared to
+.B IORING_MEM_REGION_REG_WAIT_ARG ). The pad fields must all be cleared to
 .B 0 .
-Each wait regions looks as follows:
+Each memory regions looks as follows:
+.PP
+.in +12n
+.EX
+struct io_uring_region_desc {
+    __u64 user_addr;
+    __u64 size;
+    __u32 flags;
+    __u32 id;
+    __u64 mmap_offset;
+    __u64 __resv[4];
+};
+.EE
+.in
+.TP
+.PP
+where
+.IR user_addr
+points to userspace memory mappings,
+.IR size
+is the size of userspace memory. Current supported userspace memory regions
+looks as follows:
 .PP
 .in +12n
 .EX
@@ -1018,9 +1033,9 @@ which, if set, says that the values in
 are valid and should be used for a timeout operation. The
 .IR user_addr
 field of
-.IR struct io_uring_cqwait_reg_arg
+.IR struct io_uring_region_desc
 must be set to an address of
-.IR struct io_uring_cqwait_reg
+.IR struct io_uring_reg_wait
 members, an up to a page size can be mapped. At the size of 64 bytes per
 region, that allows at least 64 individual regions on a 4k page size system.
 The offsets of these regions are used for an
