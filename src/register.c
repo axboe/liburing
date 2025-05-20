@@ -395,9 +395,9 @@ int io_uring_register_clock(struct io_uring *ring,
 	return do_register(ring, IORING_REGISTER_CLOCK, arg, 0);
 }
 
-int io_uring_clone_buffers_offset(struct io_uring *dst, struct io_uring *src,
-				  unsigned int dst_off, unsigned int src_off,
-				  unsigned int nr, unsigned int flags)
+int __io_uring_clone_buffers_offset(struct io_uring *dst, struct io_uring *src,
+				    unsigned int dst_off, unsigned int src_off,
+				    unsigned int nr, unsigned int flags)
 {
 	struct io_uring_clone_buffers buf = {
 		.src_fd		= src->ring_fd,
@@ -407,19 +407,34 @@ int io_uring_clone_buffers_offset(struct io_uring *dst, struct io_uring *src,
 		.nr		= nr,
 	};
 
-	if (src->int_flags & INT_FLAG_REG_REG_RING) {
+	if (flags & IORING_REGISTER_SRC_REGISTERED &&
+	    src->int_flags & INT_FLAG_REG_REG_RING) {
 		buf.src_fd = src->enter_ring_fd;
-		buf.flags |= IORING_REGISTER_SRC_REGISTERED;
 	} else {
 		buf.src_fd = src->ring_fd;
+		buf.flags &= ~IORING_REGISTER_SRC_REGISTERED;
 	}
 
 	return do_register(dst, IORING_REGISTER_CLONE_BUFFERS, &buf, 1);
 }
 
+int io_uring_clone_buffers_offset(struct io_uring *dst, struct io_uring *src,
+				  unsigned int dst_off, unsigned int src_off,
+				  unsigned int nr, unsigned int flags)
+{
+	return __io_uring_clone_buffers_offset(dst, src, dst_off, src_off, nr,
+						flags | IORING_REGISTER_SRC_REGISTERED);
+}
+
 int io_uring_clone_buffers(struct io_uring *dst, struct io_uring *src)
 {
-	return io_uring_clone_buffers_offset(dst, src, 0, 0, 0, 0);
+	return __io_uring_clone_buffers_offset(dst, src, 0, 0, 0, IORING_REGISTER_SRC_REGISTERED);
+}
+
+int __io_uring_clone_buffers(struct io_uring *dst, struct io_uring *src,
+			     unsigned int flags)
+{
+	return __io_uring_clone_buffers_offset(dst, src, 0, 0, 0, flags);
 }
 
 int io_uring_register_ifq(struct io_uring *ring,

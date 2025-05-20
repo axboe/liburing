@@ -116,4 +116,6 @@ LIBURING_2.10 {
 	global:
 		io_uring_register_ifq;
 		io_uring_set_iowait;
+		__io_uring_clone_buffers;
+		__io_uring_clone_buffers_offset;
 } LIBURING_2.9;

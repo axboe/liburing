@@ -234,4 +234,6 @@ LIBURING_2.10 {
 		io_uring_prep_readv_fixed;
 		io_uring_prep_sendmsg_zc_fixed;
 		io_uring_set_iowait;
+		__io_uring_clone_buffers;
+		__io_uring_clone_buffers_offset;
 } LIBURING_2.9;
