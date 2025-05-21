@@ -1,3 +1,8 @@
+/* SPDX-License-Identifier: MIT */
+/*
+ * Description: test toggling of iowait on kernels that support it
+ *
+ */
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
