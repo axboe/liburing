@@ -20,6 +20,7 @@
 static void *meta_mem;
 static struct iovec *vecs;
 static int no_pt;
+static bool vec_fixed_supported = true;
 
 /*
  * Each offset in the file has the ((test_case / 2) * FILE_SIZE)
@@ -129,11 +130,15 @@ static int __test_io(const char *file, struct io_uring *ring, int tc, int read,
 				use_fd = 0;
 			if (fixed && (i & 1))
 				do_fixed = 0;
-			if (do_fixed) {
+			if (do_fixed && nonvec) {
 				io_uring_prep_read_fixed(sqe, use_fd, vecs[i].iov_base,
 								vecs[i].iov_len,
 								offset, i);
 				sqe->cmd_op = NVME_URING_CMD_IO;
+			} else if (do_fixed) {
+				io_uring_prep_readv_fixed(sqe, use_fd, &vecs[i],
+								1, offset, 0, i);
+				sqe->cmd_op = NVME_URING_CMD_IO_VEC;
 			} else if (nonvec) {
 				io_uring_prep_read(sqe, use_fd, vecs[i].iov_base,
 							vecs[i].iov_len, offset);
@@ -152,11 +157,15 @@ static int __test_io(const char *file, struct io_uring *ring, int tc, int read,
 				use_fd = 0;
 			if (fixed && (i & 1))
 				do_fixed = 0;
-			if (do_fixed) {
+			if (do_fixed && nonvec) {
 				io_uring_prep_write_fixed(sqe, use_fd, vecs[i].iov_base,
 								vecs[i].iov_len,
 								offset, i);
 				sqe->cmd_op = NVME_URING_CMD_IO;
+			} else if (do_fixed) {
+				io_uring_prep_writev_fixed(sqe, use_fd, &vecs[i],
+								1, offset, 0, i);
+				sqe->cmd_op = NVME_URING_CMD_IO_VEC;
 			} else if (nonvec) {
 				io_uring_prep_write(sqe, use_fd, vecs[i].iov_base,
 							vecs[i].iov_len, offset);
@@ -187,7 +196,7 @@ static int __test_io(const char *file, struct io_uring *ring, int tc, int read,
 		cmd->cdw11 = slba >> 32;
 		/* cdw12 represent number of lba's for read/write */
 		cmd->cdw12 = nlb;
-		if (do_fixed || nonvec) {
+		if (nonvec) {
 			cmd->addr = (__u64)(uintptr_t)vecs[i].iov_base;
 			cmd->data_len = vecs[i].iov_len;
 		} else {
@@ -218,6 +227,10 @@ static int __test_io(const char *file, struct io_uring *ring, int tc, int read,
 			goto err;
 		}
 		if (cqe->res != 0) {
+			if (cqe->res == -EINVAL && fixed && !nonvec) {
+				vec_fixed_supported = false;
+				goto cleanup_and_skip;
+			}
 			if (!no_pt) {
 				no_pt = 1;
 				goto skip;
@@ -236,6 +249,7 @@ static int __test_io(const char *file, struct io_uring *ring, int tc, int read,
 		}
 	}
 
+cleanup_and_skip:
 	if (fixed) {
 		ret = io_uring_unregister_buffers(ring);
 		if (ret) {
@@ -274,6 +288,9 @@ static int test_io(const char *file, int tc, int read, int sqthread,
 
 	if (hybrid)
 		ring_flags |= IORING_SETUP_IOPOLL | IORING_SETUP_HYBRID_IOPOLL;
+
+	if (fixed && (!vec_fixed_supported && !nonvec))
+		return 0;
 
 	ret = t_create_ring(64, &ring, ring_flags);
 	if (ret == T_SETUP_SKIP)
