@@ -75,7 +75,7 @@ static int __test_io(const char *file, struct io_uring *ring, int tc, int read,
 	struct nvme_uring_cmd *cmd;
 	int open_flags;
 	int do_fixed;
-	int i, ret, fd = -1;
+	int i, ret, fd = -1, use_fd = -1;
 	off_t offset;
 	__u64 slba;
 	__u32 nlb;
@@ -121,61 +121,20 @@ static int __test_io(const char *file, struct io_uring *ring, int tc, int read,
 			fprintf(stderr, "sqe get failed\n");
 			goto err;
 		}
-		if (read) {
-			int use_fd = fd;
+		use_fd = fd;
+		do_fixed = fixed;
 
-			do_fixed = fixed;
-
-			if (sqthread)
-				use_fd = 0;
-			if (fixed && (i & 1))
-				do_fixed = 0;
-			if (do_fixed && nonvec) {
-				io_uring_prep_read_fixed(sqe, use_fd, vecs[i].iov_base,
-								vecs[i].iov_len,
-								offset, i);
-				sqe->cmd_op = NVME_URING_CMD_IO;
-			} else if (do_fixed) {
-				io_uring_prep_readv_fixed(sqe, use_fd, &vecs[i],
-								1, offset, 0, i);
-				sqe->cmd_op = NVME_URING_CMD_IO_VEC;
-			} else if (nonvec) {
-				io_uring_prep_read(sqe, use_fd, vecs[i].iov_base,
-							vecs[i].iov_len, offset);
-				sqe->cmd_op = NVME_URING_CMD_IO;
-			} else {
-				io_uring_prep_readv(sqe, use_fd, &vecs[i], 1,
-								offset);
-				sqe->cmd_op = NVME_URING_CMD_IO_VEC;
-			}
-		} else {
-			int use_fd = fd;
-
-			do_fixed = fixed;
-
-			if (sqthread)
-				use_fd = 0;
-			if (fixed && (i & 1))
-				do_fixed = 0;
-			if (do_fixed && nonvec) {
-				io_uring_prep_write_fixed(sqe, use_fd, vecs[i].iov_base,
-								vecs[i].iov_len,
-								offset, i);
-				sqe->cmd_op = NVME_URING_CMD_IO;
-			} else if (do_fixed) {
-				io_uring_prep_writev_fixed(sqe, use_fd, &vecs[i],
-								1, offset, 0, i);
-				sqe->cmd_op = NVME_URING_CMD_IO_VEC;
-			} else if (nonvec) {
-				io_uring_prep_write(sqe, use_fd, vecs[i].iov_base,
-							vecs[i].iov_len, offset);
-				sqe->cmd_op = NVME_URING_CMD_IO;
-			} else {
-				io_uring_prep_writev(sqe, use_fd, &vecs[i], 1,
-								offset);
-				sqe->cmd_op = NVME_URING_CMD_IO_VEC;
-			}
-		}
+		if (sqthread)
+			use_fd = 0;
+		if (fixed && (i & 1))
+			do_fixed = 0;
+		if (do_fixed)
+			sqe->buf_index = i;
+		if (nonvec)
+			sqe->cmd_op = NVME_URING_CMD_IO;
+		else
+			sqe->cmd_op = NVME_URING_CMD_IO_VEC;
+		sqe->fd = use_fd;
 		sqe->opcode = IORING_OP_URING_CMD;
 		if (do_fixed)
 			sqe->uring_cmd_flags |= IORING_URING_CMD_FIXED;
