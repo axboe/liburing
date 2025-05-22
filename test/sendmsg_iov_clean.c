@@ -66,16 +66,12 @@ done:
 	return NULL;
 }
 
-static int queue_sends(struct io_uring *ring, int send_fd, struct thread_data *td)
+static int queue_sends(struct io_uring *ring, int send_fd, struct thread_data *td, struct msghdr *msghdr)
 {
 	struct io_uring_sqe *sqe;
 	char buf[64];
-	struct iovec iovs[IOVS];
-	struct msghdr msghdr = {
-		.msg_iov = iovs,
-		.msg_iovlen = 1,
-	};
 	int i, ret, sbuf;
+	struct iovec *iovs = msghdr->msg_iov;
 
 	sbuf = 8 * 1024;
 	ret = setsockopt(send_fd, SOL_SOCKET, SO_SNDBUF, &sbuf, sizeof(sbuf));
@@ -92,7 +88,7 @@ static int queue_sends(struct io_uring *ring, int send_fd, struct thread_data *t
 
 	/* fill send buffer */
 	for (i = 0;; i++) {
-		ret = sendmsg(send_fd, &msghdr, MSG_DONTWAIT);
+		ret = sendmsg(send_fd, msghdr, MSG_DONTWAIT);
 		if (ret == -1) {
 			if (errno == EAGAIN)
 				break;
@@ -102,11 +98,11 @@ static int queue_sends(struct io_uring *ring, int send_fd, struct thread_data *t
 	}
 
 	/* kick receiver, start sendmsg */
-	msghdr.msg_iovlen = IOVS;
+	msghdr->msg_iovlen = IOVS;
 	pthread_barrier_wait(&td->barrier);
 	for (i = 0; i < INFLIGHT; i++) {
 		sqe = io_uring_get_sqe(ring);
-		io_uring_prep_sendmsg(sqe, send_fd, &msghdr, 0);
+		io_uring_prep_sendmsg(sqe, send_fd, msghdr, 0);
 		sqe->user_data = IS_SENDMSG;
 	}
 
@@ -121,6 +117,11 @@ int main(int argc, char *argv[])
 	struct sockaddr_in saddr;
 	int val, send_fd, ret, sockfd, seen_sends = 0;
 	struct thread_data td;
+	struct iovec iovs[IOVS];
+	struct msghdr msghdr = {
+		.msg_iov = iovs,
+		.msg_iovlen = 1,
+	};
 
 	if (argc > 1)
 		return T_EXIT_SKIP;
@@ -195,7 +196,7 @@ int main(int argc, char *argv[])
 			send_fd = cqe->res;
 			io_uring_cqe_seen(&ring, cqe);
 
-			ret = queue_sends(&ring, send_fd, &td);
+			ret = queue_sends(&ring, send_fd, &td, &msghdr);
 			if (ret)
 				exit(T_EXIT_FAIL);
 			break;
