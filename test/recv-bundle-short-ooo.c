@@ -402,6 +402,9 @@ int main(int argc, char *argv[])
 {
 	int ret;
 
+	if (argc > 1)
+		return T_EXIT_SKIP;
+
 	ret = test_recv_multi_large_packet_isolate_ring(0);
 	if (ret == T_EXIT_FAIL) {
 		fprintf(stderr, "test 0 failed\n");
