@@ -380,7 +380,7 @@ static int test_recv_multi_large_packet_isolate_ring(int queue_flags)
 
 	/* Verify we received all expected data */
 	if (data_received != ONE_MB) {
-		fprintf(stderr, "Received %lu, wanted %u\n", data_received, ONE_MB);
+		fprintf(stderr, "Received %u, wanted %u\n", (int) data_received, ONE_MB);
 		return T_EXIT_FAIL;
 	}
 
