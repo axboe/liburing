@@ -288,6 +288,9 @@ static int test_reads(struct io_uring *ring, int fd, int async)
 		}
 	}
 
+	for (i = 0; i < NVECS; i++)
+		free(vecs[i].iov_base);
+
 	return 0;
 }
 
