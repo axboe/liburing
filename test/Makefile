@@ -173,6 +173,7 @@ test_srcs := \
 	read-mshot-empty.c \
 	read-mshot-stdin.c \
 	read-write.c \
+	recv-bundle-short-ooo.c \
 	recv-msgall.c \
 	recv-msgall-stream.c \
 	recv-multishot.c \
