@@ -111,6 +111,7 @@ static int test_offsets(struct io_uring *ring, struct io_uring_reg_wait *base,
 	struct io_uring_reg_wait *rw;
 	unsigned long offset;
 	int copy_size;
+	void *rw_ptr;
 	int ret;
 
 	rw = base;
@@ -158,8 +159,8 @@ static int test_offsets(struct io_uring *ring, struct io_uring_reg_wait *base,
 	}
 
 	offset = 1;
-	rw = (void *)base + offset;
-	memcpy(rw, &brief_wait, sizeof(brief_wait));
+	rw_ptr = (void *) base + offset;
+	memcpy(rw_ptr, &brief_wait, sizeof(brief_wait));
 	/* undefined behaviour, check the kernel doesn't crash */
 	(void)test_wait_reg_offset(ring, 1, offset);
 

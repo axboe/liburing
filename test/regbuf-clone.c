@@ -305,6 +305,9 @@ static int test_offsets(void)
 		return T_EXIT_FAIL;
 	}
 
+	for (i = 0; i < NR_VECS; i++)
+		free(vecs[i].iov_base);
+
 	return T_EXIT_PASS;
 }
 
@@ -613,6 +616,7 @@ static int test_same(void)
 		return T_EXIT_FAIL;
 	}
 
+	free(vecs[0].iov_base);
 	io_uring_queue_exit(&src);
 	return T_EXIT_PASS;
 }

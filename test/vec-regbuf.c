@@ -603,6 +603,7 @@ int main(int argc, char *argv[])
 		test_fail(&bd);
 	}
 
+	free(bd.buf_rd);
 	io_uring_queue_exit(&bd.ring);
 	return 0;
 }
