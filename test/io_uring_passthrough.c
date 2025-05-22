@@ -13,12 +13,14 @@
 #include "../src/syscall.h"
 #include "nvme.h"
 
+#define min(a, b)	((a) < (b) ? (a) : (b))
+
 #define FILE_SIZE	(256 * 1024)
 #define BS		8192
 #define BUFFERS		(FILE_SIZE / BS)
 
 static void *meta_mem;
-static struct iovec *vecs;
+static struct iovec *vecs, *backing_vec;
 static int no_pt;
 static bool vec_fixed_supported = true;
 
@@ -75,7 +77,7 @@ static int __test_io(const char *file, struct io_uring *ring, int tc, int read,
 	struct nvme_uring_cmd *cmd;
 	int open_flags;
 	int do_fixed;
-	int i, ret, fd = -1, use_fd = -1;
+	int i, ret, fd = -1, use_fd = -1, submit_count = 0;
 	off_t offset;
 	__u64 slba;
 	__u32 nlb;
@@ -86,7 +88,7 @@ static int __test_io(const char *file, struct io_uring *ring, int tc, int read,
 		open_flags = O_WRONLY;
 
 	if (fixed) {
-		ret = t_register_buffers(ring, vecs, BUFFERS);
+		ret = t_register_buffers(ring, backing_vec, 1);
 		if (ret == T_SETUP_SKIP)
 			return 0;
 		if (ret != T_SETUP_OK) {
@@ -116,6 +118,9 @@ static int __test_io(const char *file, struct io_uring *ring, int tc, int read,
 
 	offset = 0;
 	for (i = 0; i < BUFFERS; i++) {
+		unsigned int iovcnt = 1;
+		size_t total_len;
+
 		sqe = io_uring_get_sqe(ring);
 		if (!sqe) {
 			fprintf(stderr, "sqe get failed\n");
@@ -129,7 +134,7 @@ static int __test_io(const char *file, struct io_uring *ring, int tc, int read,
 		if (fixed && (i & 1))
 			do_fixed = 0;
 		if (do_fixed)
-			sqe->buf_index = i;
+			sqe->buf_index = 0;
 		if (nonvec)
 			sqe->cmd_op = NVME_URING_CMD_IO;
 		else
@@ -147,8 +152,14 @@ static int __test_io(const char *file, struct io_uring *ring, int tc, int read,
 
 		cmd->opcode = read ? nvme_cmd_read : nvme_cmd_write;
 
+		if (!nonvec) {
+			iovcnt = (submit_count % 3 == 0) ? 1 : ((submit_count % 3 == 1) ? 3 : 9);
+			iovcnt = min(iovcnt, BUFFERS - i);
+		}
+		total_len = BS * iovcnt;
+
 		slba = offset >> lba_shift;
-		nlb = (BS >> lba_shift) - 1;
+		nlb = (total_len >> lba_shift) - 1;
 
 		/* cdw10 and cdw11 represent starting lba */
 		cmd->cdw10 = slba & 0xffffffff;
@@ -160,7 +171,7 @@ static int __test_io(const char *file, struct io_uring *ring, int tc, int read,
 			cmd->data_len = vecs[i].iov_len;
 		} else {
 			cmd->addr = (__u64)(uintptr_t)&vecs[i];
-			cmd->data_len = 1;
+			cmd->data_len = iovcnt;
 		}
 
 		if (meta_size) {
@@ -170,16 +181,19 @@ static int __test_io(const char *file, struct io_uring *ring, int tc, int read,
 		}
 		cmd->nsid = nsid;
 
-		offset += BS;
+		offset += total_len;
+		if (!nonvec)
+			i += iovcnt - 1;
+		submit_count++;
 	}
 
 	ret = io_uring_submit(ring);
-	if (ret != BUFFERS) {
+	if (ret != submit_count) {
 		fprintf(stderr, "submit got %d, wanted %d\n", ret, BUFFERS);
 		goto err;
 	}
 
-	for (i = 0; i < BUFFERS; i++) {
+	for (i = 0; i < submit_count; i++) {
 		ret = io_uring_wait_cqe(ring, &cqe);
 		if (ret) {
 			fprintf(stderr, "wait_cqe=%d\n", ret);
@@ -439,7 +453,13 @@ int main(int argc, char *argv[])
 	if (ret)
 		return T_EXIT_SKIP;
 
-	vecs = t_create_buffers(BUFFERS, BS);
+	vecs = t_malloc(BUFFERS * sizeof(struct iovec));
+	backing_vec = t_create_buffers(1, BUFFERS * BS);
+	/* Slice single large backing_vec into multiple smaller vecs */
+	for (int i = 0; i < BUFFERS; i++) {
+		vecs[i].iov_base = backing_vec[0].iov_base + i * BS;
+		vecs[i].iov_len = BS;
+	}
 	if (meta_size)
 		t_posix_memalign(&meta_mem, 0x1000,
 				 meta_size * BUFFERS * (BS >> lba_shift));
