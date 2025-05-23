@@ -295,8 +295,10 @@ static int test_regions(void)
 	mr.flags = IORING_MEM_REGION_REG_WAIT_ARG;
 
 	ret = test_try_register_region(&mr, true);
-	if (ret == -EINVAL)
+	if (ret == -EINVAL) {
+		free(buffer);
 		return T_EXIT_SKIP;
+	}
 	if (ret) {
 		fprintf(stderr, "region: register normal fail %i\n", ret);
 		return T_EXIT_FAIL;
