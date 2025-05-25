@@ -235,6 +235,7 @@ test_srcs := \
 	timeout.c \
 	timeout-new.c \
 	truncate.c \
+	try-setup-flags.c \
 	tty-write-dpoll.c \
 	unlink.c \
 	uring_cmd_ublk.c \
