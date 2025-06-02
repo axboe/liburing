@@ -379,15 +379,15 @@ IOURINGINLINE bool io_uring_cqe_iter_next(struct io_uring_cqe_iter *iter,
 }
 
 /*
- * NOTE: we should just get rid of the 'head' being passed in here, it doesn't
+ * NOTE: we should just get rid of the '__head__' being passed in here, it doesn't
  * serve a purpose anymore. The below is a bit of a work-around to ensure that
- * the compiler doesn't complain about 'head' being unused (or only written,
+ * the compiler doesn't complain about '__head__' being unused (or only written,
  * never read), as we use a local iterator for both the head and tail tracking.
  */
-#define io_uring_for_each_cqe(ring, head, cqe)					\
+#define io_uring_for_each_cqe(ring, __head__, cqe)					\
 	for (struct io_uring_cqe_iter __ITER__ = io_uring_cqe_iter_init(ring);	\
-	     (head) = __ITER__.head, io_uring_cqe_iter_next(&__ITER__, &(cqe));	\
-	     (void)(head))
+	     (__head__) = __ITER__.head, io_uring_cqe_iter_next(&__ITER__, &(cqe));	\
+	     (void)(__head__))
 
 /*
  * Must be called after io_uring_for_each_cqe()
