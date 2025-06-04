@@ -112,6 +112,7 @@ test_srcs := \
 	fsnotify.c \
 	fsync.c \
 	futex.c \
+	futex-kill.c \
 	hardlink.c \
 	ignore-single-mmap.c \
 	init-mem.c \
