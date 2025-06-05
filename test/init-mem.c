@@ -36,7 +36,7 @@ struct q_entries {
 static int setup_ctx(struct ctx *ctx, struct q_entries *q)
 {
 	struct io_uring_params p = { };
-	int ret;
+	int ret, rret;
 
 	if (posix_memalign(&ctx->mem, 4096, 2*1024*1024))
 		return T_EXIT_FAIL;
@@ -51,6 +51,8 @@ static int setup_ctx(struct ctx *ctx, struct q_entries *q)
 	p.sq_entries = q->sqes;
 	p.cq_entries = q->cqes;
 
+	rret = io_uring_memory_size_params(q->sqes, &p);
+
 	ret = io_uring_queue_init_mem(q->sqes, &ctx->ring, &p,
 					ctx->ring_mem, 2*1024*1024);
 
@@ -58,6 +60,12 @@ static int setup_ctx(struct ctx *ctx, struct q_entries *q)
 		if (ret == -EINVAL)
 			return T_EXIT_SKIP;
 		fprintf(stderr, "queue init: %d\n", ret);
+		return T_EXIT_FAIL;
+	}
+
+	if (ret != rret) {
+		fprintf(stderr, "Used mem %d differs from required %ld\n",
+				ret, (long) rret);
 		return T_EXIT_FAIL;
 	}
 
