@@ -118,4 +118,6 @@ LIBURING_2.10 {
 		io_uring_set_iowait;
 		__io_uring_clone_buffers;
 		__io_uring_clone_buffers_offset;
+		io_uring_memory_size;
+		io_uring_memory_size_params;
 } LIBURING_2.9;

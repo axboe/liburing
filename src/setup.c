@@ -519,6 +519,35 @@ static size_t rings_size(struct io_uring_params *p, unsigned entries,
 	return pages * page_size;
 }
 
+ssize_t io_uring_memory_size_params(unsigned entries, struct io_uring_params *p)
+{
+	unsigned sq, cq;
+	long page_size;
+	ssize_t ret;
+
+	if (!entries)
+		return -EINVAL;
+	if (entries > KERN_MAX_ENTRIES) {
+		if (!(p->flags & IORING_SETUP_CLAMP))
+			return -EINVAL;
+		entries = KERN_MAX_ENTRIES;
+	}
+
+	ret = get_sq_cq_entries(entries, p, &sq, &cq);
+	if (ret)
+		return ret;
+
+	page_size = get_page_size();
+	return rings_size(p, sq, cq, page_size);
+}
+
+ssize_t io_uring_memory_size(unsigned entries, unsigned ring_flags)
+{
+	struct io_uring_params p = { .flags = ring_flags, };
+
+	return io_uring_memory_size_params(entries, &p);
+}
+
 /*
  * Return the required ulimit -l memlock memory required for a given ring
  * setup, in bytes. May return -errno on error. On newer (5.12+) kernels,
@@ -532,10 +561,7 @@ __cold ssize_t io_uring_mlock_size_params(unsigned entries,
 {
 	struct io_uring_params lp;
 	struct io_uring ring;
-	unsigned cq_entries, sq;
-	long page_size;
 	ssize_t ret;
-	int cret;
 
 	memset(&lp, 0, sizeof(lp));
 
@@ -557,20 +583,7 @@ __cold ssize_t io_uring_mlock_size_params(unsigned entries,
 	if (lp.features & IORING_FEAT_NATIVE_WORKERS)
 		return 0;
 
-	if (!entries)
-		return -EINVAL;
-	if (entries > KERN_MAX_ENTRIES) {
-		if (!(p->flags & IORING_SETUP_CLAMP))
-			return -EINVAL;
-		entries = KERN_MAX_ENTRIES;
-	}
-
-	cret = get_sq_cq_entries(entries, p, &sq, &cq_entries);
-	if (cret)
-		return cret;
-
-	page_size = get_page_size();
-	return rings_size(p, sq, cq_entries, page_size);
+	return io_uring_memory_size_params(entries, p);
 }
 
 /*

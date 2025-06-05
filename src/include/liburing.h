@@ -1746,6 +1746,9 @@ struct io_uring_sqe *io_uring_get_sqe(struct io_uring *ring);
 ssize_t io_uring_mlock_size(unsigned entries, unsigned flags);
 ssize_t io_uring_mlock_size_params(unsigned entries, struct io_uring_params *p);
 
+ssize_t io_uring_memory_size(unsigned entries, unsigned flags);
+ssize_t io_uring_memory_size_params(unsigned entries, struct io_uring_params *p);
+
 /*
  * Versioning information for liburing.
  *
