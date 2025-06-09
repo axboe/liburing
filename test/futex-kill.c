@@ -16,6 +16,9 @@
 #ifndef FUTEX2_SIZE_U32
 #define FUTEX2_SIZE_U32		0x02
 #endif
+#ifndef FUTEX2_PRIVATE
+#define FUTEX2_PRIVATE		128
+#endif
 
 static int do_child(int ring_flags, int async, int vectored)
 {
