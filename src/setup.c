@@ -7,6 +7,7 @@
 #include "int_flags.h"
 #include "setup.h"
 #include "liburing/io_uring.h"
+#include <stdio.h>
 
 #define KERN_MAX_ENTRIES	32768
 #define KERN_MAX_CQ_ENTRIES	(2 * KERN_MAX_ENTRIES)
@@ -498,24 +499,25 @@ __cold void io_uring_free_probe(struct io_uring_probe *probe)
 	free(probe);
 }
 
-static size_t npages(size_t size, long page_size)
-{
-	size--;
-	size /= page_size;
-	return __fls((int) size);
-}
-
 static size_t rings_size(struct io_uring_params *p, unsigned entries,
 			 unsigned cq_entries, long page_size)
 {
 	size_t pages, sq_size, cq_size;
 
-	cq_size = KRING_SIZE + params_cq_size(p, cq_entries);
-	cq_size = (cq_size + 63) & ~63UL;
-	pages = (size_t) 1 << npages(cq_size, page_size);
+	/*
+	 * CQ ring size is number of pages that we need for the
+	 * struct io_uring_cqe entries, which may be 16b (default) or
+	 * 32b if the ring is setup with IORING_SETUP_CQE32. We also need
+	 * room for the head/tail parts.
+	 */
+	cq_size = params_cq_size(p, cq_entries);
+	cq_size += KRING_SIZE;
+	cq_size = (cq_size + page_size - 1) & ~(page_size - 1);
+	pages = (size_t) cq_size / page_size;
 
 	sq_size = params_sqes_size(p, entries);
-	pages += (size_t) 1 << npages(sq_size, page_size);
+	sq_size = (sq_size + page_size - 1) & ~(page_size - 1);
+	pages += sq_size / page_size;
 	return pages * page_size;
 }
 
