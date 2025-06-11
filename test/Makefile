@@ -95,6 +95,7 @@ test_srcs := \
 	fd-install.c \
 	fd-pass.c \
 	fdinfo.c \
+	fdinfo-sqpoll.c \
 	fifo-nonblock-read.c \
 	file-exit-unreg.c \
 	file-register.c \
