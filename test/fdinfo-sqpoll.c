@@ -21,6 +21,11 @@ struct data {
 	volatile int done;
 };
 
+static int rand_between(int a, int b)
+{
+	return a + rand() % (b - a + 1);
+}
+
 static void *fdinfo_read(void *__data)
 {
 	struct data *d = __data;
@@ -67,7 +72,7 @@ static int __test(void)
 	pthread_barrier_init(&d.barrier, NULL, 2);
 	pthread_create(&d.thread, NULL, fdinfo_read, &d);
 	pthread_barrier_wait(&d.barrier);
-	usleep(100000);
+	usleep(rand_between(1000, 100000));
 	d.done = 1;
 	pthread_join(d.thread, &tret);
 	exit(T_EXIT_PASS);
@@ -81,7 +86,7 @@ static int test(void)
 	if (pid) {
 		int wstatus;
 
-		usleep(2000);
+		usleep(rand_between(10, 2000));
 		kill(pid, SIGINT);
 		waitpid(pid, &wstatus, 0);
 	} else {
