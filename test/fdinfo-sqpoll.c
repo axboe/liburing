@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MIT */
 /*
- * Description: basic read/write tests with buffered, O_DIRECT, and SQPOLL
+ * Description: Race fdinfo reading with SQPOLL thread exiting
  */
 #include <errno.h>
 #include <stdio.h>
