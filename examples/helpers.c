@@ -62,7 +62,7 @@ int setup_listening_socket(int port, int ipv6)
 	return fd;
 }
 
-void *aligned_alloc(size_t alignment, size_t size)
+void *t_aligned_alloc(size_t alignment, size_t size)
 {
 	void *ret;
 

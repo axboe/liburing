@@ -364,7 +364,7 @@ unsigned long long utime_since_now(struct timeval *tv)
 	return utime_since(tv, &end);
 }
 
-void *aligned_alloc(size_t alignment, size_t size)
+void *t_aligned_alloc(size_t alignment, size_t size)
 {
 	void *ret;
 

@@ -93,7 +93,7 @@ int main(int argc, char *argv[])
 	 * page aligned, we're using only first two wait entries here and
 	 * the rest of the memory can be reused for other purposes.
 	 */
-	reg = aligned_alloc(page_size, page_size);
+	reg = t_aligned_alloc(page_size, page_size);
 	if (!reg) {
 		fprintf(stderr, "allocation failed\n");
 		return 1;

@@ -213,7 +213,7 @@ static int test_wait_arg(void)
 		return T_EXIT_FAIL;
 	}
 
-	buffer = aligned_alloc(page_size, page_size * 4);
+	buffer = t_aligned_alloc(page_size, page_size * 4);
 	if (!buffer) {
 		fprintf(stderr, "allocation failed\n");
 		return T_EXIT_FAIL;
@@ -281,7 +281,7 @@ static int test_regions(void)
 	void *buffer;
 	int ret;
 
-	buffer = aligned_alloc(page_size, page_size * 4);
+	buffer = t_aligned_alloc(page_size, page_size * 4);
 	if (!buffer) {
 		fprintf(stderr, "allocation failed\n");
 		return T_EXIT_FAIL;
