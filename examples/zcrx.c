@@ -10,6 +10,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <stdarg.h>
+#include <time.h>
 
 #include <arpa/inet.h>
 #include <linux/errqueue.h>
