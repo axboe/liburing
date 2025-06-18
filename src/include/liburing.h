@@ -721,7 +721,7 @@ IOURINGINLINE void io_uring_prep_accept(struct io_uring_sqe *sqe, int fd,
 					socklen_t *addrlen, int flags)
 {
 	io_uring_prep_rw(IORING_OP_ACCEPT, sqe, fd, addr, 0,
-				(__u64) (unsigned long) addrlen);
+				uring_ptr_to_u64(addrlen));
 	sqe->accept_flags = (__u32) flags;
 }
 
@@ -907,7 +907,7 @@ IOURINGINLINE void io_uring_prep_statx(struct io_uring_sqe *sqe, int dfd,
 				       unsigned mask, struct statx *statxbuf)
 {
 	io_uring_prep_rw(IORING_OP_STATX, sqe, dfd, path, mask,
-				(__u64) (unsigned long) statxbuf);
+				uring_ptr_to_u64(statxbuf));
 	sqe->statx_flags = (__u32) flags;
 }
 
