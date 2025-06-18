@@ -219,10 +219,10 @@ static int test_wait_arg(void)
 		return T_EXIT_FAIL;
 	}
 
-	rd.user_addr = (__u64)(unsigned long)buffer;
+	rd.user_addr = uring_ptr_to_u64(buffer);
 	rd.size = page_size;
 	rd.flags = IORING_MEM_REGION_TYPE_USER;
-	mr.region_uptr = (__u64)(unsigned long)&rd;
+	mr.region_uptr = uring_ptr_to_u64(&rd);
 	mr.flags = IORING_MEM_REGION_REG_WAIT_ARG;
 
 	ret = io_uring_register_region(&ring, &mr);
@@ -287,11 +287,11 @@ static int test_regions(void)
 		return T_EXIT_FAIL;
 	}
 
-	rd.user_addr = (__u64)(unsigned long)buffer;
+	rd.user_addr = uring_ptr_to_u64(buffer);
 	rd.size = page_size;
 	rd.flags = IORING_MEM_REGION_TYPE_USER;
 
-	mr.region_uptr = (__u64)(unsigned long)&rd;
+	mr.region_uptr = uring_ptr_to_u64(&rd);
 	mr.flags = IORING_MEM_REGION_REG_WAIT_ARG;
 
 	ret = test_try_register_region(&mr, true);
@@ -324,7 +324,7 @@ static int test_regions(void)
 		fprintf(stderr, "test_try_register_region() null uptr fail %i\n", ret);
 		return T_EXIT_FAIL;
 	}
-	rd.user_addr = (__u64)(unsigned long)buffer;
+	rd.user_addr = uring_ptr_to_u64(buffer);
 
 	rd.flags = 0;
 	ret = test_try_register_region(&mr, true);
@@ -348,7 +348,7 @@ static int test_regions(void)
 		fprintf(stderr, "test_try_register_region() NULL region %i\n", ret);
 		return T_EXIT_FAIL;
 	}
-	mr.region_uptr = (__u64)(unsigned long)&rd;
+	mr.region_uptr = uring_ptr_to_u64(&rd);
 
 	rd.user_addr += 16;
 	ret = test_try_register_region(&mr, true);
@@ -363,7 +363,7 @@ static int test_regions(void)
 		fprintf(stderr, "test_try_register_region() bogus uptr %i\n", ret);
 		return T_EXIT_FAIL;
 	}
-	rd.user_addr = (__u64)(unsigned long)buffer;
+	rd.user_addr = uring_ptr_to_u64(buffer);
 	free(buffer);
 
 	buffer = mmap(NULL, page_size, PROT_READ, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
@@ -372,7 +372,7 @@ static int test_regions(void)
 		return 1;
 	}
 
-	rd.user_addr = (__u64)(unsigned long)buffer;
+	rd.user_addr = uring_ptr_to_u64(buffer);
 	ret = test_try_register_region(&mr, true);
 	if (ret != -EFAULT) {
 		fprintf(stderr, "test_try_register_region() RO uptr %i\n", ret);
@@ -393,7 +393,7 @@ static int test_regions(void)
 
 	has_kernel_regions = true;
 	rd.flags = 0;
-	rd.user_addr = (__u64)(unsigned long)buffer;
+	rd.user_addr = uring_ptr_to_u64(buffer);
 	ret = test_try_register_region(&mr, true);
 	if (!ret) {
 		fprintf(stderr, "test_try_register_region() failed uptr w kernel alloc %i\n", ret);
@@ -421,7 +421,7 @@ static int t_region_create_kernel(struct t_region *r,
 {
 	struct io_uring_region_desc rd = { .size = r->size, };
 	struct io_uring_mem_region_reg mr = {
-		.region_uptr = (__u64)(unsigned long)&rd,
+		.region_uptr = uring_ptr_to_u64(&rd),
 		.flags = IORING_MEM_REGION_REG_WAIT_ARG,
 	};
 	void *p;
@@ -458,9 +458,9 @@ static int t_region_create_user(struct t_region *r,
 	if (p == MAP_FAILED)
 		return -ENOMEM;
 
-	mr.region_uptr = (__u64)(unsigned long)&rd;
+	mr.region_uptr = uring_ptr_to_u64(&rd);
 	mr.flags = IORING_MEM_REGION_REG_WAIT_ARG;
-	rd.user_addr = (__u64)(unsigned long)p;
+	rd.user_addr = uring_ptr_to_u64(p);
 	rd.flags = IORING_MEM_REGION_TYPE_USER;
 	rd.size = r->size;
 
