@@ -163,7 +163,7 @@ static void zcrx_populate_area(struct io_uring_zcrx_area_reg *area_reg)
 		t_error(1, 0, "mmap(): area allocation failed");
 
 	memset(area_reg, 0, sizeof(*area_reg));
-	area_reg->addr = (__u64)(unsigned long)area_ptr;
+	area_reg->addr = uring_ptr_to_u64(area_ptr);
 	area_reg->len = AREA_SIZE;
 	area_reg->flags = 0;
 }
@@ -194,7 +194,7 @@ static void setup_zcrx(struct io_uring *ring)
 
 	struct io_uring_region_desc region_reg = {
 		.size = ring_size,
-		.user_addr = (__u64)(unsigned long)ring_ptr,
+		.user_addr = uring_ptr_to_u64(ring_ptr),
 		.flags = rq_flags,
 	};
 
@@ -204,8 +204,8 @@ static void setup_zcrx(struct io_uring *ring)
 		.if_idx = ifindex,
 		.if_rxq = cfg_queue_id,
 		.rq_entries = rq_entries,
-		.area_ptr = (__u64)(unsigned long)&area_reg,
-		.region_ptr = (__u64)(unsigned long)&region_reg,
+		.area_ptr = uring_ptr_to_u64(&area_reg),
+		.region_ptr = uring_ptr_to_u64(&region_reg),
 	};
 
 	ret = io_uring_register_ifq(ring, &reg);
