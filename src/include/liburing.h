@@ -146,6 +146,11 @@ struct io_uring_zcrx_rq {
  * Library interface
  */
 
+IOURINGINLINE __u64 uring_ptr_to_u64(const void *ptr)
+{
+	return (__u64) (unsigned long) ptr;
+}
+
 /*
  * return an allocated io_uring_probe structure, or NULL if probe fails (for
  * example, if it is not available). The caller is responsible for freeing it
