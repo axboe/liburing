@@ -45,10 +45,10 @@ static int register_memory(struct io_uring *ring, void *ptr, size_t size)
 	struct io_uring_region_desc rd = {};
 	struct io_uring_mem_region_reg mr = {};
 
-	rd.user_addr = (__u64)(unsigned long)ptr;
+	rd.user_addr = uring_ptr_to_u64(ptr);
 	rd.size = size;
 	rd.flags = IORING_MEM_REGION_TYPE_USER;
-	mr.region_uptr = (__u64)(unsigned long)&rd;
+	mr.region_uptr = uring_ptr_to_u64(&rd);
 	mr.flags = IORING_MEM_REGION_REG_WAIT_ARG;
 
 	return io_uring_register_region(ring, &mr);
