@@ -115,10 +115,10 @@ static inline void initialize_sanitize_handlers()
 	sanitize_handlers[IORING_OP_FTRUNCATE] = sanitize_sqe_addr;
 	sanitize_handlers[IORING_OP_BIND] = sanitize_sqe_addr;
 	sanitize_handlers[IORING_OP_LISTEN] = sanitize_sqe_addr;
-	sanitize_handlers[IORING_OP_RECV_ZC] = sanitize_sqe_addr,
-	sanitize_handlers[IORING_OP_EPOLL_WAIT] = sanitize_sqe_addr,
-	sanitize_handlers[IORING_OP_READV_FIXED] = sanitize_sqe_addr,
-	sanitize_handlers[IORING_OP_WRITEV_FIXED] = sanitize_sqe_addr,
+	sanitize_handlers[IORING_OP_RECV_ZC] = sanitize_sqe_addr;
+	sanitize_handlers[IORING_OP_EPOLL_WAIT] = sanitize_sqe_addr;
+	sanitize_handlers[IORING_OP_READV_FIXED] = sanitize_sqe_addr;
+	sanitize_handlers[IORING_OP_WRITEV_FIXED] = sanitize_sqe_addr;
 	_Static_assert(IORING_OP_WRITEV_FIXED + 1 == IORING_OP_LAST, "Need an implementation for all IORING_OP_* codes");
 	sanitize_handlers_initialized = true;
 }
