@@ -55,6 +55,14 @@ jobs:
             cxx: x86_64-linux-gnu-g++
             sanitize: 1
 
+          # x86-64 clang asan
+          - arch: x86_64
+            cc_pkg: clang
+            cxx_pkg: clang
+            cc: clang
+            cxx: clang++
+            sanitize: 1
+
           # x86-64 clang
           - arch: x86_64
             cc_pkg: clang
