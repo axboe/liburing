@@ -86,6 +86,7 @@ test_srcs := \
 	eventfd-disable.c \
 	eventfd-reg.c \
 	eventfd-ring.c \
+	evfd-short-read.c \
 	evloop.c \
 	exec-target.c \
 	exit-no-cleanup.c \
