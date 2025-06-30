@@ -23,7 +23,7 @@
 #include "helpers.h"
 
 /*
- * Only sparc/hppa should have "non-standard" valyes for SCM_TS_OPT_ID
+ * Only sparc/hppa should have "non-standard" values for SCM_TS_OPT_ID
  */
 #ifndef SCM_TS_OPT_ID
 #if defined(__sparc__) || defined(__sparc64__)
