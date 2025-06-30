@@ -22,11 +22,17 @@
 #include "liburing.h"
 #include "helpers.h"
 
-#ifndef SCM_TS_OPT_ID
-/* It's generally 81 except for a few selected archs. Jens requested it
- * to be set here, please report if the test fails.
+/*
+ * Only sparc/hppa should have "non-standard" valyes for SCM_TS_OPT_ID
  */
-#define SCM_TS_OPT_ID 81
+#ifndef SCM_TS_OPT_ID
+#if defined(__sparc__) || defined(__sparc64__)
+#define SCM_TS_OPT_ID	0x005a
+#elif defined(__hppa__)
+#define SCM_TS_OPT_ID	0x404C
+#else
+#define SCM_TS_OPT_ID	81
+#endif
 #endif
 
 static const int cfg_payload_len = 10;
@@ -366,6 +372,9 @@ static int do_main(int family, int proto)
 int main(int argc, char **argv)
 {
 	const char *hostname = "::1";
+
+	if (argc > 1)
+		return T_EXIT_SKIP;
 
 	resolve_hostname(hostname, dest_port);
 	do_listen(PF_INET6, SOCK_STREAM, &daddr6, sizeof(daddr6));
