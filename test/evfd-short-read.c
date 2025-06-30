@@ -34,7 +34,7 @@ int main(int argc, char *argv[])
 	struct io_uring_cqe *cqe;
 	struct io_uring ring;
 	uint64_t ptr[2], tmp;
-	int ret, evfd, i;
+	int ret, evfd;
 
 	if (argc > 1)
 		return T_EXIT_SKIP;
@@ -72,14 +72,13 @@ int main(int argc, char *argv[])
 		return T_EXIT_FAIL;
 	}
 
-	for (i = 0; i < 1; i++) {
-		ret = io_uring_wait_cqe(&ring, &cqe);
-		if (ret) {
-			fprintf(stderr, "wait: %d\n", ret);
-			return T_EXIT_FAIL;
-		}
-		io_uring_cqe_seen(&ring, cqe);
+	ret = io_uring_wait_cqe(&ring, &cqe);
+	if (ret) {
+		fprintf(stderr, "wait: %d\n", ret);
+		return T_EXIT_FAIL;
 	}
 
+	io_uring_cqe_seen(&ring, cqe);
+	close(evfd);
 	return 0;
 }
