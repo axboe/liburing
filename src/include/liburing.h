@@ -28,6 +28,13 @@
 #define uring_likely(cond)	__builtin_expect(!!(cond), 1)
 #endif
 
+/*
+ * NOTE: Only use IOURINGINLINE macro for 'static inline' functions
+ *       that are expected to be available in the FFI bindings.
+ *
+ *       Functions that are marked as IOURINGINLINE should be
+ *       included in the liburing-ffi.map file.
+ */
 #ifndef IOURINGINLINE
 #define IOURINGINLINE static inline
 #endif
@@ -146,7 +153,7 @@ struct io_uring_zcrx_rq {
  * Library interface
  */
 
-IOURINGINLINE __u64 uring_ptr_to_u64(const void *ptr)
+static inline __u64 uring_ptr_to_u64(const void *ptr)
 {
 	return (__u64) (unsigned long) ptr;
 }
@@ -360,7 +367,7 @@ struct io_uring_cqe_iter {
 	unsigned tail;
 };
 
-IOURINGINLINE struct io_uring_cqe_iter
+static inline struct io_uring_cqe_iter
 io_uring_cqe_iter_init(const struct io_uring *ring)
 {
 	return (struct io_uring_cqe_iter) {
@@ -373,7 +380,7 @@ io_uring_cqe_iter_init(const struct io_uring *ring)
 	};
 }
 
-IOURINGINLINE bool io_uring_cqe_iter_next(struct io_uring_cqe_iter *iter,
+static inline bool io_uring_cqe_iter_next(struct io_uring_cqe_iter *iter,
 					  struct io_uring_cqe **cqe)
 {
 	if (iter->head == iter->tail)
