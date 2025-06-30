@@ -251,6 +251,7 @@ test_srcs := \
 	xattr.c \
 	zcrx.c \
 	vec-regbuf.c \
+	timestamp.c \
 	# EOL
 
 # Please keep this list sorted alphabetically.
