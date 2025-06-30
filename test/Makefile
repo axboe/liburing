@@ -236,6 +236,7 @@ test_srcs := \
 	sync-cancel.c \
 	teardowns.c \
 	thread-exit.c \
+	timerfd-short-read.c \
 	timeout.c \
 	timeout-new.c \
 	truncate.c \
