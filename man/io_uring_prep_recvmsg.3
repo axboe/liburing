@@ -52,8 +52,8 @@ Therefore each CQE will take a buffer out of a provided buffer pool for receivin
 The application should check the flags of each CQE, regardless of its result.
 If a posted CQE does not have the
 .B IORING_CQE_F_MORE
-flag set then the multishot receive will be done and the application should issue a
-new request.
+flag set, then the multishot receive is done and the application must issue a
+new request if it still wishes to receive data from the socket.
 
 Unlike
 .BR recvmsg (2),
