@@ -194,7 +194,7 @@ static int do_recv(struct io_uring *ring)
 	struct iter iter = { .last_res = -4096, };
 	struct io_uring_cqe *cqe;
 	struct recv_data *rd;
-	int ret = 1, i = 0;
+	int ret = 1;
 	int done = 0;
 
 	last_rd = NULL;
@@ -223,7 +223,6 @@ static int do_recv(struct io_uring *ring)
 			done++;
 			continue;
 		}
-		i++;
 		io_uring_cqe_seen(ring, cqe);
 		if (!(cqe->flags & IORING_CQE_F_MORE) && rd->recv_bytes)
 			arm_recv(ring, rd);
