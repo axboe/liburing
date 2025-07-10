@@ -336,7 +336,7 @@ static void server_loop(struct io_uring *ring)
 
 static void run_server(void)
 {
-	unsigned int flags = 0;
+	struct io_uring_params p;
 	struct io_uring ring;
 	int fd, enable, ret;
 
@@ -356,13 +356,17 @@ static void run_server(void)
 	if (listen(fd, 1024) < 0)
 		t_error(1, 0, "listen()");
 
-	flags |= IORING_SETUP_COOP_TASKRUN;
-	flags |= IORING_SETUP_SINGLE_ISSUER;
-	flags |= IORING_SETUP_DEFER_TASKRUN;
-	flags |= IORING_SETUP_SUBMIT_ALL;
-	flags |= IORING_SETUP_CQE32;
 
-	ret = io_uring_queue_init(512, &ring, flags);
+	memset(&p, 0, sizeof(p));
+	p.flags |= IORING_SETUP_COOP_TASKRUN;
+	p.flags |= IORING_SETUP_SINGLE_ISSUER;
+	p.flags |= IORING_SETUP_DEFER_TASKRUN;
+	p.flags |= IORING_SETUP_SUBMIT_ALL;
+	p.flags |= IORING_SETUP_CQE32;
+	p.flags |= IORING_SETUP_CQSIZE;
+	p.cq_entries = 4096;
+
+	ret = io_uring_queue_init_params(512, &ring, &p);
 	if (ret)
 		t_error(1, ret, "ring init failed");
 
