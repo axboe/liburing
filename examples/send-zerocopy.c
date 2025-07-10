@@ -61,6 +61,7 @@ struct thread_data {
 };
 
 static int page_size;
+static size_t alloc_size;
 
 static bool cfg_reg_ringfd = true;
 static bool cfg_fixed_files = 1;
@@ -85,7 +86,6 @@ static bool cfg_verify;
 static socklen_t cfg_alen;
 static char *str_addr = NULL;
 
-static char payload_buf[IP_MAXPACKET + PATTERN_SIZE] __attribute__((aligned(4096)));
 static char *payload;
 static struct thread_data threads[MAX_THREADS];
 static pthread_barrier_t barrier;
@@ -633,28 +633,25 @@ static void parse_opts(int argc, char **argv)
 
 static void init_buffers(void)
 {
-	size_t size;
+	unsigned map_flags = MAP_PRIVATE | MAP_ANONYMOUS;
 	int i;
 
-	payload = payload_buf;
-	size = sizeof(payload_buf);
+	alloc_size = cfg_payload_len + PATTERN_SIZE;
+	alloc_size = (alloc_size + page_size - 1) / page_size * page_size;
 
 	if (cfg_hugetlb) {
-		size = 1 << 21;
-		payload = mmap(NULL, size, PROT_READ | PROT_WRITE,
-				MAP_PRIVATE | MAP_HUGETLB | MAP_HUGE_2MB | MAP_ANONYMOUS,
-				-1, 0);
-		if (payload == MAP_FAILED)
-			t_error(0, 1, "huge pages alloc failed");
+		size_t huge_size = 1 << 21;
+
+		alloc_size = (alloc_size + huge_size - 1) / huge_size * huge_size;
+		map_flags |= MAP_HUGETLB | MAP_HUGE_2MB;
 	}
 
-	if (cfg_payload_len + PATTERN_SIZE > size)
-		t_error(1, 0, "Buffers are too small");
+	payload = mmap(NULL, alloc_size, PROT_READ | PROT_WRITE, map_flags, -1, 0);
+	if (payload == MAP_FAILED)
+		t_error(0, 1, "buffer alloc failed (size %zu)\n", alloc_size);
 
-	if (cfg_verify) {
-		for (i = 0; i < size; i++)
-			payload[i] = 'a' + (i % PATTERN_SIZE);
-	}
+	for (i = 0; i < alloc_size; i++)
+		payload[i] = 'a' + (i % PATTERN_SIZE);
 }
 
 int main(int argc, char **argv)
@@ -708,6 +705,9 @@ int main(int argc, char **argv)
 			packets * 1000 / tsum,
 			(bytes >> 20) * 1000 / tsum);
 	}
+
+	if (payload)
+		munmap(payload, alloc_size);
 	pthread_barrier_destroy(&barrier);
 	return 0;
 }
