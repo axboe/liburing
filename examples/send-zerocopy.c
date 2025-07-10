@@ -60,6 +60,8 @@ struct thread_data {
 	int fd;
 };
 
+static int page_size;
+
 static bool cfg_reg_ringfd = true;
 static bool cfg_fixed_files = 1;
 static bool cfg_zc = 1;
@@ -662,6 +664,12 @@ int main(int argc, char **argv)
 	struct thread_data *td;
 	unsigned int i;
 	void *res;
+
+	page_size = sysconf(_SC_PAGESIZE);
+	if (page_size < 0) {
+		perror("sysconf(_SC_PAGESIZE)");
+		return 1;
+	}
 
 	parse_opts(argc, argv);
 	init_buffers();
