@@ -523,7 +523,7 @@ static void usage(const char *filepath)
 static void parse_opts(int argc, char **argv)
 {
 	const char *cfg_test;
-	const int max_payload_len = IP_MAXPACKET -
+	const int max_udp_payload_len = IP_MAXPACKET -
 				    sizeof(struct ipv6hdr) -
 				    sizeof(struct tcphdr) -
 				    40 /* max tcp options */;
@@ -535,7 +535,7 @@ static void parse_opts(int argc, char **argv)
 		exit(0);
 	}
 
-	cfg_payload_len = max_payload_len;
+	cfg_payload_len = max_udp_payload_len;
 
 	while ((c = getopt(argc, argv, "46D:p:s:t:n:z:I:b:l:dC:T:Ryv")) != -1) {
 		switch (c) {
@@ -611,8 +611,8 @@ static void parse_opts(int argc, char **argv)
 
 	if (cfg_nr_reqs > MAX_SUBMIT_NR)
 		t_error(1, 0, "-n: submit batch nr exceeds max (%d)", MAX_SUBMIT_NR);
-	if (cfg_payload_len > max_payload_len)
-		t_error(1, 0, "-s: payload exceeds max (%d)", max_payload_len);
+	if (cfg_type == SOCK_DGRAM && cfg_payload_len > max_udp_payload_len)
+		t_error(1, 0, "-s: UDP payload exceeds max (%d)", max_udp_payload_len);
 	if (!cfg_nr_reqs)
 		t_error(1, 0, "-n: submit batch can't be zero");
 	if (cfg_ifname && cfg_rx)
