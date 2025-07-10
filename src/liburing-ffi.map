@@ -242,4 +242,5 @@ LIBURING_2.11 {
 	global:
 		io_uring_memory_size;
 		io_uring_memory_size_params;
+		io_uring_register_sync_msg;
 } LIBURING_2.10;
