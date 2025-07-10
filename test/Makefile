@@ -180,6 +180,7 @@ test_srcs := \
 	recv-inc-ooo.c \
 	recv-msgall.c \
 	recv-msgall-stream.c \
+	recv-mshot-fair.c \
 	recv-multishot.c \
 	reg-fd-only.c \
 	reg-hint.c \
