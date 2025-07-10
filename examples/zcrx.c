@@ -249,6 +249,27 @@ static void add_recvzc(struct io_uring *ring, int sockfd, size_t len)
 	sqe->user_data = REQ_TYPE_RX;
 }
 
+static void print_socket_info(int sockfd)
+{
+	struct sockaddr_in6 peer_addr;
+	socklen_t addr_len = sizeof(peer_addr);
+	char ip_str[INET6_ADDRSTRLEN];
+	int port;
+
+	if (getpeername(sockfd, (struct sockaddr *)&peer_addr, &addr_len) < 0) {
+		t_error(1, errno, "getpeername failed");
+		return;
+	}
+	if (!inet_ntop(AF_INET6, &peer_addr.sin6_addr, ip_str, sizeof(ip_str))) {
+		t_error(1, errno, "inet_ntop failed");
+		return;
+	}
+	port = ntohs(peer_addr.sin6_port);
+
+	printf("socket accepted: fd %i, Peer IP %s, Peer port %d\n",
+		sockfd, ip_str, port);
+}
+
 static void process_accept(struct io_uring *ring, struct io_uring_cqe *cqe)
 {
 	if (cqe->res < 0)
@@ -257,6 +278,7 @@ static void process_accept(struct io_uring *ring, struct io_uring_cqe *cqe)
 		t_error(1, 0, "Unexpected second connection");
 
 	connfd = cqe->res;
+	print_socket_info(connfd);
 	add_recvzc(ring, connfd, cfg_size);
 }
 
