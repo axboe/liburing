@@ -155,6 +155,7 @@ test_srcs := \
 	personality.c \
 	pipe-bug.c \
 	pipe-eof.c \
+	pipe-full.c \
 	pipe-reuse.c \
 	poll.c \
 	poll-cancel.c \
@@ -200,6 +201,7 @@ test_srcs := \
 	self.c \
 	recvsend_bundle.c \
 	recvsend_bundle-inc.c \
+	send_full.c \
 	send_recv.c \
 	send_recvmsg.c \
 	send-zerocopy.c \
