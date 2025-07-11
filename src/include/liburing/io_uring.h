@@ -457,12 +457,16 @@ struct io_uring_cqe {
  *			other provided buffer type, all completions with a
  *			buffer passed back is automatically returned to the
  *			application.
+ * IORING_CQE_F_SOCK_FULL	If set, the socket was full when this send or
+ *			sendmsg was attempted. Hence it had to wait for POLLOUT
+ *			before being able to complete
  */
 #define IORING_CQE_F_BUFFER		(1U << 0)
 #define IORING_CQE_F_MORE		(1U << 1)
 #define IORING_CQE_F_SOCK_NONEMPTY	(1U << 2)
 #define IORING_CQE_F_NOTIF		(1U << 3)
 #define IORING_CQE_F_BUF_MORE		(1U << 4)
+#define IORING_CQE_F_SOCK_FULL		IORING_CQE_F_SOCK_NONEMPTY
 
 #define IORING_CQE_BUFFER_SHIFT		16
 
