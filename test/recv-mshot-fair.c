@@ -155,7 +155,7 @@ static int recv_get_cqe(struct io_uring *ring,
 	int ret;
 
 	do {
-		ret = io_uring_submit_and_wait_timeout(ring, cqe, 1, &ts, NULL);
+		ret = io_uring_wait_cqe_timeout(ring, cqe, &ts);
 		if (!ret) {
 			struct recv_data *rd = io_uring_cqe_get_data(*cqe);
 
@@ -196,6 +196,7 @@ static int do_recv(struct io_uring *ring)
 	struct recv_data *rd;
 	int ret = 1;
 	int done = 0;
+	int pending_submit = 0;
 
 	last_rd = NULL;
 	bytes_since_last = 0;
@@ -224,8 +225,12 @@ static int do_recv(struct io_uring *ring)
 			continue;
 		}
 		io_uring_cqe_seen(ring, cqe);
-		if (!(cqe->flags & IORING_CQE_F_MORE) && rd->recv_bytes)
+		if (!(cqe->flags & IORING_CQE_F_MORE) && rd->recv_bytes) {
 			arm_recv(ring, rd);
+			pending_submit++;
+		}
+		if (pending_submit == NR_RDS)
+			io_uring_submit(ring);
 	} while (done < NR_RDS);
 
 	ret = 0;
@@ -455,7 +460,6 @@ static int run_tests(void)
 		return T_EXIT_FAIL;
 	}
 
-	/* DEFER_TASKRUN should be fully fair and not have overshoots */
 	if (r.unfair || r.mshot_too_big) {
 		fprintf(stderr, "DEFER unfair=%d, too_big=%d\n", r.unfair, r.mshot_too_big);
 		return T_EXIT_FAIL;
@@ -467,13 +471,7 @@ static int run_tests(void)
 		return T_EXIT_FAIL;
 	}
 
-	/*
-	 * normal task_work should not have overshoots, but may not be fair
-	 * because of the re-arming.
-	 */
-	if (r.unfair)
-		fprintf(stdout, "!DEFER bundle unfair, expected\n");
-	if (r.mshot_too_big) {
+	if (r.unfair || r.mshot_too_big) {
 		fprintf(stderr, "!DEFER bundle too_big=%d\n", r.mshot_too_big);
 		return T_EXIT_FAIL;
 	}
@@ -484,13 +482,7 @@ static int run_tests(void)
 		return T_EXIT_FAIL;
 	}
 
-	/*
-	 * normal task_work should not have overshoots, but may not be fair
-	 * because of the re-arming.
-	 */
-	if (r.unfair)
-		fprintf(stdout, "!DEFER unfair, expected\n");
-	if (r.mshot_too_big) {
+	if (r.unfair || r.mshot_too_big) {
 		fprintf(stderr, "!DEFER too_big=%d\n", r.mshot_too_big);
 		return T_EXIT_FAIL;
 	}
