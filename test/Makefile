@@ -62,6 +62,7 @@ test_srcs := \
 	buf-ring-put.c \
 	ce593a6c480a.c \
 	close-opath.c \
+	conn-unreach.c \
 	connect.c \
 	connect-rep.c \
 	coredump.c \
