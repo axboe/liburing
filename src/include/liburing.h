@@ -1576,7 +1576,12 @@ IOURINGINLINE int __io_uring_peek_cqe(struct io_uring *ring,
 
 	do {
 		unsigned tail = io_uring_smp_load_acquire(ring->cq.ktail);
-		unsigned head = *ring->cq.khead;
+		
+		/**
+		 * A load_acquire on the head prevents reordering with the
+		 * cqe load below, ensuring that we see the correct cq entry.
+		 */
+		unsigned head = io_uring_smp_load_acquire(ring->cq.khead);
 
 		cqe = NULL;
 		available = tail - head;
