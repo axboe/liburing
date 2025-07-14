@@ -1,6 +1,5 @@
+#include <time.h>
 #include <arpa/inet.h>
-#include <error.h>
-#include <errno.h>
 #include <inttypes.h>
 #include <linux/errqueue.h>
 #include <linux/ipv6.h>
@@ -15,7 +14,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
-#include <time.h>
 #include <unistd.h>
 #include <assert.h>
 
@@ -86,15 +84,15 @@ static int test_prep_sock(int family, int proto, unsigned report_opt)
 
 	fd = socket(family, proto, ipproto);
 	if (fd < 0)
-		error(1, errno, "socket");
+		t_error(1, errno, "socket");
 
 	if (proto == SOCK_STREAM) {
 		if (setsockopt(fd, IPPROTO_TCP, TCP_NODELAY,
 			       (char*) &val, sizeof(val)))
-			error(1, 0, "setsockopt no nagle");
+			t_error(1, 0, "setsockopt no nagle");
 
 		if (connect(fd, (void *) &daddr6, sizeof(daddr6)))
-			error(1, errno, "connect ipv6");
+			t_error(1, errno, "connect ipv6");
 	}
 
 	sock_opt = SOF_TIMESTAMPING_SOFTWARE |
@@ -105,7 +103,7 @@ static int test_prep_sock(int family, int proto, unsigned report_opt)
 
 	if (setsockopt(fd, SOL_SOCKET, SO_TIMESTAMPING,
 		       (char *) &sock_opt, sizeof(sock_opt)))
-		error(1, 0, "setsockopt timestamping");
+		t_error(1, 0, "setsockopt timestamping");
 
 	return fd;
 }
@@ -295,13 +293,13 @@ static void do_listen(int family, int type, void *addr, int alen)
 
 	fd = socket(family, type, 0);
 	if (fd == -1)
-		error(1, errno, "socket rx");
+		t_error(1, errno, "socket rx");
 
 	if (bind(fd, addr, alen))
-		error(1, errno, "bind rx");
+		t_error(1, errno, "bind rx");
 
 	if (type == SOCK_STREAM && listen(fd, 10))
-		error(1, errno, "listen rx");
+		t_error(1, errno, "listen rx");
 
 	/* leave fd open, will be closed on process exit.
 	 * this enables connect() to succeed and avoids icmp replies

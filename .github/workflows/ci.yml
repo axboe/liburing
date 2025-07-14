@@ -197,6 +197,49 @@ jobs:
           sudo make install;
 
 
+  alpine-musl-build:
+    needs: get_commit_list
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        commit: ${{ fromJson(needs.get_commit_list.outputs.commit_list) }}
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Checkout commit
+        run: |
+          git checkout ${{ matrix.commit }};
+
+      - name: Setup Alpine Environment
+        uses: jirutka/setup-alpine@v1
+        with:
+          branch: v3.15
+
+      - name: Display Alpine version
+        shell: alpine.sh {0}
+        run: cat /etc/alpine-release;
+
+      - name: Install build dependencies
+        shell: alpine.sh --root {0}
+        run: |
+          apk add --no-cache build-base musl-dev linux-headers;
+
+      - name: Build
+        shell: alpine.sh {0}
+        run: |
+          ./configure --cc=gcc --cxx=g++;
+          make -j$(nproc) V=1 CPPFLAGS="-Werror" CFLAGS="$FLAGS" CXXFLAGS="$FLAGS";
+
+      - name: Test install command
+        shell: alpine.sh --root {0}
+        run: |
+          make install;
+
+
   codespell:
     needs: get_commit_list
     runs-on: ubuntu-24.04
