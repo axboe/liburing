@@ -14,6 +14,7 @@
 #include <arpa/inet.h>
 #include <netinet/ip.h>
 #include <netinet/tcp.h>
+#include <error.h>
 
 #include "helpers.h"
 #include "liburing.h"
@@ -483,4 +484,29 @@ int t_create_socketpair_ip(struct sockaddr_storage *addr,
 		close(listen_sock);
 	}
 	return 0;
+}
+
+static void __t_toggle_nonblock(int fd, int set)
+{
+	int flags;
+
+	flags = fcntl(fd, F_GETFL, 0);
+	if (flags < 0)
+		t_error(1, errno, "fcntl F_GETFL");
+	if (set)
+		flags |= O_NONBLOCK;
+	else
+		flags &= ~O_NONBLOCK;
+	if (fcntl(fd, F_SETFL, flags) < 0)
+		t_error(1, errno, "fcntl F_SETFL");
+}
+
+void t_set_nonblock(int fd)
+{
+	__t_toggle_nonblock(fd, 1);
+}
+
+void t_clear_nonblock(int fd)
+{
+	__t_toggle_nonblock(fd, 0);
 }
