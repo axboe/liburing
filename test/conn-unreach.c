@@ -43,7 +43,7 @@ static int check_cqe(struct io_uring *ring, struct io_uring_cqe *cqe)
 		break;
 	}
 	io_uring_cqe_seen(ring, cqe);
-	return 0;
+	return T_EXIT_PASS;
 }
 
 static int test(struct io_uring *ring, struct sockaddr_in *saddr, int p_fd)
@@ -75,7 +75,7 @@ static int test(struct io_uring *ring, struct sockaddr_in *saddr, int p_fd)
 	}
 
 	ret = check_cqe(ring, cqe);
-	if (ret)
+	if (ret != T_EXIT_PASS)
 		return ret;
 
 	val = 0;
@@ -89,11 +89,7 @@ static int test(struct io_uring *ring, struct sockaddr_in *saddr, int p_fd)
 		return T_EXIT_FAIL;
 	}
 
-	ret = check_cqe(ring, cqe);
-	if (ret)
-		return ret;
-
-	return T_EXIT_PASS;
+	return check_cqe(ring, cqe);
 }
 
 int main(int argc, char *argv[])
@@ -139,4 +135,3 @@ int main(int argc, char *argv[])
 	io_uring_queue_exit(&ring);
 	return ret;
 }
-
