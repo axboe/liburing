@@ -95,8 +95,8 @@ static int test(struct io_uring *ring, struct sockaddr_in *saddr, int p_fd)
 int main(int argc, char *argv[])
 {
 	struct sockaddr_in addr = { };
-	int val, p_fd, ret, flags;
 	struct io_uring ring;
+	int val, p_fd, ret;
 
 	if (argc > 1)
 		return T_EXIT_SKIP;
@@ -116,12 +116,7 @@ int main(int argc, char *argv[])
 	ret = setsockopt(p_fd, IPPROTO_TCP, TCP_USER_TIMEOUT, &val, sizeof(val));
 	assert(ret != -1);
 
-	flags = fcntl(p_fd, F_GETFL, 0);
-	assert(flags != -1);
-
-	flags |= O_NONBLOCK;
-	ret = fcntl(p_fd, F_SETFL, flags);
-	assert(ret != -1);
+	t_set_nonblock(p_fd);
 
 	addr.sin_family = AF_INET;
 	/* any unreachable address */
