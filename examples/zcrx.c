@@ -460,6 +460,11 @@ static void parse_opts(int argc, char **argv)
 		}
 	}
 
+	if (!cfg_ifname)
+		t_error(1, -EINVAL, "Interface is not specified");
+	if (cfg_queue_id == -1)
+		t_error(1, -EINVAL, "Queue idx is not specified");
+
 	memset(addr6, 0, sizeof(*addr6));
 	addr6->sin6_family = AF_INET6;
 	addr6->sin6_port = htons(cfg_port);
