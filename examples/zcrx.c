@@ -298,13 +298,24 @@ static void verify_data(char *data, size_t size, unsigned long seq)
 	}
 }
 
+static unsigned rq_nr_queued(struct io_uring_zcrx_rq *rq)
+{
+	return rq->rq_tail - *rq->khead;
+}
+
 static void return_buffer(struct io_uring_zcrx_rq *rq_ring,
 			  const struct io_uring_cqe *cqe)
 {
 	const struct io_uring_zcrx_cqe *rcqe = (void *)(cqe + 1);
 	struct io_uring_zcrx_rqe *rqe;
-	unsigned rq_mask = rq_ring->ring_entries - 1;
+	unsigned rq_mask;
 
+	if (rq_nr_queued(rq_ring) == rq_ring->ring_entries) {
+		printf("refill queue is full, drop the buffer\n");
+		return;
+	}
+
+	rq_mask = rq_ring->ring_entries - 1;
 	/* processed, return back to the kernel */
 	rqe = &rq_ring->rqes[rq_ring->rq_tail & rq_mask];
 	rqe->off = (rcqe->off & ~IORING_ZCRX_AREA_MASK) | area_token;
