@@ -609,21 +609,25 @@ static void parse_opts(int argc, char **argv)
 	else
 		t_error(1, 0, "unknown cfg_test %s", cfg_test);
 
-	if (cfg_nr_reqs > MAX_SUBMIT_NR)
-		t_error(1, 0, "-n: submit batch nr exceeds max (%d)", MAX_SUBMIT_NR);
+	if (!cfg_rx) {
+		if (cfg_nr_reqs > MAX_SUBMIT_NR)
+			t_error(1, 0, "-n: submit batch nr exceeds max (%d)", MAX_SUBMIT_NR);
+		if (!cfg_nr_reqs)
+			t_error(1, 0, "-n: submit batch can't be zero");
+		if (cfg_nr_reqs > 1 && cfg_type == SOCK_STREAM) {
+			printf("warning: submit batching >1 with TCP sockets will cause data reordering");
+			if (cfg_verify)
+				t_error(1, 0, "can't verify data because of reordering");
+		}
+	} else {
+		if (cfg_ifname)
+			t_error(1, 0, "Interface can only be specified for tx");
+		if (cfg_verify)
+			t_error(1, 0, "Server mode doesn't support data verification");
+	}
+
 	if (cfg_type == SOCK_DGRAM && cfg_payload_len > max_udp_payload_len)
 		t_error(1, 0, "-s: UDP payload exceeds max (%d)", max_udp_payload_len);
-	if (!cfg_nr_reqs)
-		t_error(1, 0, "-n: submit batch can't be zero");
-	if (cfg_ifname && cfg_rx)
-		t_error(1, 0, "Interface can only be specified for tx");
-	if (cfg_nr_reqs > 1 && cfg_type == SOCK_STREAM) {
-		printf("warning: submit batching >1 with TCP sockets will cause data reordering");
-		if (cfg_verify)
-			t_error(1, 0, "can't verify data because of reordering");
-	}
-	if (cfg_rx && cfg_verify)
-		t_error(1, 0, "Server mode doesn't support data verification");
 
 	str_addr = daddr;
 
