@@ -298,12 +298,24 @@ static void verify_data(char *data, size_t size, unsigned long seq)
 	}
 }
 
+static void return_buffer(struct io_uring_zcrx_rq *rq_ring,
+			  const struct io_uring_cqe *cqe)
+{
+	const struct io_uring_zcrx_cqe *rcqe = (void *)(cqe + 1);
+	struct io_uring_zcrx_rqe *rqe;
+	unsigned rq_mask = rq_ring->ring_entries - 1;
+
+	/* processed, return back to the kernel */
+	rqe = &rq_ring->rqes[rq_ring->rq_tail & rq_mask];
+	rqe->off = (rcqe->off & ~IORING_ZCRX_AREA_MASK) | area_token;
+	rqe->len = cqe->res;
+	io_uring_smp_store_release(rq_ring->ktail, ++rq_ring->rq_tail);
+}
+
 static void process_recvzc(struct io_uring __attribute__((unused)) *ring,
 			   struct io_uring_cqe *cqe)
 {
-	unsigned rq_mask = rq_ring.ring_entries - 1;
-	struct io_uring_zcrx_cqe *rcqe;
-	struct io_uring_zcrx_rqe *rqe;
+	const struct io_uring_zcrx_cqe *rcqe;
 	uint64_t mask;
 	char *data;
 
@@ -325,12 +337,7 @@ static void process_recvzc(struct io_uring __attribute__((unused)) *ring,
 
 	verify_data(data, cqe->res, received);
 	received += cqe->res;
-
-	/* processed, return back to the kernel */
-	rqe = &rq_ring.rqes[rq_ring.rq_tail & rq_mask];
-	rqe->off = (rcqe->off & ~IORING_ZCRX_AREA_MASK) | area_token;
-	rqe->len = cqe->res;
-	io_uring_smp_store_release(rq_ring.ktail, ++rq_ring.rq_tail);
+	return_buffer(&rq_ring, cqe);
 }
 
 static void server_loop(struct io_uring *ring)
