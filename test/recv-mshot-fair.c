@@ -28,6 +28,7 @@
 
 #define NR_RDS	4
 
+static bool no_iter_support;
 static bool no_limit_support;
 
 static int use_port = PORT;
@@ -48,6 +49,7 @@ struct recv_data {
 	int total_bytes;
 
 	int recv_bundle;
+	int mshot_limit;
 
 	int use_port;
 	int id;
@@ -64,13 +66,11 @@ static void arm_recv(struct io_uring *ring, struct recv_data *rd)
 	struct io_uring_sqe *sqe;
 	int len = PER_ITER_LIMIT;
 
-	if (rd->total_bytes && rd->bytes_since_arm > PER_MSHOT_LIMIT)
-		rd->mshot_too_big++;
-
 	rd->bytes_since_arm = 0;
 	sqe = io_uring_get_sqe(ring);
 	io_uring_prep_recv_multishot(sqe, rd->accept_fd, NULL, len, 0);
-	sqe->optlen = PER_MSHOT_LIMIT;
+	if (rd->mshot_limit)
+		sqe->optlen = PER_MSHOT_LIMIT;
 	if (rd->recv_bundle)
 		sqe->ioprio |= IORING_RECVSEND_BUNDLE;
 	sqe->buf_group = RECV_BGID;
@@ -224,6 +224,8 @@ static int do_recv(struct io_uring *ring)
 			done++;
 			continue;
 		}
+		if (rd->mshot_limit && rd->bytes_since_arm > PER_MSHOT_LIMIT)
+			rd->mshot_too_big++;
 		io_uring_cqe_seen(ring, cqe);
 		if (!(cqe->flags & IORING_CQE_F_MORE) && rd->recv_bytes) {
 			arm_recv(ring, rd);
@@ -260,7 +262,7 @@ static void *recv_fn(void *data)
 	ret = io_uring_queue_init_params(16, &ring, &p);
 	if (ret) {
 		if (ret == -EINVAL) {
-			no_limit_support = true;
+			no_iter_support = true;
 			goto skip;
 		}
 		fprintf(stderr, "ring init: %d\n", ret);
@@ -275,7 +277,7 @@ static void *recv_fn(void *data)
 	br = io_uring_setup_buf_ring(&ring, RECV_BIDS, RECV_BGID, brflags, &ret);
 	if (!br) {
 		if (ret == -EINVAL) {
-			no_limit_support = true;
+			no_iter_support = true;
 			goto skip;
 		}
 		fprintf(stderr, "failed setting up recv ring %d\n", ret);
@@ -304,7 +306,10 @@ static void *recv_fn(void *data)
 
 		if (!io_uring_peek_cqe(&ring, &cqe)) {
 			if (cqe->res == -EINVAL) {
-				no_limit_support = true;
+				if (rds[0].mshot_limit)
+					no_limit_support = true;
+				else
+					no_iter_support = true;
 				goto skip;
 			}
 		}
@@ -384,7 +389,8 @@ struct res {
 	int unfair;
 };
 
-static int test(int nr_send, int bundle, unsigned int queue_flags, struct res *r)
+static int test(int nr_send, int bundle, int mshot_limit,
+		unsigned int queue_flags, struct res *r)
 {
 	struct recv_data rds[NR_RDS] = { };
 	pthread_t recv_thread;
@@ -406,6 +412,7 @@ static int test(int nr_send, int bundle, unsigned int queue_flags, struct res *r
 		rd->max_sends = nr_send;
 		rd->recv_bundle = bundle;
 		rd->recv_bytes = nr_send * 4096;
+		rd->mshot_limit = mshot_limit;
 		rd->id = i + 1;
 	}
 
@@ -440,9 +447,9 @@ static int run_tests(void)
 	struct res r;
 	int ret;
 
-	ret = test(2, 1, IORING_SETUP_DEFER_TASKRUN | IORING_SETUP_SINGLE_ISSUER, &r);
+	ret = test(2, 1, 0, IORING_SETUP_DEFER_TASKRUN | IORING_SETUP_SINGLE_ISSUER, &r);
 	if (ret) {
-		if (no_limit_support)
+		if (no_iter_support)
 			return T_EXIT_SKIP;
 		fprintf(stderr, "test DEFER bundle failed\n");
 		return T_EXIT_FAIL;
@@ -454,7 +461,7 @@ static int run_tests(void)
 		return T_EXIT_FAIL;
 	}
 
-	ret = test(2, 0, IORING_SETUP_DEFER_TASKRUN | IORING_SETUP_SINGLE_ISSUER, &r);
+	ret = test(2, 0, 0, IORING_SETUP_DEFER_TASKRUN | IORING_SETUP_SINGLE_ISSUER, &r);
 	if (ret) {
 		fprintf(stderr, "test DEFER failed\n");
 		return T_EXIT_FAIL;
@@ -465,18 +472,18 @@ static int run_tests(void)
 		return T_EXIT_FAIL;
 	}
 
-	ret = test(2, 1, IORING_SETUP_COOP_TASKRUN, &r);
+	ret = test(2, 1, 0, IORING_SETUP_COOP_TASKRUN, &r);
 	if (ret) {
 		fprintf(stderr, "test COOP bundle failed\n");
 		return T_EXIT_FAIL;
 	}
 
 	if (r.unfair || r.mshot_too_big) {
-		fprintf(stderr, "!DEFER bundle too_big=%d\n", r.mshot_too_big);
+		fprintf(stderr, "COOP bundle too_big=%d\n", r.mshot_too_big);
 		return T_EXIT_FAIL;
 	}
 
-	ret = test(2, 0, IORING_SETUP_COOP_TASKRUN, &r);
+	ret = test(2, 0, 0, IORING_SETUP_COOP_TASKRUN, &r);
 	if (ret) {
 		fprintf(stderr, "test COOP failed\n");
 		return T_EXIT_FAIL;
@@ -486,7 +493,54 @@ static int run_tests(void)
 		fprintf(stderr, "!DEFER too_big=%d\n", r.mshot_too_big);
 		return T_EXIT_FAIL;
 	}
-	
+
+	ret = test(2, 1, 1, IORING_SETUP_DEFER_TASKRUN | IORING_SETUP_SINGLE_ISSUER, &r);
+	if (ret) {
+		if (no_limit_support)
+			return T_EXIT_PASS;
+		fprintf(stderr, "test DEFER bundle cap failed\n");
+		return T_EXIT_FAIL;
+	}
+
+	/* DEFER_TASKRUN should be fully fair and not have overshoots */
+	if (r.unfair || r.mshot_too_big) {
+		fprintf(stderr, "DEFER bundle cap unfair=%d, too_big=%d\n", r.unfair, r.mshot_too_big);
+		return T_EXIT_FAIL;
+	}
+
+	ret = test(2, 0, 1, IORING_SETUP_DEFER_TASKRUN | IORING_SETUP_SINGLE_ISSUER, &r);
+	if (ret) {
+		fprintf(stderr, "test DEFER cap failed\n");
+		return T_EXIT_FAIL;
+	}
+
+	if (r.unfair || r.mshot_too_big) {
+		fprintf(stderr, "DEFER cap unfair=%d, too_big=%d\n", r.unfair, r.mshot_too_big);
+		return T_EXIT_FAIL;
+	}
+
+	ret = test(2, 1, 1, IORING_SETUP_COOP_TASKRUN, &r);
+	if (ret) {
+		fprintf(stderr, "test COOP bundle cap failed\n");
+		return T_EXIT_FAIL;
+	}
+
+	if (r.unfair || r.mshot_too_big) {
+		fprintf(stderr, "COOP bundle cap too_big=%d\n", r.mshot_too_big);
+		return T_EXIT_FAIL;
+	}
+
+	ret = test(2, 0, 1, IORING_SETUP_COOP_TASKRUN, &r);
+	if (ret) {
+		fprintf(stderr, "test COOP cap failed\n");
+		return T_EXIT_FAIL;
+	}
+
+	if (r.unfair || r.mshot_too_big) {
+		fprintf(stderr, "COOP cap too_big=%d\n", r.mshot_too_big);
+		return T_EXIT_FAIL;
+	}
+
 	return T_EXIT_PASS;
 }
 
