@@ -106,19 +106,19 @@ static void zcrx_populate_area_udmabuf(struct io_uring_zcrx_area_reg *area_reg)
 
 	devfd = open("/dev/udmabuf", O_RDWR);
 	if (devfd < 0)
-		t_error(1, devfd, "Failed to open udmabuf dev");
+		t_error(1, errno, "Failed to open udmabuf dev");
 
 	memfd = memfd_create("udmabuf-test", MFD_ALLOW_SEALING);
 	if (memfd < 0)
-		t_error(1, memfd, "Failed to open udmabuf dev");
+		t_error(1, errno, "Failed to open udmabuf dev");
 
 	ret = fcntl(memfd, F_ADD_SEALS, F_SEAL_SHRINK);
 	if (ret < 0)
-		t_error(1, 0, "Failed to set seals");
+		t_error(1, errno, "Failed to set seals");
 
 	ret = ftruncate(memfd, AREA_SIZE);
 	if (ret == -1)
-		t_error(1, 0, "Failed to resize udmabuf");
+		t_error(1, errno, "Failed to resize udmabuf");
 
 	memset(&create, 0, sizeof(create));
 	create.memfd = memfd;
@@ -126,12 +126,12 @@ static void zcrx_populate_area_udmabuf(struct io_uring_zcrx_area_reg *area_reg)
 	create.size = AREA_SIZE;
 	dmabuf_fd = ioctl(devfd, UDMABUF_CREATE, &create);
 	if (dmabuf_fd < 0)
-		t_error(1, dmabuf_fd, "Failed to create udmabuf");
+		t_error(1, errno, "Failed to create udmabuf");
 
 	area_ptr = mmap(NULL, AREA_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED,
 			dmabuf_fd, 0);
 	if (area_ptr == MAP_FAILED)
-		t_error(1, 0, "Failed to mmap udmabuf");
+		t_error(1, errno, "Failed to mmap udmabuf");
 
 	memset(area_reg, 0, sizeof(*area_reg));
 	area_reg->addr = 0; /* offset into dmabuf */
