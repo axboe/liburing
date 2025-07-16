@@ -17,4 +17,9 @@ void *t_aligned_alloc(size_t alignment, size_t size);
 
 void t_error(int status, int errnum, const char *format, ...);
 
+#ifndef CONFIG_HAVE_MEMFD_CREATE
+#include <linux/memfd.h>
+#endif
+int memfd_create(const char *name, unsigned int flags);
+
 #endif

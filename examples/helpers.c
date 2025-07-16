@@ -13,6 +13,14 @@
 
 #include "helpers.h"
 
+#ifndef CONFIG_HAVE_MEMFD_CREATE
+#include <sys/syscall.h>
+int memfd_create(const char *name, unsigned int flags)
+{
+	return (int)syscall(SYS_memfd_create, name, flags);
+}
+#endif
+
 int setup_listening_socket(int port, int ipv6)
 {
 	struct sockaddr_in srv_addr = { };

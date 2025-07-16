@@ -380,6 +380,22 @@ fi
 print_config "has_ucontext" "$has_ucontext"
 
 ##########################################
+# check for memfd_create(2)
+has_memfd_create="no"
+cat > $TMPC << EOF
+#include <sys/mman.h>
+int main(int argc, char **argv)
+{
+  int memfd = memfd_create("test", 0);
+  return 0;
+}
+EOF
+if compile_prog "-Werror=implicit-function-declaration" "" "has_memfd_create"; then
+  has_memfd_create="yes"
+fi
+print_config "has_memfd_create" "$has_memfd_create"
+
+##########################################
 # Check NVME_URING_CMD support
 nvme_uring_cmd="no"
 cat > $TMPC << EOF
@@ -538,6 +554,9 @@ if test "$stringop_overflow" = "yes"; then
 fi
 if test "$array_bounds" = "yes"; then
   output_sym "CONFIG_HAVE_ARRAY_BOUNDS"
+fi
+if test "$has_memfd_create" = "yes"; then
+  output_sym "CONFIG_HAVE_MEMFD_CREATE"
 fi
 if test "$nvme_uring_cmd" = "yes"; then
   output_sym "CONFIG_HAVE_NVME_URING"
