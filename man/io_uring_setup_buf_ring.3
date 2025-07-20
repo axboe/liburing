@@ -32,7 +32,7 @@ in flight than buffers available.
 
 The
 .I ring
-argument must pointer to the ring for which the provided buffer ring is being
+argument must be a pointer to the ring for which the provided buffer ring is being
 registered,
 .I nentries
 is the number of entries requested in the buffer ring. This argument must be
@@ -42,7 +42,7 @@ is the chosen buffer group ID,
 .I flags
 are modifier flags for the operation, and
 .I *err
-is is a pointer to an integer for the error value if any part of the ring
+is a pointer to an integer for the error value if any part of the ring
 allocation and registration fails.
 
 The
