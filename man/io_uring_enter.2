@@ -134,7 +134,21 @@ but merely an offset into an area of wait regions previously registered with
 .BR io_uring_register (2)
 using the
 .B IORING_REGISTER_MEM_REGION
-operation. Available since 6.13
+operation.
+
+Available since 6.13
+
+.TP
+.B IORING_ENTER_NO_IOWAIT
+When this flag is set, the system call will not mark the waiting task as being
+in iowait if it is sleeping waiting on events and there are pending requests.
+This is useful if iowait isn't expected when waiting for events. It can also
+prevent extra power usage by allowing the CPU to enter lower sleep states.
+This flag is only available if the kernel supports the
+.B IORING_FEAT_NO_IOWAIT
+feature.
+
+Available since 6.15.
 
 .PP
 .PP
