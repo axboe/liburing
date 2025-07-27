@@ -522,7 +522,7 @@ IOURINGINLINE void io_uring_sqe_set_buf_group(struct io_uring_sqe *sqe,
 	sqe->buf_group = (__u16) bgid;
 }
 
-IOURINGINLINE void __io_uring_set_target_fixed_file(struct io_uring_sqe *sqe,
+static inline void __io_uring_set_target_fixed_file(struct io_uring_sqe *sqe,
 						    unsigned int file_index)
 	LIBURING_NOEXCEPT
 {
@@ -1742,7 +1742,7 @@ IOURINGINLINE int io_uring_wait_cqe_nr(struct io_uring *ring,
  * "official" versions of this, io_uring_peek_cqe(), io_uring_wait_cqe(),
  * or io_uring_wait_cqes*().
  */
-IOURINGINLINE int __io_uring_peek_cqe(struct io_uring *ring,
+static inline int __io_uring_peek_cqe(struct io_uring *ring,
 				      struct io_uring_cqe **cqe_ptr,
 				      unsigned *nr_available)
 	LIBURING_NOEXCEPT
