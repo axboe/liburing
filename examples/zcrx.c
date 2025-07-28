@@ -51,9 +51,6 @@ enum {
 	__RQ_ALLOC_MAX,
 };
 
-static long page_size;
-#define AREA_SIZE (8192 * page_size)
-
 #define REQ_TYPE_SHIFT	3
 #define REQ_TYPE_MASK	((1UL << REQ_TYPE_SHIFT) - 1)
 
@@ -69,6 +66,7 @@ enum {
 	REQ_TYPE_RX		= 2,
 };
 
+static long cfg_area_size;
 static int cfg_port = 8000;
 static const char *cfg_ifname;
 static int cfg_queue_id = -1;
@@ -77,6 +75,8 @@ static size_t cfg_size = 0;
 static unsigned cfg_rq_alloc_mode = RQ_ALLOC_USER;
 static unsigned cfg_area_type = AREA_TYPE_NORMAL;
 static struct sockaddr_in6 cfg_addr;
+
+static long page_size;
 
 static void *area_ptr;
 static void *ring_ptr;
@@ -116,26 +116,26 @@ static void zcrx_populate_area_udmabuf(struct io_uring_zcrx_area_reg *area_reg)
 	if (ret < 0)
 		t_error(1, errno, "Failed to set seals");
 
-	ret = ftruncate(memfd, AREA_SIZE);
+	ret = ftruncate(memfd, cfg_area_size);
 	if (ret == -1)
 		t_error(1, errno, "Failed to resize udmabuf");
 
 	memset(&create, 0, sizeof(create));
 	create.memfd = memfd;
 	create.offset = 0;
-	create.size = AREA_SIZE;
+	create.size = cfg_area_size;
 	dmabuf_fd = ioctl(devfd, UDMABUF_CREATE, &create);
 	if (dmabuf_fd < 0)
 		t_error(1, errno, "Failed to create udmabuf");
 
-	area_ptr = mmap(NULL, AREA_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED,
+	area_ptr = mmap(NULL, cfg_area_size, PROT_READ | PROT_WRITE, MAP_SHARED,
 			dmabuf_fd, 0);
 	if (area_ptr == MAP_FAILED)
 		t_error(1, errno, "Failed to mmap udmabuf");
 
 	memset(area_reg, 0, sizeof(*area_reg));
 	area_reg->addr = 0; /* offset into dmabuf */
-	area_reg->len = AREA_SIZE;
+	area_reg->len = cfg_area_size;
 	area_reg->flags |= IORING_ZCRX_AREA_DMABUF;
 	area_reg->dmabuf_fd = dmabuf_fd;
 
@@ -152,10 +152,10 @@ static void zcrx_populate_area(struct io_uring_zcrx_area_reg *area_reg)
 		return;
 	}
 	if (cfg_area_type == AREA_TYPE_NORMAL) {
-		area_ptr = mmap(NULL, AREA_SIZE, prot,
+		area_ptr = mmap(NULL, cfg_area_size, prot,
 				flags, 0, 0);
 	} else if (cfg_area_type == AREA_TYPE_HUGE_PAGES) {
-		area_ptr = mmap(NULL, AREA_SIZE, prot,
+		area_ptr = mmap(NULL, cfg_area_size, prot,
 				flags | MAP_HUGETLB | MAP_HUGE_2MB, -1, 0);
 	}
 
@@ -164,7 +164,7 @@ static void zcrx_populate_area(struct io_uring_zcrx_area_reg *area_reg)
 
 	memset(area_reg, 0, sizeof(*area_reg));
 	area_reg->addr = uring_ptr_to_u64(area_ptr);
-	area_reg->len = AREA_SIZE;
+	area_reg->len = cfg_area_size;
 	area_reg->flags = 0;
 }
 
@@ -437,7 +437,7 @@ static void parse_opts(int argc, char **argv)
 	if (argc <= 1)
 		usage(argv[0]);
 
-	while ((c = getopt(argc, argv, "vp:i:q:s:r:A:")) != -1) {
+	while ((c = getopt(argc, argv, "vp:i:q:s:r:A:S:")) != -1) {
 		switch (c) {
 		case 'p':
 			cfg_port = strtoul(optarg, NULL, 0);
@@ -458,6 +458,9 @@ static void parse_opts(int argc, char **argv)
 			cfg_rq_alloc_mode = strtoul(optarg, NULL, 0);
 			if (cfg_rq_alloc_mode >= __RQ_ALLOC_MAX)
 				t_error(1, 0, "invalid RQ allocation mode");
+			break;
+		case 'S':
+			cfg_area_size = strtoul(optarg, NULL, 0);
 			break;
 		case 'A':
 			cfg_area_type = strtoul(optarg, NULL, 0);
@@ -485,6 +488,7 @@ int main(int argc, char **argv)
 		perror("sysconf(_SC_PAGESIZE)");
 		return 1;
 	}
+	cfg_area_size = 8 * 1024 * page_size;
 
 	parse_opts(argc, argv);
 	run_server();
