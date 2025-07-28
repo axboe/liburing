@@ -513,3 +513,9 @@ int io_uring_set_iowait(struct io_uring *ring, bool enable_iowait)
 		ring->int_flags |= INT_FLAG_NO_IOWAIT;
 	return 0;
 }
+
+int io_uring_register_queue_chan(struct io_uring *ring,
+				 struct io_uring_chan_reg *reg)
+{
+	return do_register(ring, IORING_REGISTER_QUEUE_CHAN, reg, 1);
+}

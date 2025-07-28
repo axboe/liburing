@@ -249,4 +249,6 @@ LIBURING_2.12 {
 	global:
 		io_uring_prep_pipe;
 		io_uring_prep_pipe_direct;
+		io_uring_register_queue_chan;
+		io_uring_prep_chan_post;
 } LIBURING_2.11;

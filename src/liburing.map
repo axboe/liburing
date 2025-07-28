@@ -126,3 +126,8 @@ LIBURING_2.11 {
 		io_uring_memory_size_params;
 		io_uring_register_sync_msg;
 } LIBURING_2.10;
+
+LIBURING_2.12 {
+	global:
+		io_uring_register_queue_chan;
+} LIBURING_2.11;

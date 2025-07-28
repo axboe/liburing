@@ -172,6 +172,8 @@ test_srcs := \
 	poll-v-poll.c \
 	pollfree.c \
 	probe.c \
+	queue-chan.c \
+	queue-chan2.c \
 	read-before-exit.c \
 	read-inc-file.c \
 	read-mshot.c \

@@ -230,6 +230,8 @@ int io_uring_submit_and_wait_reg(struct io_uring *ring,
 				 struct io_uring_cqe **cqe_ptr, unsigned wait_nr,
 				 int reg_index) LIBURING_NOEXCEPT;
 
+int io_uring_register_queue_chan(struct io_uring *ring,
+				 struct io_uring_chan_reg *reg) LIBURING_NOEXCEPT;
 int io_uring_register_wait_reg(struct io_uring *ring,
 			       struct io_uring_reg_wait *reg, int nr)
    LIBURING_NOEXCEPT;
@@ -1593,6 +1595,24 @@ IOURINGINLINE void io_uring_prep_pipe_direct(struct io_uring_sqe *sqe, int *fds,
 	if (file_index == IORING_FILE_INDEX_ALLOC)
 		file_index--;
 	__io_uring_set_target_fixed_file(sqe, file_index);
+}
+
+/*
+ * Post CQE on target indicated by 'queue' with 'res' as cqe->res, user_data
+ * as the cqe->user_data, and 'value' as the big_cqe u64 extra1 value.
+ * Flags can either be 0, or IORING_CHAN_IDLE. If flags is zero, then 'queue'
+ * must return a valid queue id returned from io_uring_register_queue_chan.
+ * If flags is IORING_CHAN_IDLE, 'queue' must be zero and an idle queue will
+ * get picked. If no idle queues exist, the SQE will be errored on the local
+ * ring.
+ */
+IOURINGINLINE void io_uring_prep_chan_post(struct io_uring_sqe *sqe, int queue,
+					   __u64 value, __u64 user_data,
+					   unsigned int flags)
+{
+	io_uring_prep_rw(IORING_OP_CHAN_POST, sqe, queue,
+				(void *) (uintptr_t) user_data, 0, value);
+	sqe->rw_flags = flags;
 }
 
 /* Read the kernel's SQ head index with appropriate memory ordering */

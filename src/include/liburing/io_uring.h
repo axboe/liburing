@@ -269,6 +269,7 @@ enum io_uring_op {
 	IORING_OP_READV_FIXED,
 	IORING_OP_WRITEV_FIXED,
 	IORING_OP_PIPE,
+	IORING_OP_CHAN_POST,
 
 	/* this goes last, obviously */
 	IORING_OP_LAST,
@@ -430,6 +431,10 @@ enum io_uring_msg_ring_flags {
  * IORING_NOP_INJECT_RESULT	Inject result from sqe->result
  */
 #define IORING_NOP_INJECT_RESULT	(1U << 0)
+
+/* find and send to idle target. if not set, sqe->fd is the target */
+#define IORING_CHAN_POST_IDLE	0x1
+
 
 /*
  * IO completion data structure (Completion Queue Entry)
@@ -641,6 +646,8 @@ enum io_uring_register_op {
 
 	IORING_REGISTER_MEM_REGION		= 34,
 
+	IORING_REGISTER_QUEUE_CHAN		= 35,
+
 	/* this goes last */
 	IORING_REGISTER_LAST,
 
@@ -684,6 +691,17 @@ struct io_uring_mem_region_reg {
 	__u64 region_uptr; /* struct io_uring_region_desc * */
 	__u64 flags;
 	__u64 __resv[2];
+};
+
+enum {
+	IORING_CHAN_REG_BIDI =	0x1,
+};
+
+struct io_uring_chan_reg {
+	__u32 flags;
+	__u32 dst_fd;
+	__u32 nentries;
+	__u32 resv[7];
 };
 
 /*
