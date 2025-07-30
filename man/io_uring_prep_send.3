@@ -43,6 +43,54 @@ of size
 bytes and with modifier flags
 .IR flags .
 
+After calling this function, additional io_uring internal modifier flags
+may be set in the SQE
+.I ioprio
+field. The following flags are supported:
+.TP
+.B IORING_RECVSEND_POLL_FIRST
+If set, io_uring will assume the socket is currently full and attempting to
+send data will be unsuccessful. For this case, io_uring will arm internal
+poll and trigger a send of the data when the socket has space available.
+If poll does indicate that space is available in the socket, the operation
+will proceed immediately.
+
+.TP
+.B IORING_RECVSEND_BUNDLE
+If set, the send operation will attempt to fill multiple buffers with rather than
+just pick a single buffer to fill. To send multiple buffers in a single
+send, the buffer group ID set in the SQE must be of the ring provided type.
+If set, the CQE
+.I res
+field indicates the total number of bytes sent, and the buffer ID returned
+in the CQE
+.I flags
+field indicates the first buffer in the send operation. The application must
+process the indicated initial buffer ID and until all
+.I res
+bytes have been seen to know which is the last buffer in the send operation.
+The buffers consumed will be contiguous from the initial buffer, in the order
+in which they appear in the buffer ring. The CQE struct does not contain
+the position of the buffer in the buffer ring, therefore in order to identify
+buffers contained by the bundle, it is advised to maintain the cached head
+index per buffer ring. This uint16_t index represents the position of the next
+buffer to be consumed within the ring. Upon completion of a bundle send operation,
+the cached head index should be incremented accordingly.
+Sending in bundles can improve performance when more than one chunk of
+data is available by eliminating redundant round trips through the networking
+stack.
+.TP
+.B IORING_SEND_VECTORIZED
+If set,
+.I addr must point to an array of
+.I struct iovec
+and
+.I len
+must be the number of vectors in that array. This enables use of vectorized IO
+for a normal send operation, rather than needing a sendmsg variant to
+accomplish that.
+.P
+
 Note that using
 .B IOSQE_IO_LINK
 with this request type requires the setting of

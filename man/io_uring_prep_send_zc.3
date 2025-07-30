@@ -56,6 +56,21 @@ arguments must fall within a region specified by
 in the previously registered buffer. The buffer need not be aligned with the 
 start of the registered buffer.
 
+See
+.BR io_uring_prep_send (3)
+for a description of flags that can be set in the SQE
+.I ioprio
+field. In addition to those, the zero-copy send also supports setting
+.B IORING_SEND_ZC_REPORT_USAGE .
+If set, the notification CQE
+.I res
+field will report the number of bytes that were copied rather than sent with
+zero copy. A value of
+.B 0
+indicates success. If the value is
+.B IORING_NOTIF_USAGE_ZC_COPIED ,
+then data was copied.
+
 Note that using
 .B IOSQE_IO_LINK
 with this request type requires the setting of
