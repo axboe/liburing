@@ -436,6 +436,7 @@ enum io_uring_msg_ring_flags {
  * IORING_NOP_INJECT_RESULT	Inject result from sqe->result
  */
 #define IORING_NOP_INJECT_RESULT	(1U << 0)
+#define IORING_NOP_CQE32		(1U << 5)
 
 /*
  * IO completion data structure (Completion Queue Entry)
