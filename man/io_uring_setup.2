@@ -278,7 +278,9 @@ If set, io_uring will use 32-byte CQEs rather than the normal 16-byte sized
 variant. This is a requirement for using certain request types, as of 5.19
 only the
 .B IORING_OP_URING_CMD
-passthrough command for NVMe passthrough needs this. Available since 5.19.
+passthrough command for NVMe passthrough needs this. Also see
+.B IORING_SETUP_CQE_MIXED
+for an alternative to this flag. Available since 5.19.
 .TP
 .B IORING_SETUP_SINGLE_ISSUER
 A hint to the kernel that only a single task (or thread) will submit requests, which is
@@ -357,6 +359,34 @@ should not map the array of submission queue entries, and the corresponding
 offset in
 .I struct io_sqring_offsets
 will be set to zero. Available since 6.6.
+
+.TP
+.B IORING_SETUP_CQE_MIXED
+If this flag is set, the ring supports posting both the normal 16b sized CQEs
+as well as the larger 32b CQEs. Normally a ring is setup to only allow posting
+of normal 16b CQEs, or if
+.B IORING_SETUP_CQE32
+has been set, only 32b CQEs. With this flag, the kernel may post both types.
+If a 32b CQE is posted, the CQE
+.I flags
+member will have
+.B IORING_CQE_F_32
+set to indicate that this CQE is of the larger type. The kernel may also set
+.B IORING_CQE_F_SKIP
+in the CQE
+.I flags
+member, in case it needs to post a filler 16b CQE. This will happen if a 32b
+CQE needs posting and the current CQ ring offset is such that the 32b CQE
+would wrap around. Applications should simply skip/ignore such CQEs, they
+contain no information and serve only as placeholder to facilitate advancing
+the CQ ring such that a large CQE can get posted. The use case of the
+.B IORING_SETUP_CQE_MIXED
+flag is to allow more efficient setups of workloads that may post both normal
+and large CQEs. Opcodes that previously required the use of
+.B IORING_SETUP_CQE32
+may now use this flag instead, and potentially save some memory for the CQ
+ring. If used with liburing 2.12 or newer, the handling of variably sized CQEs
+is fully transparent. Available since 6.18.
 
 .PP
 If no flags are specified, the io_uring instance is setup for

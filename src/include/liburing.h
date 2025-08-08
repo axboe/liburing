@@ -394,6 +394,11 @@ IOURINGINLINE unsigned io_uring_cqe_shift(const struct io_uring *ring)
 	return io_uring_cqe_shift_from_flags(ring->flags);
 }
 
+IOURINGINLINE unsigned io_uring_cqe_nr(const struct io_uring_cqe *cqe)
+{
+	return 1U << !!(cqe->flags & IORING_CQE_F_32);
+}
+
 struct io_uring_cqe_iter {
 	struct io_uring_cqe *cqes;
 	unsigned mask;
@@ -424,6 +429,8 @@ static inline bool io_uring_cqe_iter_next(struct io_uring_cqe_iter *iter,
 		return false;
 
 	*cqe = &iter->cqes[(iter->head++ & iter->mask) << iter->shift];
+	if ((*cqe)->flags & IORING_CQE_F_32)
+		iter->head++;
 	return true;
 }
 
@@ -464,7 +471,7 @@ IOURINGINLINE void io_uring_cqe_seen(struct io_uring *ring,
 	LIBURING_NOEXCEPT
 {
 	if (cqe)
-		io_uring_cq_advance(ring, 1);
+		io_uring_cq_advance(ring, io_uring_cqe_nr(cqe));
 }
 
 /*
@@ -1737,6 +1744,22 @@ IOURINGINLINE int io_uring_wait_cqe_nr(struct io_uring *ring,
 	return __io_uring_get_cqe(ring, cqe_ptr, 0, wait_nr, NULL);
 }
 
+static inline bool io_uring_skip_cqe(struct io_uring *ring,
+				     struct io_uring_cqe *cqe, int *err)
+{
+	if (cqe->flags & IORING_CQE_F_SKIP)
+		goto out;
+	if (ring->features & IORING_FEAT_EXT_ARG)
+		return false;
+	if (cqe->user_data != LIBURING_UDATA_TIMEOUT)
+		return false;
+	if (cqe->res < 0)
+		*err = cqe->res;
+out:
+	io_uring_cq_advance(ring, io_uring_cqe_nr(cqe));
+	return !*err;
+}
+
 /*
  * Internal helper, don't use directly in applications. Use one of the
  * "official" versions of this, io_uring_peek_cqe(), io_uring_wait_cqe(),
@@ -1768,17 +1791,9 @@ static inline int __io_uring_peek_cqe(struct io_uring *ring,
 			break;
 
 		cqe = &ring->cq.cqes[(head & mask) << shift];
-		if (!(ring->features & IORING_FEAT_EXT_ARG) &&
-				cqe->user_data == LIBURING_UDATA_TIMEOUT) {
-			if (cqe->res < 0)
-				err = cqe->res;
-			io_uring_cq_advance(ring, 1);
-			if (!err)
-				continue;
-			cqe = NULL;
-		}
-
-		break;
+		if (!io_uring_skip_cqe(ring, cqe, &err))
+			break;
+		cqe = NULL;
 	} while (1);
 
 	*cqe_ptr = cqe;
