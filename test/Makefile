@@ -99,6 +99,7 @@ test_srcs := \
 	fdinfo.c \
 	fdinfo-sqpoll.c \
 	fifo-nonblock-read.c \
+	fifo-futex-poll.c \
 	file-exit-unreg.c \
 	file-register.c \
 	files-exit-hang-poll.c \
