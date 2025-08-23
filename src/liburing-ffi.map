@@ -250,3 +250,7 @@ LIBURING_2.12 {
 		io_uring_prep_pipe;
 		io_uring_prep_pipe_direct;
 } LIBURING_2.11;
+
+LIBURING_2.13 {
+
+} LIBURING_2.12;

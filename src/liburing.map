@@ -126,3 +126,11 @@ LIBURING_2.11 {
 		io_uring_memory_size_params;
 		io_uring_register_sync_msg;
 } LIBURING_2.10;
+
+LIBURING_2.12 {
+
+} LIBURING_2.11;
+
+LIBURING_2.13 {
+
+} LIBURING_2.12;
