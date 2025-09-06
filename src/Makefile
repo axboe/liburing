@@ -74,9 +74,7 @@ liburing_ffi_sobjs := ffi.os
 %.ol: %.c
 	$(QUIET_CC)$(CC) $(CPPFLAGS) $(L_CFLAGS) -c -o $@ $<
 
-# Include compiler generated dependency files.
--include $(liburing_objs:%=%.d)
--include $(liburing_sobjs:%=%.d)
+-include $(liburing_objs:%=%.d) $(liburing_sobjs:%=%.d) $(liburing_ffi_objs:%=%.d) $(liburing_ffi_sobjs:%=%.d)
 
 AR ?= ar
 RANLIB ?= ranlib
