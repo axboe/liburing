@@ -122,6 +122,8 @@ unsigned long long mtime_since_now(struct timeval *tv);
 unsigned long long utime_since(const struct timeval *s, const struct timeval *e);
 unsigned long long utime_since_now(struct timeval *tv);
 
+int t_submit_and_wait_single(struct io_uring *ring, struct io_uring_cqe **cqe);
+
 #ifdef __cplusplus
 }
 #endif
