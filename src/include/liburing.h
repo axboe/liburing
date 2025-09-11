@@ -16,6 +16,7 @@
 #include <sys/wait.h>
 #include "liburing/compat.h"
 #include "liburing/io_uring.h"
+#include "liburing/io_uring/query.h"
 #include "liburing/io_uring_version.h"
 
 #ifndef uring_unlikely

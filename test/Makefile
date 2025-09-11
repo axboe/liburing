@@ -257,6 +257,7 @@ test_srcs := \
 	zcrx.c \
 	vec-regbuf.c \
 	timestamp.c \
+	ring-query.c \
 	# EOL
 
 # Please keep this list sorted alphabetically.
