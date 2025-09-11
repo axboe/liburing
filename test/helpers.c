@@ -536,3 +536,47 @@ size_t t_iovec_data_length(struct iovec *iov, unsigned iov_len)
 		sz += iov[i].iov_len;
 	return sz;
 }
+
+#define t_min(a, b) ((a) < (b) ? (a) : (b))
+
+unsigned long t_compare_data_iovec(struct iovec *iov_src, unsigned nr_src,
+				   struct iovec *iov_dst, unsigned nr_dst)
+{
+	size_t src_len = t_iovec_data_length(iov_src, nr_src);
+	size_t dst_len = t_iovec_data_length(iov_dst, nr_dst);
+	size_t len_left = t_min(src_len, dst_len);
+	unsigned long src_off = 0, dst_off = 0;
+	unsigned long offset = 0;
+
+	while (offset != len_left) {
+		size_t len = len_left - offset;
+		unsigned long i;
+
+		len = t_min(len, iov_src->iov_len - src_off);
+		len = t_min(len, iov_dst->iov_len - dst_off);
+
+		for (i = 0; i < len; i++) {
+			char csrc = ((char *)iov_src->iov_base)[src_off + i];
+			char cdst = ((char *)iov_dst->iov_base)[dst_off + i];
+
+			if (csrc != cdst) {
+				fprintf(stderr, "data mismatch, %i vs %i\n",
+					csrc, cdst);
+				return -EINVAL;
+			}
+		}
+
+		src_off += len;
+		dst_off += len;
+		if (src_off == iov_src->iov_len) {
+			src_off = 0;
+			iov_src++;
+		}
+		if (dst_off == iov_dst->iov_len) {
+			dst_off = 0;
+			iov_dst++;
+		}
+		offset += len;
+	}
+	return 0;
+}

@@ -126,6 +126,9 @@ int t_submit_and_wait_single(struct io_uring *ring, struct io_uring_cqe **cqe);
 
 size_t t_iovec_data_length(struct iovec *iov, unsigned iov_len);
 
+unsigned long t_compare_data_iovec(struct iovec *iov_src, unsigned nr_src,
+				   struct iovec *iov_dst, unsigned nr_dst);
+
 static inline void t_sqe_prep_cmd(struct io_uring_sqe *sqe,
 				  int fd, unsigned cmd_op)
 {
