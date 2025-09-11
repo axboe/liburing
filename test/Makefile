@@ -258,6 +258,7 @@ test_srcs := \
 	vec-regbuf.c \
 	timestamp.c \
 	ring-query.c \
+	mock_file.c \
 	# EOL
 
 # Please keep this list sorted alphabetically.
