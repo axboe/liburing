@@ -124,6 +124,8 @@ unsigned long long utime_since_now(struct timeval *tv);
 
 int t_submit_and_wait_single(struct io_uring *ring, struct io_uring_cqe **cqe);
 
+size_t t_iovec_data_length(struct iovec *iov, unsigned iov_len);
+
 #ifdef __cplusplus
 }
 #endif

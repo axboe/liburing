@@ -526,3 +526,13 @@ int t_submit_and_wait_single(struct io_uring *ring, struct io_uring_cqe **cqe)
 	}
 	return 0;
 }
+
+size_t t_iovec_data_length(struct iovec *iov, unsigned iov_len)
+{
+	size_t sz = 0;
+	int i;
+
+	for (i = 0; i < iov_len; i++)
+		sz += iov[i].iov_len;
+	return sz;
+}
