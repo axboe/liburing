@@ -17,8 +17,6 @@
 #include "liburing/compat.h"
 #include "liburing/io_uring.h"
 #include "liburing/io_uring_version.h"
-#include "liburing/barrier.h"
-
 
 #ifndef uring_unlikely
 #define uring_unlikely(cond)	__builtin_expect(!!(cond), 0)
@@ -29,15 +27,45 @@
 #endif
 
 /*
- * NOTE: Only use IOURINGINLINE macro for 'static inline' functions
- *       that are expected to be available in the FFI bindings.
+ * NOTE: Use IOURINGINLINE macro for "static inline" functions that are
+ *       expected to be available in the FFI bindings. They must also
+ *       be included in the liburing-ffi.map file.
  *
- *       Functions that are marked as IOURINGINLINE should be
- *       included in the liburing-ffi.map file.
+ *       Use _LOCAL_INLINE macro for "static inline" functions that are
+ *       not expected to be available in the FFI bindings.
+ *
+ *       Don't use "static inline" directly when defining new functions
+ *       in this header file.
+ *
+ *       Reason:
+ *       The C++20 module export feature fails to operate correctly
+ *       with the "static inline" functions. Use "inline" instead of
+ *       "static inline" when compiling with C++20 or later.
+ *
+ *       See:
+ *         https://github.com/axboe/liburing/issues/1457
+ *         https://lore.kernel.org/io-uring/e0559c10-104d-4da8-9f7f-d2ffd73d8df3@acm.org
  */
 #ifndef IOURINGINLINE
+#if defined(__cplusplus) && __cplusplus >= 202002L
+#define IOURINGINLINE inline
+#else
 #define IOURINGINLINE static inline
 #endif
+#endif
+
+#ifndef _LOCAL_INLINE
+#if defined(__cplusplus) && __cplusplus >= 202002L
+#define _LOCAL_INLINE inline
+#else
+#define _LOCAL_INLINE static inline
+#endif
+#endif
+
+/*
+ * barrier.h needs _LOCAL_INLINE.
+ */
+#include "liburing/barrier.h"
 
 #ifdef __alpha__
 /*
@@ -159,7 +187,7 @@ struct io_uring_zcrx_rq {
  * Library interface
  */
 
-static inline __u64 uring_ptr_to_u64(const void *ptr) LIBURING_NOEXCEPT
+_LOCAL_INLINE __u64 uring_ptr_to_u64(const void *ptr) LIBURING_NOEXCEPT
 {
 	return (__u64) (unsigned long) ptr;
 }
@@ -402,7 +430,7 @@ struct io_uring_cqe_iter {
 	unsigned tail;
 };
 
-static inline struct io_uring_cqe_iter
+_LOCAL_INLINE struct io_uring_cqe_iter
 io_uring_cqe_iter_init(const struct io_uring *ring)
 	LIBURING_NOEXCEPT
 {
@@ -416,7 +444,7 @@ io_uring_cqe_iter_init(const struct io_uring *ring)
 	};
 }
 
-static inline bool io_uring_cqe_iter_next(struct io_uring_cqe_iter *iter,
+_LOCAL_INLINE bool io_uring_cqe_iter_next(struct io_uring_cqe_iter *iter,
 					  struct io_uring_cqe **cqe)
 	LIBURING_NOEXCEPT
 {
@@ -522,7 +550,7 @@ IOURINGINLINE void io_uring_sqe_set_buf_group(struct io_uring_sqe *sqe,
 	sqe->buf_group = (__u16) bgid;
 }
 
-static inline void __io_uring_set_target_fixed_file(struct io_uring_sqe *sqe,
+_LOCAL_INLINE void __io_uring_set_target_fixed_file(struct io_uring_sqe *sqe,
 						    unsigned int file_index)
 	LIBURING_NOEXCEPT
 {
@@ -704,7 +732,7 @@ IOURINGINLINE void io_uring_prep_sendmsg(struct io_uring_sqe *sqe, int fd,
 	sqe->msg_flags = flags;
 }
 
-static inline unsigned __io_uring_prep_poll_mask(unsigned poll_mask)
+_LOCAL_INLINE unsigned __io_uring_prep_poll_mask(unsigned poll_mask)
 	LIBURING_NOEXCEPT
 {
 #if __BYTE_ORDER == __BIG_ENDIAN
@@ -1742,7 +1770,7 @@ IOURINGINLINE int io_uring_wait_cqe_nr(struct io_uring *ring,
  * "official" versions of this, io_uring_peek_cqe(), io_uring_wait_cqe(),
  * or io_uring_wait_cqes*().
  */
-static inline int __io_uring_peek_cqe(struct io_uring *ring,
+_LOCAL_INLINE int __io_uring_peek_cqe(struct io_uring *ring,
 				      struct io_uring_cqe **cqe_ptr,
 				      unsigned *nr_available)
 	LIBURING_NOEXCEPT
@@ -1985,6 +2013,10 @@ bool io_uring_check_version(int major, int minor) LIBURING_NOEXCEPT;
 
 #ifdef IOURINGINLINE
 #undef IOURINGINLINE
+#endif
+
+#ifdef _LOCAL_INLINE
+#undef _LOCAL_INLINE
 #endif
 
 #endif
