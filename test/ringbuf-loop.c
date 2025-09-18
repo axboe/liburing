@@ -78,7 +78,7 @@ int main(int argc, char *argv[])
 	io_uring_prep_recv(sqe, fds[1], NULL, 0, 0);
 	sqe->flags |= IOSQE_BUFFER_SELECT;
 	sqe->buf_index = BGID;
-	io_uring_submit_and_wait(&ring, 2);
+	io_uring_submit_and_wait(&ring, 1);
 
 	io_uring_free_buf_ring(&ring, br, RENTRIES, BGID);
 	io_uring_queue_exit(&ring);
