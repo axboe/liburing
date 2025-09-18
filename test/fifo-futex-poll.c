@@ -13,6 +13,10 @@
 #include "liburing.h"
 #include "helpers.h"
 
+#ifndef FUTEX2_SIZE_U32
+#define FUTEX2_SIZE_U32		0x02
+#endif
+
 int main(int argc, char *argv[])
 {
 	struct io_uring_sqe *sqe;
