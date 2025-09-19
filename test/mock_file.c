@@ -31,7 +31,10 @@ static int setup_mgr(void)
 
 	ret = mgr_fd = open("/dev/io_uring_mock", O_RDWR);
 	if (mgr_fd < 0) {
-		printf("no io_uring mock files, skip\n");
+		if (errno == EACCES)
+			printf("No permission to open /dev/io_uring_mock, skipping\n");
+		else
+			printf("no io_uring mock files, skip\n");
 		return T_EXIT_SKIP;
 	}
 
