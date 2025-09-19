@@ -353,6 +353,9 @@ int main(int argc, char *argv[])
 {
 	int ret;
 
+	if (argc > 1)
+		return T_EXIT_SKIP;
+
 	ret = setup_mgr();
 	if (ret)
 		return ret;

@@ -272,7 +272,7 @@ int main(int argc, char *argv[])
 	int ret;
 
 	if (argc > 1)
-		return 0;
+		return T_EXIT_SKIP;
 
 	ret = test_basic_query();
 	if (ret != T_EXIT_PASS) {
