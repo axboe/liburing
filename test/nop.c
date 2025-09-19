@@ -83,7 +83,7 @@ static int test_single_nop(struct io_uring *ring, unsigned req_flags)
 		goto err;
 	}
 	if (!cqe->user_data) {
-		fprintf(stderr, "Unexpected 0 user_data\n");
+		fprintf(stderr, "Unexpected 0 user_data: %ld\n", (long) cqe->user_data);
 		goto err;
 	}
 	if (cqe32) {
@@ -140,7 +140,7 @@ static int test_barrier_nop(struct io_uring *ring, unsigned req_flags)
 			goto err;
 		}
 		if (!cqe->user_data) {
-			fprintf(stderr, "Unexpected 0 user_data\n");
+			fprintf(stderr, "Unexpected 0 user_data: %ld\n", (long) cqe->user_data);
 			goto err;
 		}
 		if (cqe32) {

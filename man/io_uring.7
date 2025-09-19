@@ -514,6 +514,23 @@ left off. This can only happen if the provided buffer ring has been setup
 with
 .B IOU_PBUF_RING_INC
 to allow for incremental / partial consumption of buffers.
+.TP
+.B IORING_CQE_F_SKIP
+If the ring has been configured with
+.B IORING_SETUP_CQE_MIXED ,
+then CQEs may be posted which has this flag set. This can happen if the ring
+is a single 16b CQE entry away from wrapping, but someone needs to post a 32b
+CQE. As CQEs must be contiguous in memory, a filler/pad CQE needs to get
+posted to allow posting of the 32b CQE. CQEs with this flag set should simply
+be skipped and ignored, they serve no other purpose than to fill a gap in the
+CQ ring.
+.TP
+.B IORING_CQE_F_32
+If the ring has been configured with
+.B IORING_SETUP_CQE_MIXED ,
+this flag is set when the CQE is of the 32b type. This tells the application
+that there's an extra 16b of space in this CQE, and that to get to the next
+CQE the CQ ring must be advanced by twice as much as for a normal 16b CQE.
 .PP
 The general sequence to read completion events off the completion queue is
 as follows:

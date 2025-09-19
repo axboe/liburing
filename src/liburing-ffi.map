@@ -249,6 +249,7 @@ LIBURING_2.12 {
 	global:
 		io_uring_prep_pipe;
 		io_uring_prep_pipe_direct;
+		io_uring_cqe_nr;
 } LIBURING_2.11;
 
 LIBURING_2.13 {

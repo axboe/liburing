@@ -149,6 +149,8 @@ test_srcs := \
 	no-mmap-inval.c \
 	nop-all-sizes.c \
 	nop.c \
+	nop32.c \
+	nop32-overflow.c \
 	ooo-file-unreg.c \
 	openat2.c \
 	open-close.c \
