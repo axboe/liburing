@@ -127,7 +127,9 @@ static int _io_uring_get_cqe(struct io_uring *ring,
 	} while (1);
 
 	*cqe_ptr = cqe;
-	return err;
+        if (err >= 0 && !cqe)
+        return -EAGAIN;
+        return err;
 }
 
 int __io_uring_get_cqe(struct io_uring *ring, struct io_uring_cqe **cqe_ptr,
