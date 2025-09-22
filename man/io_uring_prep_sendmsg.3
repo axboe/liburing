@@ -103,7 +103,17 @@ Instead it returns the negated
 .I errno
 directly in the CQE
 .I res
-field.
+field. Some common error cases are:
+.TP
+.B -ENOMEM
+The
+.BR ulimit (1)
+-l setting is too low to support the size of the attempted zero copy send.
+Increasing the limit may help
+.TP
+.B -ENOMEM
+The kernel ran out of memory.
+.P
 .SH NOTES
 As with any request that passes in data in a struct, that data must remain
 valid until the request has been successfully submitted. It need not remain
