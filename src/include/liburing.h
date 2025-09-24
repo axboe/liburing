@@ -657,7 +657,7 @@ IOURINGINLINE void io_uring_prep_readv2(struct io_uring_sqe *sqe, int fd,
 }
 
 IOURINGINLINE void io_uring_prep_read_fixed(struct io_uring_sqe *sqe, int fd,
-					    void *buf, unsigned nbytes,
+					    const void *buf, unsigned nbytes,
 					    __u64 offset, int buf_index)
 	LIBURING_NOEXCEPT
 {
@@ -715,7 +715,7 @@ IOURINGINLINE void io_uring_prep_writev_fixed(struct io_uring_sqe *sqe, int fd,
 }
 
 IOURINGINLINE void io_uring_prep_recvmsg(struct io_uring_sqe *sqe, int fd,
-					 struct msghdr *msg, unsigned flags)
+					 const struct msghdr *msg, unsigned flags)
 	LIBURING_NOEXCEPT
 {
 	io_uring_prep_rw(IORING_OP_RECVMSG, sqe, fd, msg, 1, 0);
@@ -800,7 +800,7 @@ IOURINGINLINE void io_uring_prep_nop(struct io_uring_sqe *sqe)
 }
 
 IOURINGINLINE void io_uring_prep_timeout(struct io_uring_sqe *sqe,
-					 struct __kernel_timespec *ts,
+					 const struct __kernel_timespec *ts,
 					 unsigned count, unsigned flags)
 	LIBURING_NOEXCEPT
 {
@@ -829,7 +829,7 @@ IOURINGINLINE void io_uring_prep_timeout_update(struct io_uring_sqe *sqe,
 }
 
 IOURINGINLINE void io_uring_prep_accept(struct io_uring_sqe *sqe, int fd,
-					struct sockaddr *addr,
+					const struct sockaddr *addr,
 					socklen_t *addrlen, int flags)
 	LIBURING_NOEXCEPT
 {
@@ -898,7 +898,7 @@ IOURINGINLINE void io_uring_prep_cancel_fd(struct io_uring_sqe *sqe, int fd,
 }
 
 IOURINGINLINE void io_uring_prep_link_timeout(struct io_uring_sqe *sqe,
-					      struct __kernel_timespec *ts,
+					      const struct __kernel_timespec *ts,
 					      unsigned flags)
 	LIBURING_NOEXCEPT
 {
@@ -915,7 +915,7 @@ IOURINGINLINE void io_uring_prep_connect(struct io_uring_sqe *sqe, int fd,
 }
 
 IOURINGINLINE void io_uring_prep_bind(struct io_uring_sqe *sqe, int fd,
-				      struct sockaddr *addr,
+				      const struct sockaddr *addr,
 				      socklen_t addrlen)
 	LIBURING_NOEXCEPT
 {
@@ -931,7 +931,7 @@ IOURINGINLINE void io_uring_prep_listen(struct io_uring_sqe *sqe, int fd,
 
 struct epoll_event;
 IOURINGINLINE void io_uring_prep_epoll_wait(struct io_uring_sqe *sqe, int fd,
-					    struct epoll_event *events,
+					    const struct epoll_event *events,
 					    int maxevents, unsigned flags)
 	LIBURING_NOEXCEPT
 {
@@ -940,7 +940,7 @@ IOURINGINLINE void io_uring_prep_epoll_wait(struct io_uring_sqe *sqe, int fd,
 }
 
 IOURINGINLINE void io_uring_prep_files_update(struct io_uring_sqe *sqe,
-					      int *fds, unsigned nr_fds,
+					      const int *fds, unsigned nr_fds,
 					      int offset)
 	LIBURING_NOEXCEPT
 {
@@ -1011,7 +1011,7 @@ IOURINGINLINE void io_uring_prep_close_direct(struct io_uring_sqe *sqe,
 }
 
 IOURINGINLINE void io_uring_prep_read(struct io_uring_sqe *sqe, int fd,
-				      void *buf, unsigned nbytes, __u64 offset)
+				      const void *buf, unsigned nbytes, __u64 offset)
 	LIBURING_NOEXCEPT
 {
 	io_uring_prep_rw(IORING_OP_READ, sqe, fd, buf, nbytes, offset);
@@ -1055,7 +1055,7 @@ IOURINGINLINE void io_uring_prep_fadvise(struct io_uring_sqe *sqe, int fd,
 	sqe->fadvise_advice = (__u32) advice;
 }
 
-IOURINGINLINE void io_uring_prep_madvise(struct io_uring_sqe *sqe, void *addr,
+IOURINGINLINE void io_uring_prep_madvise(struct io_uring_sqe *sqe, const void *addr,
 					 __u32 length, int advice)
 	LIBURING_NOEXCEPT
 {
@@ -1072,7 +1072,7 @@ IOURINGINLINE void io_uring_prep_fadvise64(struct io_uring_sqe *sqe, int fd,
 	sqe->fadvise_advice = (__u32) advice;
 }
 
-IOURINGINLINE void io_uring_prep_madvise64(struct io_uring_sqe *sqe, void *addr,
+IOURINGINLINE void io_uring_prep_madvise64(struct io_uring_sqe *sqe, const void *addr,
 					 off_t length, int advice)
 	LIBURING_NOEXCEPT
 {
@@ -1159,7 +1159,7 @@ IOURINGINLINE void io_uring_prep_sendmsg_zc_fixed(struct io_uring_sqe *sqe,
 }
 
 IOURINGINLINE void io_uring_prep_recv(struct io_uring_sqe *sqe, int sockfd,
-				      void *buf, size_t len, int flags)
+				      const void *buf, size_t len, int flags)
 	LIBURING_NOEXCEPT
 {
 	io_uring_prep_rw(IORING_OP_RECV, sqe, sockfd, buf, (__u32) len, 0);
@@ -1271,7 +1271,7 @@ IOURINGINLINE void io_uring_prep_openat2_direct(struct io_uring_sqe *sqe,
 struct epoll_event;
 IOURINGINLINE void io_uring_prep_epoll_ctl(struct io_uring_sqe *sqe, int epfd,
 					   int fd, int op,
-					   struct epoll_event *ev)
+					   const struct epoll_event *ev)
 	LIBURING_NOEXCEPT
 {
 	io_uring_prep_rw(IORING_OP_EPOLL_CTL, sqe, epfd, ev,
@@ -1279,7 +1279,7 @@ IOURINGINLINE void io_uring_prep_epoll_ctl(struct io_uring_sqe *sqe, int epfd,
 }
 
 IOURINGINLINE void io_uring_prep_provide_buffers(struct io_uring_sqe *sqe,
-						 void *addr, int len, int nr,
+						 const void *addr, int len, int nr,
 						 int bgid, int bid)
 	LIBURING_NOEXCEPT
 {
@@ -1420,7 +1420,7 @@ IOURINGINLINE void io_uring_prep_msg_ring_fd(struct io_uring_sqe *sqe, int fd,
 	LIBURING_NOEXCEPT
 {
 	io_uring_prep_rw(IORING_OP_MSG_RING, sqe, fd,
-			 (void *) (uintptr_t) IORING_MSG_SEND_FD, 0, data);
+			 (const void *) (uintptr_t) IORING_MSG_SEND_FD, 0, data);
 	sqe->addr3 = source_fd;
 	/* offset by 1 for allocation */
 	if ((unsigned int) target_fd == IORING_FILE_INDEX_ALLOC)
@@ -1550,7 +1550,7 @@ IOURINGINLINE void io_uring_prep_waitid(struct io_uring_sqe *sqe,
 }
 
 IOURINGINLINE void io_uring_prep_futex_wake(struct io_uring_sqe *sqe,
-					    uint32_t *futex, uint64_t val,
+					    const uint32_t *futex, uint64_t val,
 					    uint64_t mask, uint32_t futex_flags,
 					    unsigned int flags)
 	LIBURING_NOEXCEPT
@@ -1561,7 +1561,7 @@ IOURINGINLINE void io_uring_prep_futex_wake(struct io_uring_sqe *sqe,
 }
 
 IOURINGINLINE void io_uring_prep_futex_wait(struct io_uring_sqe *sqe,
-					    uint32_t *futex, uint64_t val,
+					    const uint32_t *futex, uint64_t val,
 					    uint64_t mask, uint32_t futex_flags,
 					    unsigned int flags)
 	LIBURING_NOEXCEPT
@@ -1573,7 +1573,7 @@ IOURINGINLINE void io_uring_prep_futex_wait(struct io_uring_sqe *sqe,
 
 struct futex_waitv;
 IOURINGINLINE void io_uring_prep_futex_waitv(struct io_uring_sqe *sqe,
-					     struct futex_waitv *futex,
+					     const struct futex_waitv *futex,
 					     uint32_t nr_futex,
 					     unsigned int flags)
 	LIBURING_NOEXCEPT
@@ -1612,7 +1612,7 @@ IOURINGINLINE void io_uring_prep_cmd_discard(struct io_uring_sqe *sqe,
 	sqe->addr3 = nbytes;
 }
 
-IOURINGINLINE void io_uring_prep_pipe(struct io_uring_sqe *sqe, int *fds,
+IOURINGINLINE void io_uring_prep_pipe(struct io_uring_sqe *sqe, const int *fds,
 				      int pipe_flags)
 {
 	io_uring_prep_rw(IORING_OP_PIPE, sqe, 0, fds, 0, 0);
