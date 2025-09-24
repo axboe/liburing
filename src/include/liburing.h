@@ -518,6 +518,7 @@ IOURINGINLINE void io_uring_sqe_set_data(struct io_uring_sqe *sqe, void *data)
 }
 
 IOURINGINLINE void *io_uring_cqe_get_data(const struct io_uring_cqe *cqe)
+	LIBURING_NOEXCEPT
 {
 	return (void *) (uintptr_t) cqe->user_data;
 }
@@ -915,7 +916,7 @@ IOURINGINLINE void io_uring_prep_connect(struct io_uring_sqe *sqe, int fd,
 }
 
 IOURINGINLINE void io_uring_prep_bind(struct io_uring_sqe *sqe, int fd,
-				      struct sockaddr *addr,
+				      const struct sockaddr *addr,
 				      socklen_t addrlen)
 	LIBURING_NOEXCEPT
 {
@@ -923,7 +924,7 @@ IOURINGINLINE void io_uring_prep_bind(struct io_uring_sqe *sqe, int fd,
 }
 
 IOURINGINLINE void io_uring_prep_listen(struct io_uring_sqe *sqe, int fd,
-				      int backlog)
+					int backlog)
 	LIBURING_NOEXCEPT
 {
 	io_uring_prep_rw(IORING_OP_LISTEN, sqe, fd, 0, backlog, 0);
@@ -1773,7 +1774,7 @@ IOURINGINLINE int io_uring_wait_cqe_nr(struct io_uring *ring,
 	return __io_uring_get_cqe(ring, cqe_ptr, 0, wait_nr, NULL);
 }
 
-static inline bool io_uring_skip_cqe(struct io_uring *ring,
+_LOCAL_INLINE bool io_uring_skip_cqe(struct io_uring *ring,
 				     struct io_uring_cqe *cqe, int *err)
 {
 	if (cqe->flags & IORING_CQE_F_SKIP)
