@@ -12,7 +12,7 @@ io_uring_prep_futex_waitv \- prepare a futex waitv request
 .B #include <liburing.h>
 .PP
 .BI "void io_uring_prep_futex_waitv(struct io_uring_sqe *" sqe ","
-.BI "                               struct futex_waitv *" futexv ","
+.BI "                               const struct futex_waitv *" futexv ","
 .BI "                               uint32_t " nr_futex ","
 .BI "                               unsigned int " flags ");"
 .fi

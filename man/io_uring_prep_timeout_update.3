@@ -10,7 +10,7 @@ io_uring_prep_timeout_update \- prepare a request to update an existing timeout
 .B #include <liburing.h>
 .PP
 .BI "void io_uring_prep_timeout_update(struct io_uring_sqe *" sqe ","
-.BI "                                  struct __kernel_timespec *" ts ","
+.BI "                                  const struct __kernel_timespec *" ts ","
 .BI "                                  __u64 " user_data ","
 .BI "                                  unsigned " flags ");"
 .PP

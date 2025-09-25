@@ -14,7 +14,7 @@ io_uring_prep_cancel \- prepare a cancelation request
 .BI "                            int " flags ");"
 .PP
 .BI "void io_uring_prep_cancel(struct io_uring_sqe *" sqe ","
-.BI "                          void *" user_data ","
+.BI "                          const void *" user_data ","
 .BI "                          int " flags ");"
 .PP
 .BI "void io_uring_prep_cancel_fd(struct io_uring_sqe *" sqe ","
