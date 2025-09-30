@@ -12,7 +12,7 @@ io_uring_prep_futex_wait \- prepare a futex wait request
 .B #include <liburing.h>
 .PP
 .BI "void io_uring_prep_futex_wait(struct io_uring_sqe *" sqe ","
-.BI "                              uint32_t *" futex ","
+.BI "                              const uint32_t *" futex ","
 .BI "                              uint64_t " val ","
 .BI "                              uint64_t " mask ","
 .BI "                              uint32_t " futex_flags ","

@@ -16,12 +16,12 @@ io_uring_prep_openat2 \- prepare an openat2 request
 .BI "void io_uring_prep_openat2(struct io_uring_sqe *" sqe ","
 .BI "                           int " dfd ","
 .BI "                           const char *" path ","
-.BI "                           struct open_how *" how ");"
+.BI "                           const struct open_how *" how ");"
 .PP
 .BI "void io_uring_prep_openat2_direct(struct io_uring_sqe *" sqe ","
 .BI "                                  int " dfd ","
 .BI "                                  const char *" path ","
-.BI "                                  struct open_how *" how ","
+.BI "                                  const struct open_how *" how ","
 .BI "                                  unsigned " file_index ");"
 .fi
 .SH DESCRIPTION

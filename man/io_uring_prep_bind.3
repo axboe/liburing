@@ -12,7 +12,7 @@ io_uring_prep_bind \- prepare a bind request
 .PP
 .BI "void io_uring_prep_bind(struct io_uring_sqe *" sqe ","
 .BI "                          int " sockfd ","
-.BI "                          struct sockaddr *" addr ","
+.BI "                          const struct sockaddr *" addr ","
 .BI "                          socklen_t " addrlen ");"
 .fi
 .SH DESCRIPTION

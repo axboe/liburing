@@ -10,7 +10,7 @@ io_uring_prep_link_timeout \- a timeout request for linked sqes
 .B #include <liburing.h>
 .PP
 .BI "void io_uring_prep_link_timeout(struct io_uring_sqe *" sqe ","
-.BI "                                struct __kernel_timespec *" ts ","
+.BI "                                const struct __kernel_timespec *" ts ","
 .BI "                                unsigned " flags ");"
 .fi
 .SH DESCRIPTION

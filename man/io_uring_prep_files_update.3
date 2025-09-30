@@ -10,7 +10,7 @@ io_uring_prep_files_update \- prepare a registered file update request
 .B #include <liburing.h>
 .PP
 .BI "void io_uring_prep_files_update(struct io_uring_sqe *" sqe ","
-.BI "                                int *" fds ","
+.BI "                                const int *" fds ","
 .BI "                                unsigned " nr_fds ","
 .BI "                                int " offset ");"
 .fi
