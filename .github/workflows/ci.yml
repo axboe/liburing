@@ -196,6 +196,17 @@ jobs:
         run: |
           sudo make install;
 
+      - name: Test build against the installed liburing
+        run: |
+          export TEST_FILE=".github/workflows/test_build.c";
+          if [ "$SANITIZE" -eq "1" ]; then
+            export SANITIZE_FLAGS="-fsanitize=address,undefined";
+          else
+            export SANITIZE_FLAGS="";
+          fi;
+          ${{matrix.build_args.cc}} -x c -o a.out $TEST_FILE -luring $SANITIZE_FLAGS;
+          ${{matrix.build_args.cxx}} -x c++ -o a.out $TEST_FILE -luring $SANITIZE_FLAGS;
+
 
   alpine-musl-build:
     needs: get_commit_list
@@ -238,6 +249,13 @@ jobs:
         shell: alpine.sh --root {0}
         run: |
           make install;
+
+      - name: Test build against the installed liburing
+        shell: alpine.sh {0}
+        run: |
+          export TEST_FILE=".github/workflows/test_build.c";
+          gcc -x c -o a.out $TEST_FILE -luring;
+          g++ -x c++ -o a.out $TEST_FILE -luring;
 
 
   codespell:
