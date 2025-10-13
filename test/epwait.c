@@ -233,6 +233,7 @@ static void prune(struct epoll_event *evs, int nr)
 
 static int test_race(int flags)
 {
+	int nr_cpus;
 	struct io_uring_cqe *cqe;
 	struct io_uring_sqe *sqe;
 	struct io_uring ring;
@@ -242,6 +243,12 @@ static int test_race(int flags)
 	pthread_t thread;
 	int i, j, efd, ret;
 	void *tret;
+
+	nr_cpus = sysconf(_SC_NPROCESSORS_ONLN);
+	if (nr_cpus <= 2) {
+		fprintf(stderr, "test_race requires more than 2 CPUs, found %d\n", nr_cpus);
+		return T_EXIT_SKIP;
+	}
 
 	ret = t_create_ring(32, &ring, flags);
 	if (ret == T_SETUP_SKIP) {
@@ -380,7 +387,11 @@ static int test(int flags)
 	}
 
 	ret = test_race(flags);
-	if (ret) {
+	if (ret == T_EXIT_SKIP) {
+		fprintf(stderr, "test_race skipped\n");
+		return T_EXIT_SKIP;
+	}
+	else if (ret) {
 		fprintf(stderr, "test_race failed\n");
 		return T_EXIT_FAIL;
 	}
