@@ -62,6 +62,12 @@ ifeq ($(CONFIG_USE_SANITIZER),y)
 	liburing_srcs += sanitize.c
 endif
 
+ifeq ($(CONFIG_USE_TSAN),y)
+	override CFLAGS += -fsanitize=thread -fno-omit-frame-pointer -fno-optimize-sibling-calls
+	override CPPFLAGS += -fsanitize=thread -fno-omit-frame-pointer -fno-optimize-sibling-calls
+	override LINK_FLAGS += -fsanitize=thread -ltsan
+endif
+
 override CPPFLAGS += -MT "$@" -MMD -MP -MF "$@.d"
 liburing_objs := $(patsubst %.c,%.ol,$(liburing_srcs))
 liburing_sobjs := $(patsubst %.c,%.os,$(liburing_srcs))

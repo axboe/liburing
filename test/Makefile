@@ -31,6 +31,10 @@ ifeq ($(CONFIG_USE_SANITIZER),y)
 	XCFLAGS += -fsanitize=address,undefined -fno-omit-frame-pointer -fno-optimize-sibling-calls
 endif
 
+ifeq ($(CONFIG_USE_TSAN),y)
+	XCFLAGS += -fsanitize=thread -fno-omit-frame-pointer -fno-optimize-sibling-calls
+endif
+
 CXXFLAGS ?= $(CFLAGS)
 override CFLAGS += $(XCFLAGS) -DLIBURING_BUILD_TEST
 override CXXFLAGS += $(XCFLAGS) -std=c++11 -DLIBURING_BUILD_TEST

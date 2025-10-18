@@ -46,6 +46,7 @@ jobs:
             cc: x86_64-linux-gnu-gcc
             cxx: x86_64-linux-gnu-g++
             sanitize: 0
+            tsan: 0
 
           # x86-64 gcc asan
           - arch: x86_64
@@ -54,6 +55,7 @@ jobs:
             cc: x86_64-linux-gnu-gcc
             cxx: x86_64-linux-gnu-g++
             sanitize: 1
+            tsan: 0
 
           # x86-64 clang asan
           - arch: x86_64
@@ -62,6 +64,16 @@ jobs:
             cc: clang
             cxx: clang++
             sanitize: 1
+            tsan: 0
+
+          # x86-64 clang tsan
+          - arch: x86_64
+            cc_pkg: clang
+            cxx_pkg: clang
+            cc: clang
+            cxx: clang++
+            sanitize: 0
+            tsan: 1
 
           # x86-64 clang
           - arch: x86_64
@@ -72,6 +84,7 @@ jobs:
             liburing_extra_flags: -Wshorten-64-to-32
             extra_flags: -Wmissing-prototypes -Wstrict-prototypes -Wunreachable-code-loop-increment -Wunreachable-code -Wmissing-variable-declarations -Wextra-semi-stmt
             sanitize: 0
+            tsan: 0
 
           # x86 (32-bit) gcc
           - arch: i686
@@ -80,6 +93,7 @@ jobs:
             cc: i686-linux-gnu-gcc
             cxx: i686-linux-gnu-g++
             sanitize: 0
+            tsan: 0
 
           # aarch64 gcc
           - arch: aarch64
@@ -88,6 +102,7 @@ jobs:
             cc: aarch64-linux-gnu-gcc
             cxx: aarch64-linux-gnu-g++
             sanitize: 0
+            tsan: 0
 
           # arm (32-bit) gcc
           - arch: arm
@@ -96,6 +111,7 @@ jobs:
             cc: arm-linux-gnueabi-gcc
             cxx: arm-linux-gnueabi-g++
             sanitize: 0
+            tsan: 0
 
           # riscv64
           - arch: riscv64
@@ -104,6 +120,7 @@ jobs:
             cc: riscv64-linux-gnu-gcc
             cxx: riscv64-linux-gnu-g++
             sanitize: 0
+            tsan: 0
 
           # powerpc64
           - arch: powerpc64
@@ -112,6 +129,7 @@ jobs:
             cc: powerpc64-linux-gnu-gcc
             cxx: powerpc64-linux-gnu-g++
             sanitize: 0
+            tsan: 0
 
           # powerpc
           - arch: powerpc
@@ -120,6 +138,7 @@ jobs:
             cc: powerpc-linux-gnu-gcc
             cxx: powerpc-linux-gnu-g++
             sanitize: 0
+            tsan: 0
 
           # alpha
           - arch: alpha
@@ -128,6 +147,7 @@ jobs:
             cc: alpha-linux-gnu-gcc
             cxx: alpha-linux-gnu-g++
             sanitize: 0
+            tsan: 0
 
           # mips64
           - arch: mips64
@@ -136,6 +156,7 @@ jobs:
             cc: mips64-linux-gnuabi64-gcc
             cxx: mips64-linux-gnuabi64-g++
             sanitize: 0
+            tsan: 0
 
           # mips
           - arch: mips
@@ -144,6 +165,7 @@ jobs:
             cc: mips-linux-gnu-gcc
             cxx: mips-linux-gnu-g++
             sanitize: 0
+            tsan: 0
 
           # hppa
           - arch: hppa
@@ -152,10 +174,12 @@ jobs:
             cc: hppa-linux-gnu-gcc
             cxx: hppa-linux-gnu-g++
             sanitize: 0
+            tsan: 0
 
     env:
       FLAGS: -g -O3 -Wall -Wextra -Werror -Wno-sign-compare ${{matrix.build_args.extra_flags}}
       SANITIZE: ${{matrix.build_args.sanitize}}
+      THREAD_SANITIZE: ${{matrix.build_args.tsan}}
 
       # Flags for building sources in src/ dir only.
       LIBURING_CFLAGS: ${{matrix.build_args.liburing_extra_flags}}
@@ -181,7 +205,7 @@ jobs:
           ${{matrix.build_args.cxx}} --version;
 
       - name: Build
-        if: ${{matrix.build_args.sanitize == '0'}}
+        if: ${{matrix.build_args.sanitize == '0' && matrix.build_args.tsan == '0'}}
         run: |
           ./configure --cc=${{matrix.build_args.cc}} --cxx=${{matrix.build_args.cxx}};
           make -j$(nproc) V=1 CPPFLAGS="-Werror" CFLAGS="$FLAGS" CXXFLAGS="$FLAGS";
@@ -190,6 +214,12 @@ jobs:
         if: ${{matrix.build_args.sanitize == '1'}}
         run: |
           ./configure --cc=${{matrix.build_args.cc}} --cxx=${{matrix.build_args.cxx}} --enable-sanitizer;
+          make -j$(nproc) V=1 CPPFLAGS="-Werror" CFLAGS="$FLAGS" CXXFLAGS="$FLAGS";
+
+      - name: Build
+        if: ${{matrix.build_args.tsan == '1'}}
+        run: |
+          ./configure --cc=${{matrix.build_args.cc}} --cxx=${{matrix.build_args.cxx}} --enable-tsan;
           make -j$(nproc) V=1 CPPFLAGS="-Werror" CFLAGS="$FLAGS" CXXFLAGS="$FLAGS";
 
       - name: Test install command
@@ -201,6 +231,8 @@ jobs:
           export TEST_FILE=".github/workflows/test_build.c";
           if [ "$SANITIZE" -eq "1" ]; then
             export SANITIZE_FLAGS="-fsanitize=address,undefined";
+          elif [ "$THREAD_SANITIZE" -eq "1" ]; then
+            export SANITIZE_FLAGS="-fsanitize=thread";
           else
             export SANITIZE_FLAGS="";
           fi;

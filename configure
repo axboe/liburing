@@ -30,6 +30,8 @@ for opt do
   ;;
   --enable-sanitizer) use_sanitizer=yes
   ;;
+  --enable-tsan) use_tsan=yes
+  ;;
   *)
     echo "ERROR: unknown option $opt"
     echo "Try '$0 --help' for more information"
@@ -575,6 +577,12 @@ if test "$use_sanitizer" = "yes"; then
   print_config "use sanitizer" "yes"
 else
   print_config "use sanitizer" "no"
+fi
+if test "$use_tsan" = "yes"; then
+  output_sym "CONFIG_USE_TSAN"
+  print_config "use tsan" "yes"
+else
+  print_config "use tsan" "no"
 fi
 
 echo "CC=$cc" >> $config_host_mak
