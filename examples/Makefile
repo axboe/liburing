@@ -19,6 +19,12 @@ ifeq ($(CONFIG_USE_SANITIZER),y)
 	override LDFLAGS += -fsanitize=address,undefined
 endif
 
+ifeq ($(CONFIG_USE_TSAN),y)
+	override CFLAGS += -fsanitize=thread -fno-omit-frame-pointer -fno-optimize-sibling-calls
+	override CPPFLAGS += -fsanitize=thread -fno-omit-frame-pointer -fno-optimize-sibling-calls
+	override LDFLAGS += -fsanitize=thread -ltsan
+endif
+
 example_srcs := \
 	io_uring-close-test.c \
 	io_uring-cp.c \
