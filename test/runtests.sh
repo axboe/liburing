@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 TESTS=("$@")
-TIMEOUT=60
+: "${TIMEOUT:=60}"
 DMESG_FILTER="cat"
 TEST_DIR=$(dirname "$0")
 FAILED=()
@@ -99,7 +99,7 @@ run_test()
 
 	# Run the test
 	T_START=$(date +%s)
-	timeout -s INT -k $TIMEOUT $TIMEOUT "${test_exec[@]}"
+	timeout -s INT -k "${TIMEOUT}" "${TIMEOUT}" "${test_exec[@]}"
 	local status=$?
 	T_END=$(date +%s)
 

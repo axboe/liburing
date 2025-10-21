@@ -225,7 +225,6 @@ test_srcs := \
 	socket-rw-offset.c \
 	splice.c \
 	sq-full.c \
-	sq-full-cpp.cc \
 	sqpoll-disable-exit.c \
 	sqpoll-exec.c \
 	sq-poll-dup.c \
