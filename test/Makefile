@@ -239,6 +239,7 @@ test_srcs := \
 	sq-space_left.c \
 	sqe-mixed-nop.c \
 	sqe-mixed-bad-wrap.c \
+	sqe-mixed-uring_cmd.c \
 	sqwait.c \
 	stdout.c \
 	submit-and-wait.c \
