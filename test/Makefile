@@ -237,6 +237,8 @@ test_srcs := \
 	sq-poll-share.c \
 	sqpoll-sleep.c \
 	sq-space_left.c \
+	sqe-mixed-nop.c \
+	sqe-mixed-bad-wrap.c \
 	sqwait.c \
 	stdout.c \
 	submit-and-wait.c \
