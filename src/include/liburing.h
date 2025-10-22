@@ -1517,6 +1517,19 @@ IOURINGINLINE void io_uring_prep_socket_direct_alloc(struct io_uring_sqe *sqe,
 	__io_uring_set_target_fixed_file(sqe, IORING_FILE_INDEX_ALLOC - 1);
 }
 
+IOURINGINLINE void io_uring_prep_uring_cmd(struct io_uring_sqe *sqe,
+					   __u32 cmd_op,
+					   int fd)
+	LIBURING_NOEXCEPT
+{
+	sqe->opcode = IORING_OP_URING_CMD;
+	sqe->fd = fd;
+	sqe->cmd_op = cmd_op;
+	sqe->__pad1 = 0;
+	sqe->addr = 0ul;
+	sqe->len = 0;
+}
+
 /*
  * Prepare commands for sockets
  */
@@ -1529,11 +1542,10 @@ IOURINGINLINE void io_uring_prep_cmd_sock(struct io_uring_sqe *sqe,
 					  int optlen)
 	LIBURING_NOEXCEPT
 {
-	io_uring_prep_rw(IORING_OP_URING_CMD, sqe, fd, NULL, 0, 0);
+	io_uring_prep_uring_cmd(sqe, cmd_op, fd);
 	sqe->optval = (unsigned long) (uintptr_t) optval;
 	sqe->optname = optname;
 	sqe->optlen = optlen;
-	sqe->cmd_op = cmd_op;
 	sqe->level = level;
 }
 
@@ -1607,8 +1619,7 @@ IOURINGINLINE void io_uring_prep_cmd_discard(struct io_uring_sqe *sqe,
 					     uint64_t offset, uint64_t nbytes)
 	LIBURING_NOEXCEPT
 {
-	io_uring_prep_rw(IORING_OP_URING_CMD, sqe, fd, 0, 0, 0);
-	sqe->cmd_op = BLOCK_URING_CMD_DISCARD;
+	io_uring_prep_uring_cmd(sqe, BLOCK_URING_CMD_DISCARD, fd);
 	sqe->addr = offset;
 	sqe->addr3 = nbytes;
 }
