@@ -253,5 +253,9 @@ LIBURING_2.12 {
 } LIBURING_2.11;
 
 LIBURING_2.13 {
-
+	global:
+		io_uring_prep_nop128;
+		io_uring_prep_uring_cmd;
+		io_uring_prep_uring_cmd128;
+		io_uring_get_sqe128;
 } LIBURING_2.12;
