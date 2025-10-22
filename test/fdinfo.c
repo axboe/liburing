@@ -167,6 +167,7 @@ static int __test_io(const char *file, struct io_uring *ring, int write,
 			offset += BS;
 	}
 
+	__io_uring_flush_sq(ring);
 	fdinfo_read(ring);
 
 	ret = io_uring_submit(ring);
