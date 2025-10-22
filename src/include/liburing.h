@@ -800,6 +800,12 @@ IOURINGINLINE void io_uring_prep_nop(struct io_uring_sqe *sqe)
 	io_uring_prep_rw(IORING_OP_NOP, sqe, -1, NULL, 0, 0);
 }
 
+IOURINGINLINE void io_uring_prep_nop128(struct io_uring_sqe *sqe)
+	LIBURING_NOEXCEPT
+{
+	io_uring_prep_rw(IORING_OP_NOP128, sqe, -1, NULL, 0, 0);
+}
+
 IOURINGINLINE void io_uring_prep_timeout(struct io_uring_sqe *sqe,
 					 const struct __kernel_timespec *ts,
 					 unsigned count, unsigned flags)
@@ -1517,17 +1523,34 @@ IOURINGINLINE void io_uring_prep_socket_direct_alloc(struct io_uring_sqe *sqe,
 	__io_uring_set_target_fixed_file(sqe, IORING_FILE_INDEX_ALLOC - 1);
 }
 
-IOURINGINLINE void io_uring_prep_uring_cmd(struct io_uring_sqe *sqe,
-					   __u32 cmd_op,
-					   int fd)
+IOURINGINLINE void __io_uring_prep_uring_cmd(struct io_uring_sqe *sqe,
+					     int op,
+					     __u32 cmd_op,
+					     int fd)
 	LIBURING_NOEXCEPT
 {
-	sqe->opcode = IORING_OP_URING_CMD;
+	sqe->opcode = (__u8) op;
 	sqe->fd = fd;
 	sqe->cmd_op = cmd_op;
 	sqe->__pad1 = 0;
 	sqe->addr = 0ul;
 	sqe->len = 0;
+}
+
+IOURINGINLINE void io_uring_prep_uring_cmd(struct io_uring_sqe *sqe,
+					   int cmd_op,
+					   int fd)
+	LIBURING_NOEXCEPT
+{
+	__io_uring_prep_uring_cmd(sqe, IORING_OP_URING_CMD, cmd_op, fd);
+}
+
+IOURINGINLINE void io_uring_prep_uring_cmd128(struct io_uring_sqe *sqe,
+					      int cmd_op,
+					      int fd)
+	LIBURING_NOEXCEPT
+{
+	__io_uring_prep_uring_cmd(sqe, IORING_OP_URING_CMD128, cmd_op, fd);
 }
 
 /*
@@ -2006,6 +2029,48 @@ IOURINGINLINE struct io_uring_sqe *io_uring_get_sqe(struct io_uring *ring)
 #else
 struct io_uring_sqe *io_uring_get_sqe(struct io_uring *ring);
 #endif
+
+
+/*
+ * Return a 128B sqe to fill. Applications must later call io_uring_submit()
+ * when it's ready to tell the kernel about it. The caller may call this
+ * function multiple times before calling io_uring_submit().
+ *
+ * Returns a vacant 128B sqe, or NULL if we're full. If the current tail is the
+ * last entry in the ring, this function will insert a nop + skip complete such
+ * that the 128b entry wraps back to the beginning of the queue for a
+ * contiguous big sq entry. It's up to the caller to use a 128b opcode in order
+ * for the kernel to know how to advance its sq head pointer.
+ */
+IOURINGINLINE struct io_uring_sqe *io_uring_get_sqe128(struct io_uring *ring)
+	LIBURING_NOEXCEPT
+{
+	struct io_uring_sq *sq = &ring->sq;
+	unsigned head = io_uring_load_sq_head(ring), tail = sq->sqe_tail;
+	struct io_uring_sqe *sqe;
+
+	if (ring->flags & IORING_SETUP_SQE128)
+		return io_uring_get_sqe(ring);
+	if (!(ring->flags & IORING_SETUP_SQE_MIXED))
+		return NULL;
+
+	if (((tail + 1) & sq->ring_mask) == 0) {
+		if ((tail + 2) - head >= sq->ring_entries)
+			return NULL;
+
+		sqe = _io_uring_get_sqe(ring);
+		io_uring_prep_nop(sqe);
+		sqe->flags |= IOSQE_CQE_SKIP_SUCCESS;
+		tail = sq->sqe_tail;
+	} else if ((tail + 1) - head >= sq->ring_entries) {
+		return NULL;
+	}
+
+	sqe = &sq->sqes[tail & sq->ring_mask];
+	sq->sqe_tail = tail + 2;
+	io_uring_initialize_sqe(sqe);
+	return sqe;
+}
 
 ssize_t io_uring_mlock_size(unsigned entries, unsigned flags)
 	LIBURING_NOEXCEPT;
