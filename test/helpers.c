@@ -136,9 +136,10 @@ enum t_setup_ret t_create_ring_params(int depth, struct io_uring *ring,
 		fprintf(stdout, "SQPOLL skipped for regular user\n");
 		return T_SETUP_SKIP;
 	}
+	if (ret == -EINVAL)
+		return T_SETUP_SKIP;
 
-	if (ret != -EINVAL)
-		fprintf(stderr, "queue_init: %s\n", strerror(-ret));
+	fprintf(stderr, "queue_init: %s\n", strerror(-ret));
 	return ret;
 }
 
