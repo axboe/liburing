@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <string.h>
+#include <sys/stat.h>
 
 #include "helpers.h"
 #include "liburing.h"
@@ -95,6 +96,7 @@ static int test_single_nvme_read(struct io_uring *ring, int fd)
 int main(int argc, char *argv[])
 {
 	struct io_uring ring;
+	struct stat sb;
 	int fd, ret, i;
 
 	if (argc < 2)
@@ -110,6 +112,16 @@ int main(int argc, char *argv[])
 			return T_EXIT_SKIP;
 		perror("file open");
 		return T_EXIT_FAIL;
+	}
+
+	if (fstat(fd, &sb) < 0) {
+		perror("fstat");
+		ret = T_EXIT_FAIL;
+		goto close;
+	}
+	if (!S_ISCHR(sb.st_mode)) {
+		ret = T_EXIT_SKIP;
+		goto close;
 	}
 
 	ret = io_uring_queue_init(8, &ring,
