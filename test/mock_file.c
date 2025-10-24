@@ -46,7 +46,7 @@ static int setup_mgr(void)
 
 	memset(&mp, 0, sizeof(mp));
 	sqe = io_uring_get_sqe(&mgr_ring);
-	t_sqe_prep_cmd(sqe, mgr_fd, IORING_MOCK_MGR_CMD_PROBE);
+	io_uring_prep_uring_cmd(sqe, IORING_MOCK_MGR_CMD_PROBE, mgr_fd);
 	sqe->addr  = (__u64)(unsigned long)&mp;
 	sqe->len = sizeof(mp);
 
@@ -68,7 +68,7 @@ static int create_mock_file(struct io_uring_mock_create *mc)
 	int ret;
 
 	sqe = io_uring_get_sqe(&mgr_ring);
-	t_sqe_prep_cmd(sqe, mgr_fd, IORING_MOCK_MGR_CMD_CREATE);
+	io_uring_prep_uring_cmd(sqe, IORING_MOCK_MGR_CMD_CREATE, mgr_fd);
 	sqe->addr  = (__u64)(unsigned long)mc;
 	sqe->len = sizeof(*mc);
 
@@ -90,7 +90,7 @@ static int t_copy_regvec(struct io_uring *ring, int mock_fd,
 	int ret;
 
 	sqe = io_uring_get_sqe(ring);
-	t_sqe_prep_cmd(sqe, mock_fd, IORING_MOCK_CMD_COPY_REGBUF);
+	io_uring_prep_uring_cmd(sqe, IORING_MOCK_CMD_COPY_REGBUF, mock_fd);
 	sqe->addr3 = (__u64)(unsigned long)buf;
 	sqe->addr = (__u64)(unsigned long)iov;
 	sqe->len = iov_len;
