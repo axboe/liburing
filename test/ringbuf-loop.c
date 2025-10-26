@@ -82,5 +82,6 @@ int main(int argc, char *argv[])
 
 	io_uring_free_buf_ring(&ring, br, RENTRIES, BGID);
 	io_uring_queue_exit(&ring);
+	free(send_buf);
 	return T_EXIT_PASS;
 }
