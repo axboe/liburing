@@ -430,6 +430,43 @@ events to complete.
 This way,
 you can be sure to find completion events in the completion queue without
 having to poll it for events later.
+.SS SQE pointer lifetimes & data stability
+Due to the fixed size of the submission queue entry (SQE) some data you
+provide in order to perform a desired operation will be passed in the
+form of a pointer rather than value. In this situation, you may free
+the memory backing the pointer once the succeeding
+.BR io_uring_enter (2)
+call has completed; providing it is only required by the operation when submitting.
+
+When
+.B IORING_SETUP_SQPOLL
+is not enabled, this is done when you call
+.BR io_uring_submit (3)
+In The event
+.B IORING_SETUP_SQPOLL
+is enabled, you must ensure any provided pointers remain valid until completion.
+
+However, very early kernels (5.4 and earlier) required state to be
+ stable until the completion occurred regardless. Applications can test for this
+ behavior by inspecting the
+.B IORING_FEAT_SUBMIT_STABLE
+flag passed back from
+.BR io_uring_queue_init_params (3).
+
+As an example, the
+.B IORING_OP_TIMEOUT
+operation takes a pointer to a __kernel_timespec struct. This struct is
+then read by the kernel when you submit the submission queue entries,
+once submitted, you may free the backing memory of the __kernel_timespec
+as it will not be read again by the kernel.
+
+It should be noted that this behaviour does not apply to data that is read
+or written while the operation is inflight. For example, the pointers to
+a buffer used as part of a
+.B IORING_OP_WRITE
+or
+.B IORING_OP_READ
+operation must remain valid until completion.
 .SS Reading completion events
 Similar to the submission queue (SQ),
 the completion queue (CQ) is a shared buffer between the kernel and user
