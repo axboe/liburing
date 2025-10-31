@@ -300,7 +300,7 @@ static void verify_data(char *data, size_t size, unsigned long seq)
 
 static unsigned rq_nr_queued(struct io_uring_zcrx_rq *rq)
 {
-	return rq->rq_tail - *rq->khead;
+	return rq->rq_tail - io_uring_smp_load_acquire(rq->khead);
 }
 
 static inline void fill_rqe(const struct io_uring_cqe *cqe,
