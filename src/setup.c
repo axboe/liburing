@@ -330,7 +330,7 @@ int __io_uring_queue_init_params(unsigned entries, struct io_uring *ring,
 	if (fd < 0) {
 		if ((p->flags & IORING_SETUP_NO_MMAP) &&
 		    !(ring->int_flags & INT_FLAG_APP_MEM)) {
-			__sys_munmap(ring->sq.sqes, 1);
+			__sys_munmap(ring->sq.sqes, ret);
 			io_uring_unmap_rings(&ring->sq, &ring->cq);
 		}
 		return fd;
