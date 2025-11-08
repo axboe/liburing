@@ -285,7 +285,7 @@ static int io_uring_alloc_huge(unsigned entries, struct io_uring_params *p,
 					MAP_SHARED|MAP_ANONYMOUS|map_hugetlb,
 					-1, 0);
 		if (IS_ERR(ptr)) {
-			__sys_munmap(sq->sqes, 1);
+			__sys_munmap(sq->sqes, buf_size);
 			return PTR_ERR(ptr);
 		}
 		sq->ring_ptr = ptr;
