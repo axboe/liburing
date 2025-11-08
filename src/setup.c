@@ -630,6 +630,7 @@ static struct io_uring_buf_ring *br_setup(struct io_uring *ring,
 			MAP_SHARED | MAP_POPULATE, ring->ring_fd, off);
 	if (IS_ERR(br)) {
 		*err = PTR_ERR(br);
+		io_uring_unregister_buf_ring(ring, bgid);
 		return NULL;
 	}
 
