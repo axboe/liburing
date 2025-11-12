@@ -66,7 +66,7 @@ enum {
 	REQ_TYPE_RX		= 2,
 };
 
-static long cfg_area_size;
+static long cfg_area_size = 256 * 1024 * 1024;
 static int cfg_port = 8000;
 static const char *cfg_ifname;
 static int cfg_queue_id = -1;
@@ -493,7 +493,6 @@ int main(int argc, char **argv)
 		perror("sysconf(_SC_PAGESIZE)");
 		return 1;
 	}
-	cfg_area_size = 8 * 1024 * page_size;
 
 	parse_opts(argc, argv);
 	run_server();
