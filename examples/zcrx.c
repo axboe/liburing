@@ -330,6 +330,16 @@ static void return_buffer(struct io_uring_zcrx_rq *rq_ring,
 	io_uring_smp_store_release(rq_ring->ktail, ++rq_ring->rq_tail);
 }
 
+static void process_recvzc_error(int ret)
+{
+	if (ret != 0)
+		t_error(1, 0, "invalid final recvzc ret %i", ret);
+	if (cfg_size && received != cfg_size)
+		t_error(1, 0, "total receive size mismatch %lu / %lu",
+			received, cfg_size);
+	stop = true;
+}
+
 static void process_recvzc(struct io_uring __attribute__((unused)) *ring,
 			   struct io_uring_cqe *cqe)
 {
@@ -338,12 +348,7 @@ static void process_recvzc(struct io_uring __attribute__((unused)) *ring,
 	char *data;
 
 	if (!(cqe->flags & IORING_CQE_F_MORE)) {
-		if (!cfg_size || cqe->res != 0)
-			t_error(1, 0, "invalid final recvzc ret %i", cqe->res);
-		if (received != cfg_size)
-			t_error(1, 0, "total receive size mismatch %lu / %lu",
-				received, cfg_size);
-		stop = true;
+		process_recvzc_error(cqe->res);
 		return;
 	}
 	if (cqe->res < 0)
