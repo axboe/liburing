@@ -350,8 +350,22 @@ static void return_buffer(struct io_uring_zcrx_rq *rq_ring,
 	io_uring_smp_store_release(rq_ring->ktail, ++rq_ring->rq_tail);
 }
 
-static void process_recvzc_error(struct zc_conn *conn, int ret)
+static void process_recvzc_error(struct io_uring *ring,
+				 struct zc_conn *conn, int ret)
 {
+	if (ret == -ENOSPC) {
+		size_t left = 0;
+
+		if (cfg_size) {
+			left = cfg_size - conn->received;
+			if (left == 0)
+				t_error(1, 0, "ENOSPC for a finished request");
+		}
+
+		add_recvzc(ring, conn, left);
+		return;
+	}
+
 	if (ret != 0)
 		t_error(1, 0, "invalid final recvzc ret %i", ret);
 	if (cfg_size && conn->received != cfg_size)
@@ -366,7 +380,7 @@ static void process_recvzc_error(struct zc_conn *conn, int ret)
 	stop = true;
 }
 
-static void process_recvzc(struct io_uring __attribute__((unused)) *ring,
+static void process_recvzc(struct io_uring *ring,
 			   struct io_uring_cqe *cqe)
 {
 	struct zc_conn *conn = get_connection(cqe->user_data);
@@ -377,7 +391,7 @@ static void process_recvzc(struct io_uring __attribute__((unused)) *ring,
 	conn->stat_nr_cqes++;
 
 	if (!(cqe->flags & IORING_CQE_F_MORE)) {
-		process_recvzc_error(conn, cqe->res);
+		process_recvzc_error(ring, conn, cqe->res);
 		return;
 	}
 	if (cqe->res < 0)
