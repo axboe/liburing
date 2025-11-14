@@ -353,6 +353,9 @@ static void process_recvzc_error(struct zc_conn *conn, int ret)
 	if (cfg_size && conn->received != cfg_size)
 		t_error(1, 0, "total receive size mismatch %lu / %lu",
 			conn->received, cfg_size);
+
+	close(conn->sockfd);
+	printf("Connection terminated\n");
 	stop = true;
 }
 
