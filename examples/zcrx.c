@@ -410,8 +410,11 @@ static void server_loop(struct io_uring *ring)
 {
 	struct io_uring_cqe *cqe;
 	unsigned int head, count = 0;
+	int ret;
 
-	io_uring_submit_and_wait(ring, 1);
+	ret = io_uring_submit_and_wait(ring, 1);
+	if (ret < 0 && ret != -ETIME)
+		t_error(1, ret, "io_uring_submit_and_wait failed\n");
 
 	io_uring_for_each_cqe(ring, head, cqe) {
 		switch (cqe->user_data & REQ_TYPE_MASK) {
