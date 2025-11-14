@@ -66,6 +66,8 @@ enum {
 	REQ_TYPE_RX		= 2,
 };
 
+static unsigned cfg_rq_entries = 8192;
+static unsigned cfg_cq_entries = 8192;
 static long cfg_area_size = 256 * 1024 * 1024;
 static int cfg_port = 8000;
 static const char *cfg_ifname;
@@ -172,7 +174,7 @@ static void setup_zcrx(struct io_uring *ring)
 {
 	struct io_uring_zcrx_area_reg area_reg;
 	unsigned int ifindex;
-	unsigned int rq_entries = 4096;
+	unsigned int rq_entries = cfg_rq_entries;
 	unsigned rq_flags = 0;
 	int ret;
 
@@ -416,9 +418,9 @@ static void run_server(void)
 	p.flags |= IORING_SETUP_SUBMIT_ALL;
 	p.flags |= IORING_SETUP_CQE32;
 	p.flags |= IORING_SETUP_CQSIZE;
-	p.cq_entries = 4096;
+	p.cq_entries = cfg_cq_entries;
 
-	ret = io_uring_queue_init_params(512, &ring, &p);
+	ret = io_uring_queue_init_params(8, &ring, &p);
 	if (ret)
 		t_error(1, ret, "ring init failed");
 
@@ -442,7 +444,7 @@ static void parse_opts(int argc, char **argv)
 	if (argc <= 1)
 		usage(argv[0]);
 
-	while ((c = getopt(argc, argv, "vp:i:q:s:r:A:S:")) != -1) {
+	while ((c = getopt(argc, argv, "vp:i:q:s:r:A:S:C:R:")) != -1) {
 		switch (c) {
 		case 'p':
 			cfg_port = strtoul(optarg, NULL, 0);
@@ -471,6 +473,12 @@ static void parse_opts(int argc, char **argv)
 			cfg_area_type = strtoul(optarg, NULL, 0);
 			if (cfg_area_type >= __AREA_TYPE_MAX)
 				t_error(1, 0, "Invalid area type");
+			break;
+		case 'C':
+			cfg_cq_entries = strtoul(optarg, NULL, 0);
+			break;
+		case 'R':
+			cfg_rq_entries = strtoul(optarg, NULL, 0);
 			break;
 		}
 	}
