@@ -73,8 +73,6 @@ struct zc_conn {
 	unsigned stat_nr_cqes;
 };
 
-static struct zc_conn gl_conn;
-
 static unsigned cfg_rq_entries = 8192;
 static unsigned cfg_cq_entries = 8192;
 static long cfg_area_size = 256 * 1024 * 1024;
@@ -102,7 +100,8 @@ static int memfd;
 
 static struct zc_conn *get_connection(__u64 __attribute__((unused)) user_data)
 {
-	return &gl_conn;
+	user_data &= ~REQ_TYPE_MASK;
+	return (struct zc_conn *)(unsigned long)user_data;
 }
 
 static inline size_t get_refill_ring_size(unsigned int rq_entries)
@@ -256,12 +255,16 @@ static void add_accept(struct io_uring *ring, int sockfd)
 static void add_recvzc(struct io_uring *ring, struct zc_conn *conn, size_t len)
 {
 	struct io_uring_sqe *sqe = io_uring_get_sqe(ring);
+	__u64 token;
+
+	token = (__u64)(unsigned long)conn;
+	token |= REQ_TYPE_RX;
 
 	conn->stat_nr_reqs++;
 	io_uring_prep_rw(IORING_OP_RECV_ZC, sqe, conn->sockfd, NULL, len, 0);
 	sqe->ioprio |= IORING_RECV_MULTISHOT;
 	sqe->zcrx_ifq_idx = zcrx_id;
-	sqe->user_data = REQ_TYPE_RX;
+	sqe->user_data = token;
 }
 
 static void print_socket_info(int sockfd)
@@ -287,8 +290,11 @@ static void print_socket_info(int sockfd)
 
 static void process_accept(struct io_uring *ring, struct io_uring_cqe *cqe)
 {
-	struct zc_conn *conn = &gl_conn;
+	struct zc_conn *conn;
 
+	conn = aligned_alloc(64, sizeof(*conn));
+	if (!conn)
+		t_error(1, 0, "can't allocate conn structure");
 	if (cqe->res < 0)
 		t_error(1, 0, "accept()");
 	if (conn->sockfd)
@@ -372,11 +378,13 @@ static void process_recvzc_error(struct io_uring *ring,
 		t_error(1, 0, "total receive size mismatch %lu / %lu",
 			conn->received, cfg_size);
 
-	close(conn->sockfd);
 	printf("Connection terminated: received %lu, cqes %i, nr requeues %i\n",
 		conn->received,
 		conn->stat_nr_cqes,
 		conn->stat_nr_reqs - 1);
+
+	close(conn->sockfd);
+	free(conn);
 	stop = true;
 }
 
