@@ -284,19 +284,21 @@ static void process_accept(struct io_uring *ring, struct io_uring_cqe *cqe)
 	add_recvzc(ring, connfd, cfg_size);
 }
 
-static void verify_data(char *data, size_t size, unsigned long seq)
+static void verify_data(__u8 *data, size_t size, unsigned long seq)
 {
-	int i;
+	size_t i;
 
 	if (!cfg_verify_data)
 		return;
 
 	for (i = 0; i < size; i++) {
-		char expected = 'a' + (seq + i) % 26;
+		__u8 expected = (__u8)'a' + (seq + i) % 26;
+		__u8 v = data[i];
 
-		if (data[i] != expected)
-			t_error(1, 0, "payload mismatch at %i: expected %i vs got %i, seq %li",
-				i, expected, data[i], seq);
+		if (v != expected)
+			t_error(1, 0, "payload mismatch at %u: expected %u vs got %u, diff %i, base seq %lu, seq %lu",
+				(unsigned)i, expected, v, (int)expected - v,
+				seq, seq + i);
 	}
 }
 
@@ -347,7 +349,7 @@ static void process_recvzc(struct io_uring __attribute__((unused)) *ring,
 {
 	const struct io_uring_zcrx_cqe *rcqe;
 	uint64_t mask;
-	char *data;
+	__u8 *data;
 
 	if (!(cqe->flags & IORING_CQE_F_MORE)) {
 		process_recvzc_error(cqe->res);
@@ -358,7 +360,7 @@ static void process_recvzc(struct io_uring __attribute__((unused)) *ring,
 
 	rcqe = (struct io_uring_zcrx_cqe *)(cqe + 1);
 	mask = (1ULL << IORING_ZCRX_AREA_SHIFT) - 1;
-	data = (char *)area_ptr + (rcqe->off & mask);
+	data = (__u8 *)area_ptr + (rcqe->off & mask);
 
 	verify_data(data, cqe->res, received);
 	received += cqe->res;
