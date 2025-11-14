@@ -481,6 +481,8 @@ static void run_server(void)
 
 	while (!stop)
 		server_loop(&ring);
+
+	close(fd);
 }
 
 static void usage(const char *filepath)
