@@ -66,6 +66,13 @@ enum {
 	REQ_TYPE_RX		= 2,
 };
 
+struct zc_conn {
+	int sockfd;
+	size_t received;
+};
+
+static struct zc_conn gl_conn;
+
 static unsigned cfg_rq_entries = 8192;
 static unsigned cfg_cq_entries = 8192;
 static long cfg_area_size = 256 * 1024 * 1024;
@@ -85,13 +92,16 @@ static void *ring_ptr;
 static size_t ring_size;
 static struct io_uring_zcrx_rq rq_ring;
 static unsigned long area_token;
-static int connfd;
 static bool stop;
-static size_t received;
 static __u32 zcrx_id;
 
 static int dmabuf_fd;
 static int memfd;
+
+static struct zc_conn *get_connection(__u64 __attribute__((unused)) user_data)
+{
+	return &gl_conn;
+}
 
 static inline size_t get_refill_ring_size(unsigned int rq_entries)
 {
@@ -241,11 +251,11 @@ static void add_accept(struct io_uring *ring, int sockfd)
 	sqe->user_data = REQ_TYPE_ACCEPT;
 }
 
-static void add_recvzc(struct io_uring *ring, int sockfd, size_t len)
+static void add_recvzc(struct io_uring *ring, struct zc_conn *conn, size_t len)
 {
 	struct io_uring_sqe *sqe = io_uring_get_sqe(ring);
 
-	io_uring_prep_rw(IORING_OP_RECV_ZC, sqe, sockfd, NULL, len, 0);
+	io_uring_prep_rw(IORING_OP_RECV_ZC, sqe, conn->sockfd, NULL, len, 0);
 	sqe->ioprio |= IORING_RECV_MULTISHOT;
 	sqe->zcrx_ifq_idx = zcrx_id;
 	sqe->user_data = REQ_TYPE_RX;
@@ -274,14 +284,16 @@ static void print_socket_info(int sockfd)
 
 static void process_accept(struct io_uring *ring, struct io_uring_cqe *cqe)
 {
+	struct zc_conn *conn = &gl_conn;
+
 	if (cqe->res < 0)
 		t_error(1, 0, "accept()");
-	if (connfd)
+	if (conn->sockfd)
 		t_error(1, 0, "Unexpected second connection");
 
-	connfd = cqe->res;
-	print_socket_info(connfd);
-	add_recvzc(ring, connfd, cfg_size);
+	conn->sockfd = cqe->res;
+	print_socket_info(conn->sockfd);
+	add_recvzc(ring, conn, cfg_size);
 }
 
 static void verify_data(__u8 *data, size_t size, unsigned long seq)
@@ -334,25 +346,26 @@ static void return_buffer(struct io_uring_zcrx_rq *rq_ring,
 	io_uring_smp_store_release(rq_ring->ktail, ++rq_ring->rq_tail);
 }
 
-static void process_recvzc_error(int ret)
+static void process_recvzc_error(struct zc_conn *conn, int ret)
 {
 	if (ret != 0)
 		t_error(1, 0, "invalid final recvzc ret %i", ret);
-	if (cfg_size && received != cfg_size)
+	if (cfg_size && conn->received != cfg_size)
 		t_error(1, 0, "total receive size mismatch %lu / %lu",
-			received, cfg_size);
+			conn->received, cfg_size);
 	stop = true;
 }
 
 static void process_recvzc(struct io_uring __attribute__((unused)) *ring,
 			   struct io_uring_cqe *cqe)
 {
+	struct zc_conn *conn = get_connection(cqe->user_data);
 	const struct io_uring_zcrx_cqe *rcqe;
 	uint64_t mask;
 	__u8 *data;
 
 	if (!(cqe->flags & IORING_CQE_F_MORE)) {
-		process_recvzc_error(cqe->res);
+		process_recvzc_error(conn, cqe->res);
 		return;
 	}
 	if (cqe->res < 0)
@@ -362,8 +375,8 @@ static void process_recvzc(struct io_uring __attribute__((unused)) *ring,
 	mask = (1ULL << IORING_ZCRX_AREA_SHIFT) - 1;
 	data = (__u8 *)area_ptr + (rcqe->off & mask);
 
-	verify_data(data, cqe->res, received);
-	received += cqe->res;
+	verify_data(data, cqe->res, conn->received);
+	conn->received += cqe->res;
 	return_buffer(&rq_ring, cqe);
 }
 
