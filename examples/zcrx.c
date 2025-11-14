@@ -45,6 +45,14 @@
 #include "helpers.h"
 
 enum {
+	AFFINITY_MODE_NONE,
+	AFFINITY_MODE_SAME,
+	AFFINITY_MODE_DIFFERENT,
+
+	__AFFINITY_MODE_MAX,
+};
+
+enum {
 	RQ_ALLOC_USER,
 	RQ_ALLOC_KERNEL,
 
@@ -81,6 +89,7 @@ static const char *cfg_ifname;
 static int cfg_queue_id = -1;
 static bool cfg_verify_data = false;
 static size_t cfg_size = 0;
+static unsigned cfg_affinity_mode = AFFINITY_MODE_NONE;
 static unsigned cfg_rq_alloc_mode = RQ_ALLOC_USER;
 static unsigned cfg_area_type = AREA_TYPE_NORMAL;
 static struct sockaddr_in6 cfg_addr;
@@ -99,6 +108,51 @@ static int dmabuf_fd;
 static int memfd;
 
 static int listen_fd;
+static int target_cpu = -1;
+
+static int get_sock_cpu(int sockfd)
+{
+	int cpu;
+	socklen_t len = sizeof(cpu);
+
+	if (getsockopt(sockfd, SOL_SOCKET, SO_INCOMING_CPU, &cpu, &len))
+		t_error(1, errno, "getsockopt failed\n");
+	return cpu;
+}
+
+static void set_affinity(int sockfd)
+{
+	int new_cpu = -1;
+	int sock_cpu;
+	cpu_set_t mask;
+
+	if (cfg_affinity_mode == AFFINITY_MODE_NONE)
+		return;
+
+	sock_cpu = get_sock_cpu(sockfd);
+	if (sock_cpu == -1)
+		t_error(1, 0, "Can't socket's CPU");
+
+	if (cfg_affinity_mode == AFFINITY_MODE_SAME) {
+		new_cpu = sock_cpu;
+	} else if (cfg_affinity_mode == AFFINITY_MODE_DIFFERENT) {
+		if (target_cpu != -1 && target_cpu != sock_cpu)
+			new_cpu = target_cpu;
+		else
+			new_cpu = sock_cpu ^ 1;
+	}
+
+	if (target_cpu != -1 && new_cpu != target_cpu) {
+		printf("Couldn't set affinity for multi socket setup\n");
+		return;
+	}
+
+	CPU_ZERO(&mask);
+	CPU_SET(new_cpu, &mask);
+	if (sched_setaffinity(0, sizeof(mask), &mask))
+		t_error(1, errno, "sched_setaffinity() failed\n");
+	target_cpu = new_cpu;
+}
 
 static struct zc_conn *get_connection(__u64 user_data)
 {
@@ -309,6 +363,7 @@ static void process_accept(struct io_uring *ring, struct io_uring_cqe *cqe)
 	memset(conn, 0, sizeof(*conn));
 	conn->sockfd = cqe->res;
 	print_socket_info(conn->sockfd);
+	set_affinity(conn->sockfd);
 	add_recvzc(ring, conn, cfg_size);
 
 	add_accept(ring, listen_fd);
@@ -504,7 +559,7 @@ static void parse_opts(int argc, char **argv)
 	if (argc <= 1)
 		usage(argv[0]);
 
-	while ((c = getopt(argc, argv, "vp:i:q:s:r:A:S:C:R:")) != -1) {
+	while ((c = getopt(argc, argv, "vp:i:q:s:r:A:S:C:R:c:")) != -1) {
 		switch (c) {
 		case 'p':
 			cfg_port = strtoul(optarg, NULL, 0);
@@ -540,6 +595,10 @@ static void parse_opts(int argc, char **argv)
 		case 'R':
 			cfg_rq_entries = strtoul(optarg, NULL, 0);
 			break;
+		case 'c':
+			cfg_affinity_mode = strtoul(optarg, NULL, 0);
+			if (cfg_affinity_mode >= __AFFINITY_MODE_MAX)
+				t_error(1, 0, "Invalid affinity mode");
 		}
 	}
 
