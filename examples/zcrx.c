@@ -68,7 +68,9 @@ enum {
 
 struct zc_conn {
 	int sockfd;
-	size_t received;
+	unsigned long received;
+	unsigned stat_nr_reqs;
+	unsigned stat_nr_cqes;
 };
 
 static struct zc_conn gl_conn;
@@ -255,6 +257,7 @@ static void add_recvzc(struct io_uring *ring, struct zc_conn *conn, size_t len)
 {
 	struct io_uring_sqe *sqe = io_uring_get_sqe(ring);
 
+	conn->stat_nr_reqs++;
 	io_uring_prep_rw(IORING_OP_RECV_ZC, sqe, conn->sockfd, NULL, len, 0);
 	sqe->ioprio |= IORING_RECV_MULTISHOT;
 	sqe->zcrx_ifq_idx = zcrx_id;
@@ -291,6 +294,7 @@ static void process_accept(struct io_uring *ring, struct io_uring_cqe *cqe)
 	if (conn->sockfd)
 		t_error(1, 0, "Unexpected second connection");
 
+	memset(conn, 0, sizeof(*conn));
 	conn->sockfd = cqe->res;
 	print_socket_info(conn->sockfd);
 	add_recvzc(ring, conn, cfg_size);
@@ -355,7 +359,10 @@ static void process_recvzc_error(struct zc_conn *conn, int ret)
 			conn->received, cfg_size);
 
 	close(conn->sockfd);
-	printf("Connection terminated\n");
+	printf("Connection terminated: received %lu, cqes %i, nr requeues %i\n",
+		conn->received,
+		conn->stat_nr_cqes,
+		conn->stat_nr_reqs - 1);
 	stop = true;
 }
 
@@ -366,6 +373,8 @@ static void process_recvzc(struct io_uring __attribute__((unused)) *ring,
 	const struct io_uring_zcrx_cqe *rcqe;
 	uint64_t mask;
 	__u8 *data;
+
+	conn->stat_nr_cqes++;
 
 	if (!(cqe->flags & IORING_CQE_F_MORE)) {
 		process_recvzc_error(conn, cqe->res);
