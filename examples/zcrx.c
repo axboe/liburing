@@ -98,7 +98,9 @@ static __u32 zcrx_id;
 static int dmabuf_fd;
 static int memfd;
 
-static struct zc_conn *get_connection(__u64 __attribute__((unused)) user_data)
+static int listen_fd;
+
+static struct zc_conn *get_connection(__u64 user_data)
 {
 	user_data &= ~REQ_TYPE_MASK;
 	return (struct zc_conn *)(unsigned long)user_data;
@@ -292,11 +294,15 @@ static void process_accept(struct io_uring *ring, struct io_uring_cqe *cqe)
 {
 	struct zc_conn *conn;
 
+	if (cqe->res < 0) {
+		printf("Accept failed %i, terminate\n", cqe->res);
+		stop = false;
+		return;
+	}
+
 	conn = aligned_alloc(64, sizeof(*conn));
 	if (!conn)
 		t_error(1, 0, "can't allocate conn structure");
-	if (cqe->res < 0)
-		t_error(1, 0, "accept()");
 	if (conn->sockfd)
 		t_error(1, 0, "Unexpected second connection");
 
@@ -304,6 +310,8 @@ static void process_accept(struct io_uring *ring, struct io_uring_cqe *cqe)
 	conn->sockfd = cqe->res;
 	print_socket_info(conn->sockfd);
 	add_recvzc(ring, conn, cfg_size);
+
+	add_accept(ring, listen_fd);
 }
 
 static void verify_data(__u8 *data, size_t size, unsigned long seq)
@@ -385,7 +393,6 @@ static void process_recvzc_error(struct io_uring *ring,
 
 	close(conn->sockfd);
 	free(conn);
-	stop = true;
 }
 
 static void process_recvzc(struct io_uring *ring,
@@ -444,24 +451,23 @@ static void run_server(void)
 {
 	struct io_uring_params p;
 	struct io_uring ring;
-	int fd, enable, ret;
+	int enable, ret;
 
-	fd = socket(AF_INET6, SOCK_STREAM, 0);
-	if (fd == -1)
+	listen_fd = socket(AF_INET6, SOCK_STREAM, 0);
+	if (listen_fd == -1)
 		t_error(1, 0, "socket()");
 
 	enable = 1;
-	ret = setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int));
+	ret = setsockopt(listen_fd, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int));
 	if (ret < 0)
 		t_error(1, 0, "setsockopt(SO_REUSEADDR)");
 
-	ret = bind(fd, (struct sockaddr *)&cfg_addr, sizeof(cfg_addr));
+	ret = bind(listen_fd, (struct sockaddr *)&cfg_addr, sizeof(cfg_addr));
 	if (ret < 0)
 		t_error(1, 0, "bind()");
 
-	if (listen(fd, 1024) < 0)
+	if (listen(listen_fd, 1024) < 0)
 		t_error(1, 0, "listen()");
-
 
 	memset(&p, 0, sizeof(p));
 	p.flags |= IORING_SETUP_COOP_TASKRUN;
@@ -477,12 +483,12 @@ static void run_server(void)
 		t_error(1, ret, "ring init failed");
 
 	setup_zcrx(&ring);
-	add_accept(&ring, fd);
+	add_accept(&ring, listen_fd);
 
 	while (!stop)
 		server_loop(&ring);
 
-	close(fd);
+	close(listen_fd);
 }
 
 static void usage(const char *filepath)
