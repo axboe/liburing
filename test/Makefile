@@ -144,6 +144,7 @@ test_srcs := \
 	min-timeout.c \
 	min-timeout-wait.c \
 	mkdir.c \
+	mock_file.c \
 	msg-ring.c \
 	msg-ring-fd.c \
 	msg-ring-flags.c \
@@ -205,6 +206,7 @@ test_srcs := \
 	ringbuf-status.c \
 	ring-leak2.c \
 	ring-leak.c \
+	ring-query.c \
 	rsrc_tags.c \
 	rw_merge_test.c \
 	self.c \
@@ -252,10 +254,13 @@ test_srcs := \
 	timerfd-short-read.c \
 	timeout.c \
 	timeout-new.c \
+	timestamp.c \
+	timestamp-bug.c \
 	truncate.c \
 	tty-write-dpoll.c \
 	unlink.c \
 	uring_cmd_ublk.c \
+	vec-regbuf.c \
 	version.c \
 	waitid.c \
 	wait-timeout.c \
@@ -263,11 +268,6 @@ test_srcs := \
 	wq-aff.c \
 	xattr.c \
 	zcrx.c \
-	vec-regbuf.c \
-	timestamp.c \
-	timestamp-bug.c \
-	ring-query.c \
-	mock_file.c \
 	# EOL
 
 # Please keep this list sorted alphabetically.
