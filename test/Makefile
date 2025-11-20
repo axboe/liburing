@@ -265,6 +265,7 @@ test_srcs := \
 	zcrx.c \
 	vec-regbuf.c \
 	timestamp.c \
+	timestamp-bug.c \
 	ring-query.c \
 	mock_file.c \
 	# EOL
