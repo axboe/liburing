@@ -22,7 +22,6 @@ static void msec_to_ts(struct __kernel_timespec *ts, unsigned int msec)
 }
 
 static const char *magic = "Hello World!";
-static int use_port = 8000;
 
 enum {
 	SRV_INDEX = 0,
@@ -74,18 +73,19 @@ static int connect_client(struct io_uring *ring, unsigned short peer_port)
 	return T_SETUP_OK;
 }
 
-static int setup_srv(struct io_uring *ring, struct sockaddr_in *server_addr)
+static int setup_srv(struct io_uring *ring)
 {
+	struct sockaddr_in server_addr;
 	struct io_uring_sqe *sqe;
 	struct io_uring_cqe *cqe;
 	struct __kernel_timespec ts;
 	int ret, val, submitted;
 	unsigned head;
 
-	memset(server_addr, 0, sizeof(struct sockaddr_in));
-	server_addr->sin_family = AF_INET;
-	server_addr->sin_port = htons(use_port++);
-	server_addr->sin_addr.s_addr = htons(INADDR_ANY);
+	memset(&server_addr, 0, sizeof(struct sockaddr_in));
+	server_addr.sin_family = AF_INET;
+	server_addr.sin_port = htons(0);
+	server_addr.sin_addr.s_addr = htons(INADDR_ANY);
 
 	sqe = io_uring_get_sqe(ring);
 	io_uring_prep_socket_direct(sqe, AF_INET, SOCK_STREAM, 0, SRV_INDEX, 0);
@@ -98,7 +98,7 @@ static int setup_srv(struct io_uring *ring, struct sockaddr_in *server_addr)
 	sqe->flags |= IOSQE_FIXED_FILE | IOSQE_IO_LINK;
 
 	sqe = io_uring_get_sqe(ring);
-	io_uring_prep_bind(sqe, SRV_INDEX, (struct sockaddr *) server_addr,
+	io_uring_prep_bind(sqe, SRV_INDEX, (struct sockaddr *) &server_addr,
 			   sizeof(struct sockaddr_in));
 	sqe->flags |= IOSQE_FIXED_FILE | IOSQE_IO_LINK;
 
@@ -132,7 +132,8 @@ static int setup_srv(struct io_uring *ring, struct sockaddr_in *server_addr)
 
 static int test_good_server(unsigned int ring_flags)
 {
-	struct sockaddr_in server_addr;
+	struct sockaddr_in saddr = {};
+	socklen_t saddr_len = sizeof(saddr);
 	struct __kernel_timespec ts;
 	struct io_uring_sqe *sqe;
 	struct io_uring_cqe *cqe;
@@ -155,13 +156,25 @@ static int test_good_server(unsigned int ring_flags)
 		return T_SETUP_SKIP;
 	}
 
-	ret = setup_srv(&ring, &server_addr);
+	ret = setup_srv(&ring);
 	if (ret != T_SETUP_OK) {
 		fprintf(stderr, "srv startup failed.\n");
 		return T_EXIT_FAIL;
 	}
 
-	if (connect_client(&ring, server_addr.sin_port) != T_SETUP_OK) {
+	sqe = io_uring_get_sqe(&ring);
+	io_uring_prep_cmd_getsockname(sqe, SRV_INDEX, (struct sockaddr*)&saddr,
+				      &saddr_len, 0);
+	sqe->flags |= IOSQE_FIXED_FILE | IOSQE_IO_LINK;
+	io_uring_submit(&ring);
+	io_uring_wait_cqe(&ring, &cqe);
+	if (cqe->res < 0) {
+		fprintf(stderr, "getsockname server failed. %d\n", cqe->res);
+		return T_EXIT_FAIL;
+	}
+	io_uring_cqe_seen(&ring, cqe);
+
+	if (connect_client(&ring, saddr.sin_port) != T_SETUP_OK) {
 		fprintf(stderr, "cli startup failed.\n");
 		return T_SETUP_SKIP;
 	}
