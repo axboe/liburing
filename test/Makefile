@@ -177,6 +177,7 @@ test_srcs := \
 	poll-race.c \
 	poll-race-mshot.c \
 	poll-ring.c \
+	poll-update-trigger.c \
 	poll-v-poll.c \
 	pollfree.c \
 	probe.c \
