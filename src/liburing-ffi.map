@@ -258,4 +258,5 @@ LIBURING_2.13 {
 		io_uring_prep_uring_cmd;
 		io_uring_prep_uring_cmd128;
 		io_uring_get_sqe128;
+		io_uring_prep_cmd_getsockname;
 } LIBURING_2.12;
