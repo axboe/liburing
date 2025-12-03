@@ -89,7 +89,7 @@ static int do_getsockname(struct io_uring *ring, int direct_socket,
 	int res = 0, fd;
 
 	if (!no_getsockname) {
-		/* attempt io_uring. Commmand might not exist */
+		/* attempt io_uring. Command might not exist */
 		sqe = io_uring_get_sqe(ring);
 		io_uring_prep_cmd_getsockname(sqe, direct_socket,
 					      saddr, saddr_len, peer);
