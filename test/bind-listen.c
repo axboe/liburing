@@ -22,7 +22,7 @@ static void msec_to_ts(struct __kernel_timespec *ts, unsigned int msec)
 }
 
 static const char *magic = "Hello World!";
-static int use_port = 8000;
+static bool no_getsockname = false;
 
 enum {
 	SRV_INDEX = 0,
@@ -74,18 +74,82 @@ static int connect_client(struct io_uring *ring, unsigned short peer_port)
 	return T_SETUP_OK;
 }
 
-static int setup_srv(struct io_uring *ring, struct sockaddr_in *server_addr)
+/*
+ * getsockname was added to the kernel a few releases after bind/listen.
+ * In order to provide a backward-compatible test, fallback to
+ * non-io-uring if we are on an older kernel, allowing the test to
+ * continue.
+ */
+static int do_getsockname(struct io_uring *ring, int direct_socket,
+			  int peer, struct sockaddr *saddr,
+			  socklen_t *saddr_len)
 {
+	struct io_uring_sqe *sqe;
+	struct io_uring_cqe *cqe;
+	int res, fd;
+
+	if (!no_getsockname) {
+		/* attempt io_uring. Commmand might not exist */
+		sqe = io_uring_get_sqe(ring);
+		io_uring_prep_cmd_getsockname(sqe, direct_socket,
+					      saddr, saddr_len, peer);
+		sqe->flags |= IOSQE_FIXED_FILE | IOSQE_IO_LINK;
+		io_uring_submit(ring);
+		io_uring_wait_cqe(ring, &cqe);
+		res = cqe->res;
+		io_uring_cqe_seen(ring, cqe);
+	}
+
+	if (no_getsockname || res == -ENOTSUP) {
+		/*
+		 * Older kernel.  install the fd and use the getsockname
+		 * syscall.
+		 */
+		no_getsockname = true;
+
+		sqe = io_uring_get_sqe(ring);
+		io_uring_prep_fixed_fd_install(sqe, direct_socket, 0);
+		io_uring_submit(ring);
+		io_uring_wait_cqe(ring, &cqe);
+		fd = cqe->res;
+		io_uring_cqe_seen(ring, cqe);
+
+		if (fd < 0) {
+			fprintf(stderr, "installing direct fd failed. %d\n",
+				cqe->res);
+			return T_EXIT_FAIL;
+		}
+		if (peer)
+			res = getpeername(fd, saddr, saddr_len);
+		else
+			res = getsockname(fd, saddr, saddr_len);
+
+		if (res) {
+			fprintf(stderr, "get%sname syscall failed. %d\n",
+				peer? "peer":"sock", errno);
+			return T_EXIT_FAIL;
+		}
+		close(fd);
+	} else if (res < 0) {
+		fprintf(stderr, "getsockname server failed. %d\n", cqe->res);
+		return T_EXIT_FAIL;
+	}
+	return 0;
+}
+
+static int setup_srv(struct io_uring *ring)
+{
+	struct sockaddr_in server_addr;
 	struct io_uring_sqe *sqe;
 	struct io_uring_cqe *cqe;
 	struct __kernel_timespec ts;
 	int ret, val, submitted;
 	unsigned head;
 
-	memset(server_addr, 0, sizeof(struct sockaddr_in));
-	server_addr->sin_family = AF_INET;
-	server_addr->sin_port = htons(use_port++);
-	server_addr->sin_addr.s_addr = htons(INADDR_ANY);
+	memset(&server_addr, 0, sizeof(struct sockaddr_in));
+	server_addr.sin_family = AF_INET;
+	server_addr.sin_port = htons(0);
+	server_addr.sin_addr.s_addr = htons(INADDR_ANY);
 
 	sqe = io_uring_get_sqe(ring);
 	io_uring_prep_socket_direct(sqe, AF_INET, SOCK_STREAM, 0, SRV_INDEX, 0);
@@ -98,7 +162,7 @@ static int setup_srv(struct io_uring *ring, struct sockaddr_in *server_addr)
 	sqe->flags |= IOSQE_FIXED_FILE | IOSQE_IO_LINK;
 
 	sqe = io_uring_get_sqe(ring);
-	io_uring_prep_bind(sqe, SRV_INDEX, (struct sockaddr *) server_addr,
+	io_uring_prep_bind(sqe, SRV_INDEX, (struct sockaddr *) &server_addr,
 			   sizeof(struct sockaddr_in));
 	sqe->flags |= IOSQE_FIXED_FILE | IOSQE_IO_LINK;
 
@@ -132,7 +196,8 @@ static int setup_srv(struct io_uring *ring, struct sockaddr_in *server_addr)
 
 static int test_good_server(unsigned int ring_flags)
 {
-	struct sockaddr_in server_addr;
+	struct sockaddr_in saddr = {};
+	socklen_t saddr_len = sizeof(saddr);
 	struct __kernel_timespec ts;
 	struct io_uring_sqe *sqe;
 	struct io_uring_cqe *cqe;
@@ -155,13 +220,17 @@ static int test_good_server(unsigned int ring_flags)
 		return T_SETUP_SKIP;
 	}
 
-	ret = setup_srv(&ring, &server_addr);
+	ret = setup_srv(&ring);
 	if (ret != T_SETUP_OK) {
 		fprintf(stderr, "srv startup failed.\n");
 		return T_EXIT_FAIL;
 	}
 
-	if (connect_client(&ring, server_addr.sin_port) != T_SETUP_OK) {
+	if (do_getsockname(&ring, SRV_INDEX, 0, (struct sockaddr*) &saddr,
+			   &saddr_len))
+		return T_EXIT_FAIL;
+
+	if (connect_client(&ring, saddr.sin_port) != T_SETUP_OK) {
 		fprintf(stderr, "cli startup failed.\n");
 		return T_SETUP_SKIP;
 	}
