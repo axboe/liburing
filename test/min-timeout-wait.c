@@ -237,9 +237,9 @@ static int test_min_wait_equal(struct io_uring *ring)
 
 int main(int argc, char *argv[])
 {
-	struct io_uring ring1, ring2;
+	struct io_uring ring1, ring2, ring3;
 	struct io_uring_params p = { };
-	int ret;
+	int ret, no_sq_poll = 0;
 
 	if (argc > 1)
 		return 0;
@@ -259,6 +259,11 @@ int main(int argc, char *argv[])
 	else if (ret != T_SETUP_OK)
 		return ret;
 
+	p.flags = IORING_SETUP_SQPOLL;
+	ret = t_create_ring_params(8, &ring3, &p);
+	if (ret != T_SETUP_OK)
+		no_sq_poll = 1;
+
 	ret = test_already(&ring1);
 	if (ret == T_EXIT_FAIL || ret == T_EXIT_SKIP)
 		return ret;
@@ -266,6 +271,12 @@ int main(int argc, char *argv[])
 	ret = test_already(&ring2);
 	if (ret == T_EXIT_FAIL)
 		return T_EXIT_FAIL;
+
+	if (!no_sq_poll) {
+		ret = test_already(&ring3);
+		if (ret == T_EXIT_FAIL)
+			return T_EXIT_FAIL;
+	}
 
 	ret = test_some(&ring1);
 	if (ret == T_EXIT_FAIL || ret == T_EXIT_SKIP)
@@ -275,6 +286,12 @@ int main(int argc, char *argv[])
 	if (ret == T_EXIT_FAIL)
 		return T_EXIT_FAIL;
 
+	if (!no_sq_poll) {
+		ret = test_some(&ring3);
+		if (ret == T_EXIT_FAIL)
+			return T_EXIT_FAIL;
+	}
+
 	ret = test_late(&ring1);
 	if (ret == T_EXIT_FAIL || ret == T_EXIT_SKIP)
 		return ret;
@@ -282,6 +299,12 @@ int main(int argc, char *argv[])
 	ret = test_late(&ring2);
 	if (ret == T_EXIT_FAIL)
 		return T_EXIT_FAIL;
+
+	if (!no_sq_poll) {
+		ret = test_late(&ring3);
+		if (ret == T_EXIT_FAIL)
+			return T_EXIT_FAIL;
+	}
 
 	ret = test_post_wait(&ring1);
 	if (ret == T_EXIT_FAIL || ret == T_EXIT_SKIP)
@@ -291,6 +314,12 @@ int main(int argc, char *argv[])
 	if (ret == T_EXIT_FAIL)
 		return T_EXIT_FAIL;
 
+	if (!no_sq_poll) {
+		ret = test_post_wait(&ring3);
+		if (ret == T_EXIT_FAIL)
+			return T_EXIT_FAIL;
+	}
+
 	ret = test_some_wait(&ring1);
 	if (ret == T_EXIT_FAIL || ret == T_EXIT_SKIP)
 		return ret;
@@ -298,6 +327,12 @@ int main(int argc, char *argv[])
 	ret = test_some_wait(&ring2);
 	if (ret == T_EXIT_FAIL)
 		return T_EXIT_FAIL;
+
+	if (!no_sq_poll) {
+		ret = test_some_wait(&ring3);
+		if (ret == T_EXIT_FAIL)
+			return T_EXIT_FAIL;
+	}
 
 	ret = test_nothing(&ring1);
 	if (ret == T_EXIT_FAIL || ret == T_EXIT_SKIP)
@@ -307,6 +342,12 @@ int main(int argc, char *argv[])
 	if (ret == T_EXIT_FAIL)
 		return T_EXIT_FAIL;
 
+	if (!no_sq_poll) {
+		ret = test_nothing(&ring3);
+		if (ret == T_EXIT_FAIL)
+			return T_EXIT_FAIL;
+	}
+
 	ret = test_min_wait_biggest(&ring1);
 	if (ret == T_EXIT_FAIL || ret == T_EXIT_SKIP)
 		return ret;
@@ -314,6 +355,12 @@ int main(int argc, char *argv[])
 	ret = test_min_wait_biggest(&ring2);
 	if (ret == T_EXIT_FAIL)
 		return T_EXIT_FAIL;
+
+	if (!no_sq_poll) {
+		ret = test_min_wait_biggest(&ring3);
+		if (ret == T_EXIT_FAIL)
+			return T_EXIT_FAIL;
+	}
 
 	ret = test_min_wait_equal(&ring1);
 	if (ret == T_EXIT_FAIL || ret == T_EXIT_SKIP)
@@ -323,7 +370,15 @@ int main(int argc, char *argv[])
 	if (ret == T_EXIT_FAIL)
 		return T_EXIT_FAIL;
 
+	if (!no_sq_poll) {
+		ret = test_min_wait_equal(&ring3);
+		if (ret == T_EXIT_FAIL)
+			return T_EXIT_FAIL;
+	}
+
 	io_uring_queue_exit(&ring1);
 	io_uring_queue_exit(&ring2);
+	if (!no_sq_poll)
+		io_uring_queue_exit(&ring3);
 	return T_EXIT_PASS;
 }
