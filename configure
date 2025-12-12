@@ -120,8 +120,9 @@ print_config() {
 }
 
 # Default CFLAGS
-CFLAGS="-D_GNU_SOURCE -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -include config-host.h"
-BUILD_CFLAGS=""
+ENV_CFLAGS="${CFLAGS}"
+CFLAGS="${CFLAGS:+$CFLAGS }-D_GNU_SOURCE -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -include config-host.h"
+BUILD_CFLAGS="${ENV_CFLAGS}"
 
 # Print configure header at the top of $config_host_h
 echo "/*" > $config_host_h
@@ -588,6 +589,7 @@ fi
 echo "CC=$cc" >> $config_host_mak
 print_config "CC" "$cc"
 echo "CXX=$cxx" >> $config_host_mak
+echo "BUILD_CFLAGS=$BUILD_CFLAGS" >> $config_host_mak
 print_config "CXX" "$cxx"
 
 # generate io_uring_version.h

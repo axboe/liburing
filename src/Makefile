@@ -13,6 +13,7 @@ override CPPFLAGS += -D_GNU_SOURCE \
 CFLAGS ?= -O3 -Wall -Wextra -fno-stack-protector
 override CFLAGS += -Wno-unused-parameter \
 	-DLIBURING_INTERNAL \
+	$(BUILD_CFLAGS) \
 	$(LIBURING_CFLAGS)
 SO_CFLAGS=-fPIC $(CFLAGS)
 L_CFLAGS=$(CFLAGS)
