@@ -196,6 +196,7 @@ static int test_remove(struct io_uring *ring, int efd)
 }
 
 #define NPIPES	8
+#define MAX_QE 1000
 
 struct d {
 	int pipes[NPIPES][2];
@@ -243,8 +244,10 @@ static int test_race(int flags)
 	pthread_t thread;
 	int i, efd, ret;
 	void *tret;
-	int id = 0;
+	int sqe_id = 0;
 	int submitted = 0, completed = 0;
+	int sqe_ids[MAX_QE];
+	int cqe_ids[MAX_QE];
 
 	ret = t_create_ring(32, &ring, flags);
 	if (ret == T_SETUP_SKIP) {
@@ -286,12 +289,13 @@ static int test_race(int flags)
 
 	while (completed < 1000) {
 		io_uring_submit_and_wait(&ring, 1);
-
+		sqe_ids[submitted] = sqe->user_data;
 		ret = io_uring_wait_cqe(&ring, &cqe);
 		if (ret) {
 			fprintf(stderr, "wait %d\n", ret);
 			return 1;
 		}
+		cqe_ids[completed] = cqe->user_data;
 		completed++;
 		if (cqe->res < 0) {
 			fprintf(stderr, "race res %d\n", cqe->res);
@@ -302,7 +306,7 @@ static int test_race(int flags)
 		usleep(100);
 		sqe = io_uring_get_sqe(&ring);
 		io_uring_prep_epoll_wait(sqe, efd, out, NPIPES, 0);
-		sqe->user_data = ++id;
+		sqe->user_data = ++sqe_id;
 		submitted++;
 	}
 
@@ -313,6 +317,14 @@ static int test_race(int flags)
 		fprintf(stderr, "SQE/CQE mismatch: submitted=%d completed=%d\n",
 			submitted, completed);
 		return 1;
+	}
+
+	for (i = 0; i < completed; i++) {
+		if (sqe_ids[i] != cqe_ids[i]) {
+			fprintf(stderr, "user_data mismatch at %d: sqe=%d cqe=%d\n",
+				i, sqe_ids[i], cqe_ids[i]);
+			return 1;
+		}
 	}
 
 	for (i = 0; i < NPIPES; i++) {
