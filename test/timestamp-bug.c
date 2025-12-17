@@ -32,7 +32,7 @@
  * Create a socket whose error queue contains both timestamp information and
  * actual errors.
  */
-int create_sock_with_timestamps_and_errors(void)
+static int create_sock_with_timestamps_and_errors(void)
 {
 	struct sockaddr_in recv_addr = { };
 	struct sockaddr_in closed = { };
