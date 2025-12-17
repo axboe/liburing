@@ -74,7 +74,7 @@ int create_sock_with_timestamps_and_errors(void)
 
 	closed.sin_family = AF_INET;
 	closed.sin_addr.s_addr = inet_addr("127.0.0.1");
-	closed.sin_port = htons(9); /* assuming noone is listening on port 9 */
+	closed.sin_port = htons(9); /* assuming no one is listening on port 9 */
 	if (sendto(sock, &data, sizeof(data), 0, (struct sockaddr*) &closed, sizeof(closed)) < 0)
 		warn("sendto");
 
