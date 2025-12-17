@@ -9,6 +9,7 @@
 #include <arpa/inet.h>
 #include <err.h>
 #include <fcntl.h>
+#include <sys/time.h>
 #include <linux/errqueue.h>
 #include <linux/net_tstamp.h>
 #include <netinet/in.h>

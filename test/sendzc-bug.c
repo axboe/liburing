@@ -28,7 +28,7 @@
 #include "helpers.h"
 
 #define BUF_SIZE (1024 * 1024)
-uint8_t read_buffer[BUF_SIZE] = { 0 };
+static uint8_t read_buffer[BUF_SIZE] = { 0 };
 
 /* Creates a pair of connected TCP sockets. */
 static void tcp_socketpair(int sv[2])
