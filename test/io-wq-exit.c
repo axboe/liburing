@@ -6,7 +6,6 @@
  *
  */
 #include <fcntl.h>
-#include <liburing.h>
 #include <pthread.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -15,12 +14,15 @@
 #include <time.h>
 #include <unistd.h>
 
-const size_t buf_len = 20;
+#include "liburing.h"
+#include "helpers.h"
+
+#define BUF_LEN		20
 
 static void *test(void *data)
 {
 	int fd_src = -1, fd_dst = -1, pipe_fds[2] = { -1, -1 };
-	uint8_t buffer_write[buf_len], buffer_read[buf_len];
+	uint8_t buffer_write[BUF_LEN], buffer_read[BUF_LEN];
 	char dst_fname[PATH_MAX], src_fname[PATH_MAX];
 	struct io_uring_sqe *sqe;
 	struct io_uring_cqe *cqe;
@@ -47,9 +49,9 @@ static void *test(void *data)
 		goto cleanup;
 	}
 
-	memset(buffer_write, 97, buf_len);
-	memset(buffer_read, 98, buf_len);
-	ret = pwrite(fd_src, buffer_write, buf_len, 0);
+	memset(buffer_write, 97, BUF_LEN);
+	memset(buffer_read, 98, BUF_LEN);
+	ret = pwrite(fd_src, buffer_write, BUF_LEN, 0);
 	if (ret < 0) {
 		perror("pwrite src");
 		goto cleanup;
@@ -112,7 +114,7 @@ int main(int argc, char *argv[])
 	long start, end;
 
 	if (argc > 1)
-		return 77;
+		return T_EXIT_SKIP;
 
 	start = get_time_ns();
 	pthread_create(&thread, NULL, test, NULL);
@@ -122,8 +124,8 @@ int main(int argc, char *argv[])
 	end /= 1000000;
 	if (end >= 500) {
 		fprintf(stderr, "Test took too long: %lu msec\n", end);
-		return 1;
+		return T_EXIT_FAIL;
 	}
 
-	return 0;
+	return T_EXIT_PASS;
 }
