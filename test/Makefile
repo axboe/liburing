@@ -132,6 +132,7 @@ test_srcs := \
 	io_uring_passthrough.c \
 	io_uring_register.c \
 	io_uring_setup.c \
+	io-wq-exit.c \
 	iowait.c \
 	kallsyms.c \
 	lfs-openat.c \
