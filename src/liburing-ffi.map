@@ -262,5 +262,6 @@ LIBURING_2.13 {
 } LIBURING_2.12;
 
 LIBURING_2.14 {
-
+	global:
+		io_uring_register_task_restrictions;
 } LIBURING_2.13;

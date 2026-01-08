@@ -252,6 +252,11 @@ int io_uring_register_restrictions(struct io_uring *ring,
 	return do_register(ring, IORING_REGISTER_RESTRICTIONS, res, nr_res);
 }
 
+int io_uring_register_task_restrictions(struct io_uring_task_restriction *res)
+{
+	return __sys_io_uring_register(-1, IORING_REGISTER_RESTRICTIONS_TASK, res, 1);
+}
+
 int io_uring_enable_rings(struct io_uring *ring)
 {
 	return do_register(ring, IORING_REGISTER_ENABLE_RINGS, NULL, 0);

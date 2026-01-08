@@ -318,6 +318,7 @@ int io_uring_unregister_personality(struct io_uring *ring, int id)
 int io_uring_register_restrictions(struct io_uring *ring,
 				   struct io_uring_restriction *res,
 				   unsigned int nr_res) LIBURING_NOEXCEPT;
+int io_uring_register_task_restrictions(struct io_uring_task_restriction *res);
 int io_uring_enable_rings(struct io_uring *ring) LIBURING_NOEXCEPT;
 int __io_uring_sqring_wait(struct io_uring *ring) LIBURING_NOEXCEPT;
 #ifdef _GNU_SOURCE

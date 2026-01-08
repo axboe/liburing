@@ -685,6 +685,8 @@ enum io_uring_register_op {
 	/* query various aspects of io_uring, see linux/io_uring/query.h */
 	IORING_REGISTER_QUERY			= 35,
 
+	IORING_REGISTER_RESTRICTIONS_TASK	= 37,
+
 	/* this goes last */
 	IORING_REGISTER_LAST,
 
@@ -788,6 +790,22 @@ struct io_uring_restriction {
 	};
 	__u8 resv;
 	__u32 resv2[3];
+};
+
+enum {
+	/*
+	 * MASK operation to further restrict a filter set. Can clear opcodes
+	 * allowed for SQEs or register operations, clear allowed SQE flags,
+	 * and set further required SQE flags.
+	 */
+	IORING_REG_RESTRICTIONS_MASK	= (1U << 0),
+};
+
+struct io_uring_task_restriction {
+	__u16 flags;
+	__u16 nr_res;
+	__u32 resv[3];
+	struct io_uring_restriction restrictions[0];
 };
 
 struct io_uring_clock_register {
