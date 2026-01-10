@@ -252,7 +252,9 @@ use cases, setting this flag will improve performance. Available since 5.19.
 .TP
 .B IORING_SETUP_TASKRUN_FLAG
 Used in conjunction with
-.BR IORING_SETUP_COOP_TASKRUN ,
+.BR IORING_SETUP_COOP_TASKRUN
+or
+.BR IORING_SETUP_DEFER_TASKRUN ,
 this provides a flag,
 .BR IORING_SQ_TASKRUN ,
 which is set in the SQ ring
