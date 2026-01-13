@@ -45,14 +45,19 @@
 #include "helpers.h"
 
 enum {
+	AFFINITY_MODE_NONE,
+	AFFINITY_MODE_SAME,
+	AFFINITY_MODE_DIFFERENT,
+
+	__AFFINITY_MODE_MAX,
+};
+
+enum {
 	RQ_ALLOC_USER,
 	RQ_ALLOC_KERNEL,
 
 	__RQ_ALLOC_MAX,
 };
-
-static long page_size;
-#define AREA_SIZE (8192 * page_size)
 
 #define REQ_TYPE_SHIFT	3
 #define REQ_TYPE_MASK	((1UL << REQ_TYPE_SHIFT) - 1)
@@ -69,27 +74,91 @@ enum {
 	REQ_TYPE_RX		= 2,
 };
 
+struct zc_conn {
+	int sockfd;
+	unsigned long received;
+	unsigned stat_nr_reqs;
+	unsigned stat_nr_cqes;
+};
+
+static unsigned cfg_rq_entries = 8192;
+static unsigned cfg_cq_entries = 8192;
+static long cfg_area_size = 256 * 1024 * 1024;
 static int cfg_port = 8000;
 static const char *cfg_ifname;
 static int cfg_queue_id = -1;
 static bool cfg_verify_data = false;
 static size_t cfg_size = 0;
+static unsigned cfg_affinity_mode = AFFINITY_MODE_NONE;
 static unsigned cfg_rq_alloc_mode = RQ_ALLOC_USER;
 static unsigned cfg_area_type = AREA_TYPE_NORMAL;
 static struct sockaddr_in6 cfg_addr;
+
+static long page_size;
 
 static void *area_ptr;
 static void *ring_ptr;
 static size_t ring_size;
 static struct io_uring_zcrx_rq rq_ring;
 static unsigned long area_token;
-static int connfd;
 static bool stop;
-static size_t received;
 static __u32 zcrx_id;
 
 static int dmabuf_fd;
 static int memfd;
+
+static int listen_fd;
+static int target_cpu = -1;
+
+static int get_sock_cpu(int sockfd)
+{
+	int cpu;
+	socklen_t len = sizeof(cpu);
+
+	if (getsockopt(sockfd, SOL_SOCKET, SO_INCOMING_CPU, &cpu, &len))
+		t_error(1, errno, "getsockopt failed\n");
+	return cpu;
+}
+
+static void set_affinity(int sockfd)
+{
+	int new_cpu = -1;
+	int sock_cpu;
+	cpu_set_t mask;
+
+	if (cfg_affinity_mode == AFFINITY_MODE_NONE)
+		return;
+
+	sock_cpu = get_sock_cpu(sockfd);
+	if (sock_cpu == -1)
+		t_error(1, 0, "Can't socket's CPU");
+
+	if (cfg_affinity_mode == AFFINITY_MODE_SAME) {
+		new_cpu = sock_cpu;
+	} else if (cfg_affinity_mode == AFFINITY_MODE_DIFFERENT) {
+		if (target_cpu != -1 && target_cpu != sock_cpu)
+			new_cpu = target_cpu;
+		else
+			new_cpu = sock_cpu ^ 1;
+	}
+
+	if (target_cpu != -1 && new_cpu != target_cpu) {
+		printf("Couldn't set affinity for multi socket setup\n");
+		return;
+	}
+
+	CPU_ZERO(&mask);
+	CPU_SET(new_cpu, &mask);
+	if (sched_setaffinity(0, sizeof(mask), &mask))
+		t_error(1, errno, "sched_setaffinity() failed\n");
+	target_cpu = new_cpu;
+}
+
+static struct zc_conn *get_connection(__u64 user_data)
+{
+	user_data &= ~REQ_TYPE_MASK;
+	return (struct zc_conn *)(unsigned long)user_data;
+}
 
 static inline size_t get_refill_ring_size(unsigned int rq_entries)
 {
@@ -106,36 +175,36 @@ static void zcrx_populate_area_udmabuf(struct io_uring_zcrx_area_reg *area_reg)
 
 	devfd = open("/dev/udmabuf", O_RDWR);
 	if (devfd < 0)
-		t_error(1, devfd, "Failed to open udmabuf dev");
+		t_error(1, errno, "Failed to open udmabuf dev");
 
 	memfd = memfd_create("udmabuf-test", MFD_ALLOW_SEALING);
 	if (memfd < 0)
-		t_error(1, memfd, "Failed to open udmabuf dev");
+		t_error(1, errno, "Failed to open udmabuf dev");
 
 	ret = fcntl(memfd, F_ADD_SEALS, F_SEAL_SHRINK);
 	if (ret < 0)
-		t_error(1, 0, "Failed to set seals");
+		t_error(1, errno, "Failed to set seals");
 
-	ret = ftruncate(memfd, AREA_SIZE);
+	ret = ftruncate(memfd, cfg_area_size);
 	if (ret == -1)
-		t_error(1, 0, "Failed to resize udmabuf");
+		t_error(1, errno, "Failed to resize udmabuf");
 
 	memset(&create, 0, sizeof(create));
 	create.memfd = memfd;
 	create.offset = 0;
-	create.size = AREA_SIZE;
+	create.size = cfg_area_size;
 	dmabuf_fd = ioctl(devfd, UDMABUF_CREATE, &create);
 	if (dmabuf_fd < 0)
-		t_error(1, dmabuf_fd, "Failed to create udmabuf");
+		t_error(1, errno, "Failed to create udmabuf");
 
-	area_ptr = mmap(NULL, AREA_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED,
+	area_ptr = mmap(NULL, cfg_area_size, PROT_READ | PROT_WRITE, MAP_SHARED,
 			dmabuf_fd, 0);
 	if (area_ptr == MAP_FAILED)
-		t_error(1, 0, "Failed to mmap udmabuf");
+		t_error(1, errno, "Failed to mmap udmabuf");
 
 	memset(area_reg, 0, sizeof(*area_reg));
 	area_reg->addr = 0; /* offset into dmabuf */
-	area_reg->len = AREA_SIZE;
+	area_reg->len = cfg_area_size;
 	area_reg->flags |= IORING_ZCRX_AREA_DMABUF;
 	area_reg->dmabuf_fd = dmabuf_fd;
 
@@ -152,10 +221,10 @@ static void zcrx_populate_area(struct io_uring_zcrx_area_reg *area_reg)
 		return;
 	}
 	if (cfg_area_type == AREA_TYPE_NORMAL) {
-		area_ptr = mmap(NULL, AREA_SIZE, prot,
+		area_ptr = mmap(NULL, cfg_area_size, prot,
 				flags, 0, 0);
 	} else if (cfg_area_type == AREA_TYPE_HUGE_PAGES) {
-		area_ptr = mmap(NULL, AREA_SIZE, prot,
+		area_ptr = mmap(NULL, cfg_area_size, prot,
 				flags | MAP_HUGETLB | MAP_HUGE_2MB, -1, 0);
 	}
 
@@ -164,7 +233,7 @@ static void zcrx_populate_area(struct io_uring_zcrx_area_reg *area_reg)
 
 	memset(area_reg, 0, sizeof(*area_reg));
 	area_reg->addr = uring_ptr_to_u64(area_ptr);
-	area_reg->len = AREA_SIZE;
+	area_reg->len = cfg_area_size;
 	area_reg->flags = 0;
 }
 
@@ -172,7 +241,7 @@ static void setup_zcrx(struct io_uring *ring)
 {
 	struct io_uring_zcrx_area_reg area_reg;
 	unsigned int ifindex;
-	unsigned int rq_entries = 4096;
+	unsigned int rq_entries = cfg_rq_entries;
 	unsigned rq_flags = 0;
 	int ret;
 
@@ -239,59 +308,160 @@ static void add_accept(struct io_uring *ring, int sockfd)
 	sqe->user_data = REQ_TYPE_ACCEPT;
 }
 
-static void add_recvzc(struct io_uring *ring, int sockfd, size_t len)
+static void add_recvzc(struct io_uring *ring, struct zc_conn *conn, size_t len)
 {
 	struct io_uring_sqe *sqe = io_uring_get_sqe(ring);
+	__u64 token;
 
-	io_uring_prep_rw(IORING_OP_RECV_ZC, sqe, sockfd, NULL, len, 0);
+	token = (__u64)(unsigned long)conn;
+	token |= REQ_TYPE_RX;
+
+	conn->stat_nr_reqs++;
+	io_uring_prep_rw(IORING_OP_RECV_ZC, sqe, conn->sockfd, NULL, len, 0);
 	sqe->ioprio |= IORING_RECV_MULTISHOT;
 	sqe->zcrx_ifq_idx = zcrx_id;
-	sqe->user_data = REQ_TYPE_RX;
+	sqe->user_data = token;
+}
+
+static void print_socket_info(int sockfd)
+{
+	struct sockaddr_in6 peer_addr;
+	socklen_t addr_len = sizeof(peer_addr);
+	char ip_str[INET6_ADDRSTRLEN];
+	int port;
+
+	if (getpeername(sockfd, (struct sockaddr *)&peer_addr, &addr_len) < 0) {
+		t_error(1, errno, "getpeername failed");
+		return;
+	}
+	if (!inet_ntop(AF_INET6, &peer_addr.sin6_addr, ip_str, sizeof(ip_str))) {
+		t_error(1, errno, "inet_ntop failed");
+		return;
+	}
+	port = ntohs(peer_addr.sin6_port);
+
+	printf("socket accepted: fd %i, Peer IP %s, Peer port %d\n",
+		sockfd, ip_str, port);
 }
 
 static void process_accept(struct io_uring *ring, struct io_uring_cqe *cqe)
 {
-	if (cqe->res < 0)
-		t_error(1, 0, "accept()");
-	if (connfd)
+	struct zc_conn *conn;
+
+	if (cqe->res < 0) {
+		printf("Accept failed %i, terminate\n", cqe->res);
+		stop = false;
+		return;
+	}
+
+	conn = aligned_alloc(64, sizeof(*conn));
+	if (!conn)
+		t_error(1, 0, "can't allocate conn structure");
+	if (conn->sockfd)
 		t_error(1, 0, "Unexpected second connection");
 
-	connfd = cqe->res;
-	add_recvzc(ring, connfd, cfg_size);
+	memset(conn, 0, sizeof(*conn));
+	conn->sockfd = cqe->res;
+	print_socket_info(conn->sockfd);
+	set_affinity(conn->sockfd);
+	add_recvzc(ring, conn, cfg_size);
+
+	add_accept(ring, listen_fd);
 }
 
-static void verify_data(char *data, size_t size, unsigned long seq)
+static void verify_data(__u8 *data, size_t size, unsigned long seq)
 {
-	int i;
+	size_t i;
 
 	if (!cfg_verify_data)
 		return;
 
 	for (i = 0; i < size; i++) {
-		char expected = 'a' + (seq + i) % 26;
+		__u8 expected = (__u8)'a' + (seq + i) % 26;
+		__u8 v = data[i];
 
-		if (data[i] != expected)
-			t_error(1, 0, "payload mismatch at %i: expected %i vs got %i, seq %li",
-				i, expected, data[i], seq);
+		if (v != expected)
+			t_error(1, 0, "payload mismatch at %u: expected %u vs got %u, diff %i, base seq %lu, seq %lu",
+				(unsigned)i, expected, v, (int)expected - v,
+				seq, seq + i);
 	}
 }
 
-static void process_recvzc(struct io_uring __attribute__((unused)) *ring,
+static unsigned rq_nr_queued(struct io_uring_zcrx_rq *rq)
+{
+	return rq->rq_tail - io_uring_smp_load_acquire(rq->khead);
+}
+
+static inline void fill_rqe(const struct io_uring_cqe *cqe,
+			    struct io_uring_zcrx_rqe *rqe)
+{
+	const struct io_uring_zcrx_cqe *rcqe = (void *)(cqe + 1);
+
+	rqe->off = (rcqe->off & ~IORING_ZCRX_AREA_MASK) | area_token;
+	rqe->len = cqe->res;
+}
+
+static void return_buffer(struct io_uring_zcrx_rq *rq_ring,
+			  const struct io_uring_cqe *cqe)
+{
+	struct io_uring_zcrx_rqe *rqe;
+	unsigned rq_mask;
+
+	if (rq_nr_queued(rq_ring) == rq_ring->ring_entries) {
+		printf("refill queue is full, drop the buffer\n");
+		return;
+	}
+
+	rq_mask = rq_ring->ring_entries - 1;
+	/* processed, return back to the kernel */
+	rqe = &rq_ring->rqes[rq_ring->rq_tail & rq_mask];
+	fill_rqe(cqe, rqe);
+	io_uring_smp_store_release(rq_ring->ktail, ++rq_ring->rq_tail);
+}
+
+static void process_recvzc_error(struct io_uring *ring,
+				 struct zc_conn *conn, int ret)
+{
+	if (ret == -ENOSPC) {
+		size_t left = 0;
+
+		if (cfg_size) {
+			left = cfg_size - conn->received;
+			if (left == 0)
+				t_error(1, 0, "ENOSPC for a finished request");
+		}
+
+		add_recvzc(ring, conn, left);
+		return;
+	}
+
+	if (ret != 0)
+		t_error(1, 0, "invalid final recvzc ret %i", ret);
+	if (cfg_size && conn->received != cfg_size)
+		t_error(1, 0, "total receive size mismatch %lu / %lu",
+			conn->received, cfg_size);
+
+	printf("Connection terminated: received %lu, cqes %i, nr requeues %i\n",
+		conn->received,
+		conn->stat_nr_cqes,
+		conn->stat_nr_reqs - 1);
+
+	close(conn->sockfd);
+	free(conn);
+}
+
+static void process_recvzc(struct io_uring *ring,
 			   struct io_uring_cqe *cqe)
 {
-	unsigned rq_mask = rq_ring.ring_entries - 1;
-	struct io_uring_zcrx_cqe *rcqe;
-	struct io_uring_zcrx_rqe *rqe;
+	struct zc_conn *conn = get_connection(cqe->user_data);
+	const struct io_uring_zcrx_cqe *rcqe;
 	uint64_t mask;
-	char *data;
+	__u8 *data;
+
+	conn->stat_nr_cqes++;
 
 	if (!(cqe->flags & IORING_CQE_F_MORE)) {
-		if (!cfg_size || cqe->res != 0)
-			t_error(1, 0, "invalid final recvzc ret %i", cqe->res);
-		if (received != cfg_size)
-			t_error(1, 0, "total receive size mismatch %lu / %lu",
-				received, cfg_size);
-		stop = true;
+		process_recvzc_error(ring, conn, cqe->res);
 		return;
 	}
 	if (cqe->res < 0)
@@ -299,24 +469,22 @@ static void process_recvzc(struct io_uring __attribute__((unused)) *ring,
 
 	rcqe = (struct io_uring_zcrx_cqe *)(cqe + 1);
 	mask = (1ULL << IORING_ZCRX_AREA_SHIFT) - 1;
-	data = (char *)area_ptr + (rcqe->off & mask);
+	data = (__u8 *)area_ptr + (rcqe->off & mask);
 
-	verify_data(data, cqe->res, received);
-	received += cqe->res;
-
-	/* processed, return back to the kernel */
-	rqe = &rq_ring.rqes[rq_ring.rq_tail & rq_mask];
-	rqe->off = (rcqe->off & ~IORING_ZCRX_AREA_MASK) | area_token;
-	rqe->len = cqe->res;
-	io_uring_smp_store_release(rq_ring.ktail, ++rq_ring.rq_tail);
+	verify_data(data, cqe->res, conn->received);
+	conn->received += cqe->res;
+	return_buffer(&rq_ring, cqe);
 }
 
 static void server_loop(struct io_uring *ring)
 {
 	struct io_uring_cqe *cqe;
 	unsigned int head, count = 0;
+	int ret;
 
-	io_uring_submit_and_wait(ring, 1);
+	ret = io_uring_submit_and_wait(ring, 1);
+	if (ret < 0 && ret != -ETIME)
+		t_error(1, ret, "io_uring_submit_and_wait failed\n");
 
 	io_uring_for_each_cqe(ring, head, cqe) {
 		switch (cqe->user_data & REQ_TYPE_MASK) {
@@ -336,41 +504,46 @@ static void server_loop(struct io_uring *ring)
 
 static void run_server(void)
 {
-	unsigned int flags = 0;
+	struct io_uring_params p;
 	struct io_uring ring;
-	int fd, enable, ret;
+	int enable, ret;
 
-	fd = socket(AF_INET6, SOCK_STREAM, 0);
-	if (fd == -1)
+	listen_fd = socket(AF_INET6, SOCK_STREAM, 0);
+	if (listen_fd == -1)
 		t_error(1, 0, "socket()");
 
 	enable = 1;
-	ret = setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int));
+	ret = setsockopt(listen_fd, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int));
 	if (ret < 0)
 		t_error(1, 0, "setsockopt(SO_REUSEADDR)");
 
-	ret = bind(fd, (struct sockaddr *)&cfg_addr, sizeof(cfg_addr));
+	ret = bind(listen_fd, (struct sockaddr *)&cfg_addr, sizeof(cfg_addr));
 	if (ret < 0)
 		t_error(1, 0, "bind()");
 
-	if (listen(fd, 1024) < 0)
+	if (listen(listen_fd, 1024) < 0)
 		t_error(1, 0, "listen()");
 
-	flags |= IORING_SETUP_COOP_TASKRUN;
-	flags |= IORING_SETUP_SINGLE_ISSUER;
-	flags |= IORING_SETUP_DEFER_TASKRUN;
-	flags |= IORING_SETUP_SUBMIT_ALL;
-	flags |= IORING_SETUP_CQE32;
+	memset(&p, 0, sizeof(p));
+	p.flags |= IORING_SETUP_COOP_TASKRUN;
+	p.flags |= IORING_SETUP_SINGLE_ISSUER;
+	p.flags |= IORING_SETUP_DEFER_TASKRUN;
+	p.flags |= IORING_SETUP_SUBMIT_ALL;
+	p.flags |= IORING_SETUP_CQE32;
+	p.flags |= IORING_SETUP_CQSIZE;
+	p.cq_entries = cfg_cq_entries;
 
-	ret = io_uring_queue_init(512, &ring, flags);
+	ret = io_uring_queue_init_params(8, &ring, &p);
 	if (ret)
 		t_error(1, ret, "ring init failed");
 
 	setup_zcrx(&ring);
-	add_accept(&ring, fd);
+	add_accept(&ring, listen_fd);
 
 	while (!stop)
 		server_loop(&ring);
+
+	close(listen_fd);
 }
 
 static void usage(const char *filepath)
@@ -386,7 +559,7 @@ static void parse_opts(int argc, char **argv)
 	if (argc <= 1)
 		usage(argv[0]);
 
-	while ((c = getopt(argc, argv, "vp:i:q:s:r:A:")) != -1) {
+	while ((c = getopt(argc, argv, "vp:i:q:s:r:A:S:C:R:c:")) != -1) {
 		switch (c) {
 		case 'p':
 			cfg_port = strtoul(optarg, NULL, 0);
@@ -408,13 +581,31 @@ static void parse_opts(int argc, char **argv)
 			if (cfg_rq_alloc_mode >= __RQ_ALLOC_MAX)
 				t_error(1, 0, "invalid RQ allocation mode");
 			break;
+		case 'S':
+			cfg_area_size = strtoul(optarg, NULL, 0);
+			break;
 		case 'A':
 			cfg_area_type = strtoul(optarg, NULL, 0);
 			if (cfg_area_type >= __AREA_TYPE_MAX)
 				t_error(1, 0, "Invalid area type");
 			break;
+		case 'C':
+			cfg_cq_entries = strtoul(optarg, NULL, 0);
+			break;
+		case 'R':
+			cfg_rq_entries = strtoul(optarg, NULL, 0);
+			break;
+		case 'c':
+			cfg_affinity_mode = strtoul(optarg, NULL, 0);
+			if (cfg_affinity_mode >= __AFFINITY_MODE_MAX)
+				t_error(1, 0, "Invalid affinity mode");
 		}
 	}
+
+	if (!cfg_ifname)
+		t_error(1, -EINVAL, "Interface is not specified");
+	if (cfg_queue_id == -1)
+		t_error(1, -EINVAL, "Queue idx is not specified");
 
 	memset(addr6, 0, sizeof(*addr6));
 	addr6->sin6_family = AF_INET6;
