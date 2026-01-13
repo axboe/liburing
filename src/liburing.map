@@ -136,5 +136,20 @@ LIBURING_2.13 {
 } LIBURING_2.12;
 
 LIBURING_2.14 {
-
+	global:
+		liburing_discover_zones;
+		liburing_get_zones;
+		liburing_zone_reset;
+		liburing_zone_write;
+		liburing_zone_read;
+		liburing_zone_write_batch;
+		liburing_zone_writev;
+		liburing_zone_refresh_wp;
+		liburing_zone_cond_str;
+		liburing_zone_type_str;
+		liburing_alloc_aligned_buffer;
+		liburing_zone_is_writable;
+		liburing_zone_available_space;
+		liburing_filter_zones;
+		liburing_find_suitable_zones;
 } LIBURING_2.13;

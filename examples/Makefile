@@ -39,7 +39,8 @@ example_srcs := \
 	rsrc-update-bench.c \
 	proxy.c \
 	zcrx.c \
-	kdigest.c
+	kdigest.c \
+	zoned-test.c
 
 all_targets :=
 

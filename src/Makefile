@@ -47,14 +47,14 @@ LINK_FLAGS+=$(LDFLAGS)
 
 all: $(all_targets)
 
-liburing_srcs := setup.c queue.c register.c syscall.c version.c
+liburing_srcs := setup.c queue.c register.c syscall.c version.c nolibc.c zoned.c
 
-ifeq ($(CONFIG_NOLIBC),y)
-	liburing_srcs += nolibc.c
-	override CFLAGS += -nostdlib -nodefaultlibs -ffreestanding -fno-builtin -fno-stack-protector
-	override CPPFLAGS += -nostdlib -nodefaultlibs -ffreestanding -fno-builtin -fno-stack-protector
-	override LINK_FLAGS += -nostdlib -nodefaultlibs $(libgcc_link_flag)
-endif
+# Zone support requires libc functions, so nolibc mode is disabled
+# ifeq ($(CONFIG_NOLIBC),y)
+# 	override CFLAGS += -nostdlib -nodefaultlibs -ffreestanding -fno-builtin -fno-stack-protector
+# 	override CPPFLAGS += -nostdlib -nodefaultlibs -ffreestanding -fno-builtin -fno-stack-protector
+# 	override LINK_FLAGS += -nostdlib -nodefaultlibs $(libgcc_link_flag)
+# endif
 
 ifeq ($(CONFIG_USE_SANITIZER),y)
 	override CFLAGS += -fsanitize=address,undefined -g -fno-omit-frame-pointer -fno-optimize-sibling-calls
@@ -96,7 +96,7 @@ liburing-ffi.a: $(liburing_objs) $(liburing_ffi_objs)
 	$(QUIET_RANLIB)$(RANLIB) liburing-ffi.a
 
 $(libname): $(liburing_sobjs) liburing.map
-	$(QUIET_CC)$(CC) $(SO_CFLAGS) -shared -Wl,--version-script=liburing.map -Wl,-soname=$(soname) -o $@ $(liburing_sobjs) $(LINK_FLAGS)
+	$(QUIET_CC)$(CC) $(SO_CFLAGS) -shared -Wl,--version-script=liburing.map -Wl,-soname=$(soname) -o $@ $(liburing_sobjs) $(LINK_FLAGS) -lc -lrt
 
 $(ffi_libname): $(liburing_ffi_objs) $(liburing_ffi_sobjs) $(liburing_sobjs) liburing-ffi.map
 	$(QUIET_CC)$(CC) $(SO_CFLAGS) -shared -Wl,--version-script=liburing-ffi.map -Wl,-soname=$(ffi_soname) -o $@ $(liburing_sobjs) $(liburing_ffi_sobjs) $(LINK_FLAGS)
