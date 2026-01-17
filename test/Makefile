@@ -282,6 +282,10 @@ asan_test_srcs := \
 all_targets :=
 include ../Makefile.quiet
 
+ifeq ($(CONFIG_HAVE_BPF_SUPPORT),y)
+SUBDIRS = bpf_filters/
+endif
+
 ifeq ($(CONFIG_NOLIBC),y)
 	test_srcs += nolibc.c
 endif
@@ -315,6 +319,7 @@ ifeq ($(CONFIG_USE_SANITIZER),y)
 endif
 
 all: $(test_targets) $(asan_test_targets)
+	@for dir in $(SUBDIRS); do $(MAKE) -C $$dir || exit 1; done
 
 helpers.o: helpers.c
 	$(QUIET_CC)$(CC) $(CPPFLAGS) $(CFLAGS) -o $@ -c $<
@@ -347,7 +352,7 @@ uninstall:
 	@rm -rf $(datadir)/liburing-test/
 
 clean:
-	@rm -f $(all_targets) helpers.o output/*
+	@rm -f $(all_targets) helpers.o output/* bpf_filters/*.o
 	@rm -rf output/
 
 runtests: all

@@ -169,6 +169,18 @@ do_cc() {
     fatal "You can run configure with --disable-werror to bypass this check."
 }
 
+do_clang() {
+    if test -z "$CLANG"; then
+        CLANG=clang
+    fi
+    if ! command -v "$CLANG" >/dev/null 2>&1; then
+        return 1
+    fi
+    echo "Compiling clang test case $@" >> config.log
+    $CLANG "$@" >> config.log 2>&1 || return $?
+    return 0
+}
+
 compile_prog() {
   local_cflags="$1"
   local_ldflags="$2 $LIBS"
@@ -528,6 +540,99 @@ if compile_prog "" "" "ublk_header"; then
 fi
 print_config "ublk_header" "$ublk_header"
 
+check_bpf_support() {
+    # Check for clang
+    if ! command -v clang >/dev/null 2>&1; then
+        echo "no (clang not found)"
+        return 1
+    fi
+
+    # Check if clang supports BPF target
+    if ! do_clang -target bpf -x c /dev/null -c -o /dev/null; then
+        echo "no (clang doesn't support BPF target)"
+        return 1
+    fi
+
+    # Check for llvm-strip
+    if ! command -v llvm-strip >/dev/null 2>&1; then
+        echo "no (llvm-strip not found)"
+        return 1
+    fi
+
+    # Check for libbpf headers
+    cat > test-bpf.c << EOF
+#include <bpf/libbpf.h>
+#include <bpf/bpf.h>
+int main(void) {
+    struct bpf_object *obj;
+    return 0;
+}
+EOF
+
+    if ! do_clang test-bpf.c -c -o test-bpf.o; then
+        rm -f test-bpf.c test-bpf.o
+        return 1
+    fi
+    rm -f test-bpf.c test-bpf.o
+
+    # Check for libbpf library
+    cat > test-bpf.c << EOF
+#include <bpf/libbpf.h>
+int main(void) {
+    return (int)(long)bpf_object__open;
+}
+EOF
+
+    if ! do_clang test-bpf.c -lbpf -o test-bpf; then
+        rm -f test-bpf.c test-bpf
+        return 1
+    fi
+    rm -f test-bpf.c test-bpf
+
+    # Check for basic BPF headers (linux/bpf.h)
+    cat > test-bpf.c << EOF
+#include <linux/bpf.h>
+int main(void) {
+    enum bpf_prog_type type = BPF_PROG_TYPE_SOCKET_FILTER;
+    return 0;
+}
+EOF
+
+    if ! do_clang test-bpf.c -c -o test-bpf.o; then
+        rm -f test-bpf.c test-bpf.o
+        return 1
+    fi
+    rm -f test-bpf.c test-bpf.o
+
+    # Test actual BPF compilation
+    cat > test-bpf.bpf.c << EOF
+#include <linux/bpf.h>
+#include <bpf/bpf_helpers.h>
+
+SEC("test")
+int test_prog(void *ctx) {
+    return 0;
+}
+
+char _license[] SEC("license") = "GPL";
+EOF
+
+    if ! do_clang -O2 -target bpf -c test-bpf.bpf.c -o test-bpf.bpf.o; then
+        rm -f test-bpf.bpf.c test-bpf.bpf.o
+        return 1
+    fi
+    rm -f test-bpf.bpf.c test-bpf.bpf.o
+
+    return 0
+}
+
+# Run the BPF support check
+if check_bpf_support; then
+  bpf_support="yes"
+else
+  bpf_support="no"
+fi
+
 if test "$liburing_nolibc" = "yes"; then
   output_sym "CONFIG_NOLIBC"
 fi
@@ -584,6 +689,12 @@ if test "$use_tsan" = "yes"; then
   print_config "use tsan" "yes"
 else
   print_config "use tsan" "no"
+fi
+if test "$bpf_support" = "yes"; then
+  output_sym "CONFIG_HAVE_BPF_SUPPORT"
+  print_config "BPF support" "yes"
+else
+  print_config "BPF support" "no"
 fi
 
 echo "CC=$cc" >> $config_host_mak
