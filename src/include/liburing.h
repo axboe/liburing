@@ -13,6 +13,7 @@
 #include <fcntl.h>
 #include <sched.h>
 #include <linux/swab.h>
+#include <linux/filter.h>
 #include <sys/wait.h>
 #include "liburing/compat.h"
 #include "liburing/io_uring.h"
@@ -356,6 +357,12 @@ int io_uring_register_ifq(struct io_uring *ring,
 int io_uring_register_clock(struct io_uring *ring,
 			    struct io_uring_clock_register *arg)
    LIBURING_NOEXCEPT;
+int io_uring_register_bpf_filter(struct io_uring *ring, struct sock_filter *f,
+				 unsigned int filter_len, int opcode,
+				 unsigned int flags) LIBURING_NOEXCEPT;
+int io_uring_register_bpf_filter_task(struct sock_filter *f,
+				 unsigned int filter_len, int opcode,
+				 unsigned int flags) LIBURING_NOEXCEPT;
 
 int io_uring_get_events(struct io_uring *ring) LIBURING_NOEXCEPT;
 int io_uring_submit_and_get_events(struct io_uring *ring) LIBURING_NOEXCEPT;

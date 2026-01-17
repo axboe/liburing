@@ -6,6 +6,7 @@
 #include "liburing.h"
 #include "setup.h"
 #include "int_flags.h"
+#include "liburing/io_uring/bpf_filter.h"
 #include "liburing/io_uring.h"
 #include "liburing/sanitize.h"
 
@@ -513,4 +514,38 @@ int io_uring_set_iowait(struct io_uring *ring, bool enable_iowait)
 	else
 		ring->int_flags |= INT_FLAG_NO_IOWAIT;
 	return 0;
+}
+
+int io_uring_register_bpf_filter(struct io_uring *ring, struct sock_filter *filter,
+				 unsigned int filter_len, int opcode,
+				 unsigned int flags)
+{
+	struct io_uring_bpf io_bpf = {
+		.cmd_type = IO_URING_BPF_CMD_FILTER,
+		.filter = {
+			.opcode = opcode,
+			.flags = flags,
+			.filter_len = filter_len,
+			.filter_ptr = (unsigned long) (uintptr_t) filter,
+		},
+	};
+
+	return do_register(ring, IORING_REGISTER_BPF_FILTER, &io_bpf, 1);
+}
+
+int io_uring_register_bpf_filter_task(struct sock_filter *filter,
+				      unsigned int filter_len, int opcode,
+				      unsigned int flags)
+{
+	struct io_uring_bpf io_bpf = {
+		.cmd_type = IO_URING_BPF_CMD_FILTER,
+		.filter = {
+			.opcode = opcode,
+			.flags = flags,
+			.filter_len = filter_len,
+			.filter_ptr = (unsigned long) (uintptr_t) filter,
+		},
+	};
+
+	return __sys_io_uring_register(-1, IORING_REGISTER_BPF_FILTER, &io_bpf, 1);
 }
