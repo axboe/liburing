@@ -283,7 +283,10 @@ all_targets :=
 include ../Makefile.quiet
 
 ifeq ($(CONFIG_HAVE_BPF_SUPPORT),y)
-SUBDIRS = bpf_filters/
+	SUBDIRS = bpf_filters/
+	override LDFLAGS += -lbpf
+	test_srcs += bpf_filter.c
+	all_argets += bpf_filter.t
 endif
 
 ifeq ($(CONFIG_NOLIBC),y)
