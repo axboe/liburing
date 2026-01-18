@@ -86,9 +86,301 @@ buffer ring may still fail with
 .B -EINVAL
 if the host is a 32-bit architecture and the memory being passed in resides in
 high memory.
+.PP
+Buffer rings are the preferred way to do buffer selection for new applications.
+Unlike the older
+.BR io_uring_prep_provide_buffers (3)
+API, buffer rings allow adding buffers back to the ring without going through
+the submission queue. This results in better performance, especially for
+high-throughput applications.
+.PP
+The typical workflow is:
+.IP 1. 4
+Call
+.BR io_uring_setup_buf_ring (3)
+to create and register the ring
+.IP 2. 4
+Add initial buffers using
+.BR io_uring_buf_ring_add (3)
+.IP 3. 4
+Make the buffers visible with
+.BR io_uring_buf_ring_advance (3)
+.IP 4. 4
+Submit requests with
+.B IOSQE_BUFFER_SELECT
+and the appropriate buffer group ID
+.IP 5. 4
+On completion, extract buffer ID from CQE flags
+.IP 6. 4
+After processing, re-add the buffer to the ring
+.IP 7. 4
+Call
+.BR io_uring_free_buf_ring (3)
+when done
+.PP
+To extract the buffer ID from a CQE:
+.PP
+.in +4n
+.EX
+if (cqe->flags & IORING_CQE_F_BUFFER) {
+    unsigned int bid = cqe->flags >> IORING_CQE_BUFFER_SHIFT;
+    char *buf = bufs[bid];
+    /* process data in buf */
+}
+.EE
+.in
+.SH EXAMPLE
+.SS Basic buffer ring setup
+.EX
+#include <stdio.h>
+#include <stdlib.h>
+#include <liburing.h>
+
+#define BGID        1
+#define NUM_BUFFERS 128
+#define BUF_SIZE    4096
+
+struct buffer_ring {
+    struct io_uring_buf_ring *br;
+    char **bufs;
+    int buf_size;
+    int num_bufs;
+};
+
+int setup_buffer_ring(struct io_uring *ring, struct buffer_ring *ctx)
+{
+    int err, i;
+
+    ctx->buf_size = BUF_SIZE;
+    ctx->num_bufs = NUM_BUFFERS;
+
+    /* Allocate individual buffers */
+    ctx->bufs = malloc(sizeof(char *) * NUM_BUFFERS);
+    if (!ctx->bufs)
+        return -ENOMEM;
+
+    for (i = 0; i < NUM_BUFFERS; i++) {
+        ctx->bufs[i] = malloc(BUF_SIZE);
+        if (!ctx->bufs[i])
+            goto err_free;
+    }
+
+    /* Setup and register the buffer ring */
+    ctx->br = io_uring_setup_buf_ring(ring, NUM_BUFFERS, BGID, 0, &err);
+    if (!ctx->br) {
+        fprintf(stderr, "Buffer ring setup failed: %d\\n", err);
+        goto err_free;
+    }
+
+    /* Add buffers to the ring */
+    for (i = 0; i < NUM_BUFFERS; i++) {
+        io_uring_buf_ring_add(ctx->br, ctx->bufs[i], BUF_SIZE,
+                              i, io_uring_buf_ring_mask(NUM_BUFFERS), i);
+    }
+
+    /* Make all buffers visible to the kernel */
+    io_uring_buf_ring_advance(ctx->br, NUM_BUFFERS);
+
+    return 0;
+
+err_free:
+    for (i = 0; i < NUM_BUFFERS && ctx->bufs[i]; i++)
+        free(ctx->bufs[i]);
+    free(ctx->bufs);
+    return -ENOMEM;
+}
+.EE
+.SS Receive with buffer ring
+.EX
+#include <stdio.h>
+#include <liburing.h>
+
+#define BGID     1
+#define BUF_SIZE 4096
+
+/*
+ * Queue a receive using buffer selection from a buffer ring.
+ */
+void queue_recv(struct io_uring *ring, int sockfd)
+{
+    struct io_uring_sqe *sqe;
+
+    sqe = io_uring_get_sqe(ring);
+    io_uring_prep_recv(sqe, sockfd, NULL, BUF_SIZE, 0);
+    sqe->flags |= IOSQE_BUFFER_SELECT;
+    sqe->buf_group = BGID;
+    io_uring_sqe_set_data64(sqe, sockfd);
+}
+
+/*
+ * Process a completion and return the buffer to the ring.
+ */
+int handle_recv_cqe(struct io_uring_cqe *cqe,
+                    struct io_uring_buf_ring *br,
+                    char **bufs, int buf_size, int num_bufs)
+{
+    int ret = cqe->res;
+
+    if (ret <= 0)
+        return ret;
+
+    if (cqe->flags & IORING_CQE_F_BUFFER) {
+        unsigned int bid = cqe->flags >> IORING_CQE_BUFFER_SHIFT;
+        char *buf = bufs[bid];
+
+        /* Process received data */
+        process_data(buf, ret);
+
+        /* Return buffer to ring - no syscall needed! */
+        io_uring_buf_ring_add(br, buf, buf_size, bid,
+                              io_uring_buf_ring_mask(num_bufs), 0);
+        io_uring_buf_ring_advance(br, 1);
+    }
+
+    return ret;
+}
+.EE
+.SS High-performance server with buffer rings
+.EX
+#include <stdio.h>
+#include <stdlib.h>
+#include <liburing.h>
+
+#define BGID        1
+#define NUM_BUFFERS 256
+#define BUF_SIZE    8192
+
+struct server_ctx {
+    struct io_uring ring;
+    struct io_uring_buf_ring *br;
+    char **bufs;
+    int mask;
+};
+
+int server_init(struct server_ctx *ctx)
+{
+    int err, i;
+
+    io_uring_queue_init(256, &ctx->ring, 0);
+
+    ctx->bufs = malloc(sizeof(char *) * NUM_BUFFERS);
+    for (i = 0; i < NUM_BUFFERS; i++)
+        ctx->bufs[i] = malloc(BUF_SIZE);
+
+    ctx->br = io_uring_setup_buf_ring(&ctx->ring, NUM_BUFFERS,
+                                       BGID, 0, &err);
+    if (!ctx->br)
+        return err;
+
+    ctx->mask = io_uring_buf_ring_mask(NUM_BUFFERS);
+
+    /* Add all buffers */
+    for (i = 0; i < NUM_BUFFERS; i++) {
+        io_uring_buf_ring_add(ctx->br, ctx->bufs[i], BUF_SIZE,
+                              i, ctx->mask, i);
+    }
+    io_uring_buf_ring_advance(ctx->br, NUM_BUFFERS);
+
+    return 0;
+}
+
+void server_handle_client(struct server_ctx *ctx, int sockfd)
+{
+    struct io_uring_sqe *sqe;
+    struct io_uring_cqe *cqe;
+
+    while (1) {
+        /* Queue recv with buffer selection */
+        sqe = io_uring_get_sqe(&ctx->ring);
+        io_uring_prep_recv(sqe, sockfd, NULL, BUF_SIZE, 0);
+        sqe->flags |= IOSQE_BUFFER_SELECT;
+        sqe->buf_group = BGID;
+
+        io_uring_submit(&ctx->ring);
+        io_uring_wait_cqe(&ctx->ring, &cqe);
+
+        if (cqe->res <= 0) {
+            io_uring_cqe_seen(&ctx->ring, cqe);
+            break;
+        }
+
+        if (cqe->flags & IORING_CQE_F_BUFFER) {
+            unsigned int bid = cqe->flags >> IORING_CQE_BUFFER_SHIFT;
+            char *buf = ctx->bufs[bid];
+            int len = cqe->res;
+
+            io_uring_cqe_seen(&ctx->ring, cqe);
+
+            /* Process data */
+            process_request(buf, len);
+
+            /* Return buffer to ring (no syscall!) */
+            io_uring_buf_ring_add(ctx->br, buf, BUF_SIZE,
+                                  bid, ctx->mask, 0);
+            io_uring_buf_ring_advance(ctx->br, 1);
+        } else {
+            io_uring_cqe_seen(&ctx->ring, cqe);
+        }
+    }
+}
+
+void server_cleanup(struct server_ctx *ctx)
+{
+    io_uring_free_buf_ring(&ctx->ring, ctx->br, NUM_BUFFERS, BGID);
+    for (int i = 0; i < NUM_BUFFERS; i++)
+        free(ctx->bufs[i]);
+    free(ctx->bufs);
+    io_uring_queue_exit(&ctx->ring);
+}
+.EE
+.SS Using incremental buffers (IOU_PBUF_RING_INC)
+.EX
+#include <stdio.h>
+#include <liburing.h>
+
+#define BGID        1
+#define NUM_BUFFERS 16
+#define BUF_SIZE    65536  /* Large buffers for streaming */
+
+/*
+ * With IOU_PBUF_RING_INC, a single large buffer can be consumed
+ * incrementally across multiple completions. Useful for streaming.
+ */
+int setup_incremental_ring(struct io_uring *ring,
+                           struct io_uring_buf_ring **br_out)
+{
+    int err;
+
+    *br_out = io_uring_setup_buf_ring(ring, NUM_BUFFERS, BGID,
+                                       IOU_PBUF_RING_INC, &err);
+    return *br_out ? 0 : err;
+}
+
+/*
+ * Handle completions with incremental consumption.
+ * IORING_CQE_F_BUF_MORE indicates more data expected in same buffer.
+ */
+void handle_incremental_recv(struct io_uring_cqe *cqe)
+{
+    if (cqe->flags & IORING_CQE_F_BUFFER) {
+        unsigned int bid = cqe->flags >> IORING_CQE_BUFFER_SHIFT;
+
+        if (cqe->flags & IORING_CQE_F_BUF_MORE) {
+            /* More data coming to same buffer - don't recycle yet */
+            printf("Partial data in buffer %u, more coming\\n", bid);
+        } else {
+            /* Buffer fully consumed, can recycle */
+            printf("Buffer %u complete, recycling\\n", bid);
+        }
+    }
+}
+.EE
 .SH SEE ALSO
 .BR io_uring_register_buf_ring (3),
+.BR io_uring_free_buf_ring (3),
 .BR io_uring_buf_ring_init (3),
 .BR io_uring_buf_ring_add (3),
 .BR io_uring_buf_ring_advance (3),
-.BR io_uring_buf_ring_cq_advance (3)
+.BR io_uring_buf_ring_cq_advance (3),
+.BR io_uring_prep_provide_buffers (3),
+.BR io_uring_prep_recv (3)
