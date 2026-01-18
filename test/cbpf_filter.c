@@ -12,6 +12,7 @@
 #include <errno.h>
 #include <unistd.h>
 #include <sys/wait.h>
+#include <sys/prctl.h>
 #include <linux/filter.h>
 
 #include "liburing.h"
@@ -20,16 +21,16 @@
 
 /*
  * cBPF filter context layout (struct io_uring_bpf_ctx):
- *   offset 0:  opcode (u8)
- *   offset 1:  sqe_flags (u8)
- *   offset 2:  pdu_size (u8)
- *   offset 3:  pad[5]
- *   offset 8:  user_data (u64)
+ *   offset 0:  user_data (u64)
+ *   offset 8:  opcode (u8)
+ *   offset 9:  sqe_flags (u8)
+ *   offset 10: pdu_size (u8)
+ *   offset 11: pad[5]
  *   offset 16: union (socket: family/type/protocol at 16/20/24)
  */
-#define CTX_OFF_OPCODE		0
-#define CTX_OFF_SQE_FLAGS	1
-#define CTX_OFF_USER_DATA	8
+#define CTX_OFF_USER_DATA	0
+#define CTX_OFF_OPCODE		8
+#define CTX_OFF_SQE_FLAGS	9
 #define CTX_OFF_SOCKET_FAMILY	16
 #define CTX_OFF_SOCKET_TYPE	20
 #define CTX_OFF_SOCKET_PROTO	24
@@ -715,7 +716,7 @@ static int test_cannot_loosen_restrictions(void)
 		}
 
 		if (grandchild == 0) {
-			/* Grandchild: try to allow NOP (should not work) */
+			/* Grandchild: try to allow NOP (inherits no_new_privs) */
 			ret = register_bpf_filter(allow_all_filter,
 						  sizeof(allow_all_filter) / sizeof(allow_all_filter[0]),
 						  IORING_OP_NOP, 0);
@@ -858,6 +859,56 @@ static int test_multi_level_inherit(void)
 	return 1;
 }
 
+/*
+ * Test that registering a filter without no_new_privs returns -EACCES.
+ * This must be called before prctl(PR_SET_NO_NEW_PRIVS) in main().
+ */
+static int test_no_new_privs_required(void)
+{
+	struct io_uring_bpf io_bpf = {
+		.cmd_type = IO_URING_BPF_CMD_FILTER,
+		.filter = {
+			.opcode = IORING_OP_NOP,
+			.flags = 0,
+			.filter_len = sizeof(allow_all_filter) / sizeof(allow_all_filter[0]),
+			.filter_ptr = (unsigned long)allow_all_filter,
+		},
+	};
+	pid_t pid;
+	int status;
+
+	pid = fork();
+	if (pid < 0) {
+		perror("fork");
+		return 1;
+	}
+
+	if (pid == 0) {
+		int ret;
+
+		/* Try to register without no_new_privs - should fail with EACCES */
+		ret = io_uring_register(-1, IORING_REGISTER_BPF_FILTER,
+					&io_bpf, 1);
+		if (ret == -EACCES)
+			exit(0);  /* Expected */
+		if (ret == -EINVAL || ret == -ENOSYS)
+			exit(2);  /* Not supported */
+		fprintf(stderr, "Expected -EACCES, got %d\n", ret);
+		exit(1);
+	}
+
+	waitpid(pid, &status, 0);
+	if (WIFEXITED(status)) {
+		int code = WEXITSTATUS(status);
+		if (code == 0)
+			return 0;  /* Test passed */
+		if (code == 2)
+			return -1;  /* Not supported, skip */
+	}
+	fprintf(stderr, "test_no_new_privs_required failed\n");
+	return 1;
+}
+
 static int probe_bpf_filter_support(void)
 {
 	struct io_uring_bpf io_bpf = {
@@ -878,8 +929,10 @@ static int probe_bpf_filter_support(void)
 		return -1;
 
 	if (pid == 0) {
-		int ret = io_uring_register(-1, IORING_REGISTER_BPF_FILTER,
-					    &io_bpf, 1);
+		int ret;
+
+		ret = io_uring_register(-1, IORING_REGISTER_BPF_FILTER,
+					&io_bpf, 1);
 		exit(ret < 0 ? -ret : 0);
 	}
 
@@ -896,12 +949,32 @@ static int probe_bpf_filter_support(void)
 int main(int argc, char *argv[])
 {
 	int total_failed = 0;
+	int ret;
 
 	if (argc > 1)
 		return T_EXIT_SKIP;
 
 	if (probe_bpf_filter_support() < 0)
 		return T_EXIT_SKIP;
+
+	/*
+	 * Test that filter registration fails without no_new_privs.
+	 * Must run before we call prctl() below.
+	 */
+	ret = test_no_new_privs_required();
+	if (ret < 0)
+		return T_EXIT_SKIP;
+	if (ret > 0)
+		total_failed++;
+
+	/*
+	 * Must set no_new_privs to register BPF filters without CAP_SYS_ADMIN.
+	 * This is inherited by all child processes.
+	 */
+	if (prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) < 0) {
+		perror("prctl");
+		return T_EXIT_SKIP;
+	}
 
 	/* Task-level filter tests */
 	total_failed += test_deny_nop();

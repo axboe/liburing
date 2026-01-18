@@ -11,11 +11,11 @@
  * Struct passed to filters.
  */
 struct io_uring_bpf_ctx {
+	__u64	user_data;
 	__u8	opcode;
 	__u8	sqe_flags;
 	__u8	pdu_size;	/* size of aux data for filter */
 	__u8	pad[5];
-	__u64	user_data;
 	union {
 		struct {
 			__u32	family;
