@@ -62,18 +62,37 @@ None
 .SH ERRORS
 The CQE
 .I res
-field will contain the result of the operation. See the related man page for
-details on possible values. Note that where synchronous system calls will return
-.B -1
-on failure and set
+field will contain the result of the operation. On success, it contains
+.BR 0 .
+On error, it contains the negated
 .I errno
-to the actual error value, io_uring never uses
-.IR errno .
-Instead it returns the negated
-.I errno
-directly in the CQE
-.I res
-field.
+value.
+.PP
+Common errors include:
+.TP
+.B -EEXIST
+The new path already exists.
+.TP
+.B -ENOENT
+The old path does not exist, or a directory component in new path does not exist.
+.TP
+.B -EPERM
+The filesystem does not support hard links, or the old path is a directory.
+.TP
+.B -EXDEV
+Old and new paths are on different filesystems (hard links cannot cross mounts).
+.TP
+.B -EACCES
+Permission denied.
+.TP
+.B -EMLINK
+The file already has the maximum number of links.
+.TP
+.B -ENOSPC
+No space left on device for the new directory entry.
+.TP
+.B -EROFS
+The filesystem is read-only.
 .SH NOTES
 As with any request that passes in data in a struct, that data must remain
 valid until the request has been successfully submitted. It need not remain
@@ -84,8 +103,181 @@ behavior by inspecting the
 .B IORING_FEAT_SUBMIT_STABLE
 flag passed back from
 .BR io_uring_queue_init_params (3).
+.PP
+The
+.I flags
+argument can be 0 or include:
+.IP \(bu 2
+.B AT_SYMLINK_FOLLOW
+- If oldpath is a symbolic link, dereference it
+.IP \(bu 2
+.B AT_EMPTY_PATH
+- If oldpath is empty, use olddirfd as the source (requires CAP_DAC_READ_SEARCH)
+.PP
+Hard links create another name for the same file (same inode). Unlike symbolic
+links, hard links are indistinguishable from the original file, and the file
+content is only deleted when all hard links are removed.
+.PP
+Hard links cannot:
+.IP \(bu 2
+Cross filesystem boundaries
+.IP \(bu 2
+Link to directories (on most filesystems)
+.IP \(bu 2
+Link to non-existent files
+.SH EXAMPLE
+.SS Create a hard link
+.EX
+#include <stdio.h>
+#include <fcntl.h>
+#include <liburing.h>
+
+int create_hard_link(struct io_uring *ring,
+                     const char *oldpath, const char *newpath)
+{
+    struct io_uring_sqe *sqe;
+    struct io_uring_cqe *cqe;
+    int ret;
+
+    sqe = io_uring_get_sqe(ring);
+    io_uring_prep_link(sqe, oldpath, newpath, 0);
+
+    io_uring_submit(ring);
+    io_uring_wait_cqe(ring, &cqe);
+
+    ret = cqe->res;
+    io_uring_cqe_seen(ring, cqe);
+
+    if (ret < 0)
+        fprintf(stderr, "link failed: %d\\n", ret);
+
+    return ret;
+}
+.EE
+.SS Create hard link following symlinks
+.EX
+#include <stdio.h>
+#include <fcntl.h>
+#include <liburing.h>
+
+/*
+ * If oldpath is a symlink, link to the target it points to,
+ * not the symlink itself.
+ */
+int link_follow_symlink(struct io_uring *ring,
+                        const char *oldpath, const char *newpath)
+{
+    struct io_uring_sqe *sqe;
+    struct io_uring_cqe *cqe;
+    int ret;
+
+    sqe = io_uring_get_sqe(ring);
+    io_uring_prep_link(sqe, oldpath, newpath, AT_SYMLINK_FOLLOW);
+
+    io_uring_submit(ring);
+    io_uring_wait_cqe(ring, &cqe);
+
+    ret = cqe->res;
+    io_uring_cqe_seen(ring, cqe);
+
+    return ret;
+}
+.EE
+.SS Create link relative to directories
+.EX
+#include <stdio.h>
+#include <fcntl.h>
+#include <liburing.h>
+
+/*
+ * Create hard link from a file in one directory to another directory.
+ */
+int link_between_dirs(struct io_uring *ring,
+                      int old_dirfd, const char *oldname,
+                      int new_dirfd, const char *newname)
+{
+    struct io_uring_sqe *sqe;
+    struct io_uring_cqe *cqe;
+    int ret;
+
+    sqe = io_uring_get_sqe(ring);
+    io_uring_prep_linkat(sqe, old_dirfd, oldname,
+                         new_dirfd, newname, 0);
+
+    io_uring_submit(ring);
+    io_uring_wait_cqe(ring, &cqe);
+
+    ret = cqe->res;
+    io_uring_cqe_seen(ring, cqe);
+
+    return ret;
+}
+.EE
+.SS Safe file update using hard link
+.EX
+#include <stdio.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <liburing.h>
+
+/*
+ * Safe file update pattern:
+ * 1. Write to temp file
+ * 2. Create hard link from temp to target
+ * 3. Unlink temp file
+ *
+ * This ensures the target always has valid content.
+ */
+int safe_update(struct io_uring *ring, const char *target,
+                const void *data, size_t len)
+{
+    struct io_uring_sqe *sqe;
+    struct io_uring_cqe *cqe;
+    char temp_path[256];
+    int fd, ret;
+
+    snprintf(temp_path, sizeof(temp_path), "%s.tmp.XXXXXX", target);
+    fd = mkstemp(temp_path);
+    if (fd < 0)
+        return -1;
+
+    /* Write new content */
+    if (write(fd, data, len) != len) {
+        close(fd);
+        unlink(temp_path);
+        return -1;
+    }
+    fsync(fd);
+    close(fd);
+
+    /* Remove old target if exists */
+    sqe = io_uring_get_sqe(ring);
+    io_uring_prep_unlink(sqe, target, 0);
+    io_uring_submit(ring);
+    io_uring_wait_cqe(ring, &cqe);
+    io_uring_cqe_seen(ring, cqe);
+    /* Ignore ENOENT - target may not exist */
+
+    /* Link temp to target */
+    sqe = io_uring_get_sqe(ring);
+    io_uring_prep_link(sqe, temp_path, target, 0);
+    io_uring_submit(ring);
+    io_uring_wait_cqe(ring, &cqe);
+
+    ret = cqe->res;
+    io_uring_cqe_seen(ring, cqe);
+
+    /* Clean up temp */
+    unlink(temp_path);
+
+    return ret;
+}
+.EE
 .SH SEE ALSO
 .BR io_uring_get_sqe (3),
 .BR io_uring_submit (3),
+.BR io_uring_prep_symlinkat (3),
+.BR io_uring_prep_unlinkat (3),
+.BR io_uring_prep_renameat (3),
 .BR linkat (2),
 .BR link (2)
