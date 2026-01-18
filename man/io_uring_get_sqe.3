@@ -21,19 +21,19 @@ function gets the next available submission queue entry from the submission
 queue belonging to the
 .I ring
 param.
-
+.PP
 On success
 .BR io_uring_get_sqe (3)
 returns a pointer to the submission queue entry. On failure NULL is returned.
-
+.PP
 If a submission queue entry is returned, it should be filled out via one of the
 prep functions such as
 .BR io_uring_prep_read (3)
 and submitted via
 .BR io_uring_submit (3).
-
+.PP
 Note that neither
-.BR io_uring_get_sqe
+.BR io_uring_get_sqe (3)
 nor the prep functions set (or clear) the
 .B user_data
 field of the SQE. If the caller expects
@@ -46,12 +46,85 @@ or
 .BR io_uring_sqe_set_data64 (3)
 .B MUST
 have been called before submitting the request.
-
 .SH RETURN VALUE
 .BR io_uring_get_sqe (3)
 returns a pointer to the next submission queue event on success and NULL on
 failure. If NULL is returned, the SQ ring is currently full and entries must
 be submitted for processing before new ones can get allocated.
+.SH NOTES
+The returned SQE memory is valid until
+.BR io_uring_submit (3)
+is called. After submission, the SQE memory may be reused for new entries.
+.PP
+The submission queue size is determined by the
+.I entries
+parameter passed to
+.BR io_uring_queue_init (3).
+If your application frequently gets NULL from this function, consider
+increasing the queue size or submitting more frequently.
+.SH EXAMPLE
+.EX
+#include <stdio.h>
+#include <liburing.h>
+
+int queue_read(struct io_uring *ring, int fd, void *buf, size_t len,
+               off_t offset, void *user_data)
+{
+    struct io_uring_sqe *sqe;
+
+    /* Get an SQE */
+    sqe = io_uring_get_sqe(ring);
+    if (!sqe) {
+        /*
+         * SQ ring is full. Either submit pending requests
+         * or wait for completions to free up slots.
+         */
+        fprintf(stderr, "SQ ring full\\n");
+        return -1;
+    }
+
+    /* Prepare the read operation */
+    io_uring_prep_read(sqe, fd, buf, len, offset);
+
+    /* Set user data for identifying this request later */
+    io_uring_sqe_set_data(sqe, user_data);
+
+    return 0;  /* Request queued, call io_uring_submit() when ready */
+}
+
+/*
+ * Queue multiple operations, handling SQ full condition
+ */
+int queue_multiple(struct io_uring *ring, int fd, struct iovec *iovs, int count)
+{
+    int i, queued = 0;
+
+    for (i = 0; i < count; i++) {
+        struct io_uring_sqe *sqe = io_uring_get_sqe(ring);
+
+        if (!sqe) {
+            /* Submit what we have so far to make room */
+            io_uring_submit(ring);
+
+            /* Try again */
+            sqe = io_uring_get_sqe(ring);
+            if (!sqe) {
+                fprintf(stderr, "Still no SQE available\\n");
+                break;
+            }
+        }
+
+        io_uring_prep_read(sqe, fd, iovs[i].iov_base,
+                           iovs[i].iov_len, i * 4096);
+        io_uring_sqe_set_data64(sqe, i);
+        queued++;
+    }
+
+    return queued;
+}
+.EE
 .SH SEE ALSO
 .BR io_uring_submit (3),
-.BR io_uring_sqe_set_data (3)
+.BR io_uring_sqe_set_data (3),
+.BR io_uring_queue_init (3),
+.BR io_uring_prep_read (3)
