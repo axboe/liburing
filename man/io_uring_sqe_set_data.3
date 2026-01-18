@@ -4,14 +4,14 @@
 .\"
 .TH io_uring_sqe_set_data 3 "November 15, 2021" "liburing-2.1" "liburing Manual"
 .SH NAME
-io_uring_sqe_set_data \- set user data for submission queue event
+io_uring_sqe_set_data, io_uring_sqe_set_data64 \- set user data for submission queue event
 .SH SYNOPSIS
 .nf
 .B #include <liburing.h>
 .PP
 .BI "void io_uring_sqe_set_data(struct io_uring_sqe *" sqe ","
 .BI "                           void *" user_data ");"
-.BI "
+.PP
 .BI "void io_uring_sqe_set_data64(struct io_uring_sqe *" sqe ","
 .BI "                             __u64 " data ");"
 .fi
@@ -23,16 +23,16 @@ function stores a
 .I user_data
 pointer with the submission queue entry
 .IR sqe .
-
+.PP
 The
 .BR io_uring_sqe_set_data64 (3)
 function stores a 64-bit
 .I data
 value with the submission queue entry
 .IR sqe .
-
+.PP
 After the caller has requested a submission queue entry (SQE) with
-.BR io_uring_get_sqe (3) ,
+.BR io_uring_get_sqe (3),
 they can associate a data pointer or value with the SQE. Once the completion
 arrives, the function
 .BR io_uring_cqe_get_data (3)
@@ -40,18 +40,118 @@ or
 .BR io_uring_cqe_get_data64 (3)
 can be called to retrieve the data pointer or value associated with the
 submitted request.
-
-Note that if neither of these functions are called, or the
-.I user_data
-field in the
-.IR sqe
-isn't set manually either, then the field may contain a value from a previous
-use of this sqe. If an application relies on always having a valid
-.I user_data
-value present, it must always assign one to each sqe.
-
+.PP
+This mechanism allows applications to correlate completions with their
+corresponding submissions, which is essential since io_uring completions
+may arrive out of order.
 .SH RETURN VALUE
 None
+.SH NOTES
+If neither of these functions are called, nor the
+.I user_data
+field in the SQE is set manually, then the field may contain a value from a
+previous use of this SQE. If an application relies on always having a valid
+.I user_data
+value present, it must always assign one to each SQE.
+.PP
+The
+.I user_data
+field is 64 bits on all platforms. When using
+.BR io_uring_sqe_set_data (3)
+on 32-bit platforms, only the lower 32 bits will contain the pointer value.
+Use
+.BR io_uring_sqe_set_data64 (3)
+when you need all 64 bits or want portable behavior.
+.SH EXAMPLE
+.SS Using pointer for request tracking
+.EX
+#include <stdio.h>
+#include <stdlib.h>
+#include <liburing.h>
+
+struct my_request {
+    int fd;
+    void *buf;
+    size_t len;
+    /* ... other fields ... */
+};
+
+void submit_request(struct io_uring *ring, struct my_request *req)
+{
+    struct io_uring_sqe *sqe;
+
+    sqe = io_uring_get_sqe(ring);
+    io_uring_prep_read(sqe, req->fd, req->buf, req->len, 0);
+
+    /* Associate our request structure with the SQE */
+    io_uring_sqe_set_data(sqe, req);
+
+    io_uring_submit(ring);
+}
+
+void handle_completion(struct io_uring *ring)
+{
+    struct io_uring_cqe *cqe;
+    struct my_request *req;
+
+    io_uring_wait_cqe(ring, &cqe);
+
+    /* Retrieve our request structure from the CQE */
+    req = io_uring_cqe_get_data(cqe);
+
+    if (cqe->res < 0) {
+        fprintf(stderr, "Request for fd %d failed: %d\\n",
+                req->fd, cqe->res);
+    } else {
+        printf("Read %d bytes for fd %d\\n", cqe->res, req->fd);
+    }
+
+    io_uring_cqe_seen(ring, cqe);
+    free(req);
+}
+.EE
+.SS Using integer identifiers
+.EX
+#include <stdio.h>
+#include <liburing.h>
+
+#define REQ_TYPE_READ   1
+#define REQ_TYPE_WRITE  2
+
+/* Pack type and index into 64-bit user_data */
+#define MAKE_USER_DATA(type, idx) ((__u64)(type) << 32 | (idx))
+#define GET_TYPE(data)            ((data) >> 32)
+#define GET_INDEX(data)           ((data) & 0xFFFFFFFF)
+
+void submit_ops(struct io_uring *ring)
+{
+    struct io_uring_sqe *sqe;
+
+    /* Submit a read as request index 0 */
+    sqe = io_uring_get_sqe(ring);
+    io_uring_prep_read(sqe, fd, buf1, len, 0);
+    io_uring_sqe_set_data64(sqe, MAKE_USER_DATA(REQ_TYPE_READ, 0));
+
+    /* Submit a write as request index 1 */
+    sqe = io_uring_get_sqe(ring);
+    io_uring_prep_write(sqe, fd, buf2, len, 0);
+    io_uring_sqe_set_data64(sqe, MAKE_USER_DATA(REQ_TYPE_WRITE, 1));
+
+    io_uring_submit(ring);
+}
+
+void process_cqe(struct io_uring_cqe *cqe)
+{
+    __u64 data = io_uring_cqe_get_data64(cqe);
+    int type = GET_TYPE(data);
+    int idx = GET_INDEX(data);
+
+    printf("Completed %s request #%d: %d\\n",
+           type == REQ_TYPE_READ ? "read" : "write",
+           idx, cqe->res);
+}
+.EE
 .SH SEE ALSO
 .BR io_uring_get_sqe (3),
-.BR io_uring_cqe_get_data (3)
+.BR io_uring_cqe_get_data (3),
+.BR io_uring_cqe_get_data64 (3)
