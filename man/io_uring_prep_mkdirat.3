@@ -54,18 +54,37 @@ None
 .SH ERRORS
 The CQE
 .I res
-field will contain the result of the operation. See the related man page for
-details on possible values. Note that where synchronous system calls will return
-.B -1
-on failure and set
+field will contain the result of the operation. On success, it contains
+.BR 0 .
+On error, it contains the negated
 .I errno
-to the actual error value, io_uring never uses
-.IR errno .
-Instead it returns the negated
-.I errno
-directly in the CQE
-.I res
-field.
+value.
+.PP
+Common errors include:
+.TP
+.B -EEXIST
+The directory already exists.
+.TP
+.B -EACCES
+Permission denied.
+.TP
+.B -ENOENT
+A component of the path prefix does not exist.
+.TP
+.B -ENOTDIR
+A component of the path prefix is not a directory.
+.TP
+.B -ENOSPC
+No space left on device.
+.TP
+.B -EDQUOT
+Disk quota exceeded.
+.TP
+.B -EROFS
+The filesystem is read-only.
+.TP
+.B -ENAMETOOLONG
+The path is too long.
 .SH NOTES
 As with any request that passes in data in a struct, that data must remain
 valid until the request has been successfully submitted. It need not remain
@@ -76,8 +95,216 @@ behavior by inspecting the
 .B IORING_FEAT_SUBMIT_STABLE
 flag passed back from
 .BR io_uring_queue_init_params (3).
+.PP
+The
+.I mode
+specifies the permissions for the new directory. The actual permissions
+are modified by the process's umask. Common mode values:
+.IP \(bu 2
+.B 0755
+- rwxr-xr-x (typical for directories)
+.IP \(bu 2
+.B 0700
+- rwx------ (private directory)
+.SH EXAMPLE
+.SS Basic directory creation
+.EX
+#include <stdio.h>
+#include <sys/stat.h>
+#include <liburing.h>
+
+int create_directory(struct io_uring *ring, const char *path, mode_t mode)
+{
+    struct io_uring_sqe *sqe;
+    struct io_uring_cqe *cqe;
+    int ret;
+
+    sqe = io_uring_get_sqe(ring);
+    io_uring_prep_mkdir(sqe, path, mode);
+
+    ret = io_uring_submit(ring);
+    if (ret < 0)
+        return ret;
+
+    ret = io_uring_wait_cqe(ring, &cqe);
+    if (ret < 0)
+        return ret;
+
+    ret = cqe->res;
+    io_uring_cqe_seen(ring, cqe);
+
+    if (ret < 0) {
+        if (ret == -EEXIST)
+            fprintf(stderr, "Directory already exists\\n");
+        else
+            fprintf(stderr, "mkdir failed: %d\\n", ret);
+    }
+
+    return ret;
+}
+.EE
+.SS Create directory if it doesn't exist
+.EX
+#include <stdio.h>
+#include <sys/stat.h>
+#include <liburing.h>
+
+/*
+ * Create directory, treating "already exists" as success.
+ */
+int ensure_directory(struct io_uring *ring, const char *path, mode_t mode)
+{
+    struct io_uring_sqe *sqe;
+    struct io_uring_cqe *cqe;
+    int ret;
+
+    sqe = io_uring_get_sqe(ring);
+    io_uring_prep_mkdir(sqe, path, mode);
+
+    io_uring_submit(ring);
+    io_uring_wait_cqe(ring, &cqe);
+
+    ret = cqe->res;
+    io_uring_cqe_seen(ring, cqe);
+
+    /* Treat "already exists" as success */
+    if (ret == -EEXIST)
+        ret = 0;
+
+    return ret;
+}
+.EE
+.SS Create directory relative to another directory
+.EX
+#include <stdio.h>
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <liburing.h>
+
+/*
+ * Create a subdirectory within a specific directory.
+ */
+int create_subdir(struct io_uring *ring, int parent_fd,
+                  const char *name, mode_t mode)
+{
+    struct io_uring_sqe *sqe;
+    struct io_uring_cqe *cqe;
+    int ret;
+
+    sqe = io_uring_get_sqe(ring);
+    io_uring_prep_mkdirat(sqe, parent_fd, name, mode);
+
+    io_uring_submit(ring);
+    io_uring_wait_cqe(ring, &cqe);
+
+    ret = cqe->res;
+    io_uring_cqe_seen(ring, cqe);
+
+    return ret;
+}
+.EE
+.SS Create directory tree (mkdir -p style)
+.EX
+#include <stdio.h>
+#include <string.h>
+#include <sys/stat.h>
+#include <liburing.h>
+
+/*
+ * Create all directories in a path, similar to "mkdir -p".
+ * Note: This is a simplified version for demonstration.
+ */
+int mkdir_p(struct io_uring *ring, const char *path, mode_t mode)
+{
+    struct io_uring_sqe *sqe;
+    struct io_uring_cqe *cqe;
+    char tmp[256];
+    char *p;
+    int ret;
+
+    strncpy(tmp, path, sizeof(tmp) - 1);
+    tmp[sizeof(tmp) - 1] = '\\0';
+
+    /* Create each component of the path */
+    for (p = tmp + 1; *p; p++) {
+        if (*p == '/') {
+            *p = '\\0';
+
+            sqe = io_uring_get_sqe(ring);
+            io_uring_prep_mkdir(sqe, tmp, mode);
+            io_uring_submit(ring);
+            io_uring_wait_cqe(ring, &cqe);
+
+            ret = cqe->res;
+            io_uring_cqe_seen(ring, cqe);
+
+            if (ret < 0 && ret != -EEXIST)
+                return ret;
+
+            *p = '/';
+        }
+    }
+
+    /* Create final directory */
+    sqe = io_uring_get_sqe(ring);
+    io_uring_prep_mkdir(sqe, tmp, mode);
+    io_uring_submit(ring);
+    io_uring_wait_cqe(ring, &cqe);
+
+    ret = cqe->res;
+    io_uring_cqe_seen(ring, cqe);
+
+    if (ret == -EEXIST)
+        ret = 0;
+
+    return ret;
+}
+.EE
+.SS Batch create multiple directories
+.EX
+#include <stdio.h>
+#include <sys/stat.h>
+#include <liburing.h>
+
+int batch_mkdir(struct io_uring *ring, const char **paths,
+                int count, mode_t mode)
+{
+    struct io_uring_sqe *sqe;
+    struct io_uring_cqe *cqe;
+    int i, ret, created = 0;
+
+    /* Queue all mkdir operations */
+    for (i = 0; i < count; i++) {
+        sqe = io_uring_get_sqe(ring);
+        io_uring_prep_mkdir(sqe, paths[i], mode);
+        io_uring_sqe_set_data64(sqe, i);
+    }
+
+    ret = io_uring_submit(ring);
+    if (ret < 0)
+        return ret;
+
+    /* Collect results */
+    for (i = 0; i < count; i++) {
+        io_uring_wait_cqe(ring, &cqe);
+
+        if (cqe->res == 0 || cqe->res == -EEXIST) {
+            created++;
+        } else {
+            int idx = io_uring_cqe_get_data64(cqe);
+            fprintf(stderr, "mkdir %s failed: %d\\n",
+                    paths[idx], cqe->res);
+        }
+
+        io_uring_cqe_seen(ring, cqe);
+    }
+
+    return created;
+}
+.EE
 .SH SEE ALSO
 .BR io_uring_get_sqe (3),
 .BR io_uring_submit (3),
+.BR io_uring_prep_unlinkat (3),
 .BR mkdirat (2),
 .BR mkdir (2)
