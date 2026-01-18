@@ -34,7 +34,13 @@ with at least
 .I entries
 entries in the submission queue and then maps the resulting file descriptor to
 memory shared between the application and the kernel.
-
+.PP
+The
+.I entries
+parameter must be a power of 2 in the range of 1 to 32768, inclusive.
+It specifies the number of submission queue entries (SQEs). The actual
+number of SQEs may be larger than requested.
+.PP
 By default, the CQ ring will have twice the number of entries as specified by
 .I entries
 for the SQ ring. This is adequate for regular file or storage workloads, but
@@ -63,7 +69,7 @@ of the SQ ring size in given in
 .IR entries .
 If the value isn't a power of 2, it will be rounded up to the nearest power of
 2.
-
+.PP
 On success,
 .BR io_uring_queue_init (3)
 returns 0 and
@@ -71,11 +77,29 @@ returns 0 and
 will point to the shared memory containing the io_uring queues. On failure
 .BR -errno
 is returned.
-
+.PP
 .I flags
 will be passed through to the io_uring_setup syscall (see
 .BR io_uring_setup (2)).
-
+Common flags include:
+.TP
+.B IORING_SETUP_SQPOLL
+Creates a kernel thread to poll the submission queue. This allows
+submitting I/O without system calls after setup.
+.TP
+.B IORING_SETUP_IOPOLL
+Busy-wait for I/O completions instead of using interrupts. Only
+usable with file descriptors opened with O_DIRECT.
+.TP
+.B IORING_SETUP_SINGLE_ISSUER
+Hint that only a single task will submit requests, which allows
+internal optimizations.
+.TP
+.B IORING_SETUP_DEFER_TASKRUN
+Defer running task work until the user explicitly calls
+.BR io_uring_submit (3)
+or waits for completions. This can reduce overhead.
+.PP
 The
 .BR io_uring_queue_init_params (3)
 and
@@ -85,7 +109,7 @@ variants will pass the parameters indicated by
 straight through to the
 .BR io_uring_setup (2)
 system call.
-
+.PP
 The
 .BR io_uring_queue_init_mem (3)
 variant uses the provided
@@ -106,7 +130,7 @@ Pages allocated by mmap are already zeroed.
 returns the number of bytes used from the provided buffer, so that the app can
 reuse the buffer with the returned offset to put more rings in the same huge
 page.
-
+.PP
 On success, the resources held by
 .I ring
 should be released via a corresponding call to
@@ -118,13 +142,101 @@ and
 return 0 on success and
 .BR -errno
 on failure.
-
+.PP
 .BR io_uring_queue_init_mem (3)
 returns the number of bytes used from the provided buffer on success, and
 .BR -errno
 on failure.
+.SH ERRORS
+.TP
+.B -ENOMEM
+The kernel was unable to allocate memory for the ring.
+.TP
+.B -EINVAL
+Invalid parameters (e.g., entries is not a power of 2 or is too large).
+.TP
+.B -EPERM
+The flags requested require privileges the caller doesn't have.
+.SH EXAMPLE
+.SS Basic initialization
+.EX
+#include <liburing.h>
+
+int main(void)
+{
+    struct io_uring ring;
+    int ret;
+
+    /* Initialize a ring with 256 SQEs */
+    ret = io_uring_queue_init(256, &ring, 0);
+    if (ret < 0) {
+        fprintf(stderr, "queue_init: %s\\n", strerror(-ret));
+        return 1;
+    }
+
+    /* Use the ring... */
+
+    /* Clean up */
+    io_uring_queue_exit(&ring);
+    return 0;
+}
+.EE
+.SS Using SQPOLL mode
+.EX
+#include <liburing.h>
+
+int main(void)
+{
+    struct io_uring ring;
+    int ret;
+
+    /* SQPOLL mode - kernel thread polls for submissions */
+    ret = io_uring_queue_init(256, &ring, IORING_SETUP_SQPOLL);
+    if (ret < 0) {
+        fprintf(stderr, "queue_init: %s\\n", strerror(-ret));
+        return 1;
+    }
+
+    /*
+     * In SQPOLL mode, after preparing SQEs, just update the
+     * tail pointer - no submit syscall needed (in most cases).
+     */
+
+    io_uring_queue_exit(&ring);
+    return 0;
+}
+.EE
+.SS Custom CQ ring size
+.EX
+#include <liburing.h>
+
+int main(void)
+{
+    struct io_uring ring;
+    struct io_uring_params params = { };
+    int ret;
+
+    /* Request larger CQ ring for network workloads */
+    params.cq_entries = 4096;
+    params.flags = IORING_SETUP_CQSIZE;
+
+    ret = io_uring_queue_init_params(256, &ring, &params);
+    if (ret < 0) {
+        fprintf(stderr, "queue_init_params: %s\\n", strerror(-ret));
+        return 1;
+    }
+
+    printf("SQ entries: %u\\n", params.sq_entries);
+    printf("CQ entries: %u\\n", params.cq_entries);
+
+    io_uring_queue_exit(&ring);
+    return 0;
+}
+.EE
 .SH SEE ALSO
 .BR io_uring_setup (2),
 .BR io_uring_register_ring_fd (3),
-.BR mmap (2),
-.BR io_uring_queue_exit (3)
+.BR io_uring_queue_exit (3),
+.BR io_uring_get_sqe (3),
+.BR io_uring_submit (3),
+.BR mmap (2)
