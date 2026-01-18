@@ -83,13 +83,23 @@ static struct sock_filter allow_tcp_only_filter[] = {
 	BPF_STMT(BPF_RET | BPF_K, 0),
 };
 
-/* Register a BPF filter with io_uring */
+/* Register a BPF filter on a task */
 static int register_bpf_filter(struct sock_filter *filter, unsigned int len,
 			       __u32 opcode, int deny_rest)
 {
 	unsigned int flags = deny_rest ? IO_URING_BPF_FILTER_DENY_REST : 0;
 
 	return io_uring_register_bpf_filter_task(filter, len, opcode, flags);
+}
+
+/* Register a BPF filter on a ring */
+static int register_bpf_filter_ring(struct io_uring *ring,
+				    struct sock_filter *filter, unsigned int len,
+				    __u32 opcode, int deny_rest)
+{
+	unsigned int flags = deny_rest ? IO_URING_BPF_FILTER_DENY_REST : 0;
+
+	return io_uring_register_bpf_filter(ring, filter, len, opcode, flags);
 }
 
 /* Test NOP operation */
@@ -388,6 +398,142 @@ static int test_deny_rest(void)
 	if (WIFEXITED(status))
 		return WEXITSTATUS(status);
 	return 1;
+}
+
+/*
+ * Ring-level filter tests - these test filters registered on a specific ring
+ * rather than on the task. Ring filters don't require forking.
+ */
+
+static int test_deny_nop_ring(void)
+{
+	struct io_uring ring;
+	int ret, failed = 0;
+
+	ret = io_uring_queue_init(8, &ring, 0);
+	if (ret < 0) {
+		fprintf(stderr, "queue_init failed: %s\n", strerror(-ret));
+		return 1;
+	}
+
+	ret = register_bpf_filter_ring(&ring, deny_all_filter,
+				       ARRAY_SIZE(deny_all_filter),
+				       IORING_OP_NOP, 0);
+	if (ret < 0) {
+		fprintf(stderr, "register failed: %s\n", strerror(-ret));
+		io_uring_queue_exit(&ring);
+		return ret == -EINVAL ? 0 : 1;
+	}
+
+	if (test_nop(&ring, "NOP should be denied (ring)", 0) != 0)
+		failed++;
+
+	io_uring_queue_exit(&ring);
+	return failed;
+}
+
+static int test_allow_inet_only_ring(void)
+{
+	struct io_uring ring;
+	int ret, failed = 0;
+
+	ret = io_uring_queue_init(8, &ring, 0);
+	if (ret < 0) {
+		fprintf(stderr, "queue_init failed: %s\n", strerror(-ret));
+		return 1;
+	}
+
+	ret = register_bpf_filter_ring(&ring, allow_inet_only_filter,
+				       ARRAY_SIZE(allow_inet_only_filter),
+				       IORING_OP_SOCKET, 0);
+	if (ret < 0) {
+		fprintf(stderr, "register failed: %s\n", strerror(-ret));
+		io_uring_queue_exit(&ring);
+		return ret == -EINVAL ? 0 : 1;
+	}
+
+	if (test_socket(&ring, AF_INET, SOCK_STREAM,
+			"AF_INET TCP should succeed (ring)", 1) != 0)
+		failed++;
+
+	if (test_socket(&ring, AF_INET6, SOCK_STREAM,
+			"AF_INET6 TCP should be denied (ring)", 0) != 0)
+		failed++;
+
+	if (test_socket(&ring, AF_UNIX, SOCK_STREAM,
+			"AF_UNIX should be denied (ring)", 0) != 0)
+		failed++;
+
+	io_uring_queue_exit(&ring);
+	return failed;
+}
+
+static int test_allow_tcp_only_ring(void)
+{
+	struct io_uring ring;
+	int ret, failed = 0;
+
+	ret = io_uring_queue_init(8, &ring, 0);
+	if (ret < 0) {
+		fprintf(stderr, "queue_init failed: %s\n", strerror(-ret));
+		return 1;
+	}
+
+	ret = register_bpf_filter_ring(&ring, allow_tcp_only_filter,
+				       ARRAY_SIZE(allow_tcp_only_filter),
+				       IORING_OP_SOCKET, 0);
+	if (ret < 0) {
+		fprintf(stderr, "register failed: %s\n", strerror(-ret));
+		io_uring_queue_exit(&ring);
+		return ret == -EINVAL ? 0 : 1;
+	}
+
+	if (test_socket(&ring, AF_INET, SOCK_STREAM,
+			"TCP should succeed (ring)", 1) != 0)
+		failed++;
+
+	if (test_socket(&ring, AF_INET, SOCK_DGRAM,
+			"UDP should be denied (ring)", 0) != 0)
+		failed++;
+
+	if (test_socket(&ring, AF_INET6, SOCK_STREAM,
+			"IPv6 TCP should succeed (ring)", 1) != 0)
+		failed++;
+
+	io_uring_queue_exit(&ring);
+	return failed;
+}
+
+static int test_deny_rest_ring(void)
+{
+	struct io_uring ring;
+	int ret, failed = 0;
+
+	ret = io_uring_queue_init(8, &ring, 0);
+	if (ret < 0) {
+		fprintf(stderr, "queue_init failed: %s\n", strerror(-ret));
+		return 1;
+	}
+
+	/* Register allow filter for NOP with DENY_REST flag */
+	ret = register_bpf_filter_ring(&ring, allow_all_filter,
+				       ARRAY_SIZE(allow_all_filter),
+				       IORING_OP_NOP, 1);
+	if (ret < 0) {
+		fprintf(stderr, "register failed: %s\n", strerror(-ret));
+		io_uring_queue_exit(&ring);
+		return ret == -EINVAL ? 0 : 1;
+	}
+
+	if (test_nop(&ring, "NOP should succeed (ring)", 1) != 0)
+		failed++;
+
+	if (test_socket(&ring, AF_INET, SOCK_STREAM,
+			"Socket should be denied DENY_REST (ring)", 0) != 0)
+		failed++;
+
+	io_uring_queue_exit(&ring);
+	return failed;
 }
 
 /*
@@ -757,10 +903,17 @@ int main(int argc, char *argv[])
 	if (probe_bpf_filter_support() < 0)
 		return T_EXIT_SKIP;
 
+	/* Task-level filter tests */
 	total_failed += test_deny_nop();
 	total_failed += test_allow_inet_only();
 	total_failed += test_allow_tcp_only();
 	total_failed += test_deny_rest();
+
+	/* Ring-level filter tests */
+	total_failed += test_deny_nop_ring();
+	total_failed += test_allow_inet_only_ring();
+	total_failed += test_allow_tcp_only_ring();
+	total_failed += test_deny_rest_ring();
 
 	/* Per-task inheritance tests */
 	total_failed += test_inherit_restrictions();
