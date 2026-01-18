@@ -42,7 +42,7 @@ of size
 .I len
 bytes and with modifier flags
 .IR flags .
-
+.PP
 After calling this function, additional io_uring internal modifier flags
 may be set in the SQE
 .I ioprio
@@ -99,11 +99,11 @@ in the
 .IR flags
 argument, as a short send isn't a considered an error condition without
 that being set.
-
+.PP
 This function prepares an async
 .BR send (2)
 request. See that man page for details.
-
+.PP
 The
 .BR io_uring_prep_sendto (3)
 function prepares a sendto request. The submission queue entry
@@ -121,11 +121,11 @@ The destination address is specified by
 and
 .I addrlen
 and must be a valid address for the socket type.
-
+.PP
 This function prepares an async
 .BR sendto (2)
 request. See that man page for details.
-
+.PP
 Both of the above send variants may be used with provided buffers, where rather
 than pass a buffer in directly with the request,
 .B IOSQE_BUFFER_SELECT
@@ -138,7 +138,7 @@ prevent any kind of reordering of the outgoing data which can otherwise
 occur if the application has more than one send request inflight for a single
 socket. This provides better pipelining of data, where previously the app
 needed to manually serialize sends.
-
+.PP
 The bundle version allows the application to issue a single send request,
 with a buffer group ID given in the SQE
 .I buf_group
@@ -173,22 +173,128 @@ None
 .SH ERRORS
 The CQE
 .I res
-field will contain the result of the operation. See the related man page for
-details on possible values. Note that where synchronous system calls will return
-.B -1
-on failure and set
+field will contain the result of the operation. On success, it contains
+the number of bytes sent, which may be less than
+.I len
+(a short send). On error, it contains the negated
 .I errno
-to the actual error value, io_uring never uses
-.IR errno .
-Instead it returns the negated
-.I errno
-directly in the CQE
-.I res
-field.
+value.
+.PP
+Common errors include:
+.TP
+.B -ECONNRESET
+Connection reset by peer.
+.TP
+.B -EPIPE
+The socket has been shut down for writing or is not connected.
+.TP
+.B -EAGAIN
+The socket is non-blocking and the send would block. Consider using
+.B IORING_RECVSEND_POLL_FIRST
+to handle this automatically.
+.TP
+.B -ENOTCONN
+The socket is not connected (for connection-oriented sockets).
+.SH EXAMPLE
+.SS Basic TCP send
+.EX
+#include <stdio.h>
+#include <string.h>
+#include <liburing.h>
+
+int send_data(struct io_uring *ring, int sockfd,
+              const void *data, size_t len)
+{
+    struct io_uring_sqe *sqe;
+    struct io_uring_cqe *cqe;
+    int ret;
+
+    sqe = io_uring_get_sqe(ring);
+    io_uring_prep_send(sqe, sockfd, data, len, 0);
+
+    ret = io_uring_submit(ring);
+    if (ret < 0)
+        return ret;
+
+    ret = io_uring_wait_cqe(ring, &cqe);
+    if (ret < 0)
+        return ret;
+
+    ret = cqe->res;
+    io_uring_cqe_seen(ring, cqe);
+
+    if (ret < 0) {
+        fprintf(stderr, "send failed: %d\\n", ret);
+        return ret;
+    }
+
+    printf("Sent %d bytes\\n", ret);
+    return ret;
+}
+.EE
+.SS UDP sendto with destination address
+.EX
+#include <stdio.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <liburing.h>
+
+int send_udp(struct io_uring *ring, int sockfd,
+             const void *data, size_t len,
+             const char *dest_ip, int dest_port)
+{
+    struct io_uring_sqe *sqe;
+    struct io_uring_cqe *cqe;
+    struct sockaddr_in addr;
+    int ret;
+
+    memset(&addr, 0, sizeof(addr));
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(dest_port);
+    inet_pton(AF_INET, dest_ip, &addr.sin_addr);
+
+    sqe = io_uring_get_sqe(ring);
+    io_uring_prep_sendto(sqe, sockfd, data, len, 0,
+                         (struct sockaddr *)&addr, sizeof(addr));
+
+    io_uring_submit(ring);
+    io_uring_wait_cqe(ring, &cqe);
+
+    ret = cqe->res;
+    io_uring_cqe_seen(ring, cqe);
+
+    return ret;
+}
+.EE
+.SS Using POLL_FIRST for non-blocking sends
+.EX
+#include <liburing.h>
+
+/*
+ * Send with automatic polling - useful when the socket
+ * might not be ready for writing immediately.
+ */
+void send_with_poll(struct io_uring *ring, int sockfd,
+                    const void *data, size_t len)
+{
+    struct io_uring_sqe *sqe;
+
+    sqe = io_uring_get_sqe(ring);
+    io_uring_prep_send(sqe, sockfd, data, len, 0);
+
+    /* Let io_uring handle polling if socket isn't ready */
+    sqe->ioprio |= IORING_RECVSEND_POLL_FIRST;
+
+    io_uring_submit(ring);
+}
+.EE
 .SH SEE ALSO
 .BR io_uring_get_sqe (3),
 .BR io_uring_submit (3),
+.BR io_uring_prep_recv (3),
 .BR io_uring_buf_ring_init (3),
 .BR io_uring_buf_ring_add (3),
-.BR send (2)
+.BR send (2),
 .BR sendto (2)
