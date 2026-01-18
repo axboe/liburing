@@ -90,6 +90,16 @@ instead of
 instead of
 .BR io_uring_prep_writev (3)
 .PP
+Zero-copy send operations can also use registered buffers:
+.IP \(bu 2
+.BR io_uring_prep_send_zc (3)
+with
+.B IORING_RECVSEND_FIXED_BUF
+.IP \(bu
+.BR io_uring_prep_sendmsg_zc (3)
+with
+.B IORING_RECVSEND_FIXED_BUF
+.PP
 These functions take a
 .I buf_index
 parameter that specifies which registered buffer to use (0-indexed into
@@ -196,4 +206,6 @@ These are separate mechanisms for different use cases.
 .BR io_uring_unregister_buffers (3),
 .BR io_uring_prep_read_fixed (3),
 .BR io_uring_prep_write_fixed (3),
+.BR io_uring_prep_send_zc (3),
+.BR io_uring_prep_sendmsg_zc (3),
 .BR io_uring_clone_buffers (3)
