@@ -1623,6 +1623,96 @@ direct descriptor table must have been previously registered with the kernel.
 
 Available since 6.16.
 
+.TP
+.B IORING_OP_RECV_ZC
+Receive data from a socket using zero-copy techniques. Unlike
+.BR IORING_OP_RECV ,
+this operation does not use a user-provided buffer. Instead, data is delivered
+through a pre-registered zero-copy RX interface queue.
+.I fd
+must be set to the socket file descriptor.
+.I zcrx_ifq_idx
+specifies the index of the registered zero-copy RX interface queue.
+.I len
+specifies the maximum amount of data to receive.
+.I ioprio
+can contain flags such as
+.B IORING_RECVSEND_POLL_FIRST
+and
+.BR IORING_RECV_MULTISHOT .
+This operation requires multishot mode.
+
+Before using this command, a zero-copy RX interface queue must be registered via
+.BR io_uring_register (2)
+using
+.BR IORING_REGISTER_ZCRX_IFQ .
+Data completions are posted as auxiliary CQEs.
+
+Available since 6.15.
+
+.TP
+.B IORING_OP_EPOLL_WAIT
+Wait for events on an epoll instance. This is an async version of
+.BR epoll_wait (2).
+.I fd
+must be set to the epoll file descriptor,
+.I addr
+must point to an array of
+.I struct epoll_event
+to receive the events, and
+.I len
+must contain the maximum number of events to return.
+
+The primary use case is for legacy event loops that still use epoll for some
+file descriptors. By using io_uring to wait on epoll events, the application
+can unify its event handling through io_uring while maintaining backwards
+compatibility with epoll-based components.
+
+Available since 6.15.
+
+.TP
+.B IORING_OP_READV_FIXED
+.TP
+.B IORING_OP_WRITEV_FIXED
+Vectored read and write operations using pre-registered buffers, combining the
+functionality of
+.BR IORING_OP_READV / IORING_OP_WRITEV
+with
+.BR IORING_OP_READ_FIXED / IORING_OP_WRITE_FIXED .
+The
+.I buf_index
+field specifies the index into the registered buffer table. Unlike the
+non-fixed vectored operations, the iovec entries point into the registered
+buffer region. This allows vectored I/O while still benefiting from the
+reduced overhead of pre-registered buffers.
+
+Available since 6.15.
+
+.TP
+.B IORING_OP_NOP128
+No operation, similar to
+.BR IORING_OP_NOP ,
+but explicitly uses a 128-byte SQE. This can be useful for testing or
+alignment purposes when using mixed 64/128-byte SQE rings
+.RB ( IORING_SETUP_SQE_MIXED ).
+
+Available since 6.19.
+
+.TP
+.B IORING_OP_URING_CMD128
+Passthrough command to the underlying file, identical to
+.BR IORING_OP_URING_CMD ,
+but explicitly uses a 128-byte SQE. The extra 64 bytes provide additional
+space for command-specific data. This is useful with
+.B IORING_SETUP_SQE_MIXED
+rings where some commands need the larger SQE size while others do not.
+
+See
+.BR IORING_OP_URING_CMD
+for general usage details.
+
+Available since 6.19.
+
 .PP
 The
 .I flags
