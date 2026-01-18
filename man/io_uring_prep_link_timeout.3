@@ -93,6 +93,239 @@ or one of the requests resulted in failure.
 The request to which the linked timeout was linked already completed and could
 not be found when the timer expired.
 
+.SH NOTES
+The link timeout must immediately follow the request it is timing. The preceding
+request must have the
+.B IOSQE_IO_LINK
+flag set. The link timeout itself should NOT have the link flag set unless you
+want to continue the chain after the timeout.
+.PP
+When the timeout expires before the linked operation completes:
+.IP \(bu 2
+The linked operation is canceled (receives -ECANCELED)
+.IP \(bu 2
+The link timeout completes with -ETIME (or 0 if IORING_TIMEOUT_ETIME_SUCCESS is set)
+.IP \(bu 2
+Any subsequent linked operations are also canceled
+.PP
+When the linked operation completes before timeout:
+.IP \(bu 2
+The link timeout is canceled (receives -ECANCELED)
+.IP \(bu 2
+The chain continues normally
+.PP
+This is different from a regular
+.BR io_uring_prep_timeout (3)
+which is a standalone operation. Link timeouts are specifically for timing
+other operations in a chain.
+.SH EXAMPLE
+.SS Basic read with timeout
+.EX
+#include <stdio.h>
+#include <liburing.h>
+
+/*
+ * Read from fd with a timeout. If read doesn't complete
+ * within the timeout, it gets canceled.
+ */
+int read_with_timeout(struct io_uring *ring, int fd,
+                      void *buf, size_t len, int timeout_ms)
+{
+    struct io_uring_sqe *sqe;
+    struct io_uring_cqe *cqe;
+    struct __kernel_timespec ts;
+    int ret, read_result = 0;
+
+    ts.tv_sec = timeout_ms / 1000;
+    ts.tv_nsec = (timeout_ms % 1000) * 1000000LL;
+
+    /* Queue read with link flag */
+    sqe = io_uring_get_sqe(ring);
+    io_uring_prep_read(sqe, fd, buf, len, 0);
+    sqe->flags |= IOSQE_IO_LINK;
+    io_uring_sqe_set_data64(sqe, 1);  /* read */
+
+    /* Queue link timeout */
+    sqe = io_uring_get_sqe(ring);
+    io_uring_prep_link_timeout(sqe, &ts, 0);
+    io_uring_sqe_set_data64(sqe, 2);  /* timeout */
+
+    io_uring_submit(ring);
+
+    /* Collect both completions */
+    for (int i = 0; i < 2; i++) {
+        io_uring_wait_cqe(ring, &cqe);
+
+        if (io_uring_cqe_get_data64(cqe) == 1) {
+            read_result = cqe->res;
+        }
+
+        io_uring_cqe_seen(ring, cqe);
+    }
+
+    return read_result;
+}
+.EE
+.SS Connect with timeout
+.EX
+#include <stdio.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <liburing.h>
+
+/*
+ * Connect to a server with timeout protection.
+ * Useful for preventing hangs on unresponsive servers.
+ */
+int connect_with_timeout(struct io_uring *ring, int sockfd,
+                         struct sockaddr *addr, socklen_t addrlen,
+                         int timeout_sec)
+{
+    struct io_uring_sqe *sqe;
+    struct io_uring_cqe *cqe;
+    struct __kernel_timespec ts = { .tv_sec = timeout_sec, .tv_nsec = 0 };
+    int connect_result = -ETIMEDOUT;
+
+    /* Queue connect with link flag */
+    sqe = io_uring_get_sqe(ring);
+    io_uring_prep_connect(sqe, sockfd, addr, addrlen);
+    sqe->flags |= IOSQE_IO_LINK;
+    io_uring_sqe_set_data64(sqe, 1);
+
+    /* Queue link timeout */
+    sqe = io_uring_get_sqe(ring);
+    io_uring_prep_link_timeout(sqe, &ts, 0);
+    io_uring_sqe_set_data64(sqe, 2);
+
+    io_uring_submit(ring);
+
+    /* Collect completions */
+    for (int i = 0; i < 2; i++) {
+        io_uring_wait_cqe(ring, &cqe);
+
+        if (io_uring_cqe_get_data64(cqe) == 1) {
+            connect_result = cqe->res;
+            if (connect_result == -ECANCELED)
+                connect_result = -ETIMEDOUT;
+        }
+
+        io_uring_cqe_seen(ring, cqe);
+    }
+
+    return connect_result;
+}
+.EE
+.SS Timeout with ETIME_SUCCESS flag
+.EX
+#include <stdio.h>
+#include <liburing.h>
+
+/*
+ * Using IORING_TIMEOUT_ETIME_SUCCESS makes timeout expiry
+ * return 0 instead of -ETIME, simplifying success checking.
+ */
+int recv_with_timeout(struct io_uring *ring, int sockfd,
+                      void *buf, size_t len, int timeout_ms)
+{
+    struct io_uring_sqe *sqe;
+    struct io_uring_cqe *cqe;
+    struct __kernel_timespec ts;
+    int recv_result = 0;
+    bool timed_out = false;
+
+    ts.tv_sec = timeout_ms / 1000;
+    ts.tv_nsec = (timeout_ms % 1000) * 1000000LL;
+
+    sqe = io_uring_get_sqe(ring);
+    io_uring_prep_recv(sqe, sockfd, buf, len, 0);
+    sqe->flags |= IOSQE_IO_LINK;
+    io_uring_sqe_set_data64(sqe, 1);
+
+    sqe = io_uring_get_sqe(ring);
+    io_uring_prep_link_timeout(sqe, &ts, IORING_TIMEOUT_ETIME_SUCCESS);
+    io_uring_sqe_set_data64(sqe, 2);
+
+    io_uring_submit(ring);
+
+    for (int i = 0; i < 2; i++) {
+        io_uring_wait_cqe(ring, &cqe);
+
+        if (io_uring_cqe_get_data64(cqe) == 1) {
+            recv_result = cqe->res;
+        } else if (cqe->res == 0) {
+            /* Timeout expired (returns 0 with ETIME_SUCCESS) */
+            timed_out = true;
+        }
+
+        io_uring_cqe_seen(ring, cqe);
+    }
+
+    if (timed_out && recv_result == -ECANCELED)
+        return -ETIMEDOUT;
+
+    return recv_result;
+}
+.EE
+.SS Chain of operations with timeout
+.EX
+#include <stdio.h>
+#include <liburing.h>
+
+/*
+ * Multiple linked operations with a timeout covering all of them.
+ * The timeout applies to the entire chain, not individual ops.
+ */
+int write_then_read(struct io_uring *ring, int fd,
+                    void *wbuf, size_t wlen,
+                    void *rbuf, size_t rlen,
+                    int timeout_sec)
+{
+    struct io_uring_sqe *sqe;
+    struct io_uring_cqe *cqe;
+    struct __kernel_timespec ts = { .tv_sec = timeout_sec, .tv_nsec = 0 };
+    int results[3] = {0};
+
+    /* Write - linked to read */
+    sqe = io_uring_get_sqe(ring);
+    io_uring_prep_write(sqe, fd, wbuf, wlen, 0);
+    sqe->flags |= IOSQE_IO_LINK;
+    io_uring_sqe_set_data64(sqe, 1);
+
+    /* Read - linked to timeout */
+    sqe = io_uring_get_sqe(ring);
+    io_uring_prep_read(sqe, fd, rbuf, rlen, 0);
+    sqe->flags |= IOSQE_IO_LINK;
+    io_uring_sqe_set_data64(sqe, 2);
+
+    /* Link timeout for entire chain */
+    sqe = io_uring_get_sqe(ring);
+    io_uring_prep_link_timeout(sqe, &ts, 0);
+    io_uring_sqe_set_data64(sqe, 3);
+
+    io_uring_submit(ring);
+
+    /* Collect all three completions */
+    for (int i = 0; i < 3; i++) {
+        io_uring_wait_cqe(ring, &cqe);
+
+        int idx = io_uring_cqe_get_data64(cqe) - 1;
+        results[idx] = cqe->res;
+
+        io_uring_cqe_seen(ring, cqe);
+    }
+
+    /* Check results */
+    if (results[0] < 0)
+        return results[0];  /* Write failed */
+    if (results[1] < 0)
+        return results[1];  /* Read failed/timed out */
+
+    return results[1];  /* Return bytes read */
+}
+.EE
 .SH SEE ALSO
 .BR io_uring_get_sqe (3),
-.BR io_uring_prep_timeout (3)
+.BR io_uring_submit (3),
+.BR io_uring_prep_timeout (3),
+.BR io_uring_prep_read (3),
+.BR io_uring_prep_connect (3)
