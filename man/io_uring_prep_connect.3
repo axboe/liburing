@@ -38,18 +38,38 @@ None
 .SH ERRORS
 The CQE
 .I res
-field will contain the result of the operation. See the related man page for
-details on possible values. Note that where synchronous system calls will return
-.B -1
-on failure and set
+field will contain the result of the operation. On success, it contains
+.B 0
+indicating the connection was established. On error, it contains the negated
 .I errno
-to the actual error value, io_uring never uses
-.IR errno .
-Instead it returns the negated
-.I errno
-directly in the CQE
-.I res
-field.
+value.
+.PP
+Common errors include:
+.TP
+.B -ECONNREFUSED
+The target address was not listening for connections or refused the connection.
+.TP
+.B -ETIMEDOUT
+Timeout while attempting connection. The server may be unreachable.
+.TP
+.B -ENETUNREACH
+Network is unreachable.
+.TP
+.B -EHOSTUNREACH
+No route to host.
+.TP
+.B -EINPROGRESS
+The socket is non-blocking and the connection cannot be completed immediately.
+This is generally handled internally by io_uring.
+.TP
+.B -EALREADY
+A previous connection attempt has not yet been completed.
+.TP
+.B -EISCONN
+The socket is already connected.
+.TP
+.B -EAFNOSUPPORT
+The address family does not match the socket type.
 .SH NOTES
 As with any request that passes in data in a struct, that data must remain
 valid until the request has been successfully submitted. It need not remain
@@ -60,7 +80,204 @@ behavior by inspecting the
 .B IORING_FEAT_SUBMIT_STABLE
 flag passed back from
 .BR io_uring_queue_init_params (3).
+.PP
+For TCP sockets, the connection attempt may take some time. Consider using
+a linked timeout to limit the connection duration. See the example below.
+.SH EXAMPLE
+.SS Basic TCP connection
+.EX
+#include <stdio.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <liburing.h>
+
+int tcp_connect(struct io_uring *ring, int sockfd,
+                const char *host, int port)
+{
+    struct io_uring_sqe *sqe;
+    struct io_uring_cqe *cqe;
+    struct sockaddr_in addr;
+    int ret;
+
+    memset(&addr, 0, sizeof(addr));
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(port);
+    inet_pton(AF_INET, host, &addr.sin_addr);
+
+    sqe = io_uring_get_sqe(ring);
+    io_uring_prep_connect(sqe, sockfd,
+                          (struct sockaddr *)&addr, sizeof(addr));
+
+    ret = io_uring_submit(ring);
+    if (ret < 0)
+        return ret;
+
+    ret = io_uring_wait_cqe(ring, &cqe);
+    if (ret < 0)
+        return ret;
+
+    ret = cqe->res;
+    io_uring_cqe_seen(ring, cqe);
+
+    if (ret < 0) {
+        fprintf(stderr, "connect failed: %d\\n", ret);
+        return ret;
+    }
+
+    printf("Connected to %s:%d\\n", host, port);
+    return 0;
+}
+.EE
+.SS Connect with linked timeout
+.EX
+#include <stdio.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <liburing.h>
+
+/*
+ * Attempt connection with a timeout. If the connection takes
+ * longer than the specified time, it will be cancelled.
+ */
+int connect_with_timeout(struct io_uring *ring, int sockfd,
+                         const char *host, int port,
+                         int timeout_sec)
+{
+    struct io_uring_sqe *sqe;
+    struct io_uring_cqe *cqe;
+    struct sockaddr_in addr;
+    struct __kernel_timespec ts;
+    int ret;
+
+    memset(&addr, 0, sizeof(addr));
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(port);
+    inet_pton(AF_INET, host, &addr.sin_addr);
+
+    /* Submit connect request */
+    sqe = io_uring_get_sqe(ring);
+    io_uring_prep_connect(sqe, sockfd,
+                          (struct sockaddr *)&addr, sizeof(addr));
+    sqe->flags |= IOSQE_IO_LINK;  /* Link to timeout */
+    io_uring_sqe_set_data64(sqe, 1);
+
+    /* Submit linked timeout */
+    sqe = io_uring_get_sqe(ring);
+    ts.tv_sec = timeout_sec;
+    ts.tv_nsec = 0;
+    io_uring_prep_link_timeout(sqe, &ts, 0);
+    io_uring_sqe_set_data64(sqe, 2);
+
+    ret = io_uring_submit(ring);
+    if (ret < 0)
+        return ret;
+
+    /* Wait for both completions */
+    int connect_result = 0;
+    for (int i = 0; i < 2; i++) {
+        ret = io_uring_wait_cqe(ring, &cqe);
+        if (ret < 0)
+            return ret;
+
+        __u64 data = io_uring_cqe_get_data64(cqe);
+        if (data == 1) {
+            connect_result = cqe->res;
+        }
+        /* Timeout CQE: -ETIME if fired, -ECANCELED if not needed */
+
+        io_uring_cqe_seen(ring, cqe);
+    }
+
+    if (connect_result == -ECANCELED) {
+        fprintf(stderr, "Connection timed out\\n");
+        return -ETIMEDOUT;
+    }
+
+    return connect_result;
+}
+.EE
+.SS Parallel connection attempts (Happy Eyeballs)
+.EX
+#include <stdio.h>
+#include <string.h>
+#include <unistd.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <liburing.h>
+
+#define MAX_ATTEMPTS 4
+
+struct conn_attempt {
+    int sockfd;
+    struct sockaddr_in addr;
+};
+
+/*
+ * Try connecting to multiple addresses simultaneously,
+ * use the first one that succeeds.
+ */
+int connect_first_wins(struct io_uring *ring,
+                       const char **hosts, int *ports, int count)
+{
+    struct io_uring_sqe *sqe;
+    struct io_uring_cqe *cqe;
+    struct conn_attempt attempts[MAX_ATTEMPTS];
+    int i, ret, winner = -1;
+
+    if (count > MAX_ATTEMPTS)
+        count = MAX_ATTEMPTS;
+
+    /* Create sockets and submit connect requests */
+    for (i = 0; i < count; i++) {
+        attempts[i].sockfd = socket(AF_INET, SOCK_STREAM, 0);
+        if (attempts[i].sockfd < 0)
+            continue;
+
+        memset(&attempts[i].addr, 0, sizeof(attempts[i].addr));
+        attempts[i].addr.sin_family = AF_INET;
+        attempts[i].addr.sin_port = htons(ports[i]);
+        inet_pton(AF_INET, hosts[i], &attempts[i].addr.sin_addr);
+
+        sqe = io_uring_get_sqe(ring);
+        io_uring_prep_connect(sqe, attempts[i].sockfd,
+                    (struct sockaddr *)&attempts[i].addr,
+                    sizeof(attempts[i].addr));
+        io_uring_sqe_set_data64(sqe, i);
+    }
+
+    io_uring_submit(ring);
+
+    /* Wait for first successful connection */
+    for (i = 0; i < count; i++) {
+        ret = io_uring_wait_cqe(ring, &cqe);
+        if (ret < 0)
+            break;
+
+        int idx = io_uring_cqe_get_data64(cqe);
+        if (cqe->res == 0 && winner < 0) {
+            winner = idx;
+            printf("Connected via attempt %d\\n", idx);
+        }
+        io_uring_cqe_seen(ring, cqe);
+    }
+
+    /* Close losing sockets */
+    for (i = 0; i < count; i++) {
+        if (i != winner && attempts[i].sockfd >= 0)
+            close(attempts[i].sockfd);
+    }
+
+    return (winner >= 0) ? attempts[winner].sockfd : -ECONNREFUSED;
+}
+.EE
 .SH SEE ALSO
 .BR io_uring_get_sqe (3),
 .BR io_uring_submit (3),
+.BR io_uring_prep_socket (3),
+.BR io_uring_prep_link_timeout (3),
 .BR connect (2)
