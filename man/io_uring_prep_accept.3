@@ -166,17 +166,33 @@ generates the installed file descriptor in each result.
 .BR io_uring_prep_multishot_accept_direct (3),
 generates the dynamically chosen direct descriptor in each result.
 
-Note that where synchronous system calls will return
-.B -1
-on failure and set
-.I errno
-to the actual error value, io_uring never uses
-.IR errno .
-Instead it generates the negated
-.I errno
-directly in the CQE
+On error, the CQE
 .I res
-field.
+field contains the negated
+.I errno
+value.
+.PP
+Common errors include:
+.TP
+.B -EAGAIN
+The socket is non-blocking and no connections are pending.
+.TP
+.B -EBADF
+The specified socket file descriptor is invalid.
+.TP
+.B -ECONNABORTED
+A connection has been aborted.
+.TP
+.B -EINVAL
+The socket is not listening, or (for direct variants)
+.B SOCK_CLOEXEC
+was specified in flags.
+.TP
+.B -ENFILE
+For direct descriptor variants, no free slot in the registered file table.
+.TP
+.B -EMFILE
+The per-process file descriptor limit has been reached.
 .SH NOTES
 As with any request that passes in data in a struct, that data must remain
 valid until the request has been successfully submitted. It need not remain
@@ -193,11 +209,182 @@ Note that the direct versions of accept do not accept
 and setting that flag will result in an
 .B -EINVAL
 error in the CQE.
+.SH EXAMPLE
+.SS Basic TCP server accept
+.EX
+#include <stdio.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <liburing.h>
+
+int accept_connection(struct io_uring *ring, int listen_fd)
+{
+    struct io_uring_sqe *sqe;
+    struct io_uring_cqe *cqe;
+    struct sockaddr_in client_addr;
+    socklen_t addrlen = sizeof(client_addr);
+    int ret;
+
+    sqe = io_uring_get_sqe(ring);
+    io_uring_prep_accept(sqe, listen_fd,
+                         (struct sockaddr *)&client_addr,
+                         &addrlen, 0);
+
+    ret = io_uring_submit(ring);
+    if (ret < 0)
+        return ret;
+
+    ret = io_uring_wait_cqe(ring, &cqe);
+    if (ret < 0)
+        return ret;
+
+    ret = cqe->res;  /* client fd on success, -errno on failure */
+    io_uring_cqe_seen(ring, cqe);
+
+    if (ret >= 0)
+        printf("Accepted connection from port %d\\n",
+               ntohs(client_addr.sin_port));
+
+    return ret;
+}
+.EE
+.SS Multishot accept for high-performance servers
+.EX
+#include <stdio.h>
+#include <sys/socket.h>
+#include <liburing.h>
+
+#define ACCEPT_DATA 0xACCE97
+
+void start_multishot_accept(struct io_uring *ring, int listen_fd)
+{
+    struct io_uring_sqe *sqe;
+
+    sqe = io_uring_get_sqe(ring);
+    /* Pass NULL for addr/addrlen to avoid race conditions */
+    io_uring_prep_multishot_accept(sqe, listen_fd, NULL, NULL, 0);
+    io_uring_sqe_set_data64(sqe, ACCEPT_DATA);
+
+    io_uring_submit(ring);
+}
+
+void handle_accept_cqe(struct io_uring *ring, struct io_uring_cqe *cqe,
+                       int listen_fd)
+{
+    if (cqe->res < 0) {
+        fprintf(stderr, "accept error: %d\\n", cqe->res);
+        /* Multishot may have terminated, restart */
+        if (!(cqe->flags & IORING_CQE_F_MORE))
+            start_multishot_accept(ring, listen_fd);
+        return;
+    }
+
+    int client_fd = cqe->res;
+    printf("New connection: fd=%d\\n", client_fd);
+
+    /* Start handling this client... */
+    start_client_recv(ring, client_fd);
+
+    /* Check if multishot is still active */
+    if (!(cqe->flags & IORING_CQE_F_MORE)) {
+        printf("Multishot accept ended, restarting\\n");
+        start_multishot_accept(ring, listen_fd);
+    }
+}
+
+void event_loop(struct io_uring *ring, int listen_fd)
+{
+    struct io_uring_cqe *cqe;
+
+    start_multishot_accept(ring, listen_fd);
+
+    while (1) {
+        io_uring_wait_cqe(ring, &cqe);
+
+        __u64 data = io_uring_cqe_get_data64(cqe);
+        if (data == ACCEPT_DATA)
+            handle_accept_cqe(ring, cqe, listen_fd);
+        else
+            handle_client_cqe(ring, cqe);
+
+        io_uring_cqe_seen(ring, cqe);
+    }
+}
+.EE
+.SS Direct descriptor accept with registered files
+.EX
+#include <stdio.h>
+#include <sys/socket.h>
+#include <liburing.h>
+
+#define MAX_CLIENTS 128
+
+int setup_direct_accept(struct io_uring *ring)
+{
+    int ret;
+
+    /*
+     * Register a sparse file table. Slots will be filled
+     * as connections are accepted.
+     */
+    ret = io_uring_register_files_sparse(ring, MAX_CLIENTS);
+    if (ret < 0) {
+        fprintf(stderr, "register files: %d\\n", ret);
+        return ret;
+    }
+
+    return 0;
+}
+
+int accept_direct(struct io_uring *ring, int listen_fd)
+{
+    struct io_uring_sqe *sqe;
+    struct io_uring_cqe *cqe;
+    int ret;
+
+    sqe = io_uring_get_sqe(ring);
+    /* Let io_uring allocate a slot dynamically */
+    io_uring_prep_accept_direct(sqe, listen_fd, NULL, NULL, 0,
+                                IORING_FILE_INDEX_ALLOC);
+
+    io_uring_submit(ring);
+    io_uring_wait_cqe(ring, &cqe);
+
+    ret = cqe->res;  /* direct descriptor index on success */
+    io_uring_cqe_seen(ring, cqe);
+
+    if (ret >= 0) {
+        printf("Accepted to direct descriptor slot %d\\n", ret);
+        /*
+         * Use this descriptor with IOSQE_FIXED_FILE flag
+         * in subsequent operations.
+         */
+    }
+
+    return ret;
+}
+
+void use_direct_descriptor(struct io_uring *ring, int direct_fd,
+                           void *buf, size_t len)
+{
+    struct io_uring_sqe *sqe;
+
+    sqe = io_uring_get_sqe(ring);
+    io_uring_prep_recv(sqe, direct_fd, buf, len, 0);
+    /* Mark that we're using a direct descriptor */
+    sqe->flags |= IOSQE_FIXED_FILE;
+
+    io_uring_submit(ring);
+}
+.EE
 .SH SEE ALSO
 .BR io_uring_get_sqe (3),
 .BR io_uring_submit (3),
 .BR io_uring_register_files (3),
 .BR io_uring_register_files_sparse (3),
 .BR io_uring_register_file_alloc_range (3),
+.BR io_uring_prep_socket (3),
+.BR io_uring_prep_recv (3),
 .BR io_uring_register (2),
 .BR accept4 (2)
