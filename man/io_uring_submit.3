@@ -17,12 +17,16 @@ The
 .BR io_uring_submit (3)
 function submits the next events to the submission queue belonging to the
 .IR ring .
-
+.PP
 After the caller retrieves a submission queue entry (SQE) with
 .BR io_uring_get_sqe (3)
 and prepares the SQE using one of the provided helpers, it can be submitted with
-.BR io_uring_submit (3) .
-
+.BR io_uring_submit (3).
+.PP
+Multiple SQEs can be prepared before a single call to
+.BR io_uring_submit (3),
+which will submit all of them in one system call. This batching is one of the
+key performance advantages of io_uring.
 .SH RETURN VALUE
 On success
 .BR io_uring_submit (3)
@@ -33,6 +37,18 @@ about how many submission queue entries have been successfully submitted, while
 using SQPOLL, the user must fall back to repeatedly submitting a single submission
 queue entry. On failure it returns
 .BR -errno .
+.SH ERRORS
+.TP
+.B -EAGAIN
+The kernel was unable to process any more SQEs at this time. The application
+should wait for some completions and try again.
+.TP
+.B -EBUSY
+The ring is busy. This can happen with SQPOLL rings when the kernel thread
+hasn't consumed the previous submission yet.
+.TP
+.B -EBADF
+The ring file descriptor is invalid.
 .SH NOTES
 For any request that passes in data in a struct, that data must remain
 valid until the request has been successfully submitted. It need not remain
@@ -45,7 +61,73 @@ flag passed back from
 .BR io_uring_queue_init_params (3).
 In general, the man pages for the individual prep helpers will have a note
 mentioning this fact as well, if required for the given command.
+.PP
+The submission is non-blocking. To submit and wait for completions in a
+single call, use
+.BR io_uring_submit_and_wait (3)
+or
+.BR io_uring_submit_and_wait_timeout (3).
+.SH EXAMPLE
+.SS Submitting a single request
+.EX
+#include <liburing.h>
+#include <fcntl.h>
+
+void submit_read(struct io_uring *ring, int fd, void *buf, size_t len)
+{
+    struct io_uring_sqe *sqe;
+    int ret;
+
+    sqe = io_uring_get_sqe(ring);
+    if (!sqe) {
+        /* SQ is full, need to submit or wait */
+        return;
+    }
+
+    io_uring_prep_read(sqe, fd, buf, len, 0);
+    io_uring_sqe_set_data(sqe, buf);  /* for identification later */
+
+    ret = io_uring_submit(ring);
+    if (ret < 0) {
+        fprintf(stderr, "submit: %s\\n", strerror(-ret));
+    } else {
+        printf("Submitted %d request(s)\\n", ret);
+    }
+}
+.EE
+.SS Batching multiple requests
+.EX
+#include <liburing.h>
+#include <fcntl.h>
+
+/*
+ * Submit multiple reads in a single system call.
+ * This is more efficient than submitting one at a time.
+ */
+void submit_batch(struct io_uring *ring, int fd,
+                  struct iovec *iovs, int nr_iovs)
+{
+    struct io_uring_sqe *sqe;
+    int i, ret;
+
+    /* Prepare all requests first */
+    for (i = 0; i < nr_iovs; i++) {
+        sqe = io_uring_get_sqe(ring);
+        if (!sqe)
+            break;
+        io_uring_prep_read(sqe, fd, iovs[i].iov_base,
+                           iovs[i].iov_len, i * 4096);
+        io_uring_sqe_set_data64(sqe, i);
+    }
+
+    /* Submit all at once */
+    ret = io_uring_submit(ring);
+    printf("Prepared %d, submitted %d\\n", i, ret);
+}
+.EE
 .SH SEE ALSO
 .BR io_uring_get_sqe (3),
 .BR io_uring_submit_and_wait (3),
-.BR io_uring_submit_and_wait_timeout (3)
+.BR io_uring_submit_and_wait_timeout (3),
+.BR io_uring_wait_cqe (3),
+.BR io_uring_sqe_set_data (3)
