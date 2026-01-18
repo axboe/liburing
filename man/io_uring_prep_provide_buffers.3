@@ -133,8 +133,237 @@ and the length of buffers overflowed.
 .TP
 .B -EBUSY
 Attempt to update a slot that is already used.
+.SH NOTES
+This is the original buffer selection API. For new applications, consider using
+the newer buffer ring API
+.RB ( io_uring_setup_buf_ring (3))
+which offers better performance by avoiding the need to re-provide buffers
+through the submission queue.
+.PP
+Key points about provided buffers:
+.IP \(bu 2
+Buffers must be contiguous in memory and all the same size
+.IP \(bu 2
+Once a buffer is consumed by an operation, it must be explicitly re-provided
+.IP \(bu 2
+The buffer ID is returned in the upper 16 bits of the CQE flags field
+.IP \(bu 2
+Use
+.BR io_uring_cqe_get_flags ()
+and check for
+.B IORING_CQE_F_BUFFER
+to extract the buffer ID
+.PP
+To extract the buffer ID from a CQE:
+.PP
+.in +4n
+.EX
+if (cqe->flags & IORING_CQE_F_BUFFER) {
+    int bid = cqe->flags >> IORING_CQE_BUFFER_SHIFT;
+    /* use bid to identify which buffer was used */
+}
+.EE
+.in
+.SH EXAMPLE
+.SS Basic provided buffers setup
+.EX
+#include <stdio.h>
+#include <stdlib.h>
+#include <liburing.h>
+
+#define BGID        1
+#define NUM_BUFFERS 16
+#define BUF_SIZE    4096
+
+struct buffer_pool {
+    char *bufs;
+    int buf_size;
+    int num_bufs;
+};
+
+int setup_buffers(struct io_uring *ring, struct buffer_pool *pool)
+{
+    struct io_uring_sqe *sqe;
+    struct io_uring_cqe *cqe;
+    int ret;
+
+    pool->buf_size = BUF_SIZE;
+    pool->num_bufs = NUM_BUFFERS;
+    pool->bufs = malloc(pool->buf_size * pool->num_bufs);
+    if (!pool->bufs)
+        return -ENOMEM;
+
+    sqe = io_uring_get_sqe(ring);
+    io_uring_prep_provide_buffers(sqe, pool->bufs, pool->buf_size,
+                                  pool->num_bufs, BGID, 0);
+
+    io_uring_submit(ring);
+    io_uring_wait_cqe(ring, &cqe);
+
+    ret = cqe->res;
+    io_uring_cqe_seen(ring, cqe);
+
+    if (ret < 0) {
+        free(pool->bufs);
+        fprintf(stderr, "provide buffers failed: %d\\n", ret);
+    }
+
+    return ret;
+}
+.EE
+.SS Receive with buffer selection
+.EX
+#include <stdio.h>
+#include <liburing.h>
+
+#define BGID     1
+#define BUF_SIZE 4096
+
+/*
+ * Receive data using buffer selection.
+ * Kernel picks a buffer from the pool.
+ */
+int recv_with_buffer_select(struct io_uring *ring, int sockfd,
+                            char **buf_base, int *buf_id)
+{
+    struct io_uring_sqe *sqe;
+    struct io_uring_cqe *cqe;
+    int ret;
+
+    sqe = io_uring_get_sqe(ring);
+    io_uring_prep_recv(sqe, sockfd, NULL, BUF_SIZE, 0);
+    sqe->flags |= IOSQE_BUFFER_SELECT;
+    sqe->buf_group = BGID;
+
+    io_uring_submit(ring);
+    io_uring_wait_cqe(ring, &cqe);
+
+    ret = cqe->res;
+    if (ret > 0 && (cqe->flags & IORING_CQE_F_BUFFER)) {
+        *buf_id = cqe->flags >> IORING_CQE_BUFFER_SHIFT;
+        /* Calculate buffer address from pool base and ID */
+        *buf_base = /* pool->bufs + (*buf_id * BUF_SIZE) */;
+    }
+
+    io_uring_cqe_seen(ring, cqe);
+    return ret;
+}
+.EE
+.SS Re-provide a consumed buffer
+.EX
+#include <liburing.h>
+
+#define BGID 1
+
+/*
+ * After processing a buffer, re-provide it to the pool.
+ * This must be done to reuse the buffer.
+ */
+int reprovide_buffer(struct io_uring *ring, void *buf,
+                     int buf_size, int bid)
+{
+    struct io_uring_sqe *sqe;
+    struct io_uring_cqe *cqe;
+    int ret;
+
+    sqe = io_uring_get_sqe(ring);
+    /* Provide single buffer back with its original ID */
+    io_uring_prep_provide_buffers(sqe, buf, buf_size, 1, BGID, bid);
+
+    io_uring_submit(ring);
+    io_uring_wait_cqe(ring, &cqe);
+
+    ret = cqe->res;
+    io_uring_cqe_seen(ring, cqe);
+
+    return ret;
+}
+.EE
+.SS Complete server receive loop with buffer management
+.EX
+#include <stdio.h>
+#include <stdlib.h>
+#include <liburing.h>
+
+#define BGID        1
+#define NUM_BUFFERS 64
+#define BUF_SIZE    4096
+
+struct recv_context {
+    char *pool;
+    int buf_size;
+};
+
+int server_recv_loop(struct io_uring *ring, int sockfd,
+                     struct recv_context *ctx)
+{
+    struct io_uring_sqe *sqe;
+    struct io_uring_cqe *cqe;
+    int ret;
+
+    /* Initial buffer pool setup */
+    ctx->buf_size = BUF_SIZE;
+    ctx->pool = malloc(BUF_SIZE * NUM_BUFFERS);
+    if (!ctx->pool)
+        return -1;
+
+    sqe = io_uring_get_sqe(ring);
+    io_uring_prep_provide_buffers(sqe, ctx->pool, BUF_SIZE,
+                                  NUM_BUFFERS, BGID, 0);
+    io_uring_submit(ring);
+    io_uring_wait_cqe(ring, &cqe);
+    if (cqe->res < 0) {
+        free(ctx->pool);
+        return cqe->res;
+    }
+    io_uring_cqe_seen(ring, cqe);
+
+    /* Main receive loop */
+    while (1) {
+        /* Queue receive with buffer selection */
+        sqe = io_uring_get_sqe(ring);
+        io_uring_prep_recv(sqe, sockfd, NULL, BUF_SIZE, 0);
+        sqe->flags |= IOSQE_BUFFER_SELECT;
+        sqe->buf_group = BGID;
+
+        io_uring_submit(ring);
+        io_uring_wait_cqe(ring, &cqe);
+
+        ret = cqe->res;
+        if (ret <= 0) {
+            io_uring_cqe_seen(ring, cqe);
+            break;  /* Error or connection closed */
+        }
+
+        if (cqe->flags & IORING_CQE_F_BUFFER) {
+            int bid = cqe->flags >> IORING_CQE_BUFFER_SHIFT;
+            char *buf = ctx->pool + (bid * BUF_SIZE);
+
+            io_uring_cqe_seen(ring, cqe);
+
+            /* Process data in buf[0..ret-1] */
+            process_data(buf, ret);
+
+            /* Re-provide the buffer for reuse */
+            sqe = io_uring_get_sqe(ring);
+            io_uring_prep_provide_buffers(sqe, buf, BUF_SIZE,
+                                          1, BGID, bid);
+            io_uring_submit(ring);
+            io_uring_wait_cqe(ring, &cqe);
+            io_uring_cqe_seen(ring, cqe);
+        } else {
+            io_uring_cqe_seen(ring, cqe);
+        }
+    }
+
+    free(ctx->pool);
+    return ret;
+}
+.EE
 .SH SEE ALSO
 .BR io_uring_get_sqe (3),
 .BR io_uring_submit (3),
-.BR io_uring_register (2),
-.BR io_uring_prep_remove_buffers (3)
+.BR io_uring_prep_remove_buffers (3),
+.BR io_uring_setup_buf_ring (3),
+.BR io_uring_prep_recv (3),
+.BR io_uring_prep_read (3)
