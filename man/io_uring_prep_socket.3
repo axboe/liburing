@@ -223,6 +223,162 @@ int tcp_client(struct io_uring *ring, const char *host, int port)
     return fd;
 }
 .EE
+.SS Creating a direct descriptor socket
+.EX
+#include <stdio.h>
+#include <sys/socket.h>
+#include <liburing.h>
+
+#define FILE_TABLE_SIZE 64
+
+/*
+ * Create socket as a direct descriptor to avoid
+ * fd table lookups on subsequent operations.
+ */
+int create_direct_socket(struct io_uring *ring, int slot)
+{
+    struct io_uring_sqe *sqe;
+    struct io_uring_cqe *cqe;
+    int ret;
+
+    sqe = io_uring_get_sqe(ring);
+    io_uring_prep_socket_direct(sqe, AF_INET, SOCK_STREAM, 0,
+                                 slot, 0);
+
+    io_uring_submit(ring);
+    io_uring_wait_cqe(ring, &cqe);
+
+    ret = cqe->res;
+    io_uring_cqe_seen(ring, cqe);
+
+    if (ret < 0)
+        fprintf(stderr, "socket_direct failed: %d\\n", ret);
+
+    return ret;  /* 0 on success for direct socket */
+}
+
+/*
+ * Initialize ring with file table for direct descriptors.
+ */
+int init_ring_with_files(struct io_uring *ring)
+{
+    int ret;
+
+    ret = io_uring_queue_init(32, ring, 0);
+    if (ret < 0)
+        return ret;
+
+    /* Register file table with sparse entries */
+    ret = io_uring_register_files_sparse(ring, FILE_TABLE_SIZE);
+    if (ret < 0) {
+        io_uring_queue_exit(ring);
+        return ret;
+    }
+
+    return 0;
+}
+.EE
+.SS Auto-allocate direct descriptor slot
+.EX
+#include <stdio.h>
+#include <sys/socket.h>
+#include <liburing.h>
+
+/*
+ * Create socket with auto-allocated direct descriptor slot.
+ * Returns the allocated slot index on success.
+ */
+int create_socket_auto_slot(struct io_uring *ring)
+{
+    struct io_uring_sqe *sqe;
+    struct io_uring_cqe *cqe;
+    int ret;
+
+    sqe = io_uring_get_sqe(ring);
+    io_uring_prep_socket_direct_alloc(sqe, AF_INET, SOCK_STREAM, 0, 0);
+
+    io_uring_submit(ring);
+    io_uring_wait_cqe(ring, &cqe);
+
+    ret = cqe->res;
+    io_uring_cqe_seen(ring, cqe);
+
+    if (ret >= 0)
+        printf("Socket created at slot %d\\n", ret);
+    else
+        fprintf(stderr, "socket_direct_alloc failed: %d\\n", ret);
+
+    return ret;  /* slot index on success, -errno on failure */
+}
+.EE
+.SS UDP socket creation
+.EX
+#include <stdio.h>
+#include <sys/socket.h>
+#include <liburing.h>
+
+int create_udp_socket(struct io_uring *ring, int ipv6)
+{
+    struct io_uring_sqe *sqe;
+    struct io_uring_cqe *cqe;
+    int domain = ipv6 ? AF_INET6 : AF_INET;
+    int ret;
+
+    sqe = io_uring_get_sqe(ring);
+    io_uring_prep_socket(sqe, domain, SOCK_DGRAM, 0, 0);
+
+    io_uring_submit(ring);
+    io_uring_wait_cqe(ring, &cqe);
+
+    ret = cqe->res;
+    io_uring_cqe_seen(ring, cqe);
+
+    return ret;
+}
+.EE
+.SS Unix domain socket
+.EX
+#include <stdio.h>
+#include <sys/socket.h>
+#include <sys/un.h>
+#include <liburing.h>
+
+int create_unix_socket(struct io_uring *ring, int type)
+{
+    struct io_uring_sqe *sqe;
+    struct io_uring_cqe *cqe;
+    int ret;
+
+    /* type: SOCK_STREAM or SOCK_DGRAM */
+    sqe = io_uring_get_sqe(ring);
+    io_uring_prep_socket(sqe, AF_UNIX, type, 0, 0);
+
+    io_uring_submit(ring);
+    io_uring_wait_cqe(ring, &cqe);
+
+    ret = cqe->res;
+    io_uring_cqe_seen(ring, cqe);
+
+    return ret;
+}
+.EE
+.SH NOTES
+Using direct descriptors for sockets can improve performance by avoiding
+file descriptor table lookups on each I/O operation. This is especially
+beneficial for high-frequency networking operations.
+.PP
+Direct descriptor sockets work well with other direct descriptor operations like
+.BR io_uring_prep_accept_direct (3)
+for accepting connections into direct descriptor slots.
+.PP
+The
+.B SOCK_NONBLOCK
+and
+.B SOCK_CLOEXEC
+flags can be OR'd into the
+.I type
+parameter, just like with
+.BR socket (2).
 .SH SEE ALSO
 .BR io_uring_get_sqe (3),
 .BR io_uring_submit (3),
