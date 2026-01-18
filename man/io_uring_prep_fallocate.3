@@ -41,19 +41,205 @@ None
 .SH ERRORS
 The CQE
 .I res
-field will contain the result of the operation. See the related man page for
-details on possible values. Note that where synchronous system calls will return
-.B -1
-on failure and set
+field will contain the result of the operation. On success, it contains
+.BR 0 .
+On error, it contains the negated
 .I errno
-to the actual error value, io_uring never uses
-.IR errno .
-Instead it returns the negated
-.I errno
-directly in the CQE
-.I res
-field.
+value.
+.PP
+Common errors include:
+.TP
+.B -EBADF
+Invalid file descriptor or file not open for writing.
+.TP
+.B -EINVAL
+Invalid mode, or offset/len is invalid.
+.TP
+.B -EFBIG
+Offset + len exceeds maximum file size.
+.TP
+.B -ENODEV
+The file system does not support fallocate.
+.TP
+.B -ENOSPC
+No space left on device.
+.TP
+.B -EOPNOTSUPP
+The mode is not supported by the file system.
+.TP
+.B -EPERM
+The file is append-only or immutable.
+.SH NOTES
+The
+.I mode
+argument can be 0 or a combination of:
+.IP \(bu 2
+.B FALLOC_FL_KEEP_SIZE
+- Do not extend file size even if offset+len exceeds it
+.IP \(bu 2
+.B FALLOC_FL_PUNCH_HOLE
+- Deallocate space (create a hole). Must be combined with KEEP_SIZE.
+.IP \(bu 2
+.B FALLOC_FL_COLLAPSE_RANGE
+- Remove a range and shift data down
+.IP \(bu 2
+.B FALLOC_FL_ZERO_RANGE
+- Zero the range without deallocating
+.IP \(bu 2
+.B FALLOC_FL_INSERT_RANGE
+- Insert a hole, shifting data up
+.PP
+With mode 0, fallocate allocates space for the file without zeroing it.
+This is useful for pre-allocating space for a file that will be written later,
+avoiding fragmentation and ensuring space is available.
+.PP
+Pre-allocating space is especially useful for:
+.IP \(bu 2
+Large file downloads where the final size is known
+.IP \(bu 2
+Database files to avoid fragmentation
+.IP \(bu 2
+Log files to ensure write space is available
+.SH EXAMPLE
+.SS Pre-allocate space for a file
+.EX
+#include <stdio.h>
+#include <fcntl.h>
+#include <liburing.h>
+
+/*
+ * Pre-allocate space for a file.
+ * This reserves space without actually writing data.
+ */
+int preallocate(struct io_uring *ring, int fd, off_t size)
+{
+    struct io_uring_sqe *sqe;
+    struct io_uring_cqe *cqe;
+    int ret;
+
+    sqe = io_uring_get_sqe(ring);
+    io_uring_prep_fallocate(sqe, fd, 0, 0, size);
+
+    io_uring_submit(ring);
+    io_uring_wait_cqe(ring, &cqe);
+
+    ret = cqe->res;
+    io_uring_cqe_seen(ring, cqe);
+
+    if (ret < 0)
+        fprintf(stderr, "fallocate failed: %d\\n", ret);
+
+    return ret;
+}
+.EE
+.SS Punch a hole in a file
+.EX
+#include <stdio.h>
+#include <fcntl.h>
+#include <linux/falloc.h>
+#include <liburing.h>
+
+/*
+ * Create a hole in a file (sparse file).
+ * Releases the space back to the filesystem.
+ */
+int punch_hole(struct io_uring *ring, int fd,
+               off_t offset, off_t len)
+{
+    struct io_uring_sqe *sqe;
+    struct io_uring_cqe *cqe;
+    int ret;
+
+    sqe = io_uring_get_sqe(ring);
+    io_uring_prep_fallocate(sqe, fd,
+                            FALLOC_FL_PUNCH_HOLE | FALLOC_FL_KEEP_SIZE,
+                            offset, len);
+
+    io_uring_submit(ring);
+    io_uring_wait_cqe(ring, &cqe);
+
+    ret = cqe->res;
+    io_uring_cqe_seen(ring, cqe);
+
+    return ret;
+}
+.EE
+.SS Zero a range
+.EX
+#include <fcntl.h>
+#include <linux/falloc.h>
+#include <liburing.h>
+
+/*
+ * Zero a range of a file without deallocating.
+ * More efficient than writing zeros manually.
+ */
+int zero_range(struct io_uring *ring, int fd,
+               off_t offset, off_t len)
+{
+    struct io_uring_sqe *sqe;
+    struct io_uring_cqe *cqe;
+    int ret;
+
+    sqe = io_uring_get_sqe(ring);
+    io_uring_prep_fallocate(sqe, fd,
+                            FALLOC_FL_ZERO_RANGE | FALLOC_FL_KEEP_SIZE,
+                            offset, len);
+
+    io_uring_submit(ring);
+    io_uring_wait_cqe(ring, &cqe);
+
+    ret = cqe->res;
+    io_uring_cqe_seen(ring, cqe);
+
+    return ret;
+}
+.EE
+.SS Extend file for large download
+.EX
+#include <stdio.h>
+#include <fcntl.h>
+#include <liburing.h>
+
+/*
+ * Prepare a file for a large download by pre-allocating space.
+ * This ensures space is available and reduces fragmentation.
+ */
+int prepare_download_file(struct io_uring *ring,
+                          const char *path, off_t size)
+{
+    struct io_uring_sqe *sqe;
+    struct io_uring_cqe *cqe;
+    int fd, ret;
+
+    fd = open(path, O_RDWR | O_CREAT | O_TRUNC, 0644);
+    if (fd < 0)
+        return -1;
+
+    /* Pre-allocate the full size */
+    sqe = io_uring_get_sqe(ring);
+    io_uring_prep_fallocate(sqe, fd, 0, 0, size);
+
+    io_uring_submit(ring);
+    io_uring_wait_cqe(ring, &cqe);
+
+    ret = cqe->res;
+    io_uring_cqe_seen(ring, cqe);
+
+    if (ret < 0) {
+        fprintf(stderr, "Failed to allocate %lld bytes: %d\\n",
+                (long long)size, ret);
+        close(fd);
+        return ret;
+    }
+
+    printf("Pre-allocated %lld bytes for %s\\n",
+           (long long)size, path);
+    return fd;  /* Return fd for writing */
+}
+.EE
 .SH SEE ALSO
 .BR io_uring_get_sqe (3),
 .BR io_uring_submit (3),
+.BR io_uring_prep_ftruncate (3),
 .BR fallocate (2)
