@@ -22,20 +22,129 @@ param, waiting for it if necessary. If an event is already available in
 the ring when invoked, no waiting will occur. The
 .I cqe_ptr
 param is filled in on success.
-
+.PP
 After the caller has submitted a request with
 .BR io_uring_submit (3),
 the application can retrieve the completion with
 .BR io_uring_wait_cqe (3).
-
+.PP
+After the application has finished processing the CQE, it must call
+.BR io_uring_cqe_seen (3)
+to mark it as consumed. Failure to do so will result in the same CQE
+being returned on the next wait call.
+.SS Completion Queue Entry
+The CQE structure contains the following relevant fields:
+.PP
+.in +4n
+.EX
+struct io_uring_cqe {
+    __u64    user_data;  /* data from sqe->user_data */
+    __s32    res;        /* result code for this event */
+    __u32    flags;      /* CQE flags */
+};
+.EE
+.in
+.PP
+The
+.I user_data
+field is copied from the SQE at submission time and can be used to
+correlate completions with submitted requests. Use
+.BR io_uring_cqe_get_data (3)
+to retrieve this value.
+.PP
+The
+.I res
+field contains the result of the operation. For most operations, a
+non-negative value indicates success and a negative value is the negated
+.I errno
+indicating the error. The exact meaning depends on the operation type.
+.PP
+The
+.I flags
+field may contain:
+.TP
+.B IORING_CQE_F_BUFFER
+If set, the upper 16 bits of the flags field carries the buffer ID
+that was selected for this operation.
+.TP
+.B IORING_CQE_F_MORE
+If set, the application should expect more completions from this
+request. Used for multishot operations.
+.TP
+.B IORING_CQE_F_SOCK_NONEMPTY
+If set, the socket still has data to read after this operation.
+.TP
+.B IORING_CQE_F_NOTIF
+If set, this is a notification CQE rather than a completion CQE.
 .SH RETURN VALUE
 On success
 .BR io_uring_wait_cqe (3)
-returns 0 and the cqe_ptr param is filled in. On failure it returns
+returns 0 and the
+.I cqe_ptr
+param is filled in. On failure it returns
 .BR -errno .
 The return value indicates the result of waiting for a CQE, and it has no
-relation to the CQE result itself.
+relation to the CQE result itself. The CQE result is found in the
+.I res
+field of the returned CQE.
+.SH ERRORS
+.TP
+.B -EAGAIN
+No CQE available and the call would block (when used with non-blocking mode).
+.TP
+.B -EINTR
+The wait was interrupted by a signal.
+.SH NOTES
+For non-blocking operation, use
+.BR io_uring_peek_cqe (3)
+instead, which returns immediately if no completions are available.
+.PP
+To wait for multiple completions at once, use
+.BR io_uring_wait_cqes (3)
+or
+.BR io_uring_submit_and_wait (3).
+.PP
+To wait with a timeout, use
+.BR io_uring_wait_cqe_timeout (3).
+.SH EXAMPLE
+.EX
+#include <stdio.h>
+#include <liburing.h>
+
+/* Assuming ring is initialized and requests have been submitted */
+void process_completions(struct io_uring *ring)
+{
+    struct io_uring_cqe *cqe;
+    int ret;
+
+    /* Wait for at least one completion */
+    ret = io_uring_wait_cqe(ring, &cqe);
+    if (ret < 0) {
+        fprintf(stderr, "wait_cqe: %d\\n", ret);
+        return;
+    }
+
+    /* Process the completion */
+    void *data = io_uring_cqe_get_data(cqe);
+    if (cqe->res < 0) {
+        fprintf(stderr, "Operation failed: %d\\n", cqe->res);
+    } else {
+        printf("Operation succeeded, result: %d\\n", cqe->res);
+    }
+
+    /* Check for multishot - more completions coming */
+    if (cqe->flags & IORING_CQE_F_MORE) {
+        printf("More completions expected\\n");
+    }
+
+    /* Mark the CQE as seen so the slot can be reused */
+    io_uring_cqe_seen(ring, cqe);
+}
+.EE
 .SH SEE ALSO
 .BR io_uring_submit (3),
+.BR io_uring_peek_cqe (3),
 .BR io_uring_wait_cqe_timeout (3),
-.BR io_uring_wait_cqes (3)
+.BR io_uring_wait_cqes (3),
+.BR io_uring_cqe_seen (3),
+.BR io_uring_cqe_get_data (3)
