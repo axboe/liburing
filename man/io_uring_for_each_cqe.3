@@ -11,7 +11,7 @@ io_uring_for_each_cqe \- iterate pending completion events
 .PP
 .BI "io_uring_for_each_cqe(struct io_uring *" ring ","
 .BI "                      unsigned " head ","
-.BI "                      struct io_uring_cqe *" cqe ") { }
+.BI "                      struct io_uring_cqe *" cqe ") { }"
 .fi
 .SH DESCRIPTION
 .PP
@@ -24,7 +24,7 @@ using
 as a temporary iterator, and points
 .I cqe
 to each pending event when iterating.
-
+.PP
 This helper provides an efficient way to iterate all pending events in
 the ring, and then advancing the CQ ring by calling
 .BR io_uring_cq_advance (3)
@@ -34,30 +34,124 @@ events is more efficient than handling each completion separately and
 calling
 .BR io_uring_cqe_seen (3)
 for each of them.
-
+.PP
+The macro expands to a
+.B for
+loop, so
+.B break
+and
+.B continue
+work as expected within the loop body.
+.SH RETURN VALUE
+None
+.SH NOTES
+.PP
+After iterating, you
+.B MUST
+call
+.BR io_uring_cq_advance (3)
+to mark the CQEs as consumed. Failing to do so will cause the same
+CQEs to be returned on the next iteration.
+.PP
+Do not mix
+.BR io_uring_for_each_cqe (3)
+with
+.BR io_uring_cqe_seen (3).
+The former is designed for batch processing with
+.BR io_uring_cq_advance (3),
+while the latter is for single CQE handling.
+.PP
+The iteration only covers CQEs that are already available in the ring.
+It does not wait for new completions. Use
+.BR io_uring_wait_cqe (3)
+or similar first if you need to wait for completions.
 .SH EXAMPLE
+.SS Basic iteration
 .EX
 void handle_cqes(struct io_uring *ring)
 {
-	struct io_uring_cqe *cqe;
-	unsigned head;
-	unsigned i = 0;
+    struct io_uring_cqe *cqe;
+    unsigned head;
+    unsigned count = 0;
 
-	io_uring_for_each_cqe(ring, head, cqe) {
-		/* handle completion */
-		printf("cqe: %d\\n", cqe->res);
-		i++;
-	}
+    io_uring_for_each_cqe(ring, head, cqe) {
+        /* handle completion */
+        printf("cqe: %d\\n", cqe->res);
+        count++;
+    }
 
-	io_uring_cq_advance(ring, i);
+    io_uring_cq_advance(ring, count);
 }
 .EE
+.SS Event loop pattern
+.EX
+#include <stdio.h>
+#include <liburing.h>
 
-.SH RETURN VALUE
-None
+struct request {
+    int type;
+    /* ... other fields ... */
+};
+
+void event_loop(struct io_uring *ring)
+{
+    struct io_uring_cqe *cqe;
+    unsigned head;
+    unsigned count;
+
+    while (1) {
+        /* Wait for at least one completion */
+        io_uring_wait_cqe(ring, &cqe);
+
+        /* Process all available completions */
+        count = 0;
+        io_uring_for_each_cqe(ring, head, cqe) {
+            struct request *req = io_uring_cqe_get_data(cqe);
+
+            if (cqe->res < 0) {
+                fprintf(stderr, "Request failed: %d\\n", cqe->res);
+            } else {
+                /* Handle successful completion based on type */
+                handle_completion(req, cqe->res);
+            }
+
+            free(req);
+            count++;
+        }
+
+        /* Mark all processed CQEs as seen in one go */
+        io_uring_cq_advance(ring, count);
+
+        /* Check for shutdown condition */
+        if (should_exit)
+            break;
+    }
+}
+.EE
+.SS Breaking out of iteration early
+.EX
+void process_up_to_n(struct io_uring *ring, int max)
+{
+    struct io_uring_cqe *cqe;
+    unsigned head;
+    int count = 0;
+
+    io_uring_for_each_cqe(ring, head, cqe) {
+        process_cqe(cqe);
+        count++;
+
+        if (count >= max)
+            break;  /* Stop early, process rest later */
+    }
+
+    /* Only advance by the number we actually processed */
+    io_uring_cq_advance(ring, count);
+}
+.EE
 .SH SEE ALSO
-.BR io_uring_wait_cqe_timeout (3),
+.BR io_uring_cq_advance (3),
+.BR io_uring_cq_ready (3),
 .BR io_uring_wait_cqe (3),
 .BR io_uring_wait_cqes (3),
-.BR io_uring_cqe_seen (3),
-.BR io_uring_buf_ring_cq_advance (3)
+.BR io_uring_peek_cqe (3),
+.BR io_uring_cqe_seen (3)
