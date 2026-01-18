@@ -100,8 +100,202 @@ behavior by inspecting the
 .B IORING_FEAT_SUBMIT_STABLE
 flag passed back from
 .BR io_uring_queue_init_params (3).
+.PP
+The timeout request is useful for implementing timed waits on the CQ ring.
+When using
+.BR io_uring_wait_cqe (3)
+or similar wait functions, submitting a timeout request beforehand will
+cause the wait to return when either a normal CQE arrives or the timeout
+expires.
+.SH EXAMPLE
+.SS Basic timeout
+.EX
+#include <stdio.h>
+#include <liburing.h>
+
+/*
+ * Wait for an event with a timeout. Returns 0 if event arrived,
+ * -ETIME if timeout expired, or other negative error.
+ */
+int wait_with_timeout(struct io_uring *ring, struct io_uring_cqe **cqe_ret,
+                      int timeout_ms)
+{
+    struct io_uring_sqe *sqe;
+    struct io_uring_cqe *cqe;
+    struct __kernel_timespec ts;
+    int ret;
+
+    ts.tv_sec = timeout_ms / 1000;
+    ts.tv_nsec = (timeout_ms % 1000) * 1000000LL;
+
+    sqe = io_uring_get_sqe(ring);
+    io_uring_prep_timeout(sqe, &ts, 0, 0);
+    io_uring_sqe_set_data64(sqe, (unsigned long long)-1);  /* Sentinel */
+
+    io_uring_submit(ring);
+    io_uring_wait_cqe(ring, &cqe);
+
+    if (io_uring_cqe_get_data64(cqe) == (unsigned long long)-1) {
+        /* This is the timeout CQE */
+        ret = cqe->res;  /* -ETIME */
+        io_uring_cqe_seen(ring, cqe);
+        *cqe_ret = NULL;
+    } else {
+        /* Real event arrived before timeout */
+        *cqe_ret = cqe;
+        ret = 0;
+        /* Caller should call io_uring_cqe_seen() */
+
+        /* Cancel the pending timeout */
+        sqe = io_uring_get_sqe(ring);
+        io_uring_prep_timeout_remove(sqe, (unsigned long long)-1, 0);
+        io_uring_submit(ring);
+    }
+
+    return ret;
+}
+.EE
+.SS Timeout with completion count
+.EX
+#include <stdio.h>
+#include <liburing.h>
+
+/*
+ * Wait for N events or timeout, whichever comes first.
+ */
+int wait_for_n_or_timeout(struct io_uring *ring, int count, int timeout_ms)
+{
+    struct io_uring_sqe *sqe;
+    struct io_uring_cqe *cqe;
+    struct __kernel_timespec ts;
+    int received = 0;
+
+    ts.tv_sec = timeout_ms / 1000;
+    ts.tv_nsec = (timeout_ms % 1000) * 1000000LL;
+
+    /* Timeout after 'count' completions OR after timeout_ms */
+    sqe = io_uring_get_sqe(ring);
+    io_uring_prep_timeout(sqe, &ts, count, 0);
+    io_uring_sqe_set_data64(sqe, 0);  /* Timeout marker */
+
+    io_uring_submit(ring);
+
+    while (1) {
+        io_uring_wait_cqe(ring, &cqe);
+
+        if (io_uring_cqe_get_data64(cqe) == 0) {
+            /* Timeout fired - either time expired or count reached */
+            io_uring_cqe_seen(ring, cqe);
+            break;
+        }
+
+        /* Process real completion */
+        printf("Got completion: %d\\n", cqe->res);
+        received++;
+        io_uring_cqe_seen(ring, cqe);
+    }
+
+    return received;
+}
+.EE
+.SS Multishot timeout for periodic events
+.EX
+#include <stdio.h>
+#include <liburing.h>
+
+#define TIMEOUT_DATA 0x12345678
+
+/*
+ * Set up a periodic timeout that fires every interval_ms.
+ * Continues until canceled or repeat_count reached.
+ */
+void setup_periodic_timeout(struct io_uring *ring, int interval_ms,
+                            int repeat_count)
+{
+    struct io_uring_sqe *sqe;
+    struct __kernel_timespec ts;
+
+    ts.tv_sec = interval_ms / 1000;
+    ts.tv_nsec = (interval_ms % 1000) * 1000000LL;
+
+    sqe = io_uring_get_sqe(ring);
+    io_uring_prep_timeout(sqe, &ts, repeat_count,
+                          IORING_TIMEOUT_MULTISHOT);
+    io_uring_sqe_set_data64(sqe, TIMEOUT_DATA);
+
+    io_uring_submit(ring);
+}
+
+void event_loop_with_periodic(struct io_uring *ring)
+{
+    struct io_uring_cqe *cqe;
+
+    /* Set up a timeout that fires every 1 second, 10 times */
+    setup_periodic_timeout(ring, 1000, 10);
+
+    while (1) {
+        io_uring_wait_cqe(ring, &cqe);
+
+        if (io_uring_cqe_get_data64(cqe) == TIMEOUT_DATA) {
+            printf("Periodic timeout fired!\\n");
+
+            if (!(cqe->flags & IORING_CQE_F_MORE)) {
+                printf("No more timeouts\\n");
+                io_uring_cqe_seen(ring, cqe);
+                break;
+            }
+        } else {
+            /* Handle other completions */
+            handle_completion(cqe);
+        }
+
+        io_uring_cqe_seen(ring, cqe);
+    }
+}
+.EE
+.SS Absolute timeout at specific time
+.EX
+#include <stdio.h>
+#include <time.h>
+#include <liburing.h>
+
+/*
+ * Set a timeout that fires at a specific wall-clock time.
+ */
+void timeout_at_time(struct io_uring *ring, time_t when)
+{
+    struct io_uring_sqe *sqe;
+    struct __kernel_timespec ts;
+
+    ts.tv_sec = when;
+    ts.tv_nsec = 0;
+
+    sqe = io_uring_get_sqe(ring);
+    io_uring_prep_timeout(sqe, &ts, 0,
+                          IORING_TIMEOUT_ABS | IORING_TIMEOUT_REALTIME);
+
+    io_uring_submit(ring);
+}
+
+/* Example: timeout at midnight */
+void timeout_at_midnight(struct io_uring *ring)
+{
+    time_t now = time(NULL);
+    struct tm *tm = localtime(&now);
+
+    /* Calculate seconds until midnight */
+    tm->tm_hour = 0;
+    tm->tm_min = 0;
+    tm->tm_sec = 0;
+    tm->tm_mday++;  /* Next day */
+
+    timeout_at_time(ring, mktime(tm));
+}
+.EE
 .SH SEE ALSO
 .BR io_uring_get_sqe (3),
 .BR io_uring_submit (3),
+.BR io_uring_wait_cqe (3),
 .BR io_uring_prep_timeout_remove (3),
-.BR io_uring_prep_timeout_update (3)
+.BR io_uring_prep_timeout_update (3),
+.BR io_uring_prep_link_timeout (3)
