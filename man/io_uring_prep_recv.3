@@ -119,21 +119,204 @@ None
 .SH ERRORS
 The CQE
 .I res
-field will contain the result of the operation. See the related man page for
-details on possible values. Note that where synchronous system calls will return
-.B -1
-on failure and set
+field will contain the result of the operation. On success, it contains
+the number of bytes received. A return value of 0 indicates the peer
+has performed an orderly shutdown. On error, it contains the negated
 .I errno
-to the actual error value, io_uring never uses
-.IR errno .
-Instead it returns the negated
-.I errno
-directly in the CQE
-.I res
-field.
+value.
+.PP
+Common errors include:
+.TP
+.B -ECONNRESET
+Connection reset by peer.
+.TP
+.B -ENOTCONN
+The socket is not connected.
+.TP
+.B -EAGAIN
+The socket is non-blocking and no data is available. Consider using
+.B IORING_RECVSEND_POLL_FIRST
+to handle this automatically.
+.TP
+.B -ENOBUFS
+For multishot operations with provided buffers, no buffers are available
+in the buffer group.
+.SH NOTES
+When using multishot receive with provided buffers, ensure that the buffer
+ring has enough buffers to handle incoming data. If the buffer ring runs out,
+the multishot operation will complete without
+.B IORING_CQE_F_MORE
+set in the CQE flags, and a new request must be submitted.
+.PP
+For high-throughput scenarios, consider using
+.B IORING_RECVSEND_BUNDLE
+to receive multiple buffers worth of data in a single operation, reducing
+system call overhead.
+.SH EXAMPLE
+.SS Basic TCP receive
+.EX
+#include <stdio.h>
+#include <liburing.h>
+
+int receive_data(struct io_uring *ring, int sockfd,
+                 void *buf, size_t len)
+{
+    struct io_uring_sqe *sqe;
+    struct io_uring_cqe *cqe;
+    int ret;
+
+    sqe = io_uring_get_sqe(ring);
+    io_uring_prep_recv(sqe, sockfd, buf, len, 0);
+
+    ret = io_uring_submit(ring);
+    if (ret < 0)
+        return ret;
+
+    ret = io_uring_wait_cqe(ring, &cqe);
+    if (ret < 0)
+        return ret;
+
+    ret = cqe->res;
+    io_uring_cqe_seen(ring, cqe);
+
+    if (ret == 0) {
+        printf("Connection closed by peer\\n");
+    } else if (ret < 0) {
+        fprintf(stderr, "recv failed: %d\\n", ret);
+    } else {
+        printf("Received %d bytes\\n", ret);
+    }
+
+    return ret;
+}
+.EE
+.SS Multishot receive with provided buffers
+.EX
+#include <stdio.h>
+#include <stdlib.h>
+#include <liburing.h>
+
+#define BGID        1
+#define NUM_BUFFERS 16
+#define BUF_SIZE    4096
+
+struct io_uring_buf_ring *br;
+char *buffer_base;
+
+int setup_buffer_ring(struct io_uring *ring)
+{
+    int ret, i;
+
+    /* Allocate buffer ring structure */
+    ret = io_uring_buf_ring_mmap(ring, BGID, NUM_BUFFERS, &br);
+    if (ret < 0)
+        return ret;
+
+    /* Allocate actual buffers */
+    buffer_base = malloc(NUM_BUFFERS * BUF_SIZE);
+    if (!buffer_base)
+        return -ENOMEM;
+
+    /* Add buffers to the ring */
+    for (i = 0; i < NUM_BUFFERS; i++) {
+        io_uring_buf_ring_add(br, buffer_base + i * BUF_SIZE,
+                              BUF_SIZE, i,
+                              io_uring_buf_ring_mask(NUM_BUFFERS), i);
+    }
+    io_uring_buf_ring_advance(br, NUM_BUFFERS);
+
+    return 0;
+}
+
+void start_multishot_recv(struct io_uring *ring, int sockfd)
+{
+    struct io_uring_sqe *sqe;
+
+    sqe = io_uring_get_sqe(ring);
+    io_uring_prep_recv_multishot(sqe, sockfd, NULL, 0, 0);
+    sqe->flags |= IOSQE_BUFFER_SELECT;
+    sqe->buf_group = BGID;
+    io_uring_sqe_set_data64(sqe, sockfd);
+
+    io_uring_submit(ring);
+}
+
+void handle_recv_cqe(struct io_uring *ring, struct io_uring_cqe *cqe)
+{
+    int sockfd = io_uring_cqe_get_data64(cqe);
+
+    if (cqe->res == 0) {
+        printf("Connection closed\\n");
+        return;
+    }
+
+    if (cqe->res > 0) {
+        /* Get buffer ID from CQE flags */
+        int bid = cqe->flags >> IORING_CQE_BUFFER_SHIFT;
+        char *buf = buffer_base + bid * BUF_SIZE;
+
+        printf("Received %d bytes in buffer %d\\n", cqe->res, bid);
+        process_data(buf, cqe->res);
+
+        /* Return buffer to the ring for reuse */
+        io_uring_buf_ring_add(br, buf, BUF_SIZE, bid,
+                              io_uring_buf_ring_mask(NUM_BUFFERS), 0);
+        io_uring_buf_ring_advance(br, 1);
+    }
+
+    /* Check if multishot is still active */
+    if (!(cqe->flags & IORING_CQE_F_MORE)) {
+        printf("Multishot recv terminated, resubmitting\\n");
+        start_multishot_recv(ring, sockfd);
+    }
+}
+.EE
+.SS Using POLL_FIRST with SOCK_NONEMPTY
+.EX
+#include <liburing.h>
+
+/*
+ * Efficient receive loop that avoids wasteful receive
+ * attempts on empty sockets.
+ */
+void recv_loop(struct io_uring *ring, int sockfd, void *buf, size_t len)
+{
+    struct io_uring_sqe *sqe;
+    struct io_uring_cqe *cqe;
+    int poll_first = 1;  /* Start with polling */
+
+    while (1) {
+        sqe = io_uring_get_sqe(ring);
+        io_uring_prep_recv(sqe, sockfd, buf, len, 0);
+
+        if (poll_first)
+            sqe->ioprio |= IORING_RECVSEND_POLL_FIRST;
+
+        io_uring_submit(ring);
+        io_uring_wait_cqe(ring, &cqe);
+
+        if (cqe->res <= 0)
+            break;
+
+        process_data(buf, cqe->res);
+
+        /*
+         * If socket still has data, don't poll first next time.
+         * Otherwise, poll first to avoid wasted recv attempts.
+         */
+        poll_first = !(cqe->flags & IORING_CQE_F_SOCK_NONEMPTY);
+
+        io_uring_cqe_seen(ring, cqe);
+    }
+
+    io_uring_cqe_seen(ring, cqe);
+}
+.EE
 .SH SEE ALSO
 .BR io_uring_get_sqe (3),
 .BR io_uring_submit (3),
 .BR io_uring_buf_ring_init (3),
 .BR io_uring_buf_ring_add (3),
+.BR io_uring_buf_ring_mmap (3),
+.BR io_uring_prep_send (3),
 .BR recv (2)
