@@ -233,6 +233,117 @@ int main(void)
     return 0;
 }
 .EE
+.SS Single-issuer with deferred task work
+.EX
+#include <liburing.h>
+
+/*
+ * Optimized setup for single-threaded applications.
+ * SINGLE_ISSUER + DEFER_TASKRUN provides best performance.
+ */
+int init_optimized_ring(struct io_uring *ring)
+{
+    struct io_uring_params params = { };
+    int ret;
+
+    params.flags = IORING_SETUP_SINGLE_ISSUER |
+                   IORING_SETUP_DEFER_TASKRUN;
+
+    ret = io_uring_queue_init_params(256, ring, &params);
+    if (ret < 0) {
+        /* Fall back to basic init if flags not supported */
+        ret = io_uring_queue_init(256, ring, 0);
+    }
+
+    return ret;
+}
+.EE
+.SS Checking kernel features
+.EX
+#include <stdio.h>
+#include <liburing.h>
+
+int main(void)
+{
+    struct io_uring ring;
+    struct io_uring_params params = { };
+    int ret;
+
+    ret = io_uring_queue_init_params(256, &ring, &params);
+    if (ret < 0)
+        return 1;
+
+    /* Check supported features */
+    if (params.features & IORING_FEAT_NODROP)
+        printf("Supports NODROP\\n");
+    if (params.features & IORING_FEAT_SUBMIT_STABLE)
+        printf("Supports SUBMIT_STABLE\\n");
+    if (params.features & IORING_FEAT_SINGLE_MMAP)
+        printf("Supports SINGLE_MMAP\\n");
+    if (params.features & IORING_FEAT_FAST_POLL)
+        printf("Supports FAST_POLL\\n");
+    if (params.features & IORING_FEAT_CQE_SKIP)
+        printf("Supports CQE_SKIP\\n");
+    if (params.features & IORING_FEAT_LINKED_FILE)
+        printf("Supports LINKED_FILE\\n");
+
+    io_uring_queue_exit(&ring);
+    return 0;
+}
+.EE
+.SS Using memory from huge pages
+.EX
+#include <stdio.h>
+#include <sys/mman.h>
+#include <liburing.h>
+
+#define HUGE_PAGE_SIZE (2 * 1024 * 1024)
+
+/*
+ * Using io_uring_queue_init_mem with huge pages for
+ * better memory performance and reduced TLB misses.
+ */
+int init_with_huge_page(struct io_uring *ring)
+{
+    struct io_uring_params params = { };
+    void *buf;
+    int ret;
+
+    /* Allocate a huge page */
+    buf = mmap(NULL, HUGE_PAGE_SIZE,
+               PROT_READ | PROT_WRITE,
+               MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB,
+               -1, 0);
+    if (buf == MAP_FAILED)
+        return -1;
+
+    ret = io_uring_queue_init_mem(256, ring, &params,
+                                   buf, HUGE_PAGE_SIZE);
+    if (ret < 0) {
+        munmap(buf, HUGE_PAGE_SIZE);
+        return ret;
+    }
+
+    printf("Ring uses %d bytes of huge page\\n", ret);
+    return ret;
+}
+.EE
+.SH NOTES
+The ring size (entries) is a trade-off between memory usage and throughput.
+Larger rings allow more operations to be batched together, but use more memory.
+For most applications, 256-1024 entries is a good starting point.
+.PP
+When using
+.B IORING_SETUP_SQPOLL
+mode, the kernel thread will be created and will consume CPU while active.
+The thread will go idle if no submissions occur within the configured timeout
+(default is 1 second).
+.PP
+For best performance in single-threaded applications, use both
+.B IORING_SETUP_SINGLE_ISSUER
+and
+.BR IORING_SETUP_DEFER_TASKRUN .
+These flags are available since kernel 6.0 and 6.1 respectively.
 .SH SEE ALSO
 .BR io_uring_setup (2),
 .BR io_uring_register_ring_fd (3),
