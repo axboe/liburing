@@ -46,18 +46,30 @@ None
 .SH ERRORS
 The CQE
 .I res
-field will contain the result of the operation. See the related man page for
-details on possible values. Note that where synchronous system calls will return
-.B -1
-on failure and set
+field will contain the result of the operation. On success, it contains
+.BR 0 .
+On error, it contains the negated
 .I errno
-to the actual error value, io_uring never uses
-.IR errno .
-Instead it returns the negated
-.I errno
-directly in the CQE
-.I res
-field.
+value.
+.PP
+Common errors include:
+.TP
+.B -ENOENT
+The file does not exist.
+.TP
+.B -EACCES
+Permission denied.
+.TP
+.B -ELOOP
+Too many symbolic links (or
+.B AT_SYMLINK_NOFOLLOW
+not set and path is a symlink loop).
+.TP
+.B -ENAMETOOLONG
+The path is too long.
+.TP
+.B -ENOTDIR
+A component of the path prefix is not a directory.
 .SH NOTES
 As with any request that passes in data in a struct, that data must remain
 valid until the request has been successfully submitted. It need not remain
@@ -68,7 +80,233 @@ behavior by inspecting the
 .B IORING_FEAT_SUBMIT_STABLE
 flag passed back from
 .BR io_uring_queue_init_params (3).
+.PP
+The
+.I statxbuf
+structure must remain valid until the completion is received.
+.PP
+Common flag values:
+.IP \(bu 2
+.B AT_EMPTY_PATH
+- if path is empty, operate on dirfd itself
+.IP \(bu 2
+.B AT_SYMLINK_NOFOLLOW
+- don't follow symbolic links
+.IP \(bu 2
+.B AT_STATX_SYNC_AS_STAT
+- behave like stat()
+.PP
+Common mask values:
+.IP \(bu 2
+.B STATX_BASIC_STATS
+- most commonly needed fields
+.IP \(bu 2
+.B STATX_SIZE
+- just the file size
+.IP \(bu 2
+.B STATX_ALL
+- all available fields
+.SH EXAMPLE
+.SS Basic file stat
+.EX
+#include <stdio.h>
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <liburing.h>
+
+int stat_file(struct io_uring *ring, const char *path)
+{
+    struct io_uring_sqe *sqe;
+    struct io_uring_cqe *cqe;
+    struct statx statxbuf;
+    int ret;
+
+    sqe = io_uring_get_sqe(ring);
+    io_uring_prep_statx(sqe, AT_FDCWD, path, 0,
+                        STATX_BASIC_STATS, &statxbuf);
+
+    ret = io_uring_submit(ring);
+    if (ret < 0)
+        return ret;
+
+    ret = io_uring_wait_cqe(ring, &cqe);
+    if (ret < 0)
+        return ret;
+
+    ret = cqe->res;
+    io_uring_cqe_seen(ring, cqe);
+
+    if (ret < 0) {
+        fprintf(stderr, "statx failed: %d\\n", ret);
+        return ret;
+    }
+
+    printf("File: %s\\n", path);
+    printf("  Size: %llu bytes\\n", (unsigned long long)statxbuf.stx_size);
+    printf("  Mode: %o\\n", statxbuf.stx_mode & 07777);
+    printf("  UID:  %u\\n", statxbuf.stx_uid);
+    printf("  GID:  %u\\n", statxbuf.stx_gid);
+
+    if (S_ISREG(statxbuf.stx_mode))
+        printf("  Type: regular file\\n");
+    else if (S_ISDIR(statxbuf.stx_mode))
+        printf("  Type: directory\\n");
+    else if (S_ISLNK(statxbuf.stx_mode))
+        printf("  Type: symbolic link\\n");
+
+    return 0;
+}
+.EE
+.SS Stat without following symlinks
+.EX
+#include <stdio.h>
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <liburing.h>
+
+int lstat_file(struct io_uring *ring, const char *path,
+               struct statx *statxbuf)
+{
+    struct io_uring_sqe *sqe;
+    struct io_uring_cqe *cqe;
+    int ret;
+
+    sqe = io_uring_get_sqe(ring);
+    io_uring_prep_statx(sqe, AT_FDCWD, path,
+                        AT_SYMLINK_NOFOLLOW,
+                        STATX_BASIC_STATS, statxbuf);
+
+    io_uring_submit(ring);
+    io_uring_wait_cqe(ring, &cqe);
+
+    ret = cqe->res;
+    io_uring_cqe_seen(ring, cqe);
+
+    return ret;
+}
+.EE
+.SS Stat a file by file descriptor
+.EX
+#include <stdio.h>
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <liburing.h>
+
+/*
+ * Stat an already-open file using its file descriptor.
+ */
+int fstat_file(struct io_uring *ring, int fd, struct statx *statxbuf)
+{
+    struct io_uring_sqe *sqe;
+    struct io_uring_cqe *cqe;
+    int ret;
+
+    sqe = io_uring_get_sqe(ring);
+    /* Use AT_EMPTY_PATH with empty path to stat the fd itself */
+    io_uring_prep_statx(sqe, fd, "",
+                        AT_EMPTY_PATH,
+                        STATX_BASIC_STATS, statxbuf);
+
+    io_uring_submit(ring);
+    io_uring_wait_cqe(ring, &cqe);
+
+    ret = cqe->res;
+    io_uring_cqe_seen(ring, cqe);
+
+    return ret;
+}
+.EE
+.SS Batch stat multiple files
+.EX
+#include <stdio.h>
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <liburing.h>
+
+struct stat_request {
+    const char *path;
+    struct statx statxbuf;
+    int result;
+};
+
+/*
+ * Stat multiple files in parallel for better performance.
+ */
+int batch_stat(struct io_uring *ring, struct stat_request *reqs, int count)
+{
+    struct io_uring_sqe *sqe;
+    struct io_uring_cqe *cqe;
+    int i, ret;
+
+    /* Queue all stat requests */
+    for (i = 0; i < count; i++) {
+        sqe = io_uring_get_sqe(ring);
+        io_uring_prep_statx(sqe, AT_FDCWD, reqs[i].path, 0,
+                            STATX_BASIC_STATS, &reqs[i].statxbuf);
+        io_uring_sqe_set_data(sqe, &reqs[i]);
+    }
+
+    ret = io_uring_submit(ring);
+    if (ret < 0)
+        return ret;
+
+    /* Collect results */
+    for (i = 0; i < count; i++) {
+        io_uring_wait_cqe(ring, &cqe);
+
+        struct stat_request *req = io_uring_cqe_get_data(cqe);
+        req->result = cqe->res;
+
+        io_uring_cqe_seen(ring, cqe);
+    }
+
+    return 0;
+}
+
+void print_sizes(struct stat_request *reqs, int count)
+{
+    for (int i = 0; i < count; i++) {
+        if (reqs[i].result == 0) {
+            printf("%s: %llu bytes\\n", reqs[i].path,
+                   (unsigned long long)reqs[i].statxbuf.stx_size);
+        } else {
+            printf("%s: error %d\\n", reqs[i].path, reqs[i].result);
+        }
+    }
+}
+.EE
+.SS Check if file exists
+.EX
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <liburing.h>
+
+/*
+ * Check if a file exists (similar to access(path, F_OK)).
+ */
+int file_exists(struct io_uring *ring, const char *path)
+{
+    struct io_uring_sqe *sqe;
+    struct io_uring_cqe *cqe;
+    struct statx statxbuf;
+    int ret;
+
+    sqe = io_uring_get_sqe(ring);
+    /* Request minimal info - just need to know if it exists */
+    io_uring_prep_statx(sqe, AT_FDCWD, path, 0, 0, &statxbuf);
+
+    io_uring_submit(ring);
+    io_uring_wait_cqe(ring, &cqe);
+
+    ret = (cqe->res == 0) ? 1 : 0;  /* 1 = exists, 0 = doesn't */
+    io_uring_cqe_seen(ring, cqe);
+
+    return ret;
+}
+.EE
 .SH SEE ALSO
 .BR io_uring_get_sqe (3),
 .BR io_uring_submit (3),
-.BR statx (2)
+.BR io_uring_prep_openat (3),
+.BR statx (2),
+.BR stat (2)
