@@ -57,20 +57,204 @@ None
 .SH ERRORS
 The CQE
 .I res
-field will contain the result of the operation. See the related man page for
-details on possible values. Note that where synchronous system calls will return
-.B -1
-on failure and set
+field will contain the result of the operation. On success, it contains
+.BR 0 .
+On error, it contains the negated
 .I errno
-to the actual error value, io_uring never uses
-.IR errno .
-Instead it returns the negated
-.I errno
-directly in the CQE
-.I res
-field.
+value.
+.PP
+Common errors include:
+.TP
+.B -EBADF
+Invalid file descriptor.
+.TP
+.B -EINVAL
+Invalid advice value, or the 64-bit length variant is used on an older kernel.
+.TP
+.B -ESPIPE
+The file descriptor refers to a pipe or FIFO.
+.SH NOTES
+The
+.I advice
+argument can be one of:
+.IP \(bu 2
+.B POSIX_FADV_NORMAL
+- No special treatment (default)
+.IP \(bu 2
+.B POSIX_FADV_SEQUENTIAL
+- Expect sequential access
+.IP \(bu 2
+.B POSIX_FADV_RANDOM
+- Expect random access
+.IP \(bu 2
+.B POSIX_FADV_NOREUSE
+- Data will not be reused
+.IP \(bu 2
+.B POSIX_FADV_WILLNEED
+- Data will be needed soon (triggers readahead)
+.IP \(bu 2
+.B POSIX_FADV_DONTNEED
+- Data will not be needed soon (may free page cache)
+.PP
+Using fadvise appropriately can significantly improve I/O performance by
+helping the kernel make better caching and readahead decisions.
+.PP
+For dropping file data from the page cache,
+.B POSIX_FADV_DONTNEED
+is commonly used after processing data that won't be needed again.
+.SH EXAMPLE
+.SS Basic fadvise usage
+.EX
+#include <stdio.h>
+#include <fcntl.h>
+#include <liburing.h>
+
+int advise_sequential(struct io_uring *ring, int fd)
+{
+    struct io_uring_sqe *sqe;
+    struct io_uring_cqe *cqe;
+    int ret;
+
+    sqe = io_uring_get_sqe(ring);
+    /* Advise the entire file for sequential access */
+    io_uring_prep_fadvise(sqe, fd, 0, 0, POSIX_FADV_SEQUENTIAL);
+
+    io_uring_submit(ring);
+    io_uring_wait_cqe(ring, &cqe);
+
+    ret = cqe->res;
+    io_uring_cqe_seen(ring, cqe);
+
+    return ret;
+}
+.EE
+.SS Drop file data from cache after processing
+.EX
+#include <stdio.h>
+#include <fcntl.h>
+#include <liburing.h>
+
+/*
+ * After reading and processing a file region, drop it from
+ * cache to free memory for other uses.
+ */
+int drop_cache_region(struct io_uring *ring, int fd,
+                      off_t offset, size_t len)
+{
+    struct io_uring_sqe *sqe;
+    struct io_uring_cqe *cqe;
+    int ret;
+
+    sqe = io_uring_get_sqe(ring);
+    io_uring_prep_fadvise(sqe, fd, offset, len, POSIX_FADV_DONTNEED);
+
+    io_uring_submit(ring);
+    io_uring_wait_cqe(ring, &cqe);
+
+    ret = cqe->res;
+    io_uring_cqe_seen(ring, cqe);
+
+    return ret;
+}
+.EE
+.SS Trigger readahead before processing
+.EX
+#include <stdio.h>
+#include <fcntl.h>
+#include <liburing.h>
+
+/*
+ * Trigger readahead for a file region before it's needed.
+ * Useful for prefetching data asynchronously.
+ */
+int prefetch_region(struct io_uring *ring, int fd,
+                    off_t offset, size_t len)
+{
+    struct io_uring_sqe *sqe;
+    struct io_uring_cqe *cqe;
+    int ret;
+
+    sqe = io_uring_get_sqe(ring);
+    io_uring_prep_fadvise(sqe, fd, offset, len, POSIX_FADV_WILLNEED);
+
+    io_uring_submit(ring);
+    io_uring_wait_cqe(ring, &cqe);
+
+    ret = cqe->res;
+    io_uring_cqe_seen(ring, cqe);
+
+    return ret;
+}
+.EE
+.SS Streaming pattern: read + advise dontneed
+.EX
+#include <stdio.h>
+#include <fcntl.h>
+#include <liburing.h>
+
+#define CHUNK_SIZE (1024 * 1024)  /* 1MB chunks */
+
+/*
+ * Stream through a large file, dropping cache as we go.
+ * This pattern prevents a large file from evicting other
+ * useful data from the page cache.
+ */
+int stream_file(struct io_uring *ring, int fd, size_t file_size)
+{
+    struct io_uring_sqe *sqe;
+    struct io_uring_cqe *cqe;
+    char *buf;
+    off_t offset = 0;
+    int ret;
+
+    buf = malloc(CHUNK_SIZE);
+    if (!buf)
+        return -ENOMEM;
+
+    /* Advise for sequential access */
+    sqe = io_uring_get_sqe(ring);
+    io_uring_prep_fadvise(sqe, fd, 0, 0, POSIX_FADV_SEQUENTIAL);
+    io_uring_submit(ring);
+    io_uring_wait_cqe(ring, &cqe);
+    io_uring_cqe_seen(ring, cqe);
+
+    while (offset < file_size) {
+        size_t to_read = file_size - offset;
+        if (to_read > CHUNK_SIZE)
+            to_read = CHUNK_SIZE;
+
+        /* Read chunk */
+        sqe = io_uring_get_sqe(ring);
+        io_uring_prep_read(sqe, fd, buf, to_read, offset);
+        io_uring_submit(ring);
+        io_uring_wait_cqe(ring, &cqe);
+
+        ret = cqe->res;
+        io_uring_cqe_seen(ring, cqe);
+
+        if (ret <= 0)
+            break;
+
+        /* Process data in buf... */
+        process_data(buf, ret);
+
+        /* Drop cache for processed region */
+        sqe = io_uring_get_sqe(ring);
+        io_uring_prep_fadvise(sqe, fd, offset, ret, POSIX_FADV_DONTNEED);
+        io_uring_submit(ring);
+        io_uring_wait_cqe(ring, &cqe);
+        io_uring_cqe_seen(ring, cqe);
+
+        offset += ret;
+    }
+
+    free(buf);
+    return 0;
+}
+.EE
 .SH SEE ALSO
 .BR io_uring_get_sqe (3),
 .BR io_uring_submit (3),
-.BR io_uring_register (2),
+.BR io_uring_prep_read (3),
+.BR io_uring_prep_madvise (3),
 .BR posix_fadvise (2)
