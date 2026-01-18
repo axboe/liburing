@@ -53,18 +53,39 @@ None
 .SH ERRORS
 The CQE
 .I res
-field will contain the result of the operation. See the related man page for
-details on possible values. Note that where synchronous system calls will return
-.B -1
-on failure and set
+field will contain the result of the operation. On success, it contains
+.BR 0 .
+On error, it contains the negated
 .I errno
-to the actual error value, io_uring never uses
-.IR errno .
-Instead it returns the negated
-.I errno
-directly in the CQE
-.I res
-field.
+value.
+.PP
+Common errors include:
+.TP
+.B -ENOENT
+The file does not exist.
+.TP
+.B -EACCES
+Permission denied.
+.TP
+.B -EPERM
+The filesystem does not allow unlinking, or the file is marked immutable.
+.TP
+.B -EISDIR
+Path refers to a directory and
+.B AT_REMOVEDIR
+was not specified.
+.TP
+.B -ENOTDIR
+A component of the path prefix is not a directory, or
+.B AT_REMOVEDIR
+was specified but path is not a directory.
+.TP
+.B -ENOTEMPTY
+.B AT_REMOVEDIR
+was specified but directory is not empty.
+.TP
+.B -EBUSY
+The file is in use by the system (e.g., mount point).
 .SH NOTES
 As with any request that passes in data in a struct, that data must remain
 valid until the request has been successfully submitted. It need not remain
@@ -75,8 +96,184 @@ behavior by inspecting the
 .B IORING_FEAT_SUBMIT_STABLE
 flag passed back from
 .BR io_uring_queue_init_params (3).
+.PP
+The
+.I flags
+argument can be 0 or:
+.IP \(bu 2
+.B AT_REMOVEDIR
+- Remove the directory (like rmdir(2))
+.SH EXAMPLE
+.SS Basic file deletion
+.EX
+#include <stdio.h>
+#include <liburing.h>
+
+int delete_file(struct io_uring *ring, const char *path)
+{
+    struct io_uring_sqe *sqe;
+    struct io_uring_cqe *cqe;
+    int ret;
+
+    sqe = io_uring_get_sqe(ring);
+    io_uring_prep_unlink(sqe, path, 0);
+
+    ret = io_uring_submit(ring);
+    if (ret < 0)
+        return ret;
+
+    ret = io_uring_wait_cqe(ring, &cqe);
+    if (ret < 0)
+        return ret;
+
+    ret = cqe->res;
+    io_uring_cqe_seen(ring, cqe);
+
+    if (ret < 0) {
+        if (ret == -ENOENT)
+            fprintf(stderr, "File not found\\n");
+        else
+            fprintf(stderr, "unlink failed: %d\\n", ret);
+    }
+
+    return ret;
+}
+.EE
+.SS Remove a directory
+.EX
+#include <stdio.h>
+#include <fcntl.h>
+#include <liburing.h>
+
+int remove_directory(struct io_uring *ring, const char *path)
+{
+    struct io_uring_sqe *sqe;
+    struct io_uring_cqe *cqe;
+    int ret;
+
+    sqe = io_uring_get_sqe(ring);
+    io_uring_prep_unlink(sqe, path, AT_REMOVEDIR);
+
+    io_uring_submit(ring);
+    io_uring_wait_cqe(ring, &cqe);
+
+    ret = cqe->res;
+    io_uring_cqe_seen(ring, cqe);
+
+    if (ret == -ENOTEMPTY)
+        fprintf(stderr, "Directory not empty\\n");
+
+    return ret;
+}
+.EE
+.SS Delete file relative to directory
+.EX
+#include <stdio.h>
+#include <fcntl.h>
+#include <liburing.h>
+
+/*
+ * Delete a file within a specific directory.
+ * Useful for safely operating within a directory tree.
+ */
+int delete_in_dir(struct io_uring *ring, int dirfd, const char *name)
+{
+    struct io_uring_sqe *sqe;
+    struct io_uring_cqe *cqe;
+    int ret;
+
+    sqe = io_uring_get_sqe(ring);
+    io_uring_prep_unlinkat(sqe, dirfd, name, 0);
+
+    io_uring_submit(ring);
+    io_uring_wait_cqe(ring, &cqe);
+
+    ret = cqe->res;
+    io_uring_cqe_seen(ring, cqe);
+
+    return ret;
+}
+.EE
+.SS Batch delete multiple files
+.EX
+#include <stdio.h>
+#include <liburing.h>
+
+/*
+ * Delete multiple files in parallel.
+ */
+int batch_delete(struct io_uring *ring, const char **paths, int count)
+{
+    struct io_uring_sqe *sqe;
+    struct io_uring_cqe *cqe;
+    int i, ret, deleted = 0;
+
+    /* Queue all delete operations */
+    for (i = 0; i < count; i++) {
+        sqe = io_uring_get_sqe(ring);
+        io_uring_prep_unlink(sqe, paths[i], 0);
+        io_uring_sqe_set_data64(sqe, i);
+    }
+
+    ret = io_uring_submit(ring);
+    if (ret < 0)
+        return ret;
+
+    /* Collect results */
+    for (i = 0; i < count; i++) {
+        io_uring_wait_cqe(ring, &cqe);
+
+        if (cqe->res == 0) {
+            deleted++;
+        } else {
+            int idx = io_uring_cqe_get_data64(cqe);
+            fprintf(stderr, "Failed to delete %s: %d\\n",
+                    paths[idx], cqe->res);
+        }
+
+        io_uring_cqe_seen(ring, cqe);
+    }
+
+    printf("Deleted %d of %d files\\n", deleted, count);
+    return deleted;
+}
+.EE
+.SS Delete file if it exists (ignore ENOENT)
+.EX
+#include <errno.h>
+#include <liburing.h>
+
+/*
+ * Delete file if it exists. Useful for cleanup where
+ * the file may or may not exist.
+ */
+int delete_if_exists(struct io_uring *ring, const char *path)
+{
+    struct io_uring_sqe *sqe;
+    struct io_uring_cqe *cqe;
+    int ret;
+
+    sqe = io_uring_get_sqe(ring);
+    io_uring_prep_unlink(sqe, path, 0);
+
+    io_uring_submit(ring);
+    io_uring_wait_cqe(ring, &cqe);
+
+    ret = cqe->res;
+    io_uring_cqe_seen(ring, cqe);
+
+    /* Treat "not found" as success */
+    if (ret == -ENOENT)
+        ret = 0;
+
+    return ret;
+}
+.EE
 .SH SEE ALSO
 .BR io_uring_get_sqe (3),
 .BR io_uring_submit (3),
+.BR io_uring_prep_renameat (3),
+.BR io_uring_prep_mkdirat (3),
 .BR unlinkat (2),
-.BR unlink (2)
+.BR unlink (2),
+.BR rmdir (2)
