@@ -51,22 +51,259 @@ None
 .SH ERRORS
 The CQE
 .I res
-field will contain the result of the operation, which is a bitmask of the
-events notified. See the
-.BR poll (2)
-man page for details. Note that where synchronous system calls will return
-.B -1
-on failure and set
+field will contain the result of the operation. On success, it is a bitmask
+of the events that occurred (e.g.,
+.BR POLLIN ,
+.BR POLLOUT ,
+.BR POLLERR ).
+On error, it contains the negated
 .I errno
-to the actual error value, io_uring never uses
-.IR errno .
-Instead it returns the negated
-.I errno
-directly in the CQE
-.I res
-field.
+value.
+.PP
+Common errors include:
+.TP
+.B -EBADF
+The file descriptor is not valid.
+.TP
+.B -EINVAL
+The poll_mask contains invalid flags.
+.TP
+.B -ECANCELED
+The poll request was canceled.
+.PP
+Note that
+.B POLLHUP
+and
+.B POLLERR
+may be returned even if not requested, as they indicate exceptional
+conditions on the file descriptor.
+.SH NOTES
+Poll requests are particularly useful for:
+.IP \(bu 2
+Waiting for socket readability/writability before issuing recv/send
+.IP \(bu 2
+Monitoring multiple file descriptors efficiently
+.IP \(bu 2
+Implementing event-driven servers without blocking
+.PP
+The multishot variant is ideal for long-lived connections where you need
+continuous notification of events. It reduces overhead by avoiding the
+need to resubmit poll requests after each event.
+.PP
+Unlike
+.BR epoll (7),
+io_uring poll does not require a separate file descriptor for the poll
+set - the io_uring ring itself serves this purpose.
+.SH EXAMPLE
+.SS Basic poll for readability
+.EX
+#include <stdio.h>
+#include <poll.h>
+#include <liburing.h>
+
+/*
+ * Wait for a socket to become readable.
+ */
+int wait_readable(struct io_uring *ring, int fd)
+{
+    struct io_uring_sqe *sqe;
+    struct io_uring_cqe *cqe;
+    int ret;
+
+    sqe = io_uring_get_sqe(ring);
+    io_uring_prep_poll_add(sqe, fd, POLLIN);
+
+    ret = io_uring_submit(ring);
+    if (ret < 0)
+        return ret;
+
+    ret = io_uring_wait_cqe(ring, &cqe);
+    if (ret < 0)
+        return ret;
+
+    ret = cqe->res;
+    io_uring_cqe_seen(ring, cqe);
+
+    if (ret < 0) {
+        fprintf(stderr, "poll error: %d\\n", ret);
+        return ret;
+    }
+
+    if (ret & POLLIN)
+        printf("Socket is readable\\n");
+    if (ret & POLLHUP)
+        printf("Socket hung up\\n");
+    if (ret & POLLERR)
+        printf("Socket error\\n");
+
+    return ret;
+}
+.EE
+.SS Multishot poll for event-driven I/O
+.EX
+#include <stdio.h>
+#include <poll.h>
+#include <liburing.h>
+
+#define POLL_SOCKET 1
+#define READ_DATA   2
+
+struct conn {
+    int fd;
+    char buf[4096];
+};
+
+void start_poll(struct io_uring *ring, struct conn *c)
+{
+    struct io_uring_sqe *sqe;
+
+    sqe = io_uring_get_sqe(ring);
+    io_uring_prep_poll_multishot(sqe, c->fd, POLLIN);
+    io_uring_sqe_set_data(sqe, c);
+
+    io_uring_submit(ring);
+}
+
+void handle_poll_event(struct io_uring *ring, struct conn *c,
+                       struct io_uring_cqe *cqe)
+{
+    struct io_uring_sqe *sqe;
+
+    if (cqe->res < 0) {
+        fprintf(stderr, "poll error: %d\\n", cqe->res);
+        return;
+    }
+
+    if (cqe->res & POLLIN) {
+        /* Data available - issue a read */
+        sqe = io_uring_get_sqe(ring);
+        io_uring_prep_recv(sqe, c->fd, c->buf, sizeof(c->buf), 0);
+        io_uring_sqe_set_data(sqe, c);
+        io_uring_submit(ring);
+    }
+
+    if (cqe->res & (POLLHUP | POLLERR)) {
+        printf("Connection closed or error\\n");
+    }
+
+    /* Check if multishot poll is still active */
+    if (!(cqe->flags & IORING_CQE_F_MORE)) {
+        printf("Multishot poll ended, restarting\\n");
+        start_poll(ring, c);
+    }
+}
+.EE
+.SS Monitoring multiple file descriptors
+.EX
+#include <stdio.h>
+#include <poll.h>
+#include <liburing.h>
+
+struct fd_info {
+    int fd;
+    int type;  /* Application-specific type */
+};
+
+/*
+ * Set up multishot polls on multiple file descriptors.
+ */
+void monitor_fds(struct io_uring *ring, struct fd_info *fds, int count)
+{
+    struct io_uring_sqe *sqe;
+    int i;
+
+    for (i = 0; i < count; i++) {
+        sqe = io_uring_get_sqe(ring);
+        io_uring_prep_poll_multishot(sqe, fds[i].fd, POLLIN | POLLHUP);
+        io_uring_sqe_set_data(sqe, &fds[i]);
+    }
+
+    io_uring_submit(ring);
+}
+
+void event_loop(struct io_uring *ring)
+{
+    struct io_uring_cqe *cqe;
+    struct fd_info *info;
+
+    while (1) {
+        io_uring_wait_cqe(ring, &cqe);
+
+        info = io_uring_cqe_get_data(cqe);
+        printf("Event on fd %d (type %d): 0x%x\\n",
+               info->fd, info->type, cqe->res);
+
+        if (cqe->res & POLLIN) {
+            handle_readable(info);
+        }
+        if (cqe->res & POLLHUP) {
+            handle_disconnect(info);
+        }
+
+        /* Resubmit if multishot ended */
+        if (!(cqe->flags & IORING_CQE_F_MORE)) {
+            struct io_uring_sqe *sqe = io_uring_get_sqe(ring);
+            io_uring_prep_poll_multishot(sqe, info->fd, POLLIN | POLLHUP);
+            io_uring_sqe_set_data(sqe, info);
+            io_uring_submit(ring);
+        }
+
+        io_uring_cqe_seen(ring, cqe);
+    }
+}
+.EE
+.SS Poll with timeout using linked requests
+.EX
+#include <stdio.h>
+#include <poll.h>
+#include <liburing.h>
+
+/*
+ * Wait for socket to be readable, with a timeout.
+ */
+int poll_with_timeout(struct io_uring *ring, int fd, int timeout_ms)
+{
+    struct io_uring_sqe *sqe;
+    struct io_uring_cqe *cqe;
+    struct __kernel_timespec ts;
+    int ret, poll_result = 0;
+
+    /* Submit poll with link to timeout */
+    sqe = io_uring_get_sqe(ring);
+    io_uring_prep_poll_add(sqe, fd, POLLIN);
+    sqe->flags |= IOSQE_IO_LINK;
+    io_uring_sqe_set_data64(sqe, 1);
+
+    /* Linked timeout */
+    sqe = io_uring_get_sqe(ring);
+    ts.tv_sec = timeout_ms / 1000;
+    ts.tv_nsec = (timeout_ms % 1000) * 1000000LL;
+    io_uring_prep_link_timeout(sqe, &ts, 0);
+    io_uring_sqe_set_data64(sqe, 2);
+
+    io_uring_submit(ring);
+
+    /* Collect both CQEs */
+    for (int i = 0; i < 2; i++) {
+        io_uring_wait_cqe(ring, &cqe);
+
+        if (io_uring_cqe_get_data64(cqe) == 1) {
+            poll_result = cqe->res;
+        }
+
+        io_uring_cqe_seen(ring, cqe);
+    }
+
+    if (poll_result == -ECANCELED)
+        return -ETIMEDOUT;
+
+    return poll_result;
+}
+.EE
 .SH SEE ALSO
 .BR io_uring_get_sqe (3),
 .BR io_uring_submit (3),
+.BR io_uring_prep_poll_remove (3),
+.BR io_uring_prep_recv (3),
 .BR poll (2),
 .BR epoll_ctl (3)
