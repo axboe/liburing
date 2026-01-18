@@ -109,18 +109,44 @@ None
 .SH ERRORS
 The CQE
 .I res
-field will contain the result of the operation. See the related man page for
-details on possible values. Note that where synchronous system calls will return
-.B -1
-on failure and set
+field will contain the result of the operation. On success, it contains
+the file descriptor (or 0 for direct open with explicit slot, or the
+allocated slot for direct open with
+.BR IORING_FILE_INDEX_ALLOC ).
+On error, it contains the negated
 .I errno
-to the actual error value, io_uring never uses
-.IR errno .
-Instead it returns the negated
-.I errno
-directly in the CQE
-.I res
-field.
+value.
+.PP
+Common errors include:
+.TP
+.B -ENOENT
+The file does not exist and
+.B O_CREAT
+was not specified.
+.TP
+.B -EACCES
+Permission denied for the requested access mode.
+.TP
+.B -EEXIST
+.B O_CREAT
+and
+.B O_EXCL
+were specified, but the file already exists.
+.TP
+.B -EISDIR
+Attempted to open a directory for writing.
+.TP
+.B -EMFILE
+The per-process file descriptor limit has been reached.
+.TP
+.B -ENFILE
+For direct variants, no free slot in the registered file table when using
+.BR IORING_FILE_INDEX_ALLOC .
+.TP
+.B -ENOTDIR
+A component of the path prefix is not a directory, or
+.B O_DIRECTORY
+was specified but the path is not a directory.
 .SH NOTES
 As with any request that passes in data in a struct, that data must remain
 valid until the request has been successfully submitted. It need not remain
@@ -131,8 +157,205 @@ behavior by inspecting the
 .B IORING_FEAT_SUBMIT_STABLE
 flag passed back from
 .BR io_uring_queue_init_params (3).
+.SH EXAMPLE
+.SS Basic file open
+.EX
+#include <stdio.h>
+#include <fcntl.h>
+#include <liburing.h>
+
+int async_open(struct io_uring *ring, const char *path, int flags)
+{
+    struct io_uring_sqe *sqe;
+    struct io_uring_cqe *cqe;
+    int ret;
+
+    sqe = io_uring_get_sqe(ring);
+    io_uring_prep_open(sqe, path, flags, 0);
+
+    ret = io_uring_submit(ring);
+    if (ret < 0)
+        return ret;
+
+    ret = io_uring_wait_cqe(ring, &cqe);
+    if (ret < 0)
+        return ret;
+
+    ret = cqe->res;  /* fd on success, -errno on failure */
+    io_uring_cqe_seen(ring, cqe);
+
+    if (ret < 0)
+        fprintf(stderr, "open %s failed: %d\\n", path, ret);
+
+    return ret;
+}
+
+int main(void)
+{
+    struct io_uring ring;
+    int fd;
+
+    io_uring_queue_init(8, &ring, 0);
+
+    fd = async_open(&ring, "/etc/passwd", O_RDONLY);
+    if (fd >= 0) {
+        printf("Opened file, fd=%d\\n", fd);
+        close(fd);
+    }
+
+    io_uring_queue_exit(&ring);
+    return 0;
+}
+.EE
+.SS Creating a file with specific permissions
+.EX
+#include <stdio.h>
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <liburing.h>
+
+int create_file(struct io_uring *ring, const char *path, mode_t mode)
+{
+    struct io_uring_sqe *sqe;
+    struct io_uring_cqe *cqe;
+    int ret;
+
+    sqe = io_uring_get_sqe(ring);
+    io_uring_prep_open(sqe, path,
+                       O_WRONLY | O_CREAT | O_EXCL,
+                       mode);
+
+    io_uring_submit(ring);
+    io_uring_wait_cqe(ring, &cqe);
+
+    ret = cqe->res;
+    io_uring_cqe_seen(ring, cqe);
+
+    if (ret == -EEXIST)
+        fprintf(stderr, "File already exists\\n");
+
+    return ret;
+}
+.EE
+.SS Opening into a direct descriptor slot
+.EX
+#include <stdio.h>
+#include <fcntl.h>
+#include <liburing.h>
+
+#define MAX_FILES 64
+
+int setup_and_open_direct(struct io_uring *ring, const char *path)
+{
+    struct io_uring_sqe *sqe;
+    struct io_uring_cqe *cqe;
+    int ret;
+
+    /* First, register a sparse file table */
+    ret = io_uring_register_files_sparse(ring, MAX_FILES);
+    if (ret < 0) {
+        fprintf(stderr, "register files: %d\\n", ret);
+        return ret;
+    }
+
+    /* Open file directly into the registered table */
+    sqe = io_uring_get_sqe(ring);
+    io_uring_prep_open_direct(sqe, path, O_RDONLY, 0,
+                              IORING_FILE_INDEX_ALLOC);
+
+    io_uring_submit(ring);
+    io_uring_wait_cqe(ring, &cqe);
+
+    ret = cqe->res;  /* Allocated slot index on success */
+    io_uring_cqe_seen(ring, cqe);
+
+    if (ret >= 0)
+        printf("Opened %s in direct slot %d\\n", path, ret);
+
+    return ret;
+}
+
+void read_using_direct(struct io_uring *ring, int slot,
+                       void *buf, size_t len)
+{
+    struct io_uring_sqe *sqe;
+
+    sqe = io_uring_get_sqe(ring);
+    io_uring_prep_read(sqe, slot, buf, len, 0);
+    /* Mark that we're using a direct descriptor */
+    sqe->flags |= IOSQE_FIXED_FILE;
+
+    io_uring_submit(ring);
+}
+.EE
+.SS Opening relative to a directory
+.EX
+#include <stdio.h>
+#include <fcntl.h>
+#include <liburing.h>
+
+/*
+ * Open a file relative to a directory file descriptor.
+ * Useful for traversing directory trees safely.
+ */
+int open_relative(struct io_uring *ring, int dirfd, const char *name)
+{
+    struct io_uring_sqe *sqe;
+    struct io_uring_cqe *cqe;
+    int ret;
+
+    sqe = io_uring_get_sqe(ring);
+    io_uring_prep_openat(sqe, dirfd, name, O_RDONLY, 0);
+
+    io_uring_submit(ring);
+    io_uring_wait_cqe(ring, &cqe);
+
+    ret = cqe->res;
+    io_uring_cqe_seen(ring, cqe);
+
+    return ret;
+}
+
+/* Example: open multiple files in a directory */
+int open_files_in_dir(struct io_uring *ring, const char *dirname,
+                      const char **names, int count, int *fds)
+{
+    struct io_uring_sqe *sqe;
+    struct io_uring_cqe *cqe;
+    int dirfd, i, ret;
+
+    /* First open the directory */
+    dirfd = open(dirname, O_RDONLY | O_DIRECTORY);
+    if (dirfd < 0)
+        return -1;
+
+    /* Queue opens for all files */
+    for (i = 0; i < count; i++) {
+        sqe = io_uring_get_sqe(ring);
+        io_uring_prep_openat(sqe, dirfd, names[i], O_RDONLY, 0);
+        io_uring_sqe_set_data64(sqe, i);
+    }
+
+    io_uring_submit(ring);
+
+    /* Collect results */
+    for (i = 0; i < count; i++) {
+        io_uring_wait_cqe(ring, &cqe);
+        int idx = io_uring_cqe_get_data64(cqe);
+        fds[idx] = cqe->res;
+        io_uring_cqe_seen(ring, cqe);
+    }
+
+    close(dirfd);
+    return 0;
+}
+.EE
 .SH SEE ALSO
 .BR io_uring_get_sqe (3),
 .BR io_uring_submit (3),
+.BR io_uring_register_files (3),
+.BR io_uring_prep_close (3),
+.BR io_uring_prep_read (3),
 .BR io_uring_register (2),
-.BR openat (2)
+.BR openat (2),
+.BR open (2)
