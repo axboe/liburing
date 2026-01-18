@@ -1,0 +1,60 @@
+.\" Copyright (C) 2025 Jens Axboe <axboe@kernel.dk>
+.\"
+.\" SPDX-License-Identifier: LGPL-2.0-or-later
+.\"
+.TH io_uring_prep_cmd_getsockname 3 "January 18, 2025" "liburing-2.13" "liburing Manual"
+.SH NAME
+io_uring_prep_cmd_getsockname \- prepare a getsockname or getpeername request
+.SH SYNOPSIS
+.nf
+.B #include <liburing.h>
+.PP
+.BI "void io_uring_prep_cmd_getsockname(struct io_uring_sqe *" sqe ","
+.BI "                                   int " fd ","
+.BI "                                   struct sockaddr *" sockaddr ","
+.BI "                                   socklen_t *" sockaddr_len ","
+.BI "                                   int " peer ");"
+.fi
+.SH DESCRIPTION
+.PP
+The
+.BR io_uring_prep_cmd_getsockname (3)
+function prepares a socket command request to get the socket address. The
+submission queue entry
+.I sqe
+is setup to use the socket indicated by the file descriptor
+.IR fd .
+
+The
+.I sockaddr
+argument points to a buffer where the address will be stored. The
+.I sockaddr_len
+argument points to the length of the buffer, which will be updated with
+the actual length of the address on completion.
+
+If
+.I peer
+is 0, this operates like
+.BR getsockname (2),
+returning the local address bound to the socket. If
+.I peer
+is non-zero, this operates like
+.BR getpeername (2),
+returning the address of the peer connected to the socket.
+
+.SH RETURN VALUE
+None
+.SH ERRORS
+The CQE
+.I res
+field will contain the result of the operation. See
+.BR getsockname (2)
+or
+.BR getpeername (2)
+for possible error values.
+.SH SEE ALSO
+.BR io_uring_get_sqe (3),
+.BR io_uring_submit (3),
+.BR io_uring_prep_getsockname (3),
+.BR getsockname (2),
+.BR getpeername (2)
