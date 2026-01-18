@@ -290,6 +290,177 @@ void send_with_poll(struct io_uring *ring, int sockfd,
     io_uring_submit(ring);
 }
 .EE
+.SS Linked send with MSG_WAITALL
+.EX
+#include <sys/socket.h>
+#include <liburing.h>
+
+/*
+ * When linking requests, use MSG_WAITALL to ensure
+ * short sends are treated as errors and break the chain.
+ */
+int linked_send_recv(struct io_uring *ring, int sockfd,
+                     const void *sendbuf, size_t sendlen,
+                     void *recvbuf, size_t recvlen)
+{
+    struct io_uring_sqe *sqe;
+    struct io_uring_cqe *cqe;
+    int ret;
+
+    /* Send with MSG_WAITALL - required for linking */
+    sqe = io_uring_get_sqe(ring);
+    io_uring_prep_send(sqe, sockfd, sendbuf, sendlen, MSG_WAITALL);
+    sqe->flags |= IOSQE_IO_LINK;
+    io_uring_sqe_set_data64(sqe, 1);
+
+    /* Linked receive */
+    sqe = io_uring_get_sqe(ring);
+    io_uring_prep_recv(sqe, sockfd, recvbuf, recvlen, 0);
+    io_uring_sqe_set_data64(sqe, 2);
+
+    io_uring_submit(ring);
+
+    /* Collect both completions */
+    for (int i = 0; i < 2; i++) {
+        io_uring_wait_cqe(ring, &cqe);
+
+        if (io_uring_cqe_get_data64(cqe) == 1 && cqe->res < 0)
+            ret = cqe->res;
+        else if (io_uring_cqe_get_data64(cqe) == 2)
+            ret = cqe->res;
+
+        io_uring_cqe_seen(ring, cqe);
+    }
+
+    return ret;
+}
+.EE
+.SS Handling short sends
+.EX
+#include <stdio.h>
+#include <liburing.h>
+
+/*
+ * Send all data, handling short sends by retrying.
+ */
+int send_all(struct io_uring *ring, int sockfd,
+             const void *buf, size_t len)
+{
+    struct io_uring_sqe *sqe;
+    struct io_uring_cqe *cqe;
+    const char *data = buf;
+    size_t remaining = len;
+    int ret;
+
+    while (remaining > 0) {
+        sqe = io_uring_get_sqe(ring);
+        io_uring_prep_send(sqe, sockfd, data, remaining, 0);
+
+        io_uring_submit(ring);
+        io_uring_wait_cqe(ring, &cqe);
+
+        ret = cqe->res;
+        io_uring_cqe_seen(ring, cqe);
+
+        if (ret < 0)
+            return ret;  /* Error */
+        if (ret == 0)
+            return -ECONNRESET;  /* Connection closed */
+
+        data += ret;
+        remaining -= ret;
+    }
+
+    return len;
+}
+.EE
+.SS Batch send multiple messages
+.EX
+#include <stdio.h>
+#include <liburing.h>
+
+struct send_request {
+    const void *buf;
+    size_t len;
+    int result;
+};
+
+/*
+ * Send multiple buffers in parallel.
+ */
+int batch_send(struct io_uring *ring, int sockfd,
+               struct send_request *reqs, int count)
+{
+    struct io_uring_sqe *sqe;
+    struct io_uring_cqe *cqe;
+    int i, ret;
+
+    /* Queue all sends */
+    for (i = 0; i < count; i++) {
+        sqe = io_uring_get_sqe(ring);
+        io_uring_prep_send(sqe, sockfd, reqs[i].buf, reqs[i].len, 0);
+        io_uring_sqe_set_data(sqe, &reqs[i]);
+    }
+
+    ret = io_uring_submit(ring);
+    if (ret < 0)
+        return ret;
+
+    /* Collect results */
+    for (i = 0; i < count; i++) {
+        io_uring_wait_cqe(ring, &cqe);
+
+        struct send_request *req = io_uring_cqe_get_data(cqe);
+        req->result = cqe->res;
+
+        io_uring_cqe_seen(ring, cqe);
+    }
+
+    return 0;
+}
+.EE
+.SS Send with provided buffers for ordering
+.EX
+#include <liburing.h>
+
+#define BGID 1
+
+/*
+ * Using provided buffers with send ensures proper ordering
+ * of data when multiple sends are in flight on same socket.
+ */
+void send_ordered(struct io_uring *ring, int sockfd, int bgid)
+{
+    struct io_uring_sqe *sqe;
+
+    sqe = io_uring_get_sqe(ring);
+    /* Zero-length prep, kernel picks buffer from ring */
+    io_uring_prep_send(sqe, sockfd, NULL, 0, 0);
+    sqe->flags |= IOSQE_BUFFER_SELECT;
+    sqe->buf_group = bgid;
+
+    io_uring_submit(ring);
+}
+.EE
+.SH NOTES
+When using
+.B IOSQE_IO_LINK
+to chain send with other operations, always include
+.B MSG_WAITALL
+in the flags. Without it, a short send is not considered an error and the chain
+will continue, which may not be the desired behavior.
+.PP
+For high-throughput applications with multiple sends in flight on the same socket,
+consider using provided buffers with send. This ensures proper ordering of outgoing
+data without requiring manual serialization at the application level.
+.PP
+The
+.B IORING_RECVSEND_POLL_FIRST
+flag is useful when the socket might not be ready for writing. Instead of
+returning
+.B -EAGAIN
+immediately, io_uring will poll the socket and complete the send when ready.
+This is more efficient than the application handling EAGAIN and retrying.
 .SH SEE ALSO
 .BR io_uring_get_sqe (3),
 .BR io_uring_submit (3),
