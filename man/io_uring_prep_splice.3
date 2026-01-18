@@ -91,24 +91,24 @@ None
 .SH ERRORS
 The CQE
 .I res
-field will contain the result of the operation. See the related man page for
-details on possible values. Note that where synchronous system calls will return
-.B -1
-on failure and set
+field will contain the result of the operation. On success, it contains the
+number of bytes spliced. On error, it contains the negated
 .I errno
-to the actual error value, io_uring never uses
-.IR errno .
-Instead it returns the negated
-.I errno
-directly in the CQE
-.I res
-field.
-.SH SEE ALSO
-.BR io_uring_get_sqe (3),
-.BR io_uring_submit (3),
-.BR io_uring_register (2),
-.BR splice (2)
-
+value.
+.PP
+Common errors include:
+.TP
+.B -EINVAL
+Invalid arguments (e.g., neither fd is a pipe, or offset given for pipe).
+.TP
+.B -EBADF
+One or more file descriptors are not valid.
+.TP
+.B -ESPIPE
+Offset given for a pipe fd.
+.TP
+.B -EAGAIN
+Non-blocking I/O was requested and no data was available.
 .SH NOTES
 Note that even if
 .I fd_in
@@ -118,3 +118,220 @@ refers to a pipe, the splice operation can still fail with
 .B EINVAL
 if one of the fd doesn't explicitly support splice operation, e.g. reading from
 terminal is unsupported from kernel 5.7 to 5.11.
+.PP
+At least one of the file descriptors must be a pipe. Splice moves data between
+a pipe and a file, or between two pipes, without copying between kernel and
+user space. This makes it very efficient for certain data movement patterns.
+.PP
+Common splice flags (from
+.BR splice (2)):
+.IP \(bu 2
+.B SPLICE_F_MOVE
+- attempt to move pages instead of copying (hint only)
+.IP \(bu 2
+.B SPLICE_F_NONBLOCK
+- don't block on I/O
+.IP \(bu 2
+.B SPLICE_F_MORE
+- more data will be coming (hint for network)
+.SH EXAMPLE
+.SS Splice from file to pipe
+.EX
+#include <stdio.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <liburing.h>
+
+/*
+ * Splice data from a file to a pipe.
+ * This is the first half of a zero-copy file transfer.
+ */
+int splice_to_pipe(struct io_uring *ring, int file_fd,
+                   int pipe_write_fd, size_t len, off_t offset)
+{
+    struct io_uring_sqe *sqe;
+    struct io_uring_cqe *cqe;
+    int ret;
+
+    sqe = io_uring_get_sqe(ring);
+    io_uring_prep_splice(sqe, file_fd, offset,
+                         pipe_write_fd, -1,  /* -1 for pipe offset */
+                         len, SPLICE_F_MOVE);
+
+    io_uring_submit(ring);
+    io_uring_wait_cqe(ring, &cqe);
+
+    ret = cqe->res;
+    io_uring_cqe_seen(ring, cqe);
+
+    if (ret < 0)
+        fprintf(stderr, "splice to pipe failed: %d\\n", ret);
+
+    return ret;
+}
+.EE
+.SS Splice from pipe to socket
+.EX
+#include <stdio.h>
+#include <fcntl.h>
+#include <liburing.h>
+
+/*
+ * Splice data from a pipe to a socket.
+ * This is the second half of a zero-copy file transfer.
+ */
+int splice_to_socket(struct io_uring *ring, int pipe_read_fd,
+                     int sockfd, size_t len)
+{
+    struct io_uring_sqe *sqe;
+    struct io_uring_cqe *cqe;
+    int ret;
+
+    sqe = io_uring_get_sqe(ring);
+    io_uring_prep_splice(sqe, pipe_read_fd, -1,
+                         sockfd, -1,
+                         len, SPLICE_F_MOVE | SPLICE_F_MORE);
+
+    io_uring_submit(ring);
+    io_uring_wait_cqe(ring, &cqe);
+
+    ret = cqe->res;
+    io_uring_cqe_seen(ring, cqe);
+
+    return ret;
+}
+.EE
+.SS Zero-copy file transfer using splice
+.EX
+#include <stdio.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <liburing.h>
+
+#define PIPE_SIZE 65536
+
+/*
+ * Transfer file to socket with zero-copy using splice.
+ * Creates a pipe internally and splices data through it.
+ */
+int send_file_zerocopy(struct io_uring *ring, int file_fd,
+                       int sockfd, size_t file_size)
+{
+    struct io_uring_sqe *sqe;
+    struct io_uring_cqe *cqe;
+    int pipefd[2];
+    size_t remaining = file_size;
+    off_t offset = 0;
+    int ret;
+
+    if (pipe(pipefd) < 0)
+        return -1;
+
+    while (remaining > 0) {
+        size_t to_splice = remaining < PIPE_SIZE ? remaining : PIPE_SIZE;
+
+        /* File -> Pipe */
+        sqe = io_uring_get_sqe(ring);
+        io_uring_prep_splice(sqe, file_fd, offset,
+                             pipefd[1], -1,
+                             to_splice, SPLICE_F_MOVE);
+
+        io_uring_submit(ring);
+        io_uring_wait_cqe(ring, &cqe);
+
+        ret = cqe->res;
+        io_uring_cqe_seen(ring, cqe);
+
+        if (ret <= 0)
+            break;
+
+        int spliced = ret;
+
+        /* Pipe -> Socket */
+        sqe = io_uring_get_sqe(ring);
+        io_uring_prep_splice(sqe, pipefd[0], -1,
+                             sockfd, -1,
+                             spliced, SPLICE_F_MOVE);
+
+        io_uring_submit(ring);
+        io_uring_wait_cqe(ring, &cqe);
+
+        ret = cqe->res;
+        io_uring_cqe_seen(ring, cqe);
+
+        if (ret <= 0)
+            break;
+
+        offset += ret;
+        remaining -= ret;
+    }
+
+    close(pipefd[0]);
+    close(pipefd[1]);
+
+    return (remaining == 0) ? 0 : ret;
+}
+.EE
+.SS Pipe-to-pipe splice
+.EX
+#include <stdio.h>
+#include <fcntl.h>
+#include <liburing.h>
+
+/*
+ * Splice data from one pipe to another.
+ * Useful for building pipelines.
+ */
+int splice_pipes(struct io_uring *ring,
+                 int src_pipe_read, int dst_pipe_write,
+                 size_t len)
+{
+    struct io_uring_sqe *sqe;
+    struct io_uring_cqe *cqe;
+    int ret;
+
+    sqe = io_uring_get_sqe(ring);
+    /* Both offsets must be -1 for pipes */
+    io_uring_prep_splice(sqe, src_pipe_read, -1,
+                         dst_pipe_write, -1,
+                         len, SPLICE_F_MOVE);
+
+    io_uring_submit(ring);
+    io_uring_wait_cqe(ring, &cqe);
+
+    ret = cqe->res;
+    io_uring_cqe_seen(ring, cqe);
+
+    return ret;
+}
+.EE
+.SS Using registered file descriptors
+.EX
+#include <fcntl.h>
+#include <liburing.h>
+
+/*
+ * Splice using registered file descriptors for efficiency.
+ * fd_in uses SPLICE_F_FD_IN_FIXED, fd_out uses IOSQE_FIXED_FILE.
+ */
+void splice_with_fixed_files(struct io_uring *ring,
+                             int fixed_fd_in, int fixed_fd_out,
+                             size_t len)
+{
+    struct io_uring_sqe *sqe;
+
+    sqe = io_uring_get_sqe(ring);
+    io_uring_prep_splice(sqe, fixed_fd_in, -1,
+                         fixed_fd_out, -1, len,
+                         SPLICE_F_MOVE | SPLICE_F_FD_IN_FIXED);
+    sqe->flags |= IOSQE_FIXED_FILE;
+
+    io_uring_submit(ring);
+}
+.EE
+.SH SEE ALSO
+.BR io_uring_get_sqe (3),
+.BR io_uring_submit (3),
+.BR io_uring_prep_tee (3),
+.BR io_uring_register_files (3),
+.BR splice (2)
