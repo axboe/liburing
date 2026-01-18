@@ -50,18 +50,238 @@ None
 .SH ERRORS
 The CQE
 .I res
-field will contain the result of the operation. See the related man page for
-details on possible values. Note that where synchronous system calls will return
+field will contain the result of the operation. On success, it contains
+the number of bytes written, which may be less than
+.I nbytes
+(a short write). On error, it contains the negated
+.I errno
+value.
+.PP
+Common errors include:
+.TP
+.B -EBADF
+The file descriptor is not valid or not open for writing.
+.TP
+.B -EFBIG
+The write would exceed the file size limit or the process's file size limit.
+.TP
+.B -ENOSPC
+No space left on device.
+.TP
+.B -EDQUOT
+Disk quota exceeded.
+.TP
+.B -EINVAL
+The offset is negative, or the file does not support the offset.
+.TP
+.B -EIO
+A low-level I/O error occurred.
+.TP
+.B -EPERM
+Operation not permitted (e.g., writing to an immutable file).
+.SH NOTES
+This function is similar to
+.BR pwrite (2).
+The
+.I offset
+parameter specifies where in the file to write, independent of the
+file's current position. Use offset
 .B -1
-on failure and set
-.I errno
-to the actual error value, io_uring never uses
-.IR errno .
-Instead it returns the negated
-.I errno
-directly in the CQE
-.I res
-field.
+to write at the current file position (like
+.BR write (2)),
+but be aware this can cause issues with concurrent async operations.
+.PP
+For files opened with
+.BR O_DIRECT ,
+the buffer, offset, and length typically need to be aligned to the
+filesystem's block size.
+.PP
+Short writes (where fewer bytes are written than requested) are possible
+and should be handled by the application, typically by submitting
+another write for the remaining data.
+.SH EXAMPLE
+.SS Basic file write
+.EX
+#include <stdio.h>
+#include <string.h>
+#include <fcntl.h>
+#include <liburing.h>
+
+int write_file(struct io_uring *ring, int fd,
+               const void *data, size_t len, off_t offset)
+{
+    struct io_uring_sqe *sqe;
+    struct io_uring_cqe *cqe;
+    int ret;
+
+    sqe = io_uring_get_sqe(ring);
+    io_uring_prep_write(sqe, fd, data, len, offset);
+
+    ret = io_uring_submit(ring);
+    if (ret < 0)
+        return ret;
+
+    ret = io_uring_wait_cqe(ring, &cqe);
+    if (ret < 0)
+        return ret;
+
+    ret = cqe->res;
+    io_uring_cqe_seen(ring, cqe);
+
+    if (ret < 0) {
+        fprintf(stderr, "write failed: %d\\n", ret);
+    } else if (ret < (int)len) {
+        fprintf(stderr, "short write: %d of %zu bytes\\n", ret, len);
+    }
+
+    return ret;
+}
+.EE
+.SS Complete write with short write handling
+.EX
+#include <stdio.h>
+#include <liburing.h>
+
+/*
+ * Write all data, handling short writes by resubmitting.
+ */
+int write_all(struct io_uring *ring, int fd,
+              const void *buf, size_t len, off_t offset)
+{
+    struct io_uring_sqe *sqe;
+    struct io_uring_cqe *cqe;
+    const char *ptr = buf;
+    size_t remaining = len;
+    int ret;
+
+    while (remaining > 0) {
+        sqe = io_uring_get_sqe(ring);
+        io_uring_prep_write(sqe, fd, ptr, remaining, offset);
+
+        io_uring_submit(ring);
+        io_uring_wait_cqe(ring, &cqe);
+
+        ret = cqe->res;
+        io_uring_cqe_seen(ring, cqe);
+
+        if (ret < 0)
+            return ret;
+
+        ptr += ret;
+        remaining -= ret;
+        offset += ret;
+    }
+
+    return len;
+}
+.EE
+.SS Batch writing multiple buffers
+.EX
+#include <stdio.h>
+#include <liburing.h>
+
+struct write_op {
+    const void *buf;
+    size_t len;
+    off_t offset;
+};
+
+/*
+ * Submit multiple writes in one batch for better efficiency.
+ */
+int batch_write(struct io_uring *ring, int fd,
+                struct write_op *ops, int count)
+{
+    struct io_uring_sqe *sqe;
+    struct io_uring_cqe *cqe;
+    int i, ret, total = 0;
+
+    /* Queue all write operations */
+    for (i = 0; i < count; i++) {
+        sqe = io_uring_get_sqe(ring);
+        if (!sqe) {
+            io_uring_submit(ring);
+            sqe = io_uring_get_sqe(ring);
+        }
+        io_uring_prep_write(sqe, fd, ops[i].buf,
+                            ops[i].len, ops[i].offset);
+        io_uring_sqe_set_data64(sqe, i);
+    }
+
+    ret = io_uring_submit(ring);
+    if (ret < 0)
+        return ret;
+
+    /* Collect results */
+    for (i = 0; i < count; i++) {
+        io_uring_wait_cqe(ring, &cqe);
+
+        if (cqe->res < 0) {
+            fprintf(stderr, "write %llu failed: %d\\n",
+                    (unsigned long long)io_uring_cqe_get_data64(cqe),
+                    cqe->res);
+        } else {
+            total += cqe->res;
+        }
+
+        io_uring_cqe_seen(ring, cqe);
+    }
+
+    return total;
+}
+.EE
+.SS Linked write followed by fsync
+.EX
+#include <stdio.h>
+#include <liburing.h>
+
+/*
+ * Write data and ensure it's synced to disk using
+ * linked requests for ordering.
+ */
+int write_and_sync(struct io_uring *ring, int fd,
+                   const void *data, size_t len, off_t offset)
+{
+    struct io_uring_sqe *sqe;
+    struct io_uring_cqe *cqe;
+    int ret, write_result;
+
+    /* Queue write with IOSQE_IO_LINK to chain to fsync */
+    sqe = io_uring_get_sqe(ring);
+    io_uring_prep_write(sqe, fd, data, len, offset);
+    sqe->flags |= IOSQE_IO_LINK;
+    io_uring_sqe_set_data64(sqe, 1);
+
+    /* Queue fsync - will only execute after write succeeds */
+    sqe = io_uring_get_sqe(ring);
+    io_uring_prep_fsync(sqe, fd, 0);
+    io_uring_sqe_set_data64(sqe, 2);
+
+    io_uring_submit(ring);
+
+    /* Get write result */
+    io_uring_wait_cqe(ring, &cqe);
+    write_result = cqe->res;
+    io_uring_cqe_seen(ring, cqe);
+
+    /* Get fsync result */
+    io_uring_wait_cqe(ring, &cqe);
+    ret = cqe->res;
+    io_uring_cqe_seen(ring, cqe);
+
+    if (write_result < 0)
+        return write_result;
+    if (ret < 0)
+        return ret;
+
+    return write_result;
+}
+.EE
 .SH SEE ALSO
 .BR io_uring_get_sqe (3),
-.BR io_uring_submit (3)
+.BR io_uring_submit (3),
+.BR io_uring_prep_read (3),
+.BR io_uring_prep_writev (3),
+.BR io_uring_prep_fsync (3),
+.BR pwrite (2),
+.BR write (2)
