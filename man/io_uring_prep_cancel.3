@@ -130,7 +130,217 @@ cancelation will have been posted by the time submission returns. For
 .B -EALREADY
 it may take a bit of time to do so. For this case, the caller must wait for the
 canceled request to post its completion event.
+.PP
+When a request is successfully canceled, it will complete with
+.B -ECANCELED
+in its CQE
+.I res
+field.
+.SH EXAMPLE
+.SS Basic cancelation by user_data
+.EX
+#include <stdio.h>
+#include <liburing.h>
+
+#define READ_OP_ID  0x1234
+
+int start_read(struct io_uring *ring, int fd, void *buf, size_t len)
+{
+    struct io_uring_sqe *sqe;
+
+    sqe = io_uring_get_sqe(ring);
+    io_uring_prep_read(sqe, fd, buf, len, 0);
+    io_uring_sqe_set_data64(sqe, READ_OP_ID);
+
+    return io_uring_submit(ring);
+}
+
+int cancel_read(struct io_uring *ring)
+{
+    struct io_uring_sqe *sqe;
+    struct io_uring_cqe *cqe;
+    int ret;
+
+    sqe = io_uring_get_sqe(ring);
+    io_uring_prep_cancel64(sqe, READ_OP_ID, 0);
+    io_uring_sqe_set_data64(sqe, 0);  /* Cancel request ID */
+
+    ret = io_uring_submit(ring);
+    if (ret < 0)
+        return ret;
+
+    /* The cancel CQE is always ready after submit */
+    io_uring_wait_cqe(ring, &cqe);
+
+    if (cqe->res == 0) {
+        printf("Request canceled successfully\\n");
+    } else if (cqe->res == -ENOENT) {
+        printf("Request not found (already completed?)\\n");
+    } else if (cqe->res == -EALREADY) {
+        printf("Request in progress, will complete soon\\n");
+    }
+
+    ret = cqe->res;
+    io_uring_cqe_seen(ring, cqe);
+
+    return ret;
+}
+.EE
+.SS Cancel all requests matching user_data
+.EX
+#include <stdio.h>
+#include <liburing.h>
+
+#define BATCH_OP_ID 0xBATCH
+
+/*
+ * Submit multiple reads with the same user_data identifier.
+ */
+void submit_batch_reads(struct io_uring *ring, int *fds, void **bufs,
+                        size_t len, int count)
+{
+    struct io_uring_sqe *sqe;
+    int i;
+
+    for (i = 0; i < count; i++) {
+        sqe = io_uring_get_sqe(ring);
+        io_uring_prep_read(sqe, fds[i], bufs[i], len, 0);
+        io_uring_sqe_set_data64(sqe, BATCH_OP_ID);
+    }
+
+    io_uring_submit(ring);
+}
+
+/*
+ * Cancel all reads submitted with BATCH_OP_ID.
+ */
+int cancel_all_batch_reads(struct io_uring *ring)
+{
+    struct io_uring_sqe *sqe;
+    struct io_uring_cqe *cqe;
+    int ret;
+
+    sqe = io_uring_get_sqe(ring);
+    io_uring_prep_cancel64(sqe, BATCH_OP_ID, IORING_ASYNC_CANCEL_ALL);
+
+    io_uring_submit(ring);
+    io_uring_wait_cqe(ring, &cqe);
+
+    if (cqe->res > 0) {
+        printf("Canceled %d requests\\n", cqe->res);
+    } else if (cqe->res == -ENOENT) {
+        printf("No matching requests found\\n");
+    }
+
+    ret = cqe->res;
+    io_uring_cqe_seen(ring, cqe);
+
+    return ret;
+}
+.EE
+.SS Cancel all requests on a file descriptor
+.EX
+#include <stdio.h>
+#include <liburing.h>
+
+/*
+ * Cancel all pending operations on a specific file descriptor.
+ * Useful when closing a connection or file.
+ */
+int cancel_all_on_fd(struct io_uring *ring, int fd)
+{
+    struct io_uring_sqe *sqe;
+    struct io_uring_cqe *cqe;
+    int ret;
+
+    sqe = io_uring_get_sqe(ring);
+    io_uring_prep_cancel_fd(sqe, fd,
+                            IORING_ASYNC_CANCEL_FD | IORING_ASYNC_CANCEL_ALL);
+
+    io_uring_submit(ring);
+    io_uring_wait_cqe(ring, &cqe);
+
+    if (cqe->res > 0)
+        printf("Canceled %d requests on fd %d\\n", cqe->res, fd);
+
+    ret = cqe->res;
+    io_uring_cqe_seen(ring, cqe);
+
+    return ret;
+}
+
+/*
+ * Clean shutdown of a socket: cancel pending operations,
+ * then close.
+ */
+void shutdown_socket(struct io_uring *ring, int sockfd)
+{
+    struct io_uring_sqe *sqe;
+    struct io_uring_cqe *cqe;
+    unsigned head;
+    int canceled;
+
+    /* First, cancel all pending operations */
+    canceled = cancel_all_on_fd(ring, sockfd);
+
+    /* Wait for canceled operations to complete with -ECANCELED */
+    if (canceled > 0) {
+        int remaining = canceled;
+        while (remaining > 0) {
+            io_uring_wait_cqe(ring, &cqe);
+            if (cqe->res == -ECANCELED)
+                remaining--;
+            io_uring_cqe_seen(ring, cqe);
+        }
+    }
+
+    /* Now safe to close */
+    sqe = io_uring_get_sqe(ring);
+    io_uring_prep_close(sqe, sockfd);
+    io_uring_submit(ring);
+}
+.EE
+.SS Cancel any pending request
+.EX
+#include <stdio.h>
+#include <liburing.h>
+
+/*
+ * Emergency cancel: abort all pending operations.
+ * Useful for shutdown or error recovery.
+ */
+int cancel_everything(struct io_uring *ring)
+{
+    struct io_uring_sqe *sqe;
+    struct io_uring_cqe *cqe;
+    int total = 0;
+
+    /* Keep canceling until no more requests found */
+    while (1) {
+        sqe = io_uring_get_sqe(ring);
+        io_uring_prep_cancel64(sqe, 0, IORING_ASYNC_CANCEL_ANY);
+
+        io_uring_submit(ring);
+        io_uring_wait_cqe(ring, &cqe);
+
+        if (cqe->res == -ENOENT) {
+            /* No more requests to cancel */
+            io_uring_cqe_seen(ring, cqe);
+            break;
+        }
+
+        if (cqe->res >= 0)
+            total += (cqe->res > 0) ? cqe->res : 1;
+
+        io_uring_cqe_seen(ring, cqe);
+    }
+
+    printf("Canceled %d total requests\\n", total);
+    return total;
+}
+.EE
 .SH SEE ALSO
 .BR io_uring_prep_poll_remove (3),
+.BR io_uring_prep_timeout_remove (3),
 .BR io_uring_get_sqe (3),
 .BR io_uring_submit (3)
