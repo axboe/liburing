@@ -35,19 +35,218 @@ None
 .SH ERRORS
 The CQE
 .I res
-field will contain the result of the operation. See the related man page for
-details on possible values. Note that where synchronous system calls will return
-.B -1
-on failure and set
+field will contain the result of the operation. On success, it contains
+.BR 0 .
+On error, it contains the negated
 .I errno
-to the actual error value, io_uring never uses
-.IR errno .
-Instead it returns the negated
-.I errno
-directly in the CQE
-.I res
-field.
+value.
+.PP
+Common errors include:
+.TP
+.B -EBADF
+The file descriptor is not valid.
+.TP
+.B -ENOTCONN
+The socket is not connected.
+.TP
+.B -ENOTSOCK
+The file descriptor does not refer to a socket.
+.SH NOTES
+The
+.I how
+argument can be one of:
+.IP \(bu 2
+.B SHUT_RD
+- Disables further receive operations
+.IP \(bu 2
+.B SHUT_WR
+- Disables further send operations
+.IP \(bu 2
+.B SHUT_RDWR
+- Disables both send and receive operations
+.PP
+Shutting down is different from closing. A shutdown socket can still be used
+for reading (after SHUT_WR) or writing (after SHUT_RD). Use
+.BR io_uring_prep_close (3)
+to fully close the socket and release resources.
+.PP
+For graceful TCP connection termination, use
+.B SHUT_WR
+to send FIN to the peer while still being able to receive any remaining data.
+.SH EXAMPLE
+.SS Basic socket shutdown
+.EX
+#include <stdio.h>
+#include <sys/socket.h>
+#include <liburing.h>
+
+int shutdown_socket(struct io_uring *ring, int sockfd, int how)
+{
+    struct io_uring_sqe *sqe;
+    struct io_uring_cqe *cqe;
+    int ret;
+
+    sqe = io_uring_get_sqe(ring);
+    io_uring_prep_shutdown(sqe, sockfd, how);
+
+    io_uring_submit(ring);
+    io_uring_wait_cqe(ring, &cqe);
+
+    ret = cqe->res;
+    io_uring_cqe_seen(ring, cqe);
+
+    if (ret < 0)
+        fprintf(stderr, "shutdown failed: %d\\n", ret);
+
+    return ret;
+}
+.EE
+.SS Graceful connection close pattern
+.EX
+#include <stdio.h>
+#include <sys/socket.h>
+#include <liburing.h>
+
+/*
+ * Gracefully close a TCP connection:
+ * 1. Shutdown write side to send FIN
+ * 2. Receive remaining data until EOF
+ * 3. Close the socket
+ */
+int graceful_close(struct io_uring *ring, int sockfd)
+{
+    struct io_uring_sqe *sqe;
+    struct io_uring_cqe *cqe;
+    char buf[1024];
+    int ret;
+
+    /* Shutdown write side - sends FIN to peer */
+    sqe = io_uring_get_sqe(ring);
+    io_uring_prep_shutdown(sqe, sockfd, SHUT_WR);
+
+    io_uring_submit(ring);
+    io_uring_wait_cqe(ring, &cqe);
+
+    ret = cqe->res;
+    io_uring_cqe_seen(ring, cqe);
+
+    if (ret < 0)
+        goto close;
+
+    /* Drain any remaining data from peer */
+    do {
+        sqe = io_uring_get_sqe(ring);
+        io_uring_prep_recv(sqe, sockfd, buf, sizeof(buf), 0);
+
+        io_uring_submit(ring);
+        io_uring_wait_cqe(ring, &cqe);
+
+        ret = cqe->res;
+        io_uring_cqe_seen(ring, cqe);
+    } while (ret > 0);
+
+close:
+    /* Now close the socket */
+    sqe = io_uring_get_sqe(ring);
+    io_uring_prep_close(sqe, sockfd);
+
+    io_uring_submit(ring);
+    io_uring_wait_cqe(ring, &cqe);
+    io_uring_cqe_seen(ring, cqe);
+
+    return 0;
+}
+.EE
+.SS Shutdown with timeout
+.EX
+#include <stdio.h>
+#include <sys/socket.h>
+#include <liburing.h>
+
+/*
+ * Shutdown socket for writing with a linked timeout.
+ */
+int shutdown_with_timeout(struct io_uring *ring, int sockfd,
+                          int timeout_sec)
+{
+    struct io_uring_sqe *sqe;
+    struct io_uring_cqe *cqe;
+    struct __kernel_timespec ts = { .tv_sec = timeout_sec, .tv_nsec = 0 };
+    int shutdown_result = 0;
+
+    /* Queue shutdown with link flag */
+    sqe = io_uring_get_sqe(ring);
+    io_uring_prep_shutdown(sqe, sockfd, SHUT_WR);
+    sqe->flags |= IOSQE_IO_LINK;
+    io_uring_sqe_set_data64(sqe, 1);
+
+    /* Queue linked timeout */
+    sqe = io_uring_get_sqe(ring);
+    io_uring_prep_link_timeout(sqe, &ts, 0);
+    io_uring_sqe_set_data64(sqe, 2);
+
+    io_uring_submit(ring);
+
+    /* Collect both completions */
+    for (int i = 0; i < 2; i++) {
+        io_uring_wait_cqe(ring, &cqe);
+
+        if (io_uring_cqe_get_data64(cqe) == 1)
+            shutdown_result = cqe->res;
+
+        io_uring_cqe_seen(ring, cqe);
+    }
+
+    return shutdown_result;
+}
+.EE
+.SS Batch shutdown multiple sockets
+.EX
+#include <stdio.h>
+#include <sys/socket.h>
+#include <liburing.h>
+
+/*
+ * Shutdown multiple sockets in parallel.
+ * Useful for server cleanup.
+ */
+int batch_shutdown(struct io_uring *ring, int *sockfds, int count, int how)
+{
+    struct io_uring_sqe *sqe;
+    struct io_uring_cqe *cqe;
+    int i, ret, errors = 0;
+
+    /* Queue all shutdown requests */
+    for (i = 0; i < count; i++) {
+        sqe = io_uring_get_sqe(ring);
+        io_uring_prep_shutdown(sqe, sockfds[i], how);
+        io_uring_sqe_set_data64(sqe, sockfds[i]);
+    }
+
+    ret = io_uring_submit(ring);
+    if (ret < 0)
+        return ret;
+
+    /* Collect results */
+    for (i = 0; i < count; i++) {
+        io_uring_wait_cqe(ring, &cqe);
+
+        if (cqe->res < 0) {
+            fprintf(stderr, "shutdown fd %llu failed: %d\\n",
+                    (unsigned long long)io_uring_cqe_get_data64(cqe),
+                    cqe->res);
+            errors++;
+        }
+
+        io_uring_cqe_seen(ring, cqe);
+    }
+
+    return errors ? -1 : 0;
+}
+.EE
 .SH SEE ALSO
 .BR io_uring_get_sqe (3),
 .BR io_uring_submit (3),
+.BR io_uring_prep_close (3),
+.BR io_uring_prep_recv (3),
 .BR shutdown (2)
