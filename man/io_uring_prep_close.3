@@ -46,22 +46,161 @@ None
 .SH ERRORS
 The CQE
 .I res
-field will contain the result of the operation. See the related man page for
-details on possible values. For closing of a direct descriptor, the only
-failure cases are the kernel running completely out of memory, or if the
-application has specified an invalid direct descriptor. Note that where
-synchronous system calls will return
-.B -1
-on failure and set
+field will contain the result of the operation. On success, it contains
+.BR 0 .
+On error, it contains the negated
 .I errno
-to the actual error value, io_uring never uses
-.IR errno .
-Instead it returns the negated
-.I errno
-directly in the CQE
-.I res
-field.
+value.
+.PP
+Common errors include:
+.TP
+.B -EBADF
+The file descriptor is not valid, or
+.B IOSQE_FIXED_FILE
+was incorrectly set for a direct descriptor close.
+.TP
+.B -EINTR
+The close was interrupted by a signal. Unlike the synchronous close(2),
+io_uring will automatically retry.
+.TP
+.B -EIO
+An I/O error occurred while flushing data (for some filesystems).
+.PP
+For closing of a direct descriptor, the only failure cases are the kernel
+running completely out of memory, or if the application has specified an
+invalid direct descriptor.
+.SH NOTES
+Unlike
+.BR close (2),
+the async close in io_uring will not block waiting for locks. If necessary,
+the close will be punted to an async worker thread to complete.
+.PP
+Closing a file descriptor while another operation is in progress on the
+same descriptor is safe with io_uring - operations that have already
+started will complete normally.
+.SH EXAMPLE
+.SS Basic close
+.EX
+#include <stdio.h>
+#include <fcntl.h>
+#include <liburing.h>
+
+int async_close(struct io_uring *ring, int fd)
+{
+    struct io_uring_sqe *sqe;
+    struct io_uring_cqe *cqe;
+    int ret;
+
+    sqe = io_uring_get_sqe(ring);
+    io_uring_prep_close(sqe, fd);
+
+    ret = io_uring_submit(ring);
+    if (ret < 0)
+        return ret;
+
+    ret = io_uring_wait_cqe(ring, &cqe);
+    if (ret < 0)
+        return ret;
+
+    ret = cqe->res;
+    io_uring_cqe_seen(ring, cqe);
+
+    if (ret < 0)
+        fprintf(stderr, "close failed: %d\\n", ret);
+
+    return ret;
+}
+.EE
+.SS Batch closing multiple file descriptors
+.EX
+#include <stdio.h>
+#include <liburing.h>
+
+/*
+ * Close multiple file descriptors efficiently in a single
+ * submit/wait cycle.
+ */
+int close_fds(struct io_uring *ring, int *fds, int count)
+{
+    struct io_uring_sqe *sqe;
+    struct io_uring_cqe *cqe;
+    unsigned head;
+    int i, ret, errors = 0;
+
+    /* Queue all close requests */
+    for (i = 0; i < count; i++) {
+        sqe = io_uring_get_sqe(ring);
+        if (!sqe) {
+            /* Submit what we have and get more */
+            io_uring_submit(ring);
+            sqe = io_uring_get_sqe(ring);
+        }
+        io_uring_prep_close(sqe, fds[i]);
+        io_uring_sqe_set_data64(sqe, fds[i]);
+    }
+
+    /* Submit all pending requests */
+    ret = io_uring_submit(ring);
+    if (ret < 0)
+        return ret;
+
+    /* Wait for and process all completions */
+    for (i = 0; i < count; i++) {
+        ret = io_uring_wait_cqe(ring, &cqe);
+        if (ret < 0)
+            return ret;
+
+        if (cqe->res < 0) {
+            fprintf(stderr, "close fd %llu failed: %d\\n",
+                    (unsigned long long)io_uring_cqe_get_data64(cqe),
+                    cqe->res);
+            errors++;
+        }
+        io_uring_cqe_seen(ring, cqe);
+    }
+
+    return errors ? -1 : 0;
+}
+.EE
+.SS Closing direct descriptors
+.EX
+#include <stdio.h>
+#include <liburing.h>
+
+/*
+ * Close a direct descriptor that was created via
+ * io_uring_prep_accept_direct() or similar.
+ */
+int close_direct_fd(struct io_uring *ring, unsigned file_index)
+{
+    struct io_uring_sqe *sqe;
+    struct io_uring_cqe *cqe;
+    int ret;
+
+    sqe = io_uring_get_sqe(ring);
+    io_uring_prep_close_direct(sqe, file_index);
+
+    /*
+     * Note: Do NOT set IOSQE_FIXED_FILE here, even though
+     * we're closing a direct descriptor. Setting it would
+     * cause -EBADF.
+     */
+
+    io_uring_submit(ring);
+    io_uring_wait_cqe(ring, &cqe);
+
+    ret = cqe->res;
+    io_uring_cqe_seen(ring, cqe);
+
+    if (ret == 0)
+        printf("Direct descriptor slot %u is now free\\n", file_index);
+
+    return ret;
+}
+.EE
 .SH SEE ALSO
 .BR io_uring_get_sqe (3),
 .BR io_uring_submit (3),
+.BR io_uring_register_files (3),
+.BR io_uring_prep_openat (3),
 .BR close (2)
