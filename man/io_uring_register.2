@@ -1057,6 +1057,176 @@ any
 .BR io_uring_enter (2)
 system call. Available since kernel 6.13.
 
+.TP
+.B IORING_REGISTER_ZCRX_IFQ
+Registers a zero-copy receive interface queue for network receive operations.
+Zero-copy receive allows the kernel to place incoming network data directly
+into application-provided memory without copying, reducing CPU overhead for
+high-bandwidth network workloads.
+.I arg
+must point to a
+.I struct io_uring_zcrx_ifq_reg
+structure, and
+.I nr_args
+must be set to 1.
+.PP
+.in +12n
+.EX
+struct io_uring_zcrx_ifq_reg {
+    __u32 if_idx;
+    __u32 if_rxq;
+    __u32 rq_entries;
+    __u32 flags;
+    __u64 area_ptr;
+    __u64 region_ptr;
+    struct io_uring_zcrx_offsets offsets;
+    __u32 zcrx_id;
+    __u32 __resv2;
+    __u64 __resv[3];
+};
+.EE
+.in
+.PP
+.in +8n
+where
+.I if_idx
+is the network interface index,
+.I if_rxq
+is the receive queue index,
+.I rq_entries
+is the number of entries in the refill queue (will be rounded up to a power
+of two),
+.I flags
+contains modifier flags,
+.I area_ptr
+points to a
+.I struct io_uring_zcrx_area_reg
+describing the memory area to use,
+.I region_ptr
+points to a
+.I struct io_uring_region_desc
+describing the memory region, and upon successful return
+.I zcrx_id
+will contain the ID of the registered zero-copy receive context.
+The
+.I offsets
+field is filled in by the kernel and contains the ring offsets for the refill
+queue.
+
+The io_uring ring must have been created with
+.B IORING_SETUP_DEFER_TASKRUN
+and either
+.B IORING_SETUP_CQE32
+or
+.B IORING_SETUP_CQE_MIXED
+flags set. The caller must have the
+.B CAP_NET_ADMIN
+capability.
+
+Available since kernel 6.15.
+
+.TP
+.B IORING_REGISTER_QUERY
+Queries io_uring capabilities and feature support. This operation does not
+require an io_uring ring and can be called with
+.I fd
+set to -1. It provides information about supported opcodes, flags, and
+subsystem-specific capabilities.
+.I arg
+must point to a
+.I struct io_uring_query_hdr
+and
+.I nr_args
+must be 0.
+.PP
+.in +12n
+.EX
+struct io_uring_query_hdr {
+    __u64 next_entry;
+    __u64 query_data;
+    __u32 query_op;
+    __u32 size;
+    __s32 result;
+    __u32 __resv[3];
+};
+.EE
+.in
+.PP
+.in +8n
+Multiple queries can be chained together via
+.I next_entry
+which points to the next
+.I struct io_uring_query_hdr
+(or 0 for the last entry).
+.I query_data
+points to a data structure appropriate for the query type.
+.I query_op
+specifies the query type and can be one of:
+.IP \[bu] 2
+.B IO_URING_QUERY_OPCODES
+\- Returns information about supported opcodes and flags in a
+.I struct io_uring_query_opcode
+.IP \[bu]
+.B IO_URING_QUERY_ZCRX
+\- Returns information about zero-copy receive support in a
+.I struct io_uring_query_zcrx
+.IP \[bu]
+.B IO_URING_QUERY_SCQ
+\- Returns information about the SQ/CQ ring layout in a
+.I struct io_uring_query_scq
+.PP
+.in +8n
+.I size
+should be set to the size of the data structure pointed to by
+.IR query_data .
+Upon return,
+.I result
+will be 0 on success, or a negative error code.
+
+Available since kernel 6.15.
+
+.TP
+.B IORING_REGISTER_ZCRX_CTRL
+Performs control operations on a previously registered zero-copy receive
+context.
+.I arg
+must point to a
+.I struct zcrx_ctrl
+and
+.I nr_args
+must be 0.
+.PP
+.in +12n
+.EX
+struct zcrx_ctrl {
+    __u32 zcrx_id;
+    __u32 op;
+    __u64 __resv[2];
+    union {
+        struct zcrx_ctrl_export     zc_export;
+        struct zcrx_ctrl_flush_rq   zc_flush;
+    };
+};
+.EE
+.in
+.PP
+.in +8n
+where
+.I zcrx_id
+is the ID of the zero-copy receive context returned from
+.BR IORING_REGISTER_ZCRX_IFQ ,
+and
+.I op
+specifies the control operation:
+.IP \[bu] 2
+.B ZCRX_CTRL_FLUSH_RQ
+\- Flushes pending buffers from the refill queue
+.IP \[bu]
+.B ZCRX_CTRL_EXPORT
+\- Exports the zero-copy receive context for use by other rings
+
+Available since kernel 6.15.
+
 .SH RETURN VALUE
 On success,
 .BR io_uring_register (2)
