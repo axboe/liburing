@@ -51,20 +51,228 @@ None
 .SH ERRORS
 The CQE
 .I res
-field will contain the result of the operation. See the related man page for
-details on possible values. Note that where synchronous system calls will return
-.B -1
-on failure and set
+field will contain the result of the operation. On success, it contains
+.BR 0 .
+On error, it contains the negated
 .I errno
-to the actual error value, io_uring never uses
-.IR errno .
-Instead it returns the negated
-.I errno
-directly in the CQE
-.I res
-field.
+value.
+.PP
+Common errors include:
+.TP
+.B -EBADF
+The file descriptor is not valid or not open for writing.
+.TP
+.B -EIO
+An I/O error occurred during synchronization.
+.TP
+.B -ENOSPC
+No space left on device (may occur if deferred allocation fails during sync).
+.TP
+.B -EDQUOT
+Disk quota exceeded.
+.TP
+.B -EROFS
+The file is on a read-only filesystem.
+.TP
+.B -EINVAL
+The file descriptor refers to a special file that does not support sync.
+.SH NOTES
+The difference between fsync and fdatasync:
+.IP \(bu 2
+.B fsync
+flushes both data and metadata (file size, timestamps, etc.)
+.IP \(bu 2
+.B fdatasync
+(IORING_FSYNC_DATASYNC) only flushes data and metadata needed for data
+retrieval (file size if changed, but not timestamps)
+.PP
+Using
+.B IORING_FSYNC_DATASYNC
+can be faster when you don't need timestamp updates to be persisted.
+.PP
+For applications requiring data durability, it's important to fsync after
+writes complete. Consider using linked requests to ensure ordering.
+.SH EXAMPLE
+.SS Basic fsync
+.EX
+#include <stdio.h>
+#include <liburing.h>
+
+int sync_file(struct io_uring *ring, int fd)
+{
+    struct io_uring_sqe *sqe;
+    struct io_uring_cqe *cqe;
+    int ret;
+
+    sqe = io_uring_get_sqe(ring);
+    io_uring_prep_fsync(sqe, fd, 0);
+
+    ret = io_uring_submit(ring);
+    if (ret < 0)
+        return ret;
+
+    ret = io_uring_wait_cqe(ring, &cqe);
+    if (ret < 0)
+        return ret;
+
+    ret = cqe->res;
+    io_uring_cqe_seen(ring, cqe);
+
+    if (ret < 0)
+        fprintf(stderr, "fsync failed: %d\\n", ret);
+
+    return ret;
+}
+.EE
+.SS Using fdatasync for better performance
+.EX
+#include <stdio.h>
+#include <liburing.h>
+
+/*
+ * Use fdatasync when you only care about data integrity,
+ * not metadata like timestamps.
+ */
+int datasync_file(struct io_uring *ring, int fd)
+{
+    struct io_uring_sqe *sqe;
+    struct io_uring_cqe *cqe;
+    int ret;
+
+    sqe = io_uring_get_sqe(ring);
+    io_uring_prep_fsync(sqe, fd, IORING_FSYNC_DATASYNC);
+
+    io_uring_submit(ring);
+    io_uring_wait_cqe(ring, &cqe);
+
+    ret = cqe->res;
+    io_uring_cqe_seen(ring, cqe);
+
+    return ret;
+}
+.EE
+.SS Sync a specific range
+.EX
+#include <stdio.h>
+#include <liburing.h>
+
+/*
+ * Sync only a specific range of the file.
+ * Useful for large files where you only modified a portion.
+ */
+int sync_range(struct io_uring *ring, int fd, off_t offset, size_t len)
+{
+    struct io_uring_sqe *sqe;
+    struct io_uring_cqe *cqe;
+    int ret;
+
+    sqe = io_uring_get_sqe(ring);
+    io_uring_prep_fsync(sqe, fd, 0);
+
+    /* Set range manually - not handled by prep helper */
+    sqe->off = offset;
+    sqe->len = len;
+
+    io_uring_submit(ring);
+    io_uring_wait_cqe(ring, &cqe);
+
+    ret = cqe->res;
+    io_uring_cqe_seen(ring, cqe);
+
+    return ret;
+}
+.EE
+.SS Write followed by fsync (linked)
+.EX
+#include <stdio.h>
+#include <liburing.h>
+
+/*
+ * Ensure data durability: write then fsync with linking.
+ * The fsync will only execute if write succeeds.
+ */
+int durable_write(struct io_uring *ring, int fd,
+                  const void *data, size_t len, off_t offset)
+{
+    struct io_uring_sqe *sqe;
+    struct io_uring_cqe *cqe;
+    int ret, write_ret;
+
+    /* Queue write with link flag */
+    sqe = io_uring_get_sqe(ring);
+    io_uring_prep_write(sqe, fd, data, len, offset);
+    sqe->flags |= IOSQE_IO_LINK;
+    io_uring_sqe_set_data64(sqe, 1);
+
+    /* Queue fsync - executes after write */
+    sqe = io_uring_get_sqe(ring);
+    io_uring_prep_fsync(sqe, fd, 0);
+    io_uring_sqe_set_data64(sqe, 2);
+
+    io_uring_submit(ring);
+
+    /* Collect both completions */
+    write_ret = 0;
+    for (int i = 0; i < 2; i++) {
+        io_uring_wait_cqe(ring, &cqe);
+
+        if (io_uring_cqe_get_data64(cqe) == 1)
+            write_ret = cqe->res;
+        else if (cqe->res < 0)
+            ret = cqe->res;
+
+        io_uring_cqe_seen(ring, cqe);
+    }
+
+    return (write_ret < 0) ? write_ret : ret;
+}
+.EE
+.SS Batch sync multiple files
+.EX
+#include <stdio.h>
+#include <liburing.h>
+
+/*
+ * Sync multiple files in parallel for efficiency.
+ */
+int sync_files(struct io_uring *ring, int *fds, int count)
+{
+    struct io_uring_sqe *sqe;
+    struct io_uring_cqe *cqe;
+    int i, ret, errors = 0;
+
+    /* Queue all fsync requests */
+    for (i = 0; i < count; i++) {
+        sqe = io_uring_get_sqe(ring);
+        io_uring_prep_fsync(sqe, fds[i], 0);
+        io_uring_sqe_set_data64(sqe, fds[i]);
+    }
+
+    ret = io_uring_submit(ring);
+    if (ret < 0)
+        return ret;
+
+    /* Collect results */
+    for (i = 0; i < count; i++) {
+        io_uring_wait_cqe(ring, &cqe);
+
+        if (cqe->res < 0) {
+            fprintf(stderr, "fsync fd %llu failed: %d\\n",
+                    (unsigned long long)io_uring_cqe_get_data64(cqe),
+                    cqe->res);
+            errors++;
+        }
+
+        io_uring_cqe_seen(ring, cqe);
+    }
+
+    return errors ? -1 : 0;
+}
+.EE
 .SH SEE ALSO
 .BR io_uring_get_sqe (3),
 .BR io_uring_submit (3),
+.BR io_uring_prep_write (3),
 .BR fsync (2),
-.BR fdatasync (2)
+.BR fdatasync (2),
+.BR sync_file_range (2)
