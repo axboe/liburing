@@ -114,7 +114,248 @@ and
 return number of files updated.
 On failure they return
 .BR -errno .
+.SH ERRORS
+.TP
+.B -ENOMEM
+Not enough memory to complete the registration.
+.TP
+.B -ENFILE
+The number of files exceeds the system limit.
+.TP
+.B -EMFILE
+The number of files exceeds the per-process limit.
+.TP
+.B -EBADF
+One of the file descriptors in the array is invalid.
+.TP
+.B -EBUSY
+A file table is already registered. Use
+.BR io_uring_unregister_files (3)
+first.
+.TP
+.B -EINVAL
+The ring already has a file table registered, or an argument is invalid.
+.SH NOTES
+Registered files are referenced by their index in the registered array
+(0, 1, 2, ...), not by their normal file descriptor number. When using
+registered files, set the
+.B IOSQE_FIXED_FILE
+flag in the SQE
+.I flags
+field, and use the registered index as the
+.I fd
+value in the SQE.
+.PP
+The sparse table variant is particularly useful for server applications
+that accept many connections. Create a sparse table at startup, then
+use
+.BR io_uring_prep_accept_direct (3)
+or similar to fill slots dynamically.
+.SH EXAMPLE
+.SS Register existing file descriptors
+.EX
+#include <stdio.h>
+#include <fcntl.h>
+#include <liburing.h>
+
+int register_files(struct io_uring *ring)
+{
+    int fds[3];
+    int ret;
+
+    fds[0] = open("/tmp/file1.txt", O_RDONLY);
+    fds[1] = open("/tmp/file2.txt", O_RDONLY);
+    fds[2] = open("/tmp/file3.txt", O_RDONLY);
+
+    ret = io_uring_register_files(ring, fds, 3);
+    if (ret < 0) {
+        fprintf(stderr, "register files: %d\\n", ret);
+        return ret;
+    }
+
+    printf("Registered %d files\\n", 3);
+    return 0;
+}
+
+/* Read using registered file (index 0) */
+void read_registered_file(struct io_uring *ring, void *buf, size_t len)
+{
+    struct io_uring_sqe *sqe;
+
+    sqe = io_uring_get_sqe(ring);
+    io_uring_prep_read(sqe, 0, buf, len, 0);  /* 0 = first registered file */
+    sqe->flags |= IOSQE_FIXED_FILE;           /* Use registered file */
+
+    io_uring_submit(ring);
+}
+.EE
+.SS Sparse table for dynamic file management
+.EX
+#include <stdio.h>
+#include <liburing.h>
+
+#define MAX_CONNECTIONS 1024
+
+/*
+ * Set up a sparse file table for a server that will
+ * accept up to MAX_CONNECTIONS clients.
+ */
+int setup_server_files(struct io_uring *ring)
+{
+    int ret;
+
+    ret = io_uring_register_files_sparse(ring, MAX_CONNECTIONS);
+    if (ret < 0) {
+        fprintf(stderr, "register sparse: %d\\n", ret);
+        return ret;
+    }
+
+    printf("Created sparse table with %d slots\\n", MAX_CONNECTIONS);
+    return 0;
+}
+
+/*
+ * Accept connection directly into a registered slot.
+ * The slot index is returned in the CQE.
+ */
+void accept_to_registered(struct io_uring *ring, int listen_fd)
+{
+    struct io_uring_sqe *sqe;
+
+    sqe = io_uring_get_sqe(ring);
+    io_uring_prep_accept_direct(sqe, listen_fd, NULL, NULL, 0,
+                                IORING_FILE_INDEX_ALLOC);
+
+    io_uring_submit(ring);
+}
+
+void handle_accept(struct io_uring_cqe *cqe)
+{
+    if (cqe->res >= 0) {
+        int slot = cqe->res;
+        printf("Client connected, using slot %d\\n", slot);
+        /* Now use slot with IOSQE_FIXED_FILE */
+    }
+}
+.EE
+.SS Updating registered files
+.EX
+#include <stdio.h>
+#include <fcntl.h>
+#include <liburing.h>
+
+/*
+ * Replace a registered file with a new one.
+ * Pass -1 to remove a file from a slot.
+ */
+int replace_registered_file(struct io_uring *ring, int slot,
+                            const char *new_path)
+{
+    int new_fd;
+    int ret;
+
+    if (new_path) {
+        new_fd = open(new_path, O_RDONLY);
+        if (new_fd < 0)
+            return -1;
+    } else {
+        new_fd = -1;  /* Remove from slot */
+    }
+
+    ret = io_uring_register_files_update(ring, slot, &new_fd, 1);
+    if (ret < 0) {
+        fprintf(stderr, "update files: %d\\n", ret);
+        if (new_fd >= 0)
+            close(new_fd);
+        return ret;
+    }
+
+    printf("Updated slot %d (updated %d files)\\n", slot, ret);
+
+    /* Close the fd - kernel has its own reference now */
+    if (new_fd >= 0)
+        close(new_fd);
+
+    return 0;
+}
+
+/*
+ * Bulk update: register multiple files at once.
+ */
+int bulk_register(struct io_uring *ring, int start_slot,
+                  int *fds, int count)
+{
+    int ret;
+
+    ret = io_uring_register_files_update(ring, start_slot, fds, count);
+    if (ret != count) {
+        fprintf(stderr, "bulk update: expected %d, got %d\\n",
+                count, ret);
+    }
+
+    return ret;
+}
+.EE
+.SS Complete server pattern
+.EX
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <liburing.h>
+
+#define MAX_CLIENTS 128
+
+struct client {
+    int slot;
+    int active;
+};
+
+struct server {
+    struct io_uring ring;
+    struct client clients[MAX_CLIENTS];
+    int listen_fd;
+};
+
+int server_init(struct server *s, int port)
+{
+    struct sockaddr_in addr;
+    int ret, opt = 1;
+
+    ret = io_uring_queue_init(256, &s->ring, 0);
+    if (ret < 0)
+        return ret;
+
+    /* Register sparse file table for client connections */
+    ret = io_uring_register_files_sparse(&s->ring, MAX_CLIENTS);
+    if (ret < 0)
+        return ret;
+
+    /* Set up listening socket */
+    s->listen_fd = socket(AF_INET, SOCK_STREAM, 0);
+    setsockopt(s->listen_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+
+    addr.sin_family = AF_INET;
+    addr.sin_addr.s_addr = INADDR_ANY;
+    addr.sin_port = htons(port);
+    bind(s->listen_fd, (struct sockaddr *)&addr, sizeof(addr));
+    listen(s->listen_fd, 128);
+
+    return 0;
+}
+
+void server_cleanup(struct server *s)
+{
+    io_uring_unregister_files(&s->ring);
+    io_uring_queue_exit(&s->ring);
+    close(s->listen_fd);
+}
+.EE
 .SH SEE ALSO
 .BR io_uring_register (2),
 .BR io_uring_get_sqe (3),
-.BR io_uring_unregister_files (3)
+.BR io_uring_unregister_files (3),
+.BR io_uring_prep_accept_direct (3),
+.BR io_uring_prep_open_direct (3),
+.BR io_uring_prep_close_direct (3)
