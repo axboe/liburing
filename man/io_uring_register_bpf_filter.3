@@ -84,6 +84,11 @@ struct io_uring_bpf_ctx {
             __u32   type;      /* offset 20: socket type */
             __u32   protocol;  /* offset 24: socket protocol */
         } socket;
+        struct {
+            __u64   flags;     /* offset 16: open flags */
+            __u64   mode;      /* offset 24: file mode */
+            __u64   resolve;   /* offset 32: resolve flags */
+        } open;
     };
 };
 .EE
@@ -104,6 +109,18 @@ operations, the socket family, type, and protocol fields are populated
 and can be used to filter based on socket parameters.
 .I pdu_size
 is set to 12 (three 4-byte members).
+.PP
+For
+.BR IORING_OP_OPENAT " and " IORING_OP_OPENAT2
+operations, the open flags, mode, and resolve fields are populated.
+The flags field contains the open flags (e.g.,
+.BR O_RDONLY ", " O_CREAT ).
+The resolve field is only meaningful for
+.B IORING_OP_OPENAT2
+and contains resolve flags (e.g.,
+.BR RESOLVE_IN_ROOT ")."
+.I pdu_size
+is set to 24 (three 8-byte members).
 .SS Filter Stacking
 Multiple filters can be registered for the same opcode. When multiple
 filters exist, they are evaluated in order and all must return non-zero
