@@ -11,9 +11,11 @@
 #include <string.h>
 #include <errno.h>
 #include <unistd.h>
+#include <fcntl.h>
 #include <sys/wait.h>
 #include <sys/prctl.h>
 #include <linux/filter.h>
+#include <linux/openat2.h>
 
 #include "liburing.h"
 #include "liburing/io_uring/bpf_filter.h"
@@ -27,6 +29,7 @@
  *   offset 10: pdu_size (u8)
  *   offset 11: pad[5]
  *   offset 16: union (socket: family/type/protocol at 16/20/24)
+ *                    (open: flags/mode/resolve at 16/24/32 - all u64)
  */
 #define CTX_OFF_USER_DATA	0
 #define CTX_OFF_OPCODE		8
@@ -34,6 +37,9 @@
 #define CTX_OFF_SOCKET_FAMILY	16
 #define CTX_OFF_SOCKET_TYPE	20
 #define CTX_OFF_SOCKET_PROTO	24
+#define CTX_OFF_OPEN_FLAGS	16	/* u64, use low 32 bits */
+#define CTX_OFF_OPEN_MODE	24	/* u64 */
+#define CTX_OFF_OPEN_RESOLVE	32	/* u64, use low 32 bits */
 
 /*
  * Simple cBPF filter that allows all operations.
@@ -82,6 +88,40 @@ static struct sock_filter allow_tcp_only_filter[] = {
 	BPF_STMT(BPF_RET | BPF_K, 1),
 	/* Deny: return 0 */
 	BPF_STMT(BPF_RET | BPF_K, 0),
+};
+
+/*
+ * cBPF filter that denies O_CREAT flag for openat operations.
+ * Checks the flags field in the open context.
+ */
+static struct sock_filter deny_o_creat_filter[] = {
+	/* Load open flags (low 32 bits at offset 16) */
+	BPF_STMT(BPF_LD | BPF_W | BPF_ABS, CTX_OFF_OPEN_FLAGS),
+	/* Check if O_CREAT bit is set */
+	BPF_STMT(BPF_ALU | BPF_AND | BPF_K, O_CREAT),
+	/* If result is non-zero (O_CREAT set), deny */
+	BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, 0, 1, 0),
+	/* Deny: return 0 */
+	BPF_STMT(BPF_RET | BPF_K, 0),
+	/* Allow: return 1 */
+	BPF_STMT(BPF_RET | BPF_K, 1),
+};
+
+/*
+ * cBPF filter that denies RESOLVE_IN_ROOT flag for openat2 operations.
+ * Checks the resolve field in the open context.
+ */
+static struct sock_filter deny_resolve_in_root_filter[] = {
+	/* Load resolve flags (low 32 bits at offset 32) */
+	BPF_STMT(BPF_LD | BPF_W | BPF_ABS, CTX_OFF_OPEN_RESOLVE),
+	/* Check if RESOLVE_IN_ROOT bit is set */
+	BPF_STMT(BPF_ALU | BPF_AND | BPF_K, RESOLVE_IN_ROOT),
+	/* If result is non-zero (RESOLVE_IN_ROOT set), deny */
+	BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, 0, 1, 0),
+	/* Deny: return 0 */
+	BPF_STMT(BPF_RET | BPF_K, 0),
+	/* Allow: return 1 */
+	BPF_STMT(BPF_RET | BPF_K, 1),
 };
 
 /* Register a BPF filter on a task */
@@ -165,6 +205,113 @@ static int test_socket(struct io_uring *ring, int family, int type,
 	sqe = io_uring_get_sqe(ring);
 	io_uring_prep_socket(sqe, family, type, 0, 0);
 	sqe->user_data = 0x5678;
+
+	ret = io_uring_submit(ring);
+	if (ret < 0) {
+		printf("FAIL (submit: %s)\n", strerror(-ret));
+		return ret;
+	}
+
+	ret = io_uring_wait_cqe(ring, &cqe);
+	if (ret < 0) {
+		printf("FAIL (wait: %s)\n", strerror(-ret));
+		return ret;
+	}
+
+	if (should_succeed) {
+		if (cqe->res >= 0) {
+			close(cqe->res);
+			ret = 0;
+		} else {
+			printf("FAIL (expected success, got %s)\n",
+			       strerror(-cqe->res));
+			ret = -1;
+		}
+	} else {
+		if (cqe->res == -EACCES) {
+			ret = 0;
+		} else if (cqe->res < 0) {
+			printf("FAIL (expected -EACCES, got %s)\n",
+			       strerror(-cqe->res));
+			ret = -1;
+		} else {
+			printf("FAIL (expected denial, got fd=%d)\n", cqe->res);
+			close(cqe->res);
+			ret = -1;
+		}
+	}
+
+	if (ret)
+		fprintf(stderr, "%s: %s: failed\n", __FUNCTION__, desc);
+	io_uring_cqe_seen(ring, cqe);
+	return ret;
+}
+
+/* Test openat operation */
+static int test_openat(struct io_uring *ring, const char *path, int flags,
+		       mode_t mode, const char *desc, int should_succeed)
+{
+	struct io_uring_sqe *sqe;
+	struct io_uring_cqe *cqe;
+	int ret;
+
+	sqe = io_uring_get_sqe(ring);
+	io_uring_prep_openat(sqe, AT_FDCWD, path, flags, mode);
+	sqe->user_data = 0xabcd;
+
+	ret = io_uring_submit(ring);
+	if (ret < 0) {
+		printf("FAIL (submit: %s)\n", strerror(-ret));
+		return ret;
+	}
+
+	ret = io_uring_wait_cqe(ring, &cqe);
+	if (ret < 0) {
+		printf("FAIL (wait: %s)\n", strerror(-ret));
+		return ret;
+	}
+
+	if (should_succeed) {
+		if (cqe->res >= 0) {
+			close(cqe->res);
+			ret = 0;
+		} else {
+			printf("FAIL (expected success, got %s)\n",
+			       strerror(-cqe->res));
+			ret = -1;
+		}
+	} else {
+		if (cqe->res == -EACCES) {
+			ret = 0;
+		} else if (cqe->res < 0) {
+			printf("FAIL (expected -EACCES, got %s)\n",
+			       strerror(-cqe->res));
+			ret = -1;
+		} else {
+			printf("FAIL (expected denial, got fd=%d)\n", cqe->res);
+			close(cqe->res);
+			ret = -1;
+		}
+	}
+
+	if (ret)
+		fprintf(stderr, "%s: %s: failed\n", __FUNCTION__, desc);
+	io_uring_cqe_seen(ring, cqe);
+	return ret;
+}
+
+/* Test openat2 operation */
+static int test_openat2(struct io_uring *ring, const char *path,
+			struct open_how *how, const char *desc,
+			int should_succeed)
+{
+	struct io_uring_sqe *sqe;
+	struct io_uring_cqe *cqe;
+	int ret;
+
+	sqe = io_uring_get_sqe(ring);
+	io_uring_prep_openat2(sqe, AT_FDCWD, path, how);
+	sqe->user_data = 0xef01;
 
 	ret = io_uring_submit(ring);
 	if (ret < 0) {
@@ -389,6 +536,181 @@ static int test_deny_rest(void)
 
 		if (test_socket(&ring, AF_INET, SOCK_STREAM,
 				"Socket should be denied (DENY_REST)", 0) != 0)
+			failed++;
+
+		io_uring_queue_exit(&ring);
+		exit(failed);
+	}
+
+	waitpid(pid, &status, 0);
+	if (WIFEXITED(status))
+		return WEXITSTATUS(status);
+	return 1;
+}
+
+/*
+ * Test denying O_CREAT flag for IORING_OP_OPENAT.
+ * Verifies the operation works before filter installation,
+ * then fails with -EACCES after.
+ */
+static int test_deny_openat_creat(void)
+{
+	struct io_uring ring;
+	int ret, failed = 0;
+	pid_t pid;
+	int status;
+	char tmpfile[] = "/tmp/cbpf_test_XXXXXX";
+	int tmpfd;
+
+	/* Create a temp file path we can use for testing */
+	tmpfd = mkstemp(tmpfile);
+	if (tmpfd < 0) {
+		perror("mkstemp");
+		return 1;
+	}
+	close(tmpfd);
+	unlink(tmpfile);
+
+	pid = fork();
+	if (pid < 0) {
+		perror("fork");
+		return 1;
+	}
+
+	if (pid == 0) {
+		/* Test that O_CREAT works BEFORE installing filter */
+		ret = io_uring_queue_init(8, &ring, 0);
+		if (ret < 0) {
+			fprintf(stderr, "Child: queue_init failed\n");
+			exit(1);
+		}
+
+		if (test_openat(&ring, tmpfile, O_CREAT | O_RDWR, 0644,
+				"O_CREAT should succeed before filter", 1) != 0)
+			failed++;
+
+		/* Clean up created file */
+		unlink(tmpfile);
+
+		/* Test that regular open (no O_CREAT) works */
+		if (test_openat(&ring, "/dev/null", O_RDONLY, 0,
+				"regular open should succeed before filter", 1) != 0)
+			failed++;
+
+		io_uring_queue_exit(&ring);
+
+		/* Now install the O_CREAT deny filter */
+		ret = register_bpf_filter(deny_o_creat_filter,
+					  sizeof(deny_o_creat_filter) / sizeof(deny_o_creat_filter[0]),
+					  IORING_OP_OPENAT, 0);
+		if (ret < 0) {
+			fprintf(stderr, "Child: register failed: %s\n",
+				strerror(-ret));
+			exit(ret == -EINVAL ? 0 : 1);
+		}
+
+		/* Create new ring after filter is installed */
+		ret = io_uring_queue_init(8, &ring, 0);
+		if (ret < 0) {
+			fprintf(stderr, "Child: queue_init 2 failed\n");
+			exit(1);
+		}
+
+		/* Test that O_CREAT is now denied */
+		if (test_openat(&ring, tmpfile, O_CREAT | O_RDWR, 0644,
+				"O_CREAT should be denied after filter", 0) != 0)
+			failed++;
+
+		/* Test that regular open still works */
+		if (test_openat(&ring, "/dev/null", O_RDONLY, 0,
+				"regular open should still succeed", 1) != 0)
+			failed++;
+
+		io_uring_queue_exit(&ring);
+		exit(failed);
+	}
+
+	waitpid(pid, &status, 0);
+	if (WIFEXITED(status))
+		return WEXITSTATUS(status);
+	return 1;
+}
+
+/*
+ * Test denying RESOLVE_IN_ROOT flag for IORING_OP_OPENAT2.
+ * Verifies the operation works before filter installation,
+ * then fails with -EACCES after.
+ *
+ * Note: RESOLVE_IN_ROOT requires a relative path since it treats dfd as root.
+ * We use "." with O_DIRECTORY to test this.
+ */
+static int test_deny_openat2_resolve_in_root(void)
+{
+	struct io_uring ring;
+	int ret, failed = 0;
+	pid_t pid;
+	int status;
+	struct open_how how_with_resolve = {
+		.flags = O_RDONLY | O_DIRECTORY,
+		.mode = 0,
+		.resolve = RESOLVE_IN_ROOT,
+	};
+	struct open_how how_normal = {
+		.flags = O_RDONLY | O_DIRECTORY,
+		.mode = 0,
+		.resolve = 0,
+	};
+
+	pid = fork();
+	if (pid < 0) {
+		perror("fork");
+		return 1;
+	}
+
+	if (pid == 0) {
+		/* Test that RESOLVE_IN_ROOT works BEFORE installing filter */
+		ret = io_uring_queue_init(8, &ring, 0);
+		if (ret < 0) {
+			fprintf(stderr, "Child: queue_init failed\n");
+			exit(1);
+		}
+
+		if (test_openat2(&ring, ".", &how_with_resolve,
+				 "RESOLVE_IN_ROOT should succeed before filter", 1) != 0)
+			failed++;
+
+		/* Test that normal openat2 works */
+		if (test_openat2(&ring, ".", &how_normal,
+				 "normal openat2 should succeed before filter", 1) != 0)
+			failed++;
+
+		io_uring_queue_exit(&ring);
+
+		/* Now install the RESOLVE_IN_ROOT deny filter */
+		ret = register_bpf_filter(deny_resolve_in_root_filter,
+					  sizeof(deny_resolve_in_root_filter) / sizeof(deny_resolve_in_root_filter[0]),
+					  IORING_OP_OPENAT2, 0);
+		if (ret < 0) {
+			fprintf(stderr, "Child: register failed: %s\n",
+				strerror(-ret));
+			exit(ret == -EINVAL ? 0 : 1);
+		}
+
+		/* Create new ring after filter is installed */
+		ret = io_uring_queue_init(8, &ring, 0);
+		if (ret < 0) {
+			fprintf(stderr, "Child: queue_init 2 failed\n");
+			exit(1);
+		}
+
+		/* Test that RESOLVE_IN_ROOT is now denied */
+		if (test_openat2(&ring, ".", &how_with_resolve,
+				 "RESOLVE_IN_ROOT should be denied after filter", 0) != 0)
+			failed++;
+
+		/* Test that normal openat2 still works */
+		if (test_openat2(&ring, ".", &how_normal,
+				 "normal openat2 should still succeed", 1) != 0)
 			failed++;
 
 		io_uring_queue_exit(&ring);
@@ -981,6 +1303,10 @@ int main(int argc, char *argv[])
 	total_failed += test_allow_inet_only();
 	total_failed += test_allow_tcp_only();
 	total_failed += test_deny_rest();
+
+	/* Task-level openat/openat2 filter tests */
+	total_failed += test_deny_openat_creat();
+	total_failed += test_deny_openat2_resolve_in_root();
 
 	/* Ring-level filter tests */
 	total_failed += test_deny_nop_ring();
