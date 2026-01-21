@@ -205,6 +205,11 @@ static unsigned __io_uring_flush_sq(struct io_uring *ring)
 	struct io_uring_sq *sq = &ring->sq;
 	unsigned tail = sq->sqe_tail;
 
+	if (ring->flags & IORING_SETUP_SQ_REWIND) {
+		sq->sqe_tail = 0;
+		return tail;
+	}
+
 	if (sq->sqe_head != tail) {
 		sq->sqe_head = tail;
 		/*

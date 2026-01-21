@@ -1919,8 +1919,11 @@ IOURINGINLINE struct io_uring_sqe *_io_uring_get_sqe(struct io_uring *ring)
 	LIBURING_NOEXCEPT
 {
 	struct io_uring_sq *sq = &ring->sq;
-	unsigned head = io_uring_load_sq_head(ring), tail = sq->sqe_tail;
+	unsigned head = 0, tail = sq->sqe_tail;
 	struct io_uring_sqe *sqe;
+
+	if (!(ring->flags & IORING_SETUP_SQ_REWIND))
+		head = io_uring_load_sq_head(ring);
 
 	if (tail - head >= sq->ring_entries)
 		return NULL;
