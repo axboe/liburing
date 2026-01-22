@@ -141,7 +141,7 @@ int io_uring_mmap(int fd, struct io_uring_params *p, struct io_uring_sq *sq,
 	}
 
 	sqes_sz = params_sqes_size(p, p->sq_entries);
-	sq->sqes_sz = sqes_sz;
+	sq->sqes_sz = (unsigned int) sqes_sz;
 	if (sq->sqes_sz != sqes_sz) {
 		ret = -EINVAL;
 		goto err;
