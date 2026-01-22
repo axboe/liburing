@@ -276,7 +276,7 @@ static int io_uring_alloc_huge(unsigned entries, struct io_uring_params *p,
 	}
 
 	sq->sqes = ptr;
-	sq->sqes_sz = sqes_size;
+	sq->sqes_sz = (unsigned int) sqes_size;
 	if (mem_used <= buf_size) {
 		sq->ring_ptr = (void *) sq->sqes + sqes_mem;
 		/* clear ring sizes, we have just one mmap() to undo */
