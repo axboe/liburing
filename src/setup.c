@@ -110,6 +110,7 @@ static size_t params_cq_size(const struct io_uring_params *p, unsigned cqes)
 int io_uring_mmap(int fd, struct io_uring_params *p, struct io_uring_sq *sq,
 		  struct io_uring_cq *cq)
 {
+	size_t sqes_sz;
 	int ret;
 
 	sq->ring_sz = p->sq_off.array + p->sq_entries * sizeof(unsigned);
@@ -139,7 +140,13 @@ int io_uring_mmap(int fd, struct io_uring_params *p, struct io_uring_sq *sq,
 		}
 	}
 
-	sq->sqes_sz = params_sqes_size(p, p->sq_entries);
+	sqes_sz = params_sqes_size(p, p->sq_entries);
+	sq->sqes_sz = sqes_sz;
+	if (sq->sqes_sz != sqes_sz) {
+		ret = -EINVAL;
+		goto err;
+	}
+
 	sq->sqes = __sys_mmap(0, sq->sqes_sz,
 			      PROT_READ | PROT_WRITE, MAP_SHARED | MAP_POPULATE,
 			      fd, IORING_OFF_SQES);
