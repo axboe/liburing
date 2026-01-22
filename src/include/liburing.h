@@ -138,7 +138,8 @@ struct io_uring_sq {
 	unsigned ring_mask;
 	unsigned ring_entries;
 
-	unsigned pad[2];
+	unsigned sqes_sz;
+	unsigned pad;
 };
 
 struct io_uring_cq {
