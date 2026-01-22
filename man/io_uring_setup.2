@@ -390,6 +390,27 @@ may now use this flag instead, and potentially save some memory for the CQ
 ring. If used with liburing 2.12 or newer, the handling of variably sized CQEs
 is fully transparent. Available since 6.18.
 
+.TP
+.B IORING_SETUP_SQ_REWIND
+If this flag is set, the kernel ignores the submission queue head and tail
+and instead fetches SQEs starting from index 0. The application places all
+SQEs at the beginning of the SQ ring before each submit call, and the
+.I sq_entries
+parameter to
+.BR io_uring_enter (2)
+determines how many SQEs are submitted. This is a non-circular queue mode
+where the kernel always starts from the beginning.
+.PP
+This flag requires
+.B IORING_SETUP_NO_SQARRAY
+to be set. It is not compatible with
+.BR IORING_SETUP_SQPOLL .
+.PP
+This mode helps keep SQEs hot in cache by always accessing the same memory
+locations at the start of the ring, which can improve performance for
+workloads that submit small batches frequently.
+Available since 7.0.
+
 .PP
 If no flags are specified, the io_uring instance is setup for
 interrupt driven I/O. I/O may be submitted using

@@ -201,6 +201,27 @@ This flag saves memory and is required for some modes like
 .BR IORING_SETUP_REGISTERED_FD_ONLY .
 .RE
 .PP
+.B IORING_SETUP_SQ_REWIND
+.RS 4
+Use non-circular submission queue mode. The kernel ignores the SQ head
+and tail pointers and instead fetches SQEs starting from index 0 on each
+submit. The application places all SQEs at the beginning of the ring
+before calling
+.BR io_uring_enter (2),
+and the
+.I sq_entries
+parameter determines how many SQEs are submitted.
+.PP
+Requires
+.BR IORING_SETUP_NO_SQARRAY .
+Not compatible with
+.BR IORING_SETUP_SQPOLL .
+.PP
+This mode keeps SQEs hot in cache by always accessing the same memory
+locations at the start of the ring, improving performance for workloads
+that submit small batches frequently.
+.RE
+.PP
 .B IORING_SETUP_CQE_MIXED
 .RS 4
 Allow the ring to return a mix of 16-byte and 32-byte CQEs, controlled
