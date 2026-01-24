@@ -70,6 +70,32 @@ resource limit on kernels before 5.12. On kernel 5.12 and later with
 .B IORING_FEAT_NATIVE_WORKERS
 support, cgroup memory accounting is used instead and no memlock limit
 applies.
+.PP
+Unless running as root, if buffer registration fails with
+.BR ENOMEM ,
+the memlock limit may need to be increased. The current limit can be
+checked with:
+.PP
+.in +4n
+.EX
+ulimit -l
+.EE
+.in
+.PP
+The limit can be increased for the current shell session with:
+.PP
+.in +4n
+.EX
+ulimit -l unlimited
+.EE
+.in
+.PP
+For a permanent change, edit
+.I /etc/security/limits.conf
+or use
+.BR setrlimit (2)
+programmatically with
+.BR RLIMIT_MEMLOCK .
 .SS Using registered buffers
 To use a registered buffer in an I/O operation, use the fixed buffer
 variants of the prep functions:
@@ -199,6 +225,7 @@ These are separate mechanisms for different use cases.
 .SH SEE ALSO
 .BR io_uring (7),
 .BR io_uring_registered_files (7),
+.BR setrlimit (2),
 .BR io_uring_register_buffers (3),
 .BR io_uring_register_buffers_tags (3),
 .BR io_uring_register_buffers_sparse (3),
