@@ -1684,9 +1684,6 @@ IOURINGINLINE void io_uring_prep_pipe_direct(struct io_uring_sqe *sqe, int *fds,
 IOURINGINLINE unsigned io_uring_load_sq_head(const struct io_uring *ring)
 	LIBURING_NOEXCEPT
 {
-	if (ring->flags & IORING_SETUP_SQ_REWIND)
-		return 0;
-
 	/*
 	 * Without acquire ordering, we could overwrite a SQE before the kernel
 	 * finished reading it. We don't need the acquire ordering for
