@@ -30,7 +30,7 @@ static int check_cqe(struct io_uring *ring, struct io_uring_cqe *cqe)
 
 	switch (cqe->user_data) {
 	case 1:
-		if (cqe->res != -ECONNRESET && cqe->res != ENETUNREACH) {
+		if (cqe->res != -ECONNRESET && cqe->res != -ENETUNREACH) {
 			fprintf(stderr, "Unexpected connect: %d\n", cqe->res);
 			return T_EXIT_FAIL;
 		}
