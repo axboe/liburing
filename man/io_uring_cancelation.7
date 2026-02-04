@@ -7,8 +7,8 @@ io_uring_cancelation \- io_uring request cancelation overview
 .SH DESCRIPTION
 io_uring provides mechanisms to cancel in-flight requests before they
 complete naturally. This is useful for implementing timeouts, handling
-connection drops, application shutdown, or when a request is no longer
-needed.
+connection drops, closing connections that go away, or when a request is no
+longer needed.
 .SS Why cancel requests?
 Common scenarios requiring cancelation:
 .IP \(bu 2
@@ -17,9 +17,6 @@ Cancel a read or accept that has been pending too long
 .IP \(bu
 .B Connection management:
 Cancel pending operations when a connection is closed
-.IP \(bu
-.B Application shutdown:
-Clean up all pending I/O before exiting
 .IP \(bu
 .B Resource cleanup:
 Cancel operations on a file descriptor being closed
@@ -49,7 +46,7 @@ io_uring_prep_cancel64(sqe, 1234, 0);
 io_uring_submit(ring);
 .EE
 .in
-.SS Cancellation results
+.SS Cancelation results
 When a cancelation is submitted, two CQEs are generated:
 .PP
 .B The canceled request's CQE:
@@ -86,7 +83,7 @@ if the request was found but already completing
 .PP
 The order of these CQEs is not guaranteed. The application may receive
 the cancel CQE before or after the canceled request's CQE.
-.SS Cancellation flags
+.SS Cancelation flags
 Various flags modify cancelation behavior:
 .PP
 .B IORING_ASYNC_CANCEL_ALL
@@ -139,7 +136,7 @@ io_uring_prep_cancel(sqe, NULL,
 .EE
 .in
 .SS Race conditions
-Cancellation is inherently racy. Between submitting the cancel request
+Cancelation is inherently racy. Between submitting the cancel request
 and the kernel processing it:
 .IP \(bu 2
 The target request may complete successfully
