@@ -64,6 +64,7 @@ test_srcs := \
 	buf-ring.c \
 	buf-ring-nommap.c \
 	buf-ring-put.c \
+	cbpf_filter.c \
 	ce593a6c480a.c \
 	close-opath.c \
 	conn-unreach.c \

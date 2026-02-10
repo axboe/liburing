@@ -1,0 +1,266 @@
+.\" Copyright (C) 2025 Jens Axboe <axboe@kernel.dk>
+.\"
+.\" SPDX-License-Identifier: LGPL-2.0-or-later
+.\"
+.TH io_uring_register_bpf_filter 3 "January 18, 2026" "liburing-2.14" "liburing Manual"
+.SH NAME
+io_uring_register_bpf_filter, io_uring_register_bpf_filter_task \- register classic BPF filters for io_uring operations
+.SH SYNOPSIS
+.nf
+.B #include <liburing.h>
+.B #include <liburing/io_uring/bpf_filter.h>
+.B #include <linux/filter.h>
+.PP
+.BI "int io_uring_register_bpf_filter(struct io_uring *" ring ","
+.BI "                                 struct sock_filter *" filter ","
+.BI "                                 unsigned int " filter_len ","
+.BI "                                 int " opcode ","
+.BI "                                 unsigned int " flags ");"
+.PP
+.BI "int io_uring_register_bpf_filter_task(struct sock_filter *" filter ","
+.BI "                                      unsigned int " filter_len ","
+.BI "                                      int " opcode ","
+.BI "                                      unsigned int " flags ");"
+.fi
+.SH DESCRIPTION
+.PP
+These functions register classic BPF (cBPF) filters to restrict io_uring
+operations. Filters can be used to implement security policies by allowing
+or denying specific operations based on their parameters.
+.PP
+.BR io_uring_register_bpf_filter (3)
+registers a filter on a specific
+.IR ring .
+The filter only applies to operations submitted through that ring.
+.PP
+.BR io_uring_register_bpf_filter_task (3)
+registers a filter on the calling task. The filter applies to all io_uring
+rings created by the task after the filter is registered, and is inherited
+by child processes created via
+.BR fork (2).
+Rings that were created before the filter was registered are not affected.
+Task-level filters cannot be removed and child processes cannot loosen
+restrictions set by their parent.
+.PP
+The
+.I filter
+argument points to an array of
+.I filter_len
+BPF instructions (struct sock_filter). The filter is executed for each
+matching operation and must return non-zero to allow the operation or
+zero to deny it (resulting in
+.B -EACCES
+being returned to the application).
+.PP
+The
+.I opcode
+argument specifies which io_uring operation the filter applies to
+(e.g.,
+.BR IORING_OP_SOCKET ", " IORING_OP_NOP ", " IORING_OP_READ ).
+.PP
+The
+.I flags
+argument can be zero or the following:
+.TP
+.B IO_URING_BPF_FILTER_DENY_REST
+When set, any opcode that does not have a filter registered will be denied.
+This allows creating an allowlist of permitted operations.
+.SS Filter Context
+The BPF filter receives a context structure that can be inspected using
+.B BPF_LD
+instructions with absolute addressing. The context layout is:
+.PP
+.in +4n
+.EX
+struct io_uring_bpf_ctx {
+    __u64   user_data;     /* offset 0: user_data from SQE */
+    __u8    opcode;        /* offset 8: io_uring opcode */
+    __u8    sqe_flags;     /* offset 9: SQE flags */
+    __u8    pdu_size;      /* offset 10: aux data size for filter */
+    __u8    pad[5];        /* offset 11-15: padding */
+    union {
+        struct {
+            __u32   family;    /* offset 16: socket family */
+            __u32   type;      /* offset 20: socket type */
+            __u32   protocol;  /* offset 24: socket protocol */
+        } socket;
+        struct {
+            __u64   flags;     /* offset 16: open flags */
+            __u64   mode;      /* offset 24: file mode */
+            __u64   resolve;   /* offset 32: resolve flags */
+        } open;
+    };
+};
+.EE
+.in
+.PP
+The
+.I pdu_size
+field indicates the size in bytes of the operation-specific data passed in
+the union. A filter can check this value to verify it is receiving the
+expected payload. This is useful for forward compatibility: if a future
+kernel adds new members to an operation's context, the filter can inspect
+.I pdu_size
+to determine whether those fields are present.
+.PP
+For
+.B IORING_OP_SOCKET
+operations, the socket family, type, and protocol fields are populated
+and can be used to filter based on socket parameters.
+.I pdu_size
+is set to 12 (three 4-byte members).
+.PP
+For
+.BR IORING_OP_OPENAT " and " IORING_OP_OPENAT2
+operations, the open flags, mode, and resolve fields are populated.
+The flags field contains the open flags (e.g.,
+.BR O_RDONLY ", " O_CREAT ).
+The resolve field is only meaningful for
+.B IORING_OP_OPENAT2
+and contains resolve flags (e.g.,
+.BR RESOLVE_IN_ROOT ")."
+.I pdu_size
+is set to 24 (three 8-byte members).
+.SS Filter Stacking
+Multiple filters can be registered for the same opcode. When multiple
+filters exist, they are evaluated in order and all must return non-zero
+for the operation to be allowed. For task-level filters, the child's
+filters are evaluated before the parent's filters.
+.SH RETURN VALUE
+On success, these functions return 0. On failure, they return a negative
+error code.
+.SH ERRORS
+.TP
+.B -EINVAL
+Invalid filter, opcode, or flags specified.
+.TP
+.B -ENOMEM
+Insufficient memory to register the filter.
+.TP
+.B -EFAULT
+The filter pointer is invalid.
+.TP
+.B -EACCES
+The caller does not have the
+.B CAP_SYS_ADMIN
+capability and the
+.B no_new_privs
+attribute is not set on the calling task. See
+.BR prctl (2)
+with
+.BR PR_SET_NO_NEW_PRIVS .
+.SH EXAMPLES
+.SS Deny all NOP operations
+.PP
+.in +4n
+.EX
+#include <sys/prctl.h>
+#include <linux/filter.h>
+#include <liburing.h>
+#include <liburing/io_uring/bpf_filter.h>
+
+struct sock_filter deny_filter[] = {
+    BPF_STMT(BPF_RET | BPF_K, 0),  /* return 0 (deny) */
+};
+
+/* Must set no_new_privs before registering task filters */
+prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0);
+
+/* Register on a specific ring */
+io_uring_register_bpf_filter(&ring, deny_filter, 1,
+                             IORING_OP_NOP, 0);
+
+/* Or register on the task */
+io_uring_register_bpf_filter_task(deny_filter, 1,
+                                  IORING_OP_NOP, 0);
+.EE
+.in
+.SS Allow only AF_INET sockets
+.PP
+.in +4n
+.EX
+#include <sys/prctl.h>
+#include <linux/filter.h>
+#include <sys/socket.h>
+#include <liburing.h>
+#include <liburing/io_uring/bpf_filter.h>
+
+#define CTX_OFF_SOCKET_FAMILY  16
+
+struct sock_filter inet_only_filter[] = {
+    /* Load socket family from context */
+    BPF_STMT(BPF_LD | BPF_W | BPF_ABS, CTX_OFF_SOCKET_FAMILY),
+    /* If family == AF_INET, jump to allow */
+    BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, AF_INET, 0, 1),
+    /* Allow: return 1 */
+    BPF_STMT(BPF_RET | BPF_K, 1),
+    /* Deny: return 0 */
+    BPF_STMT(BPF_RET | BPF_K, 0),
+};
+
+prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0);
+io_uring_register_bpf_filter_task(inet_only_filter, 4,
+                                  IORING_OP_SOCKET, 0);
+.EE
+.in
+.SS Allow only NOP, deny everything else
+.PP
+.in +4n
+.EX
+struct sock_filter allow_filter[] = {
+    BPF_STMT(BPF_RET | BPF_K, 1),  /* return 1 (allow) */
+};
+
+prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0);
+
+/* Allow NOP and deny all other opcodes */
+io_uring_register_bpf_filter_task(allow_filter, 1,
+                                  IORING_OP_NOP,
+                                  IO_URING_BPF_FILTER_DENY_REST);
+.EE
+.in
+.SH NOTES
+.SS Privilege Requirements
+Similar to
+.BR seccomp (2),
+registering BPF filters requires either the
+.B CAP_SYS_ADMIN
+capability or the
+.B no_new_privs
+attribute to be set on the calling task. This prevents an unprivileged
+process from installing a filter and then executing a setuid binary,
+which would run with elevated privileges but under the attacker-controlled
+filter.
+.PP
+To set the
+.B no_new_privs
+attribute, call:
+.PP
+.in +4n
+.EX
+prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0);
+.EE
+.in
+.PP
+Once set,
+.B no_new_privs
+cannot be unset and is inherited by child processes across
+.BR fork (2)
+and preserved across
+.BR execve (2).
+.SS Inheritance
+Task-level filters registered with
+.BR io_uring_register_bpf_filter_task (3)
+are inherited by child processes. This allows a parent process to
+establish security restrictions that apply to all descendants.
+Children can add additional restrictions but cannot remove or
+weaken filters set by their ancestors.
+.PP
+Ring-level filters registered with
+.BR io_uring_register_bpf_filter (3)
+only apply to that specific ring and are not inherited.
+.SH SEE ALSO
+.BR io_uring_register (2),
+.BR io_uring_setup (2),
+.BR bpf (2),
+.BR seccomp (2)
