@@ -878,6 +878,101 @@ static int test_deny_rest_ring(void)
 }
 
 /*
+ * Test pdu_size validation for filter registration.
+ *
+ * IORING_OP_SOCKET has a kernel pdu_size of 12 (3x __u32). Test:
+ * 1) pdu_size too big (24) - should fail with -EMSGSIZE
+ * 2) pdu_size too small (8) without strict - should succeed, kernel
+ *    writes back actual pdu_size (12)
+ * 3) pdu_size too small (8) with IO_URING_BPF_FILTER_SZ_STRICT -
+ *    should fail with -EMSGSIZE, kernel writes back actual pdu_size (12)
+ */
+static int test_pdu_size_ring(void)
+{
+	struct io_uring ring;
+	struct io_uring_bpf bpf;
+	int ret, failed = 0;
+
+	ret = io_uring_queue_init(8, &ring, 0);
+	if (ret < 0) {
+		fprintf(stderr, "queue_init failed: %s\n", strerror(-ret));
+		return 1;
+	}
+
+	/* Test 1: pdu_size too big, should fail with -EMSGSIZE */
+	memset(&bpf, 0, sizeof(bpf));
+	bpf.cmd_type = IO_URING_BPF_CMD_FILTER;
+	bpf.filter.opcode = IORING_OP_SOCKET;
+	bpf.filter.filter_len = ARRAY_SIZE(allow_all_filter);
+	bpf.filter.filter_ptr = (unsigned long) (uintptr_t) allow_all_filter;
+	bpf.filter.pdu_size = 24;
+
+	ret = io_uring_register_bpf_filter(&ring, &bpf);
+	if (ret != -EMSGSIZE) {
+		fprintf(stderr, "pdu too big: expected -EMSGSIZE, got %d\n",
+			ret);
+		failed++;
+	} else if (bpf.filter.pdu_size != 12) {
+		fprintf(stderr, "pdu too big: expected writeback 12, got %u\n",
+			bpf.filter.pdu_size);
+		failed++;
+	}
+
+	/* Test 2: pdu_size smaller without strict, should succeed */
+	memset(&bpf, 0, sizeof(bpf));
+	bpf.cmd_type = IO_URING_BPF_CMD_FILTER;
+	bpf.filter.opcode = IORING_OP_SOCKET;
+	bpf.filter.filter_len = ARRAY_SIZE(allow_all_filter);
+	bpf.filter.filter_ptr = (unsigned long) (uintptr_t) allow_all_filter;
+	bpf.filter.pdu_size = 8;
+
+	ret = io_uring_register_bpf_filter(&ring, &bpf);
+	if (ret) {
+		fprintf(stderr, "pdu smaller no strict: expected success, "
+			"got %d\n", ret);
+		failed++;
+	} else if (bpf.filter.pdu_size != 12) {
+		fprintf(stderr, "pdu smaller no strict: expected writeback "
+			"12, got %u\n", bpf.filter.pdu_size);
+		failed++;
+	}
+
+	io_uring_queue_exit(&ring);
+
+	/*
+	 * Test 3: pdu_size smaller with strict, should fail.
+	 * Use a fresh ring since test 2 registered a filter.
+	 */
+	ret = io_uring_queue_init(8, &ring, 0);
+	if (ret < 0) {
+		fprintf(stderr, "queue_init 2 failed: %s\n", strerror(-ret));
+		return 1;
+	}
+
+	memset(&bpf, 0, sizeof(bpf));
+	bpf.cmd_type = IO_URING_BPF_CMD_FILTER;
+	bpf.filter.opcode = IORING_OP_SOCKET;
+	bpf.filter.flags = IO_URING_BPF_FILTER_SZ_STRICT;
+	bpf.filter.filter_len = ARRAY_SIZE(allow_all_filter);
+	bpf.filter.filter_ptr = (unsigned long) (uintptr_t) allow_all_filter;
+	bpf.filter.pdu_size = 8;
+
+	ret = io_uring_register_bpf_filter(&ring, &bpf);
+	if (ret != -EMSGSIZE) {
+		fprintf(stderr, "pdu smaller strict: expected -EMSGSIZE, "
+			"got %d\n", ret);
+		failed++;
+	} else if (bpf.filter.pdu_size != 12) {
+		fprintf(stderr, "pdu smaller strict: expected writeback 12, "
+			"got %u\n", bpf.filter.pdu_size);
+		failed++;
+	}
+
+	io_uring_queue_exit(&ring);
+	return failed;
+}
+
+/*
  * Test that child processes inherit parent's restrictions.
  * Parent registers a filter, forks, child verifies the restriction applies.
  */
@@ -1331,6 +1426,7 @@ int main(int argc, char *argv[])
 	total_failed += test_allow_inet_only_ring();
 	total_failed += test_allow_tcp_only_ring();
 	total_failed += test_deny_rest_ring();
+	total_failed += test_pdu_size_ring();
 
 	/* Per-task inheritance tests */
 	total_failed += test_inherit_restrictions();
