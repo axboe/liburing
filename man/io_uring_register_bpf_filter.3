@@ -12,15 +12,9 @@ io_uring_register_bpf_filter, io_uring_register_bpf_filter_task \- register clas
 .B #include <linux/filter.h>
 .PP
 .BI "int io_uring_register_bpf_filter(struct io_uring *" ring ","
-.BI "                                 struct sock_filter *" filter ","
-.BI "                                 unsigned int " filter_len ","
-.BI "                                 int " opcode ","
-.BI "                                 unsigned int " flags ");"
+.BI "                                 struct io_uring_bpf *" bpf ");"
 .PP
-.BI "int io_uring_register_bpf_filter_task(struct sock_filter *" filter ","
-.BI "                                      unsigned int " filter_len ","
-.BI "                                      int " opcode ","
-.BI "                                      unsigned int " flags ");"
+.BI "int io_uring_register_bpf_filter_task(struct io_uring_bpf *" bpf ");"
 .fi
 .SH DESCRIPTION
 .PP
@@ -43,28 +37,114 @@ Task-level filters cannot be removed and child processes cannot loosen
 restrictions set by their parent.
 .PP
 The
-.I filter
-argument points to an array of
+.I bpf
+argument is a pointer to a
+.B struct io_uring_bpf
+with
+.I cmd_type
+set to
+.BR IO_URING_BPF_CMD_FILTER .
+The embedded
+.B struct io_uring_bpf_filter
+describes the filter to register:
+.PP
+.in +4n
+.EX
+struct io_uring_bpf_filter {
+    __u32   opcode;      /* io_uring opcode to filter */
+    __u32   flags;       /* IO_URING_BPF_FILTER_* */
+    __u32   filter_len;  /* number of BPF instructions */
+    __u8    pdu_size;    /* expected pdu size for opcode */
+    __u8    resv[3];
+    __u64   filter_ptr;  /* pointer to BPF filter */
+    __u64   resv2[5];
+};
+.EE
+.in
+.PP
+.I opcode
+specifies which io_uring operation the filter applies to (e.g.,
+.BR IORING_OP_SOCKET ", " IORING_OP_NOP ", " IORING_OP_READ ).
+.PP
+.I filter_ptr
+points to an array of
 .I filter_len
-BPF instructions (struct sock_filter). The filter is executed for each
-matching operation and must return non-zero to allow the operation or
-zero to deny it (resulting in
+BPF instructions
+.RB ( "struct sock_filter" ).
+The filter is executed for each matching operation and must return non-zero
+to allow the operation or zero to deny it (resulting in
 .B -EACCES
 being returned to the application).
 .PP
-The
-.I opcode
-argument specifies which io_uring operation the filter applies to
-(e.g.,
-.BR IORING_OP_SOCKET ", " IORING_OP_NOP ", " IORING_OP_READ ).
+.I pdu_size
+specifies the expected size in bytes of the operation-specific payload data
+for the given opcode (e.g., the socket or open structs inside
+.BR "struct io_uring_bpf_ctx" ).
+For opcodes that have no extra payload, this should be zero. For
+.B IORING_OP_SOCKET
+this would be 12 (three 4-byte members), and for
+.BR IORING_OP_OPENAT " and " IORING_OP_OPENAT2
+this would be 24 (three 8-byte members).
 .PP
-The
+If the application's
+.I pdu_size
+matches the kernel's expected size for the opcode, registration succeeds.
+If the sizes differ, the behavior depends on whether
+.B IO_URING_BPF_FILTER_SZ_STRICT
+is set in
+.IR flags :
+.RS
+.IP \(bu 2
+If
+.B IO_URING_BPF_FILTER_SZ_STRICT
+is set, registration fails with
+.B -EMSGSIZE
+if the sizes differ.
+.IP \(bu
+If
+.B IO_URING_BPF_FILTER_SZ_STRICT
+is not set, registration is allowed if the application's
+.I pdu_size
+is smaller than the kernel's. This permits older applications that were
+compiled against a smaller payload to still load filters, as the kernel
+can safely evaluate the filter on the subset of data the application
+expects.
+.IP \(bu
+Regardless of
+.BR IO_URING_BPF_FILTER_SZ_STRICT ,
+registration always fails with
+.B -EMSGSIZE
+if the application's
+.I pdu_size
+is larger than the kernel's, since the kernel cannot provide data that
+it does not support.
+.RE
+.PP
+On an
+.B -EMSGSIZE
+failure, the kernel writes back the kernel's expected
+.I pdu_size
+into the
+.B struct io_uring_bpf_filter
+passed by the application. This allows the application to discover the
+kernel's expected payload size and adjust or retry accordingly.
+.PP
 .I flags
-argument can be zero or the following:
+can be zero or a bitwise OR of the following:
 .TP
 .B IO_URING_BPF_FILTER_DENY_REST
 When set, any opcode that does not have a filter registered will be denied.
 This allows creating an allowlist of permitted operations.
+.TP
+.B IO_URING_BPF_FILTER_SZ_STRICT
+When set, registration of a filter will fail with
+.B -EMSGSIZE
+if the application's
+.I pdu_size
+does not exactly match the kernel's expected payload size for the opcode.
+Without this flag, the kernel permits filters where the application's
+.I pdu_size
+is smaller than or equal to the kernel's.
 .SS Filter Context
 The BPF filter receives a context structure that can be inspected using
 .B BPF_LD
@@ -134,6 +214,16 @@ error code.
 .B -EINVAL
 Invalid filter, opcode, or flags specified.
 .TP
+.B -EMSGSIZE
+The application's
+.I pdu_size
+does not match the kernel's expected payload size for the opcode. This
+occurs when
+.B IO_URING_BPF_FILTER_SZ_STRICT
+is set and the sizes differ, or when the application's
+.I pdu_size
+is larger than the kernel's regardless of flags.
+.TP
 .B -ENOMEM
 Insufficient memory to register the filter.
 .TP
@@ -163,16 +253,23 @@ struct sock_filter deny_filter[] = {
     BPF_STMT(BPF_RET | BPF_K, 0),  /* return 0 (deny) */
 };
 
+struct io_uring_bpf bpf = {
+    .cmd_type = IO_URING_BPF_CMD_FILTER,
+    .filter = {
+        .opcode = IORING_OP_NOP,
+        .filter_len = 1,
+        .filter_ptr = (unsigned long) deny_filter,
+    },
+};
+
 /* Must set no_new_privs before registering task filters */
 prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0);
 
 /* Register on a specific ring */
-io_uring_register_bpf_filter(&ring, deny_filter, 1,
-                             IORING_OP_NOP, 0);
+io_uring_register_bpf_filter(&ring, &bpf);
 
 /* Or register on the task */
-io_uring_register_bpf_filter_task(deny_filter, 1,
-                                  IORING_OP_NOP, 0);
+io_uring_register_bpf_filter_task(&bpf);
 .EE
 .in
 .SS Allow only AF_INET sockets
@@ -198,9 +295,18 @@ struct sock_filter inet_only_filter[] = {
     BPF_STMT(BPF_RET | BPF_K, 0),
 };
 
+struct io_uring_bpf bpf = {
+    .cmd_type = IO_URING_BPF_CMD_FILTER,
+    .filter = {
+        .opcode = IORING_OP_SOCKET,
+        .filter_len = 4,
+        .filter_ptr = (unsigned long) inet_only_filter,
+        .pdu_size = 12,  /* 3x __u32: family, type, protocol */
+    },
+};
+
 prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0);
-io_uring_register_bpf_filter_task(inet_only_filter, 4,
-                                  IORING_OP_SOCKET, 0);
+io_uring_register_bpf_filter_task(&bpf);
 .EE
 .in
 .SS Allow only NOP, deny everything else
@@ -211,12 +317,51 @@ struct sock_filter allow_filter[] = {
     BPF_STMT(BPF_RET | BPF_K, 1),  /* return 1 (allow) */
 };
 
-prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0);
+struct io_uring_bpf bpf = {
+    .cmd_type = IO_URING_BPF_CMD_FILTER,
+    .filter = {
+        .opcode = IORING_OP_NOP,
+        .flags = IO_URING_BPF_FILTER_DENY_REST,
+        .filter_len = 1,
+        .filter_ptr = (unsigned long) allow_filter,
+    },
+};
 
-/* Allow NOP and deny all other opcodes */
-io_uring_register_bpf_filter_task(allow_filter, 1,
-                                  IORING_OP_NOP,
-                                  IO_URING_BPF_FILTER_DENY_REST);
+prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0);
+io_uring_register_bpf_filter_task(&bpf);
+.EE
+.in
+.SS Discover kernel pdu_size for an opcode
+This example demonstrates how to use the
+.B -EMSGSIZE
+write-back to discover the kernel's expected payload size.
+.PP
+.in +4n
+.EX
+struct sock_filter allow[] = {
+    BPF_STMT(BPF_RET | BPF_K, 1),
+};
+
+struct io_uring_bpf bpf = {
+    .cmd_type = IO_URING_BPF_CMD_FILTER,
+    .filter = {
+        .opcode = IORING_OP_SOCKET,
+        .flags = IO_URING_BPF_FILTER_SZ_STRICT,
+        .filter_len = 1,
+        .filter_ptr = (unsigned long) allow,
+        .pdu_size = 0,  /* intentionally wrong */
+    },
+};
+int ret;
+
+ret = io_uring_register_bpf_filter(&ring, &bpf);
+if (ret == -EMSGSIZE) {
+    /* kernel wrote back expected size */
+    printf("kernel pdu_size for SOCKET: %u\\n",
+           bpf.filter.pdu_size);
+    /* retry with correct size */
+    ret = io_uring_register_bpf_filter(&ring, &bpf);
+}
 .EE
 .in
 .SH NOTES

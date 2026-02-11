@@ -126,21 +126,39 @@ static struct sock_filter deny_resolve_in_root_filter[] = {
 
 /* Register a BPF filter on a task */
 static int register_bpf_filter(struct sock_filter *filter, unsigned int len,
-			       __u32 opcode, int deny_rest)
+			       __u32 opcode, __u8 pdu_size, int deny_rest)
 {
-	unsigned int flags = deny_rest ? IO_URING_BPF_FILTER_DENY_REST : 0;
+	struct io_uring_bpf bpf = {
+		.cmd_type = IO_URING_BPF_CMD_FILTER,
+		.filter = {
+			.opcode = opcode,
+			.flags = deny_rest ? IO_URING_BPF_FILTER_DENY_REST : 0,
+			.filter_len = len,
+			.filter_ptr = (unsigned long) (uintptr_t) filter,
+			.pdu_size = pdu_size,
+		},
+	};
 
-	return io_uring_register_bpf_filter_task(filter, len, opcode, flags);
+	return io_uring_register_bpf_filter_task(&bpf);
 }
 
 /* Register a BPF filter on a ring */
 static int register_bpf_filter_ring(struct io_uring *ring,
 				    struct sock_filter *filter, unsigned int len,
-				    __u32 opcode, int deny_rest)
+				    __u32 opcode, __u8 pdu_size, int deny_rest)
 {
-	unsigned int flags = deny_rest ? IO_URING_BPF_FILTER_DENY_REST : 0;
+	struct io_uring_bpf bpf = {
+		.cmd_type = IO_URING_BPF_CMD_FILTER,
+		.filter = {
+			.opcode = opcode,
+			.flags = deny_rest ? IO_URING_BPF_FILTER_DENY_REST : 0,
+			.filter_len = len,
+			.filter_ptr = (unsigned long) (uintptr_t) filter,
+			.pdu_size = pdu_size,
+		},
+	};
 
-	return io_uring_register_bpf_filter(ring, filter, len, opcode, flags);
+	return io_uring_register_bpf_filter(ring, &bpf);
 }
 
 /* Test NOP operation */
@@ -372,7 +390,7 @@ static int test_deny_nop(void)
 		/* Child process */
 		ret = register_bpf_filter(deny_all_filter,
 					  sizeof(deny_all_filter) / sizeof(deny_all_filter[0]),
-					  IORING_OP_NOP, 0);
+					  IORING_OP_NOP, 0, 0);
 		if (ret < 0) {
 			fprintf(stderr, "Child: register failed\n");
 			exit(ret == -EINVAL ? 0 : 1);
@@ -416,7 +434,7 @@ static int test_allow_inet_only(void)
 		/* Child process */
 		ret = register_bpf_filter(allow_inet_only_filter,
 					   sizeof(allow_inet_only_filter) / sizeof(allow_inet_only_filter[0]),
-					   IORING_OP_SOCKET, 0);
+					   IORING_OP_SOCKET, 12, 0);
 		if (ret < 0) {
 			fprintf(stderr, "Child: register failed\n");
 			exit(ret == -EINVAL ? 0 : 1);
@@ -467,7 +485,7 @@ static int test_allow_tcp_only(void)
 	if (pid == 0) {
 		ret = register_bpf_filter(allow_tcp_only_filter,
 					   sizeof(allow_tcp_only_filter) / sizeof(allow_tcp_only_filter[0]),
-					   IORING_OP_SOCKET, 0);
+					   IORING_OP_SOCKET, 12, 0);
 		if (ret < 0) {
 			fprintf(stderr, "Child: register failed\n");
 			exit(ret == -EINVAL ? 0 : 1);
@@ -518,7 +536,7 @@ static int test_deny_rest(void)
 		/* Register allow filter for NOP with DENY_REST flag */
 		ret = register_bpf_filter(allow_all_filter,
 					   sizeof(allow_all_filter) / sizeof(allow_all_filter[0]),
-					   IORING_OP_NOP,
+					   IORING_OP_NOP, 0,
 					   1);  /* deny_rest = true */
 		if (ret < 0) {
 			fprintf(stderr, "Child: register failed\n");
@@ -602,7 +620,7 @@ static int test_deny_openat_creat(void)
 		/* Now install the O_CREAT deny filter */
 		ret = register_bpf_filter(deny_o_creat_filter,
 					  sizeof(deny_o_creat_filter) / sizeof(deny_o_creat_filter[0]),
-					  IORING_OP_OPENAT, 0);
+					  IORING_OP_OPENAT, 24, 0);
 		if (ret < 0) {
 			fprintf(stderr, "Child: register failed: %s\n",
 				strerror(-ret));
@@ -689,7 +707,7 @@ static int test_deny_openat2_resolve_in_root(void)
 		/* Now install the RESOLVE_IN_ROOT deny filter */
 		ret = register_bpf_filter(deny_resolve_in_root_filter,
 					  sizeof(deny_resolve_in_root_filter) / sizeof(deny_resolve_in_root_filter[0]),
-					  IORING_OP_OPENAT2, 0);
+					  IORING_OP_OPENAT2, 24, 0);
 		if (ret < 0) {
 			fprintf(stderr, "Child: register failed: %s\n",
 				strerror(-ret));
@@ -741,7 +759,7 @@ static int test_deny_nop_ring(void)
 
 	ret = register_bpf_filter_ring(&ring, deny_all_filter,
 				       ARRAY_SIZE(deny_all_filter),
-				       IORING_OP_NOP, 0);
+				       IORING_OP_NOP, 0, 0);
 	if (ret < 0) {
 		fprintf(stderr, "register failed: %s\n", strerror(-ret));
 		io_uring_queue_exit(&ring);
@@ -768,7 +786,7 @@ static int test_allow_inet_only_ring(void)
 
 	ret = register_bpf_filter_ring(&ring, allow_inet_only_filter,
 				       ARRAY_SIZE(allow_inet_only_filter),
-				       IORING_OP_SOCKET, 0);
+				       IORING_OP_SOCKET, 12, 0);
 	if (ret < 0) {
 		fprintf(stderr, "register failed: %s\n", strerror(-ret));
 		io_uring_queue_exit(&ring);
@@ -804,7 +822,7 @@ static int test_allow_tcp_only_ring(void)
 
 	ret = register_bpf_filter_ring(&ring, allow_tcp_only_filter,
 				       ARRAY_SIZE(allow_tcp_only_filter),
-				       IORING_OP_SOCKET, 0);
+				       IORING_OP_SOCKET, 12, 0);
 	if (ret < 0) {
 		fprintf(stderr, "register failed: %s\n", strerror(-ret));
 		io_uring_queue_exit(&ring);
@@ -841,7 +859,7 @@ static int test_deny_rest_ring(void)
 	/* Register allow filter for NOP with DENY_REST flag */
 	ret = register_bpf_filter_ring(&ring, allow_all_filter,
 				       ARRAY_SIZE(allow_all_filter),
-				       IORING_OP_NOP, 1);
+				       IORING_OP_NOP, 0, 1);
 	if (ret < 0) {
 		fprintf(stderr, "register failed: %s\n", strerror(-ret));
 		io_uring_queue_exit(&ring);
@@ -880,7 +898,7 @@ static int test_inherit_restrictions(void)
 		/* First child: register deny filter for NOP, then fork */
 		ret = register_bpf_filter(deny_all_filter,
 					  sizeof(deny_all_filter) / sizeof(deny_all_filter[0]),
-					  IORING_OP_NOP, 0);
+					  IORING_OP_NOP, 0, 0);
 		if (ret < 0) {
 			fprintf(stderr, "Child1: register failed: %s\n",
 				strerror(-ret));
@@ -942,7 +960,7 @@ static int test_stack_restrictions(void)
 		/* First child: register AF_INET only filter */
 		ret = register_bpf_filter(allow_inet_only_filter,
 					  sizeof(allow_inet_only_filter) / sizeof(allow_inet_only_filter[0]),
-					  IORING_OP_SOCKET, 0);
+					  IORING_OP_SOCKET, 12, 0);
 		if (ret < 0) {
 			fprintf(stderr, "Child1: register failed: %s\n",
 				strerror(-ret));
@@ -960,7 +978,7 @@ static int test_stack_restrictions(void)
 			/* Grandchild: add TCP-only filter on top */
 			ret = register_bpf_filter(allow_tcp_only_filter,
 						  sizeof(allow_tcp_only_filter) / sizeof(allow_tcp_only_filter[0]),
-						  IORING_OP_SOCKET, 0);
+						  IORING_OP_SOCKET, 12, 0);
 			if (ret < 0) {
 				fprintf(stderr, "Grandchild: register failed: %s\n",
 					strerror(-ret));
@@ -1023,7 +1041,7 @@ static int test_cannot_loosen_restrictions(void)
 		/* First child: deny NOP */
 		ret = register_bpf_filter(deny_all_filter,
 					  sizeof(deny_all_filter) / sizeof(deny_all_filter[0]),
-					  IORING_OP_NOP, 0);
+					  IORING_OP_NOP, 0, 0);
 		if (ret < 0) {
 			fprintf(stderr, "Child1: register failed: %s\n",
 				strerror(-ret));
@@ -1041,7 +1059,7 @@ static int test_cannot_loosen_restrictions(void)
 			/* Grandchild: try to allow NOP (inherits no_new_privs) */
 			ret = register_bpf_filter(allow_all_filter,
 						  sizeof(allow_all_filter) / sizeof(allow_all_filter[0]),
-						  IORING_OP_NOP, 0);
+						  IORING_OP_NOP, 0, 0);
 			if (ret < 0) {
 				fprintf(stderr, "Grandchild: register failed: %s\n",
 					strerror(-ret));
@@ -1097,7 +1115,7 @@ static int test_multi_level_inherit(void)
 		/* Level 1: allow only AF_INET for sockets */
 		ret = register_bpf_filter(allow_inet_only_filter,
 					  sizeof(allow_inet_only_filter) / sizeof(allow_inet_only_filter[0]),
-					  IORING_OP_SOCKET, 0);
+					  IORING_OP_SOCKET, 12, 0);
 		if (ret < 0) {
 			fprintf(stderr, "Level1: register failed\n");
 			exit(1);
@@ -1111,7 +1129,7 @@ static int test_multi_level_inherit(void)
 			/* Level 2: add TCP-only restriction */
 			ret = register_bpf_filter(allow_tcp_only_filter,
 						  sizeof(allow_tcp_only_filter) / sizeof(allow_tcp_only_filter[0]),
-						  IORING_OP_SOCKET, 0);
+						  IORING_OP_SOCKET, 12, 0);
 			if (ret < 0) {
 				fprintf(stderr, "Level2: register failed\n");
 				exit(1);
@@ -1125,7 +1143,7 @@ static int test_multi_level_inherit(void)
 				/* Level 3: allow NOP with DENY_REST */
 				ret = register_bpf_filter(allow_all_filter,
 							  sizeof(allow_all_filter) / sizeof(allow_all_filter[0]),
-							  IORING_OP_NOP, 1);
+							  IORING_OP_NOP, 0, 1);
 				if (ret < 0) {
 					fprintf(stderr, "Level3: register failed\n");
 					exit(1);

@@ -357,12 +357,11 @@ int io_uring_register_ifq(struct io_uring *ring,
 int io_uring_register_clock(struct io_uring *ring,
 			    struct io_uring_clock_register *arg)
    LIBURING_NOEXCEPT;
-int io_uring_register_bpf_filter(struct io_uring *ring, struct sock_filter *f,
-				 unsigned int filter_len, int opcode,
-				 unsigned int flags) LIBURING_NOEXCEPT;
-int io_uring_register_bpf_filter_task(struct sock_filter *f,
-				 unsigned int filter_len, int opcode,
-				 unsigned int flags) LIBURING_NOEXCEPT;
+struct io_uring_bpf;
+int io_uring_register_bpf_filter(struct io_uring *ring,
+				 struct io_uring_bpf *bpf) LIBURING_NOEXCEPT;
+int io_uring_register_bpf_filter_task(struct io_uring_bpf *bpf)
+				 LIBURING_NOEXCEPT;
 
 int io_uring_get_events(struct io_uring *ring) LIBURING_NOEXCEPT;
 int io_uring_submit_and_get_events(struct io_uring *ring) LIBURING_NOEXCEPT;
