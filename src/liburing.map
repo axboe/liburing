@@ -136,7 +136,11 @@ LIBURING_2.13 {
 } LIBURING_2.12;
 
 LIBURING_2.14 {
+
+} LIBURING_2.13;
+
+LIBURING_2.15 {
 	global:
 		io_uring_register_bpf_filter;
 		io_uring_register_bpf_filter_task;
-} LIBURING_2.13;
+} LIBURING_2.14;
