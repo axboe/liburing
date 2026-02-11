@@ -106,6 +106,7 @@ test_srcs := \
 	fifo-nonblock-read.c \
 	fifo-futex-poll.c \
 	file-exit-unreg.c \
+	file-alloc-range-hint.c \
 	file-register.c \
 	files-exit-hang-poll.c \
 	files-exit-hang-timeout.c \
@@ -167,6 +168,7 @@ test_srcs := \
 	personality.c \
 	pipe.c \
 	pipe-bug.c \
+	pipe-direct-fixed.c \
 	pipe-eof.c \
 	pipe-reuse.c \
 	poll.c \
