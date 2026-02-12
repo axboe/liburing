@@ -64,6 +64,7 @@ test_srcs := \
 	bind-listen.c \
 	buf-ring.c \
 	buf-ring-nommap.c \
+	buf-ring-mshot.c \
 	buf-ring-put.c \
 	buf-ring-stress.c \
 	cancel-race.c \
