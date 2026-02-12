@@ -186,7 +186,7 @@ static int run_shared_test(int nr_bufs, int *sends_per_stream)
 	pthread_t threads[NR_STREAMS];
 	pthread_barrier_t barrier;
 	struct __kernel_timespec ts = { .tv_sec = 5 };
-	int ret, i, done = 0, rearms = 0;
+	int ret, i, done = 0;
 
 	ret = io_uring_queue_init(128, &ctx.ring, 0);
 	if (ret) {
@@ -279,7 +279,6 @@ static int run_shared_test(int nr_bufs, int *sends_per_stream)
 			io_uring_cqe_seen(&ctx.ring, cqe);
 			arm_recv(&ctx.ring, ctx.streams[sid].recv_fd, sid);
 			io_uring_submit(&ctx.ring);
-			rearms++;
 			continue;
 		}
 
@@ -327,7 +326,6 @@ static int run_shared_test(int nr_bufs, int *sends_per_stream)
 			io_uring_cqe_seen(&ctx.ring, cqe);
 			arm_recv(&ctx.ring, ctx.streams[sid].recv_fd, sid);
 			io_uring_submit(&ctx.ring);
-			rearms++;
 			continue;
 		}
 
