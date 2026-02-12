@@ -340,9 +340,9 @@ the SQPOLL thread is also shared.
 .PP
 .in +4n
 .EX
-.flags = IORING_SETUP_SINGLE_ISSUER |
-        IORING_SETUP_DEFER_TASKRUN |
-        IORING_SETUP_COOP_TASKRUN
+\&.flags = IORING_SETUP_SINGLE_ISSUER |
+         IORING_SETUP_DEFER_TASKRUN |
+         IORING_SETUP_COOP_TASKRUN
 .EE
 .in
 .PP
@@ -356,9 +356,9 @@ event loop.
 .PP
 .in +4n
 .EX
-.flags = IORING_SETUP_IOPOLL |
-        IORING_SETUP_SINGLE_ISSUER |
-        IORING_SETUP_DEFER_TASKRUN
+\&.flags = IORING_SETUP_IOPOLL |
+         IORING_SETUP_SINGLE_ISSUER |
+         IORING_SETUP_DEFER_TASKRUN
 .EE
 .in
 .PP
@@ -371,10 +371,10 @@ overhead. Combined with DEFER_TASKRUN for optimal completion handling.
 .PP
 .in +4n
 .EX
-.flags = IORING_SETUP_SQPOLL |
-        IORING_SETUP_SQ_AFF
-.sq_thread_cpu = preferred_cpu
-.sq_thread_idle = 1000
+\&.flags = IORING_SETUP_SQPOLL |
+         IORING_SETUP_SQ_AFF
+\&.sq_thread_cpu = preferred_cpu
+\&.sq_thread_idle = 1000
 .EE
 .in
 .PP
