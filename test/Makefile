@@ -260,6 +260,7 @@ test_srcs := \
 	submit-reuse.c \
 	symlink.c \
 	sync-cancel.c \
+	task-restrict.c \
 	teardowns.c \
 	thread-exit.c \
 	timerfd-short-read.c \
