@@ -41,8 +41,6 @@ static int test_poll_cancel_race(void)
 	struct io_uring ring;
 	int ret, i;
 	int pipe_fds[2];
-	int op_completions = 0;
-	int cancel_completions = 0;
 
 	if (pipe(pipe_fds) < 0) {
 		perror("pipe");
@@ -100,7 +98,6 @@ static int test_poll_cancel_race(void)
 					io_uring_cqe_seen(&ring, cqe);
 					goto err;
 				}
-				op_completions++;
 			} else if ((cqe->user_data & 0xff) == UD_OP_CANCEL) {
 				got_cancel = true;
 				/*
@@ -119,7 +116,6 @@ static int test_poll_cancel_race(void)
 					io_uring_cqe_seen(&ring, cqe);
 					goto err;
 				}
-				cancel_completions++;
 			}
 			io_uring_cqe_seen(&ring, cqe);
 		}
