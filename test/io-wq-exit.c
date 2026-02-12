@@ -115,6 +115,8 @@ int main(int argc, char *argv[])
 
 	if (argc > 1)
 		return T_EXIT_SKIP;
+	if (!t_min_kver_required("6.19"))
+		return T_EXIT_SKIP;
 
 	start = get_time_ns();
 	pthread_create(&thread, NULL, test, NULL);

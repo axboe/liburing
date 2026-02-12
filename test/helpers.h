@@ -27,6 +27,11 @@ enum t_test_result {
 };
 
 /*
+ * Returns true if the running kernel version is >= min_kver ("x.y[.z]") e.g. "6.1".
+ */
+bool t_min_kver_required(const char *min_kver);
+
+/*
  * Some Android versions lack aligned_alloc in stdlib.h.
  * To avoid making large changes in tests, define a helper
  * function that wraps posix_memalign as our own aligned_alloc.
@@ -38,7 +43,6 @@ void *t_aligned_alloc(size_t alignment, size_t size);
  * The port number to be bound is returned in @addr->sin_port.
  */
 int t_bind_ephemeral_port(int fd, struct sockaddr_in *addr);
-
 
 /*
  * Helper for allocating memory in tests.

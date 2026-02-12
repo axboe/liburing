@@ -10,6 +10,9 @@
 #include <unistd.h>
 #include <stdarg.h>
 #include <sys/types.h>
+#include <sys/utsname.h>
+#include <limits.h>
+#include <errno.h>
 
 #include <arpa/inet.h>
 #include <netinet/ip.h>
@@ -269,6 +272,109 @@ bool t_probe_defer_taskrun(void)
 	if (ret < 0)
 		return false;
 	io_uring_queue_exit(&ring);
+	return true;
+}
+
+static bool __t_parse_version_part(const char *str, int *d, const char **endp)
+{
+	unsigned long v;
+	char *end;
+
+	if (!str || !d || !endp)
+		return false;
+
+	errno = 0;
+	v = strtoul(str, &end, 10);
+	if (str == end)
+		return false;
+
+	if (errno == ERANGE)
+		return false;
+
+	if (v > INT_MAX)
+		return false;
+
+	*d = (int) v;
+	*endp = end;
+
+	return true;
+}
+
+static bool __t_check_kernel_version(const char *str_kernel_ver, int *major, int *minor, int *patch)
+{
+	const char *str = str_kernel_ver;
+
+	*major = 0,	*minor = 0,	*patch = 0;
+
+	if (!__t_parse_version_part(str, major, &str))
+		return false;
+
+	if (*str != '.')
+		return false;
+	str++;
+
+	if (!__t_parse_version_part(str, minor, &str))
+		return false;
+
+	if (*str == '\0' || *str == ' ' || *str == '-')
+		return true;
+
+	if (*str != '.')
+		return false;
+	str++;
+
+	return __t_parse_version_part(str, patch, &str);
+}
+
+/*
+ * Compare parsed current kernel version against required r1.r2.r3.
+ * Returns 0 if equal, <0 if current is older, >0 if current is newer.
+ */
+static int __t_compare_kernel_version(const char *cur_kernel_ver, int req_major, int req_minor, int req_patch)
+{
+	int current_major = 0, current_minor = 0, current_patch = 0;
+
+	if (!__t_check_kernel_version(cur_kernel_ver, &current_major, &current_minor, &current_patch))
+		return -1;
+
+	if (current_major != req_major)
+		return current_major > req_major ? 1 : -1;
+	if (current_minor != req_minor)
+		return current_minor > req_minor ? 1 : -1;
+	if (current_patch != req_patch)
+		return current_patch > req_patch ? 1 : -1;
+
+	return 0;
+}
+
+bool t_min_kver_required(const char *min_kver)
+{
+	int major = 0, minor = 0, patch = 0;
+	struct utsname u;
+
+	if (!min_kver || !*min_kver) {
+		fprintf(stdout, "invalid minimum kernel version, skip\n");
+		return false;
+	}
+
+	if (!__t_check_kernel_version(min_kver, &major, &minor, &patch)) {
+		fprintf(stdout,
+			"invalid kernel version '%s', expected x.y[.z], skip\n",
+			min_kver);
+		return false;
+	}
+
+	if (uname(&u)) {
+		fprintf(stdout, "failed to get running kernel version, skip\n");
+		return false;
+	}
+
+	if (__t_compare_kernel_version(u.release, major, minor, patch) < 0) {
+		fprintf(stdout, "kernel %d.%d.%d+ required, skip\n",
+			major, minor, patch);
+		return false;
+	}
+
 	return true;
 }
 
