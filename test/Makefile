@@ -54,6 +54,7 @@ test_srcs := \
 	a4c0b3decb33.c \
 	accept.c \
 	accept-link.c \
+	accept-mshot-stress.c \
 	accept-non-empty.c \
 	accept-reuse.c \
 	accept-test.c \
