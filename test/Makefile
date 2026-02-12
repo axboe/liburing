@@ -160,6 +160,7 @@ test_srcs := \
 	no-mmap-inval.c \
 	nop-all-sizes.c \
 	nop.c \
+	nop-flags.c \
 	nop32.c \
 	nop32-overflow.c \
 	ooo-file-unreg.c \
