@@ -105,8 +105,6 @@ static int test_recv_drain_refill(void)
 	void *buf_base;
 	int sockfd, connfd, ret, val;
 	int total_recv = 0;
-	int nr_cqes = 0;
-	int mshot_rearms = 0;
 	socklen_t socklen;
 	int port;
 
@@ -211,8 +209,6 @@ static int test_recv_drain_refill(void)
 			goto err_conn;
 		}
 
-		nr_cqes++;
-
 		if (cqe->res == -ENOBUFS) {
 			/* Buffer ring exhausted - refill and re-arm */
 			io_uring_cqe_seen(&ring, cqe);
@@ -229,7 +225,6 @@ static int test_recv_drain_refill(void)
 				fprintf(stderr, "rearm submit: %d\n", ret);
 				goto err_conn;
 			}
-			mshot_rearms++;
 			continue;
 		}
 
@@ -271,7 +266,6 @@ static int test_recv_drain_refill(void)
 				fprintf(stderr, "rearm submit: %d\n", ret);
 				goto err_conn;
 			}
-			mshot_rearms++;
 			continue;
 		}
 
