@@ -108,6 +108,7 @@ install: $(all_targets)
 	install -D -m 644 include/liburing/barrier.h $(includedir)/liburing/barrier.h
 	install -D -m 644 include/liburing/io_uring_version.h $(includedir)/liburing/io_uring_version.h
 	install -D -m 644 include/liburing/io_uring/query.h $(includedir)/liburing/io_uring/query.h
+	install -D -m 644 include/liburing/io_uring/bpf_filter.h $(includedir)/liburing/io_uring/bpf_filter.h
 	install -D -m 644 liburing.a $(libdevdir)/liburing.a
 	install -D -m 644 liburing-ffi.a $(libdevdir)/liburing-ffi.a
 ifeq ($(ENABLE_SHARED),1)
