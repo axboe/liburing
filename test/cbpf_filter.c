@@ -1324,8 +1324,15 @@ static int test_no_new_privs_required(void)
 		/* Try to register without no_new_privs - should fail with EACCES */
 		ret = io_uring_register(-1, IORING_REGISTER_BPF_FILTER,
 					&io_bpf, 1);
-		if (ret == -EACCES)
+		if (ret == -EACCES) {
+			if (!geteuid())
+				exit(1);
 			exit(0);  /* Expected */
+		} else if (!ret) {
+			if (!geteuid())
+				exit(0);
+			exit(1);
+		}
 		if (ret == -EINVAL || ret == -ENOSYS)
 			exit(2);  /* Not supported */
 		fprintf(stderr, "Expected -EACCES, got %d\n", ret);
