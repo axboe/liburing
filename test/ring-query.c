@@ -36,7 +36,7 @@ static int io_uring_query(struct io_uring *ring, struct io_uring_query_hdr *arg)
 
 static int test_basic_query(void)
 {
-	struct io_uring_query_opcode op;
+	struct io_uring_query_opcode op = { };
 	struct io_uring_query_hdr hdr = {
 		.query_op = IO_URING_QUERY_OPCODES,
 		.query_data = uring_ptr_to_u64(&op),
@@ -76,7 +76,7 @@ static int test_basic_query(void)
 static int test_invalid(void)
 {
 	int ret;
-	struct io_uring_query_opcode op;
+	struct io_uring_query_opcode op = { };
 	struct io_uring_query_hdr invalid_hdr = {
 		.query_op = -1U,
 		.query_data = uring_ptr_to_u64(&op),
@@ -119,7 +119,7 @@ static int test_invalid(void)
 static int test_chain(void)
 {
 	int ret;
-	struct io_uring_query_opcode op1, op2, op3;
+	struct io_uring_query_opcode op1 = { }, op2 = { }, op3 = { };
 	struct io_uring_query_hdr hdr3 = {
 		.query_op = IO_URING_QUERY_OPCODES,
 		.query_data = uring_ptr_to_u64(&op3),
@@ -163,7 +163,7 @@ static int test_chain(void)
 static int test_chain_loop(void)
 {
 	int ret;
-	struct io_uring_query_opcode op1, op2;
+	struct io_uring_query_opcode op1 = { }, op2 = { };
 	struct io_uring_query_hdr hdr2 = {
 		.query_op = IO_URING_QUERY_OPCODES,
 		.query_data = uring_ptr_to_u64(&op2),
@@ -178,8 +178,9 @@ static int test_chain_loop(void)
 		.query_op = IO_URING_QUERY_OPCODES,
 		.query_data = uring_ptr_to_u64(&op1),
 		.size = sizeof(struct io_uring_query_opcode),
-		.next_entry = uring_ptr_to_u64(&hdr_self_circular),
 	};
+
+	hdr_self_circular.next_entry = uring_ptr_to_u64(&hdr_self_circular);
 
 	hdr1.next_entry = uring_ptr_to_u64(&hdr2);
 	hdr2.next_entry = uring_ptr_to_u64(&hdr1);
@@ -201,7 +202,7 @@ static int test_chain_loop(void)
 static int test_compatibile_shorter(void)
 {
 	int ret;
-	struct io_uring_query_opcode_short op;
+	struct io_uring_query_opcode_short op = { };
 	struct io_uring_query_hdr hdr = {
 		.query_op = IO_URING_QUERY_OPCODES,
 		.query_data = uring_ptr_to_u64(&op),
@@ -234,7 +235,7 @@ static int test_compatibile_shorter(void)
 static int test_compatibile_larger(void)
 {
 	int ret;
-	struct io_uring_query_opcode_large op;
+	struct io_uring_query_opcode_large op = { };
 	struct io_uring_query_hdr hdr = {
 		.query_op = IO_URING_QUERY_OPCODES,
 		.query_data = uring_ptr_to_u64(&op),
