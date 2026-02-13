@@ -18,6 +18,7 @@
 #include "liburing/compat.h"
 #include "liburing/io_uring.h"
 #include "liburing/io_uring/query.h"
+#include "liburing/io_uring/bpf_filter.h"
 #include "liburing/io_uring_version.h"
 
 #ifndef uring_unlikely
@@ -357,7 +358,6 @@ int io_uring_register_ifq(struct io_uring *ring,
 int io_uring_register_clock(struct io_uring *ring,
 			    struct io_uring_clock_register *arg)
    LIBURING_NOEXCEPT;
-struct io_uring_bpf;
 int io_uring_register_bpf_filter(struct io_uring *ring,
 				 struct io_uring_bpf *bpf) LIBURING_NOEXCEPT;
 int io_uring_register_bpf_filter_task(struct io_uring_bpf *bpf)
