@@ -443,7 +443,7 @@ struct io_uring_cqe_iter {
 	unsigned tail;
 };
 
-_LOCAL_INLINE struct io_uring_cqe_iter
+IOURINGINLINE struct io_uring_cqe_iter
 io_uring_cqe_iter_init(const struct io_uring *ring)
 	LIBURING_NOEXCEPT
 {
@@ -457,7 +457,7 @@ io_uring_cqe_iter_init(const struct io_uring *ring)
 	};
 }
 
-_LOCAL_INLINE bool io_uring_cqe_iter_next(struct io_uring_cqe_iter *iter,
+IOURINGINLINE bool io_uring_cqe_iter_next(struct io_uring_cqe_iter *iter,
 					  struct io_uring_cqe **cqe)
 	LIBURING_NOEXCEPT
 {
