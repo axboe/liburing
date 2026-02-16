@@ -269,4 +269,6 @@ LIBURING_2.15 {
 	global:
 		io_uring_register_bpf_filter;
 		io_uring_register_bpf_filter_task;
+		io_uring_cqe_iter_init;
+		io_uring_cqe_iter_next;
 } LIBURING_2.14;
