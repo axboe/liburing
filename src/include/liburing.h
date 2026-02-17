@@ -432,7 +432,9 @@ IOURINGINLINE unsigned io_uring_cqe_shift(const struct io_uring *ring)
 
 IOURINGINLINE unsigned io_uring_cqe_nr(const struct io_uring_cqe *cqe)
 {
-	return 1U << !!(cqe->flags & IORING_CQE_F_32);
+	const unsigned int shift = !!(cqe->flags & IORING_CQE_F_32);
+
+	return 1U << shift;
 }
 
 struct io_uring_cqe_iter {
