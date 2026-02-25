@@ -386,10 +386,12 @@ print_config "has_ucontext" "$has_ucontext"
 # check for memfd_create(2)
 has_memfd_create="no"
 cat > $TMPC << EOF
+#include <unistd.h>
 #include <sys/mman.h>
 int main(int argc, char **argv)
 {
   int memfd = memfd_create("test", 0);
+  close(memfd);
   return 0;
 }
 EOF
@@ -405,8 +407,6 @@ cat > $TMPC << EOF
 #include <linux/nvme_ioctl.h>
 int main(void)
 {
-  struct nvme_uring_cmd *cmd;
-
   return sizeof(struct nvme_uring_cmd);
 }
 EOF
@@ -459,6 +459,9 @@ cat > $TMPC << EOF
 int main(void)
 {
   idtype_t v;
+  id_t id;
+
+  waitid(v, id, NULL, 0);
   return 0;
 }
 EOF
