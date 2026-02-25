@@ -59,6 +59,22 @@ IORING_CQE_F_MORE is set if more timeouts are expected. The value specified in
 .I count
 is the number of repeats. A value of 0 means the timeout is indefinite and can
 only be stopped by a removal request. Available since the 6.4 kernel.
+.TP
+.B IORING_TIMEOUT_IMMEDIATE_ARG
+The timeout value is stored directly in the SQE as a nanosecond value rather
+than as a pointer to a
+.B struct __kernel_timespec.
+When this flag is set, the
+.I ts
+argument to
+.BR io_uring_prep_timeout (3)
+is reinterpreted as a nanosecond value (cast to a
+.BR __u64 )
+rather than a pointer. This avoids the need to keep a timespec structure valid
+in user memory until the request is submitted. Only relative timeouts are
+supported; this flag must not be used with
+.BR IORING_TIMEOUT_ABS .
+Available since the 7.1 kernel.
 .PP
 If no alternate clock source is given in the above flags, then
 .B CLOCK_MONOTONIC
@@ -82,7 +98,10 @@ The specified timeout occurred and triggered the completion event.
 .TP
 .B -EINVAL
 One of the fields set in the SQE was invalid. For example, two clocksources
-were given, or the specified timeout seconds or nanoseconds were < 0.
+were given, the specified timeout seconds or nanoseconds were < 0, or
+.B IORING_TIMEOUT_IMMEDIATE_ARG
+was used with
+.BR IORING_TIMEOUT_ABS .
 .TP
 .B -EFAULT
 io_uring was unable to access the data specified by
