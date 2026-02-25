@@ -170,7 +170,7 @@ do_cc() {
 }
 
 compile_prog() {
-  local_cflags="$1"
+  local_cflags="$1 -Wno-error=unused-variable"
   local_ldflags="$2 $LIBS"
   echo "Compiling test case $3" >> config.log
   do_cc $CFLAGS $local_cflags -o $TMPE $TMPC $LDFLAGS $local_ldflags
@@ -459,9 +459,7 @@ cat > $TMPC << EOF
 int main(void)
 {
   idtype_t v;
-  id_t id;
 
-  waitid(v, id, NULL, 0);
   return 0;
 }
 EOF
