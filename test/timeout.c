@@ -23,6 +23,7 @@
 static int not_supported;
 static int no_modify;
 static int no_multishot;
+static int no_immediate;
 
 static void msec_to_ts(struct __kernel_timespec *ts, unsigned int msec)
 {
@@ -30,11 +31,25 @@ static void msec_to_ts(struct __kernel_timespec *ts, unsigned int msec)
 	ts->tv_nsec = (msec % 1000) * 1000000;
 }
 
+static void t_prep_timeout_rel(struct io_uring_sqe *sqe,
+				const struct __kernel_timespec *ts,
+				bool immediate)
+{
+	if (!immediate) {
+		io_uring_prep_timeout(sqe, ts, 0, 0);
+		return;
+	}
+
+	io_uring_prep_timeout(sqe, NULL, 0, 0);
+	sqe->addr = ts->tv_sec * 1000000000 + ts->tv_nsec;
+	sqe->timeout_flags = IORING_TIMEOUT_IMMEDIATE_ARG;
+}
+
 /*
  * Test that we return to userspace if a timeout triggers, even if we
  * don't satisfy the number of events asked for.
  */
-static int test_single_timeout_many(struct io_uring *ring)
+static int test_single_timeout_many(struct io_uring *ring, bool immediate)
 {
 	struct io_uring_cqe *cqe;
 	struct io_uring_sqe *sqe;
@@ -50,7 +65,7 @@ static int test_single_timeout_many(struct io_uring *ring)
 	}
 
 	msec_to_ts(&ts, TIMEOUT_MSEC);
-	io_uring_prep_timeout(sqe, &ts, 0, 0);
+	t_prep_timeout_rel(sqe, &ts, immediate);
 
 	ret = io_uring_submit(ring);
 	if (ret <= 0) {
@@ -219,7 +234,7 @@ err:
 /*
  * Test single timeout waking us up
  */
-static int test_single_timeout(struct io_uring *ring)
+static int test_single_timeout(struct io_uring *ring, bool immediate)
 {
 	struct io_uring_cqe *cqe;
 	struct io_uring_sqe *sqe;
@@ -235,7 +250,7 @@ static int test_single_timeout(struct io_uring *ring)
 	}
 
 	msec_to_ts(&ts, TIMEOUT_MSEC);
-	io_uring_prep_timeout(sqe, &ts, 0, 0);
+	t_prep_timeout_rel(sqe, &ts, immediate);
 
 	ret = io_uring_submit(ring);
 	if (ret <= 0) {
@@ -252,6 +267,11 @@ static int test_single_timeout(struct io_uring *ring)
 	ret = cqe->res;
 	io_uring_cqe_seen(ring, cqe);
 	if (ret == -EINVAL) {
+		if (immediate) {
+			no_immediate = true;
+			fprintf(stdout, "%s: Timeout (imm) not supported, ignored\n", __FUNCTION__);
+			return 0;
+		}
 		fprintf(stdout, "%s: Timeout not supported, ignored\n", __FUNCTION__);
 		not_supported = 1;
 		return 0;
@@ -1765,13 +1785,19 @@ int main(int argc, char *argv[])
 	ret = io_uring_queue_init(8, &sqpoll_ring, IORING_SETUP_SQPOLL);
 	sqpoll = !ret;
 
-	ret = test_single_timeout(&ring);
+	ret = test_single_timeout(&ring, false);
 	if (ret) {
 		fprintf(stderr, "test_single_timeout failed\n");
 		return ret;
 	}
 	if (not_supported)
 		return 0;
+
+	ret = test_single_timeout(&ring, true);
+	if (ret) {
+		fprintf(stderr, "test_single_timeout (imm) failed\n");
+		return ret;
+	}
 
 	ret = test_multi_timeout(&ring);
 	if (ret) {
@@ -1797,10 +1823,18 @@ int main(int argc, char *argv[])
 		return ret;
 	}
 
-	ret = test_single_timeout_many(&ring);
+	ret = test_single_timeout_many(&ring, false);
 	if (ret) {
 		fprintf(stderr, "test_single_timeout_many failed\n");
 		return ret;
+	}
+
+	if (!no_immediate) {
+		ret = test_single_timeout_many(&ring, true);
+		if (ret) {
+			fprintf(stderr, "test_single_timeout_many (imm) failed\n");
+			return ret;
+		}
 	}
 
 	ret = test_single_timeout_nr(&ring, 1);
