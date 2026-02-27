@@ -1851,7 +1851,7 @@ out:
  * "official" versions of this, io_uring_peek_cqe(), io_uring_wait_cqe(),
  * or io_uring_wait_cqes*().
  */
-_LOCAL_INLINE int __io_uring_peek_cqe(struct io_uring *ring,
+IOURINGINLINE int __io_uring_peek_cqe(struct io_uring *ring,
 				      struct io_uring_cqe **cqe_ptr,
 				      unsigned *nr_available)
 	LIBURING_NOEXCEPT

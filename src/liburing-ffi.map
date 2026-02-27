@@ -271,4 +271,5 @@ LIBURING_2.15 {
 		io_uring_register_bpf_filter_task;
 		io_uring_cqe_iter_init;
 		io_uring_cqe_iter_next;
+		__io_uring_peek_cqe;
 } LIBURING_2.14;
