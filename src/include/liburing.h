@@ -1063,11 +1063,17 @@ IOURINGINLINE void io_uring_prep_statx(struct io_uring_sqe *sqe, int dfd,
 	sqe->statx_flags = (__u32) flags;
 }
 
+static inline __u32 __io_uring_cap_len(size_t len)
+{
+	size_t mask = -(size_t)(len > UINT32_MAX);
+	return (len & ~mask) | (UINT32_MAX & mask);
+}
+
 IOURINGINLINE void io_uring_prep_fadvise(struct io_uring_sqe *sqe, int fd,
 					 __u64 offset, __u32 len, int advice)
 	LIBURING_NOEXCEPT
 {
-	io_uring_prep_rw(IORING_OP_FADVISE, sqe, fd, NULL, (__u32) len, offset);
+	io_uring_prep_rw(IORING_OP_FADVISE, sqe, fd, NULL, __io_uring_cap_len(len), offset);
 	sqe->fadvise_advice = (__u32) advice;
 }
 
@@ -1075,7 +1081,7 @@ IOURINGINLINE void io_uring_prep_madvise(struct io_uring_sqe *sqe, void *addr,
 					 __u32 length, int advice)
 	LIBURING_NOEXCEPT
 {
-	io_uring_prep_rw(IORING_OP_MADVISE, sqe, -1, addr, (__u32) length, 0);
+	io_uring_prep_rw(IORING_OP_MADVISE, sqe, -1, addr, __io_uring_cap_len(length), 0);
 	sqe->fadvise_advice = (__u32) advice;
 }
 
@@ -1100,7 +1106,7 @@ IOURINGINLINE void io_uring_prep_send(struct io_uring_sqe *sqe, int sockfd,
 				      const void *buf, size_t len, int flags)
 	LIBURING_NOEXCEPT
 {
-	io_uring_prep_rw(IORING_OP_SEND, sqe, sockfd, buf, (__u32) len, 0);
+	io_uring_prep_rw(IORING_OP_SEND, sqe, sockfd, buf, __io_uring_cap_len(len), 0);
 	sqe->msg_flags = (__u32) flags;
 }
 
@@ -1136,7 +1142,7 @@ IOURINGINLINE void io_uring_prep_send_zc(struct io_uring_sqe *sqe, int sockfd,
 					 unsigned zc_flags)
 	LIBURING_NOEXCEPT
 {
-	io_uring_prep_rw(IORING_OP_SEND_ZC, sqe, sockfd, buf, (__u32) len, 0);
+	io_uring_prep_rw(IORING_OP_SEND_ZC, sqe, sockfd, buf, __io_uring_cap_len(len), 0);
 	sqe->msg_flags = (__u32) flags;
 	sqe->ioprio = zc_flags;
 }
@@ -1178,7 +1184,7 @@ IOURINGINLINE void io_uring_prep_recv(struct io_uring_sqe *sqe, int sockfd,
 				      void *buf, size_t len, int flags)
 	LIBURING_NOEXCEPT
 {
-	io_uring_prep_rw(IORING_OP_RECV, sqe, sockfd, buf, (__u32) len, 0);
+	io_uring_prep_rw(IORING_OP_RECV, sqe, sockfd, buf, __io_uring_cap_len(len), 0);
 	sqe->msg_flags = (__u32) flags;
 }
 
@@ -1299,7 +1305,7 @@ IOURINGINLINE void io_uring_prep_provide_buffers(struct io_uring_sqe *sqe,
 						 int bgid, int bid)
 	LIBURING_NOEXCEPT
 {
-	io_uring_prep_rw(IORING_OP_PROVIDE_BUFFERS, sqe, nr, addr, (__u32) len,
+	io_uring_prep_rw(IORING_OP_PROVIDE_BUFFERS, sqe, nr, addr, __io_uring_cap_len(len),
 				(__u64) bid);
 	sqe->buf_group = (__u16) bgid;
 }
