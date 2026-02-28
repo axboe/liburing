@@ -117,11 +117,11 @@ call with the following code sequence:
 .EX
 /*
  * Ensure that the wakeup flag is read after the tail pointer
- * has been written. It's important to use memory load acquire
- * semantics for the flags read, as otherwise the application
- * and the kernel might not agree on the consistency of the
- * wakeup flag.
+ * has been written. A full memory barrier is required because
+ * this is a read-after-write (which cannot be synchronized
+ * using acquire/release memory ordering).
  */
+smp_mb();
 unsigned flags = atomic_load_relaxed(sq_ring->flags);
 if (flags & IORING_SQ_NEED_WAKEUP)
     io_uring_enter(fd, 0, 0, IORING_ENTER_SQ_WAKEUP);
