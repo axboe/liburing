@@ -95,6 +95,12 @@ return 0.
 return number of buffers updated.
 On failure they return
 .BR -errno .
+
+.SH NOTES
+When possible prefer to use the newer and more efficient
+.BR io_uring_register_buf_ring (3)
+API.
+
 .SH SEE ALSO
 .BR io_uring_register (2),
 .BR io_uring_get_sqe (3),
