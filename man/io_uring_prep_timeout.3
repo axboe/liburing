@@ -71,9 +71,7 @@ argument to
 is reinterpreted as a nanosecond value (cast to a
 .BR __u64 )
 rather than a pointer. This avoids the need to keep a timespec structure valid
-in user memory until the request is submitted. Only relative timeouts are
-supported; this flag must not be used with
-.BR IORING_TIMEOUT_ABS .
+in user memory until the request is submitted.
 Available since the 7.1 kernel.
 .PP
 If no alternate clock source is given in the above flags, then
@@ -98,10 +96,7 @@ The specified timeout occurred and triggered the completion event.
 .TP
 .B -EINVAL
 One of the fields set in the SQE was invalid. For example, two clocksources
-were given, the specified timeout seconds or nanoseconds were < 0, or
-.B IORING_TIMEOUT_IMMEDIATE_ARG
-was used with
-.BR IORING_TIMEOUT_ABS .
+were given, the specified timeout seconds or nanoseconds were < 0.
 .TP
 .B -EFAULT
 io_uring was unable to access the data specified by
