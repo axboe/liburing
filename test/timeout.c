@@ -31,18 +31,19 @@ static void msec_to_ts(struct __kernel_timespec *ts, unsigned int msec)
 	ts->tv_nsec = (msec % 1000) * 1000000;
 }
 
-static void t_prep_timeout_rel(struct io_uring_sqe *sqe,
-				const struct __kernel_timespec *ts,
-				bool immediate)
+static void t_prep_timeout(struct io_uring_sqe *sqe,
+			   const struct __kernel_timespec *ts,
+			   unsigned flags,
+			   bool immediate)
 {
 	if (!immediate) {
 		io_uring_prep_timeout(sqe, ts, 0, 0);
-		return;
+	} else {
+		io_uring_prep_timeout(sqe, NULL, 0, 0);
+		sqe->addr = ts->tv_sec * 1000000000 + ts->tv_nsec;
+		sqe->timeout_flags = IORING_TIMEOUT_IMMEDIATE_ARG;
 	}
-
-	io_uring_prep_timeout(sqe, NULL, 0, 0);
-	sqe->addr = ts->tv_sec * 1000000000 + ts->tv_nsec;
-	sqe->timeout_flags = IORING_TIMEOUT_IMMEDIATE_ARG;
+	sqe->timeout_flags |= flags;
 }
 
 /*
@@ -65,7 +66,7 @@ static int test_single_timeout_many(struct io_uring *ring, bool immediate)
 	}
 
 	msec_to_ts(&ts, TIMEOUT_MSEC);
-	t_prep_timeout_rel(sqe, &ts, immediate);
+	t_prep_timeout(sqe, &ts, 0, immediate);
 
 	ret = io_uring_submit(ring);
 	if (ret <= 0) {
@@ -250,7 +251,7 @@ static int test_single_timeout(struct io_uring *ring, bool immediate)
 	}
 
 	msec_to_ts(&ts, TIMEOUT_MSEC);
-	t_prep_timeout_rel(sqe, &ts, immediate);
+	t_prep_timeout(sqe, &ts, 0, immediate);
 
 	ret = io_uring_submit(ring);
 	if (ret <= 0) {
@@ -436,7 +437,7 @@ err:
 /*
  * Test single absolute timeout waking us up
  */
-static int test_single_timeout_abs(struct io_uring *ring)
+static int test_single_timeout_abs(struct io_uring *ring, bool immediate)
 {
 	struct io_uring_cqe *cqe;
 	struct io_uring_sqe *sqe;
@@ -455,7 +456,7 @@ static int test_single_timeout_abs(struct io_uring *ring)
 	clock_gettime(CLOCK_MONOTONIC, &abs_ts);
 	ts.tv_sec = abs_ts.tv_sec + 1;
 	ts.tv_nsec = abs_ts.tv_nsec;
-	io_uring_prep_timeout(sqe, &ts, 0, IORING_TIMEOUT_ABS);
+	t_prep_timeout(sqe, &ts, IORING_TIMEOUT_ABS, immediate);
 
 	ret = io_uring_submit(ring);
 	if (ret <= 0) {
@@ -1805,10 +1806,18 @@ int main(int argc, char *argv[])
 		return ret;
 	}
 
-	ret = test_single_timeout_abs(&ring);
+	ret = test_single_timeout_abs(&ring, false);
 	if (ret) {
 		fprintf(stderr, "test_single_timeout_abs failed\n");
 		return ret;
+	}
+
+	if (!no_immediate) {
+		ret = test_single_timeout_abs(&ring, true);
+		if (ret) {
+			fprintf(stderr, "test_single_timeout_abs (imm) failed\n");
+			return ret;
+		}
 	}
 
 	ret = test_single_timeout_remove(&ring);
