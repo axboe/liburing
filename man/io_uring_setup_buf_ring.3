@@ -80,12 +80,18 @@ returns a pointer to the buffer ring. On failure it returns
 and sets
 .I *err
 to -errno.
+
 .SH NOTES
 Note that even if the kernel supports this feature, registering a provided
 buffer ring may still fail with
 .B -EINVAL
 if the host is a 32-bit architecture and the memory being passed in resides in
 high memory.
+
+Remember that you need to call
+.BR io_uring_buf_ring_add (3)
+to make the allocated buffers available to the kernel.
+
 .SH SEE ALSO
 .BR io_uring_register_buf_ring (3),
 .BR io_uring_buf_ring_init (3),
