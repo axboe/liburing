@@ -253,6 +253,7 @@ test_srcs := \
 	sq-poll-share.c \
 	sqpoll-sleep.c \
 	sq-space_left.c \
+	sqe-mixed-boundary.c \
 	sqe-mixed-nop.c \
 	sqe-mixed-bad-wrap.c \
 	sqe-mixed-uring_cmd.c \
