@@ -165,6 +165,10 @@ static int test_nop_file(struct io_uring *ring)
 	}
 
 	if (cqe->res != 0) {
+		if (cqe->res == -EINVAL) {
+			no_nop_file = 1;
+			return T_EXIT_SKIP;
+		}
 		fprintf(stderr, "nop file res: %d\n", cqe->res);
 		io_uring_cqe_seen(ring, cqe);
 		close(fd);
