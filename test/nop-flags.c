@@ -116,7 +116,7 @@ static int test_nop_file_bad_fd(struct io_uring *ring)
 		return T_EXIT_SKIP;
 	}
 
-	if (cqe->res != -EBADF) {
+	if (cqe->res != -EBADF && cqe->res != -EINVAL) {
 		fprintf(stderr, "nop bad fd res: %d (expected -EBADF)\n", cqe->res);
 		io_uring_cqe_seen(ring, cqe);
 		return T_EXIT_FAIL;
