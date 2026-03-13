@@ -15,6 +15,8 @@
 #include "helpers.h"
 #include "liburing.h"
 
+static int no_sparse;
+
 /*
  * Auto-alloc a file into the fixed table using IORING_FILE_INDEX_ALLOC.
  * On success, the kernel writes back the allocated slot index into *fd
@@ -66,6 +68,10 @@ static int test_hint_below_range(void)
 
 	ret = io_uring_register_files_sparse(&ring, 20);
 	if (ret) {
+		if (ret == -EINVAL) {
+			no_sparse = 1;
+			goto err;
+		}
 		fprintf(stderr, "register_files_sparse: %d\n", ret);
 		goto err;
 	}
@@ -109,12 +115,12 @@ static int test_hint_below_range(void)
 	close(pipe_fds[0]);
 	close(pipe_fds[1]);
 	io_uring_queue_exit(&ring);
-	return 0;
+	return T_EXIT_PASS;
 err:
 	close(pipe_fds[0]);
 	close(pipe_fds[1]);
 	io_uring_queue_exit(&ring);
-	return 1;
+	return no_sparse ? T_EXIT_SKIP : T_EXIT_FAIL;
 }
 
 /*
@@ -197,6 +203,8 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "test_hint_below_range failed\n");
 		return T_EXIT_FAIL;
 	}
+	if (no_sparse)
+		return T_EXIT_SKIP;
 
 	ret = test_hint_above_range();
 	if (ret) {

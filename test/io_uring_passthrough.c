@@ -380,6 +380,8 @@ static int test_io_uring_submit_enters(const char *file)
 
 	ret = io_uring_queue_init(64, &ring, ring_flags);
 	if (ret) {
+		if (ret == -EINVAL)
+			return T_EXIT_SKIP;
 		fprintf(stderr, "ring create failed: %d\n", ret);
 		return 1;
 	}
@@ -498,7 +500,7 @@ int main(int argc, char *argv[])
 		return T_EXIT_SKIP;
 
 	ret = test_io_uring_submit_enters(fname);
-	if (ret) {
+	if (ret == T_EXIT_FAIL) {
 		fprintf(stderr, "test_io_uring_submit_enters failed\n");
 		goto err;
 	}
