@@ -75,7 +75,7 @@ static int test_task_restrict_sqe_op(void)
 
 		/* Register task restriction, then create ring */
 		ret = register_task_restrictions(res, 1);
-		if (ret == -EINVAL) {
+		if (ret == -EINVAL || ret == -EBADF) {
 			/* Kernel doesn't support per-task restrictions */
 			_exit(T_EXIT_SKIP);
 		}
