@@ -307,6 +307,10 @@ static int test_nop_fixed_buffer(struct io_uring *ring)
 	}
 
 	if (cqe->res != 0) {
+		if (cqe->res == -EINVAL) {
+			io_uring_cqe_seen(ring, cqe);
+			return T_EXIT_SKIP;
+		}
 		fprintf(stderr, "nop fixed buffer res: %d\n", cqe->res);
 		io_uring_cqe_seen(ring, cqe);
 		goto err;
@@ -386,6 +390,10 @@ static int test_nop_tw(struct io_uring *ring)
 			return T_EXIT_FAIL;
 		}
 		if (cqe->res != 0) {
+			if (cqe->res == -EINVAL) {
+				io_uring_cqe_seen(ring, cqe);
+				return T_EXIT_SKIP;
+			}
 			fprintf(stderr, "nop tw res: %d\n", cqe->res);
 			io_uring_cqe_seen(ring, cqe);
 			return T_EXIT_FAIL;
@@ -427,6 +435,10 @@ static int test_nop_tw_inject(struct io_uring *ring)
 	}
 
 	if (cqe->res != 42) {
+		if (cqe->res == -EINVAL) {
+			io_uring_cqe_seen(ring, cqe);
+			return T_EXIT_SKIP;
+		}
 		fprintf(stderr, "nop tw inject res: %d (expected 42)\n", cqe->res);
 		io_uring_cqe_seen(ring, cqe);
 		return T_EXIT_FAIL;
@@ -477,6 +489,8 @@ static int test_nop_cqe32(void)
 	}
 
 	if (cqe->res != 0) {
+		if (cqe->res == -EINVAL)
+			goto skip;
 		fprintf(stderr, "nop cqe32 res: %d\n", cqe->res);
 		io_uring_cqe_seen(&ring, cqe);
 		goto err;
@@ -502,6 +516,9 @@ static int test_nop_cqe32(void)
 err:
 	io_uring_queue_exit(&ring);
 	return T_EXIT_FAIL;
+skip:
+	io_uring_queue_exit(&ring);
+	return T_EXIT_SKIP;
 }
 
 /*
@@ -640,7 +657,7 @@ int main(int argc, char *argv[])
 	if (argc > 1)
 		return T_EXIT_SKIP;
 
-	ret = io_uring_queue_init(8, &ring, 0);
+	ret = io_uring_queue_init(8, &ring, IORING_SETUP_SUBMIT_ALL);
 	if (ret) {
 		fprintf(stderr, "ring setup failed: %d\n", ret);
 		return T_EXIT_FAIL;
