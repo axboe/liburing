@@ -67,6 +67,7 @@ test_srcs := \
 	buf-ring-mshot.c \
 	buf-ring-put.c \
 	buf-ring-stress.c \
+	buf-ring-upgrade.c \
 	cancel-fd-userdata.c \
 	cancel-race.c \
 	cbpf_filter.c \
