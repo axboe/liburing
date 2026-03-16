@@ -15,11 +15,14 @@
 #include <sys/wait.h>
 #include <sys/prctl.h>
 #include <linux/filter.h>
-#include <linux/openat2.h>
 
 #include "liburing.h"
 #include "liburing/io_uring/bpf_filter.h"
 #include "helpers.h"
+
+#ifndef RESOLVE_IN_ROOT
+#define RESOLVE_IN_ROOT	0x10
+#endif
 
 /*
  * cBPF filter context layout (struct io_uring_bpf_ctx):
