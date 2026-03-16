@@ -158,6 +158,7 @@ test_srcs := \
 	msg-ring-fd.c \
 	msg-ring-flags.c \
 	msg-ring-overflow.c \
+	mshot-shutdown-race.c \
 	multicqes_drain.c \
 	napi-test.c \
 	no-mmap-inval.c \
