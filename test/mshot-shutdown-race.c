@@ -35,6 +35,7 @@ struct thread_data {
 };
 
 static bool use_af_inet;
+static int received_bytes;
 
 #define CHECK(x)	do {					\
 	if (!(x)) {						\
@@ -108,21 +109,38 @@ static void create_sockets(struct thread_data *td)
 	close(listen_fd);
 }
 
+static int last_received_bytes;
+
+static void sig_alrm(int sig)
+{
+	if (received_bytes == last_received_bytes) {
+		fprintf(stderr, "Seems stuck, exit\n");
+		exit(1);
+	}
+	last_received_bytes = received_bytes;
+	alarm(1);
+}
+
 int main(int argc, char *argv[])
 {
 	static char buffer_bytes[BUF_COUNT * BUF_SIZE];
 	struct io_uring_buf_ring *ring;
+	struct sigaction act = { };
 	struct io_uring_sqe *sqe;
 	struct io_uring_cqe *cqe;
 	struct io_uring iouring;
 	struct thread_data td;
-	int received_bytes;
 	bool received_eof;
 	uint16_t buffer_id;
 	int err, i;
 
 	if (argc > 1)
 		return T_EXIT_SKIP;
+
+	act.sa_handler = sig_alrm;
+	act.sa_flags = SA_RESTART;
+	sigaction(SIGALRM, &act, NULL);
+	alarm(1);
 
 	use_af_inet = !!getenv("TEST_USE_INET");
 
