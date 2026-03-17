@@ -20,7 +20,7 @@
 #include "helpers.h"
 
 #define DUMMY_SEND_SIZE	123
-#define BUF_COUNT	2
+#define BUF_COUNT	4
 #define BUF_SIZE	256
 #define BUF_GRP		0
 #define ITERATIONS	10000
@@ -30,6 +30,7 @@ struct thread_data {
 	pthread_barrier_t barrier;
 	int server_socket;
 	int client_socket;
+	int nr_sends;
 	int stop;
 };
 
@@ -49,10 +50,14 @@ static void *client_thread(void *arg)
 	int res;
 
 	while (!td->stop) {
+		int j;
+
 		pthread_barrier_wait(&td->barrier);
 
-		res = send(td->client_socket, buf, sizeof(buf), 0);
-		CHECK(res == sizeof(buf));
+		for (j = 0; j < td->nr_sends; j++) {
+			res = send(td->client_socket, buf, sizeof(buf), 0);
+			CHECK(res == sizeof(buf));
+		}
 
 		res = shutdown(td->client_socket, SHUT_WR);
 		CHECK(res == 0);
@@ -111,7 +116,7 @@ int main(int argc, char *argv[])
 	struct io_uring_cqe *cqe;
 	struct io_uring iouring;
 	struct thread_data td;
-	bool received_data;
+	int received_bytes;
 	bool received_eof;
 	uint16_t buffer_id;
 	int err, i;
@@ -140,6 +145,11 @@ int main(int argc, char *argv[])
 	io_uring_buf_ring_advance(ring, BUF_COUNT);
 
 	for (i = 0; i < ITERATIONS; i++) {
+		int expected_bytes;
+
+		td.nr_sends = (i & 1) + 1;
+		expected_bytes = td.nr_sends * DUMMY_SEND_SIZE;
+
 		create_sockets(&td);
 
 		sqe = io_uring_get_sqe(&iouring);
@@ -152,7 +162,7 @@ int main(int argc, char *argv[])
 
 		pthread_barrier_wait(&td.barrier);
 
-		received_data = false;
+		received_bytes = 0;
 		received_eof = false;
 
 		while (!received_eof) {
@@ -161,7 +171,7 @@ int main(int argc, char *argv[])
 				io_uring_wait_cqe(&iouring, &cqe);
 			} while (!cqe);
 
-			if (cqe->res == DUMMY_SEND_SIZE) {
+			if (cqe->res > 0) {
 				CHECK(cqe->flags & IORING_CQE_F_MORE);
 				CHECK(cqe->flags & IORING_CQE_F_BUFFER);
 
@@ -173,8 +183,7 @@ int main(int argc, char *argv[])
 					BUF_COUNT - 1, buffer_id);
 				io_uring_buf_ring_advance(ring, 1);
 
-				CHECK(!received_data);
-				received_data = true;
+				received_bytes += cqe->res;
 			} else if (cqe->res == 0) {
 				CHECK(!received_eof);
 				received_eof = true;
@@ -187,6 +196,8 @@ int main(int argc, char *argv[])
 
 			io_uring_cqe_seen(&iouring, cqe);
 		}
+
+		CHECK(received_bytes == expected_bytes);
 
 		close(td.client_socket);
 		close(td.server_socket);
