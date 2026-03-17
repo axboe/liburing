@@ -38,7 +38,6 @@
 #include <linux/mman.h>
 
 #include <linux/memfd.h>
-#include <linux/dma-buf.h>
 #include <linux/udmabuf.h>
 
 #include "liburing.h"
