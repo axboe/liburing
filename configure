@@ -478,8 +478,8 @@ elif command -v /usr/sbin/bpftool >/dev/null 2>&1; then
   has_bpftool="yes"
 fi
 
-tmp_bpf_c=$(mktemp /tmp/test_bpfXXXX.c)
-tmp_bpf_o=$(mktemp /tmp/test_bpfXXXX.o)
+tmp_bpf_c=$(mktemp /tmp/test_bpf_XXXXXX.c)
+tmp_bpf_o=$(mktemp /tmp/test_bpf_XXXXXX.o)
 
 cat > "$tmp_bpf_c" << EOF
 int tmp = 0;
