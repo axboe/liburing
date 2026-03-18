@@ -2130,13 +2130,6 @@ The
 field in a submission queue entry is invalid.
 .TP
 .B EINVAL
-.B IORING_OP_NOP
-was specified in the submission queue entry, but the io_uring context
-was setup for polling
-.RB ( IORING_SETUP_IOPOLL
-was specified in the call to io_uring_setup).
-.TP
-.B EINVAL
 .B IORING_OP_READV
 or
 .B IORING_OP_WRITEV
