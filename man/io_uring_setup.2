@@ -65,11 +65,17 @@ this to work. Busy-waiting provides lower latency, but may consume
 more CPU resources than interrupt driven I/O. Currently, this feature
 is usable only on a file descriptor opened using the
 .B O_DIRECT
-flag. When a read or write is submitted to a polled context, the
+flag
+(if using the
+.B IORING_OP_{READ,WRITE}(V)(_FIXED)
+opcodes). When a read or write is submitted to a polled context, the
 application must poll for completions on the CQ ring by calling
 .BR io_uring_enter (2).
-It is illegal to mix and match polled and non-polled I/O on an io_uring
-instance.
+Most non-polled I/O requests are forbidden on
+.B IORING_SETUP_IOPOLL
+io_uring instances (see
+.BR io_uring_setup_flags (7)
+for the allowed opcodes).
 
 This is only applicable for storage devices for now, and the storage device
 must be configured for polling. How to do that depends on the device type
