@@ -2,7 +2,9 @@ prefix ?= /usr
 datadir ?= $(prefix)/share
 
 CLANG ?= clang
-BPFTOOL ?= bpftool
+BPFTOOL ?= $(or $(shell command -v bpftool 2>/dev/null), \
+		$(shell command -v /usr/sbin/bpftool 2>/dev/null), \
+		bpfool)
 BPF_PROGS_DIR = bpf-progs
 BPF_OUTPUT = output/bpf
 

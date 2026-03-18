@@ -474,6 +474,8 @@ print_config "has_idtype_t" "$has_idtype_t"
 has_bpftool="no"
 if command -v bpftool >/dev/null 2>&1; then
   has_bpftool="yes"
+elif command -v /usr/sbin/bpftool >/dev/null 2>&1; then
+  has_bpftool="yes"
 fi
 
 tmp_bpf_c=$(mktemp /tmp/test_bpfXXXX.c)
