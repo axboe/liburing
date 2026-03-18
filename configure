@@ -468,6 +468,41 @@ if compile_prog "" "" "idtype_t"; then
 fi
 print_config "has_idtype_t" "$has_idtype_t"
 
+##########################################
+# Check for BPF toolchain
+
+has_bpftool="no"
+if command -v bpftool >/dev/null 2>&1; then
+  has_bpftool="yes"
+fi
+
+tmp_bpf_c=$(mktemp /tmp/test_bpfXXXX.c)
+tmp_bpf_o=$(mktemp /tmp/test_bpfXXXX.o)
+
+cat > "$tmp_bpf_c" << EOF
+int tmp = 0;
+EOF
+
+has_bpf_clang="no"
+if clang -target bpf -mcpu=v4 -c "$tmp_bpf_c" -o "$tmp_bpf_o"; then
+  has_bpf_clang="yes"
+fi
+rm "$tmp_bpf_c" "$tmp_bpf_o"
+
+has_libbpf="no"
+if pkg-config --exists libbpf; then
+  has_libbpf="yes"
+fi
+
+print_config "has_bpftool" "$has_bpftool"
+print_config "has_bpf_clang" "$has_bpf_clang"
+print_config "has_libbpf" "$has_libbpf"
+
+has_bpf_loop_ops="no"
+if test "$has_bpftool" = "yes" && test "$has_bpf_clang" = "yes" && test "$has_libbpf" = "yes"; then
+  output_mak "bpf_toolchain" "y"
+fi
+
 #############################################################################
 liburing_nolibc="no"
 if test "$use_libc" != "yes"; then
