@@ -486,6 +486,11 @@ cat > "$tmp_bpf_c" << EOF
 int tmp = 0;
 EOF
 
+has_clang="no"
+if command -v clang >/dev/null 2>&1; then
+	has_clang="yes"
+fi
+
 has_bpf_clang="no"
 if clang -target bpf -mcpu=v4 -c "$tmp_bpf_c" -o "$tmp_bpf_o"; then
   has_bpf_clang="yes"
@@ -497,12 +502,13 @@ if pkg-config --exists libbpf; then
   has_libbpf="yes"
 fi
 
+print_config "has_clang" "$has_clang"
 print_config "has_bpftool" "$has_bpftool"
 print_config "has_bpf_clang" "$has_bpf_clang"
 print_config "has_libbpf" "$has_libbpf"
 
 has_bpf_loop_ops="no"
-if test "$has_bpftool" = "yes" && test "$has_bpf_clang" = "yes" && test "$has_libbpf" = "yes"; then
+if test "$has_clang" = "yes" && test "$has_bpftool" = "yes" && test "$has_bpf_clang" = "yes" && test "$has_libbpf" = "yes"; then
   output_mak "bpf_toolchain" "y"
 fi
 
