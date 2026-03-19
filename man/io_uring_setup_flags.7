@@ -28,6 +28,9 @@ latency for high-performance storage devices (NVMe, etc.) but requires:
 .IP \(bu 2
 Files opened with
 .B O_DIRECT
+(if using the
+.B IORING_OP_{READ,WRITE}(V)(_FIXED)
+opcodes)
 .IP \(bu
 Hardware and drivers that support polling
 .IP \(bu
@@ -37,10 +40,28 @@ to reap completions (busy-polling)
 .IP \(bu
 Storage device configuration for polling support
 .PP
-IOPOLL rings cannot use IRQ-driven completion; the application must poll.
-Only request types that support polling may be issued on an IOPOLL ring.
-This mode is commonly used for scenarios that purely do polled I/O on
-storage devices like NVMe.
+Only the following opcodes are allowed on IOPOLL rings:
+.IP \(bu 2
+.B IORING_OP_NOP(128)
+.IP \(bu
+.B IORING_OP_{READ,WRITE}(V)(_FIXED)
+(if the file supports busy-polling)
+.IP \(bu
+.B IORING_OP_FILES_UPDATE
+.IP \(bu
+.B IORING_OP_{PROVIDE,REMOVE}_BUFFERS
+.IP \(bu
+.B IORING_OP_MSG_RING
+.IP \(bu
+.B IORING_OP_URING_CMD(128)
+.PP
+Since kernel 7.1, an
+.B IORING_OP_URING_CMD(128)
+request will use busy-polling if the file supports it (i.e., NVMe passthrough
+I/O commands).
+Previously,
+.B IORING_OP_URING_CMD(128)
+was only allowed on files that supported busy-polling.
 .PP
 Using IOPOLL generally requires storage device setup. For NVMe devices,
 the kernel parameter

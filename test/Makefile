@@ -142,6 +142,7 @@ test_srcs := \
 	iopoll.c \
 	iopoll-leak.c \
 	iopoll-overflow.c \
+	iopoll-sync.c \
 	io_uring_enter.c \
 	io_uring_passthrough.c \
 	io_uring_register.c \
