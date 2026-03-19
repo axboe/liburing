@@ -202,6 +202,7 @@ test_srcs := \
 	pollfree.c \
 	probe.c \
 	read-before-exit.c \
+	read-inc-buf-more.c \
 	read-inc-file.c \
 	read-mshot.c \
 	read-mshot-empty.c \
