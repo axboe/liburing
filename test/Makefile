@@ -1,3 +1,5 @@
+root ?= ..
+
 prefix ?= /usr
 datadir ?= $(prefix)/share
 
@@ -5,7 +7,7 @@ CLANG ?= clang
 BPFTOOL ?= $(or $(shell command -v bpftool 2>/dev/null), \
 		$(shell command -v /usr/sbin/bpftool 2>/dev/null), \
 		bpfool)
-BPF_PROGS_DIR = bpf-progs
+BPF_PROGS_DIR = $(root)/test/bpf-progs
 BPF_OUTPUT = output/bpf
 
 INSTALL=install
@@ -20,8 +22,11 @@ override CPPFLAGS += \
 	-D_GNU_SOURCE \
 	-D__SANE_USERSPACE_TYPES__ \
 	-I../src/include/ \
+	-I$(root)/src/include/ \
 	-include ../config-host.h \
 	-D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64
+
+VPATH = $(root)/test
 
 CFLAGS ?= -g -O3 -Wall -Wextra
 XCFLAGS = -Wno-unused-parameter -Wno-sign-compare
@@ -303,7 +308,7 @@ asan_test_srcs := \
 	# EOL
 
 all_targets :=
-include ../Makefile.quiet
+include $(root)/Makefile.quiet
 
 ifeq ($(CONFIG_NOLIBC),y)
 	test_srcs += nolibc.c
@@ -385,11 +390,11 @@ $(BPF_OUTPUT)/%.bpf.o: $(BPF_PROGS_DIR)/%.bpf.c $(wildcard %.h)
 $(BPF_OUTPUT)/%.skel.h: $(BPF_OUTPUT)/%.bpf.o
 	$(BPFTOOL) gen skeleton $< > $@
 
-install: $(test_targets) runtests.sh runtests-loop.sh
+install: $(test_targets) $(root)/test/runtests.sh $(root)/test/runtests-loop.sh
 	$(INSTALL) -D -d -m 755 $(datadir)/liburing-test/
 	$(INSTALL) -D -m 755 $(test_targets) $(datadir)/liburing-test/
-	$(INSTALL) -D -m 755 runtests.sh  $(datadir)/liburing-test/
-	$(INSTALL) -D -m 755 runtests-loop.sh  $(datadir)/liburing-test/
+	$(INSTALL) -D -m 755 $(root)/test/runtests.sh  $(datadir)/liburing-test/
+	$(INSTALL) -D -m 755 $(root)/test/runtests-loop.sh  $(datadir)/liburing-test/
 
 uninstall:
 	@rm -rf $(datadir)/liburing-test/
@@ -399,13 +404,13 @@ clean:
 	@rm -rf output/
 
 runtests: all
-	@./runtests.sh $(test_targets) $(asan_test_targets)
+	@$(root)/test/runtests.sh $(test_targets) $(asan_test_targets)
 
 runtests-loop: all
-	@./runtests-loop.sh $(test_targets) $(asan_test_targets)
+	@$(root)/test/runtests-loop.sh $(test_targets) $(asan_test_targets)
 
 %.run_test: %.t
-	@./runtests-quiet.sh $<
+	@$(root)/test/runtests-quiet.sh $<
 
 runtests-parallel: $(run_test_targets)
 	@echo "All tests passed"

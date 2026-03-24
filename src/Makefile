@@ -1,4 +1,5 @@
-include ../Makefile.common
+root ?= ..
+include $(root)/Makefile.common
 
 prefix ?= /usr
 includedir ?= $(prefix)/include
@@ -8,8 +9,11 @@ libdevdir ?= $(prefix)/lib
 LIBURING_CFLAGS ?=
 CPPFLAGS ?=
 override CPPFLAGS += -D_GNU_SOURCE \
-	-Iinclude/ -include ../config-host.h \
+	-Iinclude/ -I$(root)/src/include/ \
+	-include ../config-host.h \
 	-D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64
+
+VPATH = $(root)/src
 CFLAGS ?= -O3 -Wall -Wextra -fno-stack-protector
 override CFLAGS += -Wno-unused-parameter \
 	-DLIBURING_INTERNAL \
@@ -32,7 +36,7 @@ all_targets += $(libname)
 all_targets += $(ffi_libname)
 endif
 
-include ../Makefile.quiet
+include $(root)/Makefile.quiet
 
 ifneq ($(MAKECMDGOALS),clean)
 include ../config-host.mak
@@ -95,20 +99,20 @@ liburing-ffi.a: $(liburing_objs) $(liburing_ffi_objs)
 	$(QUIET_AR)$(AR) r liburing-ffi.a $^
 	$(QUIET_RANLIB)$(RANLIB) liburing-ffi.a
 
-$(libname): $(liburing_sobjs) liburing.map
-	$(QUIET_CC)$(CC) $(SO_CFLAGS) -shared -Wl,--version-script=liburing.map -Wl,-soname=$(soname) -o $@ $(liburing_sobjs) $(LINK_FLAGS)
+$(libname): $(liburing_sobjs) $(root)/src/liburing.map
+	$(QUIET_CC)$(CC) $(SO_CFLAGS) -shared -Wl,--version-script=$(root)/src/liburing.map -Wl,-soname=$(soname) -o $@ $(liburing_sobjs) $(LINK_FLAGS)
 
-$(ffi_libname): $(liburing_ffi_objs) $(liburing_ffi_sobjs) $(liburing_sobjs) liburing-ffi.map
-	$(QUIET_CC)$(CC) $(SO_CFLAGS) -shared -Wl,--version-script=liburing-ffi.map -Wl,-soname=$(ffi_soname) -o $@ $(liburing_sobjs) $(liburing_ffi_sobjs) $(LINK_FLAGS)
+$(ffi_libname): $(liburing_ffi_objs) $(liburing_ffi_sobjs) $(liburing_sobjs) $(root)/src/liburing-ffi.map
+	$(QUIET_CC)$(CC) $(SO_CFLAGS) -shared -Wl,--version-script=$(root)/src/liburing-ffi.map -Wl,-soname=$(ffi_soname) -o $@ $(liburing_sobjs) $(liburing_ffi_sobjs) $(LINK_FLAGS)
 
 install: $(all_targets)
-	install -D -m 644 include/liburing/io_uring.h $(includedir)/liburing/io_uring.h
-	install -D -m 644 include/liburing.h $(includedir)/liburing.h
+	install -D -m 644 $(root)/src/include/liburing/io_uring.h $(includedir)/liburing/io_uring.h
+	install -D -m 644 $(root)/src/include/liburing.h $(includedir)/liburing.h
 	install -D -m 644 include/liburing/compat.h $(includedir)/liburing/compat.h
-	install -D -m 644 include/liburing/barrier.h $(includedir)/liburing/barrier.h
+	install -D -m 644 $(root)/src/include/liburing/barrier.h $(includedir)/liburing/barrier.h
 	install -D -m 644 include/liburing/io_uring_version.h $(includedir)/liburing/io_uring_version.h
-	install -D -m 644 include/liburing/io_uring/query.h $(includedir)/liburing/io_uring/query.h
-	install -D -m 644 include/liburing/io_uring/bpf_filter.h $(includedir)/liburing/io_uring/bpf_filter.h
+	install -D -m 644 $(root)/src/include/liburing/io_uring/query.h $(includedir)/liburing/io_uring/query.h
+	install -D -m 644 $(root)/src/include/liburing/io_uring/bpf_filter.h $(includedir)/liburing/io_uring/bpf_filter.h
 	install -D -m 644 liburing.a $(libdevdir)/liburing.a
 	install -D -m 644 liburing-ffi.a $(libdevdir)/liburing-ffi.a
 ifeq ($(ENABLE_SHARED),1)

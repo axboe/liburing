@@ -1,14 +1,18 @@
+root ?= ..
+
 CPPFLAGS ?=
-override CPPFLAGS += -D_GNU_SOURCE -I../src/include/
+override CPPFLAGS += -D_GNU_SOURCE -I../src/include/ -I$(root)/src/include/
 CFLAGS ?= -g -O2 -Wall
 LDFLAGS ?=
 override LDFLAGS += -L../src/ -luring
 
-include ../Makefile.quiet
+include $(root)/Makefile.quiet
 
 ifneq ($(MAKECMDGOALS),clean)
 include ../config-host.mak
 endif
+
+VPATH = $(root)/examples
 
 LDFLAGS ?=
 override LDFLAGS += -L../src/ -luring -lpthread
