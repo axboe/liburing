@@ -247,6 +247,49 @@ jobs:
           ${{matrix.build_args.cxx}} -x c++ -o a.out $TEST_FILE -luring $SANITIZE_FLAGS;
 
 
+  out-of-source-build:
+    needs: get_commit_list
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        commit: ${{ fromJson(needs.get_commit_list.outputs.commit_list) }}
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Checkout commit
+        run: |
+          git checkout ${{ matrix.commit }};
+
+      - name: Out-of-source build
+        run: |
+          mkdir build && cd build;
+          ../configure;
+          make -j$(nproc) V=1;
+
+      - name: Test install from out-of-source build
+        run: |
+          cd build;
+          sudo make install;
+
+      - name: Test build against the installed liburing
+        run: |
+          gcc -x c -o a.out .github/workflows/test_build.c -luring;
+          gcc -x c++ -o a.out .github/workflows/test_build.c -luring;
+
+      - name: Verify source tree is clean
+        run: |
+          dirty=$(git ls-files --others --exclude-standard --ignored -- ':!build');
+          if [ -n "$dirty" ]; then
+            echo "Out-of-source build leaked into source tree:";
+            echo "$dirty";
+            exit 1;
+          fi
+
+
   alpine-musl-build:
     needs: get_commit_list
     runs-on: ubuntu-24.04
