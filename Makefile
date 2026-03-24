@@ -1,4 +1,7 @@
-include Makefile.common
+root ?= .
+include $(root)/Makefile.common
+
+VPATH = $(root)
 
 RPMBUILD=$(shell `which rpmbuild >&/dev/null` && echo "rpmbuild" || echo "rpm")
 
@@ -24,10 +27,10 @@ runtests-loop: all
 runtests-parallel: all
 	@$(MAKE) -C test runtests-parallel
 
-config-host.mak: configure
+config-host.mak: $(root)/configure
 	+@if [ ! -e "$@" ]; then				\
 	  echo "Running configure ...";				\
-	  ./configure;						\
+	  $(root)/configure;				\
 	else							\
 	  echo "$@ is out-of-date, running configure";		\
 	  sed -n "/.*Configured with/s/[^:]*: //p" "$@" | sh;	\
@@ -54,11 +57,11 @@ install: $(NAME).pc $(NAME)-ffi.pc
 	$(INSTALL) -D -m 644 $(NAME).pc $(DESTDIR)$(libdevdir)/pkgconfig/$(NAME).pc
 	$(INSTALL) -D -m 644 $(NAME)-ffi.pc $(DESTDIR)$(libdevdir)/pkgconfig/$(NAME)-ffi.pc
 	$(INSTALL) -m 755 -d $(DESTDIR)$(mandir)/man2
-	$(INSTALL) -m 644 man/*.2 $(DESTDIR)$(mandir)/man2
+	$(INSTALL) -m 644 $(root)/man/*.2 $(DESTDIR)$(mandir)/man2
 	$(INSTALL) -m 755 -d $(DESTDIR)$(mandir)/man3
-	$(INSTALL) -m 644 man/*.3 $(DESTDIR)$(mandir)/man3
+	$(INSTALL) -m 644 $(root)/man/*.3 $(DESTDIR)$(mandir)/man3
 	$(INSTALL) -m 755 -d $(DESTDIR)$(mandir)/man7
-	$(INSTALL) -m 644 man/*.7 $(DESTDIR)$(mandir)/man7
+	$(INSTALL) -m 644 $(root)/man/*.7 $(DESTDIR)$(mandir)/man7
 
 uninstall:
 	@$(MAKE) -C src uninstall prefix=$(DESTDIR)$(prefix) datadir=$(DESTDIR)$(datadir)
