@@ -532,3 +532,8 @@ int io_uring_register_bpf_filter_task(struct io_uring_bpf *bpf)
 {
 	return __sys_io_uring_register(-1, IORING_REGISTER_BPF_FILTER, bpf, 1);
 }
+
+int io_uring_register_query(struct io_uring_query_hdr *query)
+{
+	return __sys_io_uring_register(-1, IORING_REGISTER_QUERY, query, 0);
+}
