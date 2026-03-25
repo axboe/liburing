@@ -273,4 +273,6 @@ LIBURING_2.15 {
 		io_uring_cqe_iter_next;
 		__io_uring_peek_cqe;
 		io_uring_register_zcrx_ctrl;
+		io_uring_register_query;
+		io_uring_register_query_task;
 } LIBURING_2.14;

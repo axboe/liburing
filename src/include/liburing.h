@@ -365,6 +365,10 @@ int io_uring_register_bpf_filter(struct io_uring *ring,
 int io_uring_register_bpf_filter_task(struct io_uring_bpf *bpf)
 				 LIBURING_NOEXCEPT;
 
+int io_uring_register_query(struct io_uring *ring, struct io_uring_query_hdr *query)
+	LIBURING_NOEXCEPT;
+int io_uring_register_query_task(struct io_uring_query_hdr *query) LIBURING_NOEXCEPT;
+
 int io_uring_get_events(struct io_uring *ring) LIBURING_NOEXCEPT;
 int io_uring_submit_and_get_events(struct io_uring *ring) LIBURING_NOEXCEPT;
 
