@@ -354,6 +354,8 @@ int io_uring_unregister_napi(struct io_uring *ring, struct io_uring_napi *napi)
 	LIBURING_NOEXCEPT;
 int io_uring_register_ifq(struct io_uring *ring,
 			  struct io_uring_zcrx_ifq_reg *reg) LIBURING_NOEXCEPT;
+int io_uring_register_zcrx_ctrl(struct io_uring *ring, struct zcrx_ctrl *ctrl)
+	LIBURING_NOEXCEPT;
 
 int io_uring_register_clock(struct io_uring *ring,
 			    struct io_uring_clock_register *arg)

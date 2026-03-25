@@ -449,6 +449,11 @@ int io_uring_register_ifq(struct io_uring *ring,
 	return do_register(ring, IORING_REGISTER_ZCRX_IFQ, reg, 1);
 }
 
+int io_uring_register_zcrx_ctrl(struct io_uring *ring, struct zcrx_ctrl *ctrl)
+{
+	return do_register(ring, IORING_REGISTER_ZCRX_CTRL, ctrl, 0);
+}
+
 int io_uring_resize_rings(struct io_uring *ring, struct io_uring_params *p)
 {
 	unsigned sq_head, sq_tail;
