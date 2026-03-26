@@ -1,0 +1,84 @@
+.\" Copyright (C) 2026 Yitang Yang <yi1tang.yang@gmail.com>
+.\"
+.\" SPDX-License-Identifier: LGPL-2.0-or-later
+.\"
+.TH io_uring_register_zcrx_ctrl 3 "March 26, 2026" "liburing-2.15" "liburing Manual"
+.SH NAME
+io_uring_register_zcrx_ctrl \- perform control operations on a zero-copy receive context
+.SH SYNOPSIS
+.nf
+.B #include <liburing.h>
+.PP
+.BI "int io_uring_register_zcrx_ctrl(struct io_uring *" ring ","
+.BI "                                struct zcrx_ctrl *" ctrl ");"
+.fi
+.SH DESCRIPTION
+.PP
+The
+.BR io_uring_register_zcrx_ctrl (3)
+function performs control operations on a previously registered zero-copy
+receive context. This function allows managing zero-copy receive contexts
+that were previously registered with
+.BR io_uring_register_ifq (3).
+
+The
+.I ctrl
+argument must point to a
+.I struct zcrx_ctrl
+structure that describes the control operation to perform:
+
+.PP
+.in +4n
+.EX
+struct zcrx_ctrl {
+    __u32 zcrx_id;
+    __u32 op;
+    __u64 __resv[2];
+    union {
+        struct zcrx_ctrl_export     zc_export;
+        struct zcrx_ctrl_flush_rq   zc_flush;
+    };
+};
+.EE
+.in
+.PP
+
+The
+.I zcrx_id
+field must be set to the ID of the zero-copy receive context returned from
+.BR io_uring_register_ifq (3).
+The
+.I op
+field specifies the control operation to perform and can be one of:
+
+.TP
+.B ZCRX_CTRL_FLUSH_RQ
+Flushes pending buffers from the refill queue. Uses the
+.I zc_flush
+member of the union.
+
+.TP
+.B ZCRX_CTRL_EXPORT
+Exports the zero-copy receive context for use by other rings. Uses the
+.I zc_export
+member of the union. Upon successful export, the
+.I zcrx_fd
+field in
+.I zc_export
+will contain the file descriptor that can be used to share this context
+with other io_uring instances.
+
+.PP
+The reserved
+.I __resv
+fields must be cleared to zero.
+
+.SH RETURN VALUE
+Returns 0 on success. On error, a negative errno value is returned.
+
+.SH NOTES
+This function is available since Linux kernel 6.15.
+
+.SH SEE ALSO
+.BR io_uring_register (2),
+.BR io_uring_register_ifq (3)
