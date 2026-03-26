@@ -118,6 +118,20 @@ and
 return 0 on success and
 .BR -errno
 on failure.
+A return value of
+.BR -ENOMEM
+indicates there is not enough locked memory available to hold the specified
+number of entries.
+Reduce the number of entries, or call
+.BR setrlimit (2)
+to increase the maximum number of bytes of memory that may be locked into RAM.
+Be aware that calling
+.BR io_uring_queue_init (3)
+and
+.BR io_uring_queue_exit (3)
+in a loop will temporarily lock a lot of memory, because
+.BR io_uring_queue_exit (3)
+does some of its accounting asynchronously.
 
 .BR io_uring_queue_init_mem (3)
 returns the number of bytes used from the provided buffer on success, and
