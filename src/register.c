@@ -449,6 +449,11 @@ int io_uring_register_ifq(struct io_uring *ring,
 	return do_register(ring, IORING_REGISTER_ZCRX_IFQ, reg, 1);
 }
 
+int io_uring_register_zcrx_ctrl(struct io_uring *ring, struct zcrx_ctrl *ctrl)
+{
+	return do_register(ring, IORING_REGISTER_ZCRX_CTRL, ctrl, 0);
+}
+
 int io_uring_resize_rings(struct io_uring *ring, struct io_uring_params *p)
 {
 	unsigned sq_head, sq_tail;
@@ -525,4 +530,14 @@ int io_uring_register_bpf_filter(struct io_uring *ring,
 int io_uring_register_bpf_filter_task(struct io_uring_bpf *bpf)
 {
 	return __sys_io_uring_register(-1, IORING_REGISTER_BPF_FILTER, bpf, 1);
+}
+
+int io_uring_register_query(struct io_uring *ring, struct io_uring_query_hdr *query)
+{
+	return do_register(ring, IORING_REGISTER_QUERY, query, 0);
+}
+
+int io_uring_register_query_task(struct io_uring_query_hdr *query)
+{
+	return __sys_io_uring_register(-1, IORING_REGISTER_QUERY, query, 0);
 }
