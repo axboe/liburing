@@ -18,6 +18,10 @@ io_uring_queue_exit \- tear down io_uring submission and completion queues
 will release all resources acquired and initialized by
 .BR io_uring_queue_init (3).
 It first unmaps the memory shared between the application and the kernel and then closes the io_uring file descriptor.
+
+Some accounting is done asynchronously, so memory locked by
+.BR io_uring_queue_init (3)
+may remain locked for a few milliseconds after this function returns.
 .SH RETURN VALUE
 None
 .SH SEE ALSO
