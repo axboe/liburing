@@ -493,8 +493,9 @@ out:
 	return ret;
 }
 
-int io_uring_register_wait_reg(struct io_uring *ring,
-			       struct io_uring_reg_wait *reg, int nr)
+int io_uring_register_wait_reg(struct io_uring __maybe_unused *ring,
+			       struct io_uring_reg_wait __maybe_unused *reg,
+			       int __maybe_unused nr)
 {
 	return -EINVAL;
 }
