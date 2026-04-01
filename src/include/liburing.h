@@ -1195,9 +1195,17 @@ IOURINGINLINE struct io_uring_recvmsg_out *
 io_uring_recvmsg_validate(void *buf, int buf_len, struct msghdr *msgh)
 	LIBURING_NOEXCEPT
 {
-	unsigned long header = msgh->msg_controllen + msgh->msg_namelen +
-				sizeof(struct io_uring_recvmsg_out);
-	if (buf_len < 0 || (unsigned long)buf_len < header)
+	unsigned long ulen = (unsigned long)(unsigned int)buf_len;
+	unsigned long hdr  = sizeof(struct io_uring_recvmsg_out);
+	unsigned long namelen    = msgh->msg_namelen;
+	unsigned long controllen = msgh->msg_controllen;
+
+	if (buf_len < 0 || ulen < hdr)
+		return NULL;
+	/* check each addition separately to avoid integer overflow */
+	if (namelen > ulen - hdr)
+		return NULL;
+	if (controllen > ulen - hdr - namelen)
 		return NULL;
 	return (struct io_uring_recvmsg_out *)buf;
 }
@@ -1257,8 +1265,12 @@ io_uring_recvmsg_payload_length(struct io_uring_recvmsg_out *o,
 {
 	unsigned long payload_start, payload_end;
 
+	if (buf_len < 0)
+		return 0;
 	payload_start = (unsigned long) io_uring_recvmsg_payload(o, msgh);
 	payload_end = (unsigned long) o + buf_len;
+	if (payload_start >= payload_end)
+		return 0;
 	return (unsigned int) (payload_end - payload_start);
 }
 
