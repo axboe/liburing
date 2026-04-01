@@ -334,7 +334,7 @@ int io_uring_close_ring_fd(struct io_uring *ring)
 
 int io_uring_register_buf_ring(struct io_uring *ring,
 			       struct io_uring_buf_reg *reg,
-			       unsigned int __maybe_unused flags)
+			       unsigned int flags)
 {
 	reg->flags |= flags;
 	return do_register(ring, IORING_REGISTER_PBUF_RING, reg, 1);
