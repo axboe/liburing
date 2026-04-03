@@ -1,0 +1,130 @@
+.\" Copyright (C) 2026 Yitang Yang <yi1tang.yang@gmail.com>
+.\"
+.\" SPDX-License-Identifier: LGPL-2.0-or-later
+.\"
+.TH io_uring_register_query 3 "March 26, 2026" "liburing-2.15" "liburing Manual"
+.SH NAME
+io_uring_register_query \- query io_uring capabilities and feature support
+.SH SYNOPSIS
+.nf
+.B #include <liburing.h>
+.PP
+.BI "int io_uring_register_query(struct io_uring *" ring ","
+.BI "                            struct io_uring_query_hdr *" query ");"
+.PP
+.BI "int io_uring_register_query_task(struct io_uring_query_hdr *" query ");"
+.fi
+.SH DESCRIPTION
+.PP
+The
+.BR io_uring_register_query (3)
+function queries io_uring capabilities and feature support for the ring
+specified by
+.IR ring .
+It provides information about supported opcodes, flags, and subsystem-specific
+capabilities.
+
+The
+.BR io_uring_register_query_task (3)
+variant does not require an io_uring ring and can be called without one. This
+is useful for querying capabilities before creating a ring.
+
+The
+.I query
+argument must point to a
+.I struct io_uring_query_hdr
+structure that describes the query to perform:
+
+.PP
+.in +4n
+.EX
+struct io_uring_query_hdr {
+    __u64 next_entry;
+    __u64 query_data;
+    __u32 query_op;
+    __u32 size;
+    __s32 result;
+    __u32 __resv[3];
+};
+.EE
+.in
+.PP
+
+The
+.I next_entry
+field can be used to chain multiple queries together. It should point to the
+next
+.I struct io_uring_query_hdr
+structure, or be set to 0 for the last entry in the chain.
+
+The
+.I query_data
+field must point to a data structure appropriate for the query type specified in
+.IR query_op .
+
+The
+.I query_op
+field specifies the type of query to perform and can be one of:
+
+.TP
+.B IO_URING_QUERY_OPCODES
+Returns information about supported opcodes and flags. The
+.I query_data
+field must point to a
+.I struct io_uring_query_opcode
+structure, which will be filled with information about supported request
+opcodes, register opcodes, feature flags, setup flags, enter flags, and SQE
+flags.
+
+.TP
+.B IO_URING_QUERY_ZCRX
+Returns information about zero-copy receive support. The
+.I query_data
+field must point to a
+.I struct io_uring_query_zcrx
+structure, which will be filled with information about supported zero-copy
+receive flags, features, and configuration details.
+
+.TP
+.B IO_URING_QUERY_SCQ
+Returns information about the SQ/CQ ring layout. The
+.I query_data
+field must point to a
+.I struct io_uring_query_scq
+structure, which will be filled with information about ring header size and
+alignment requirements.
+
+.PP
+The
+.I size
+field should be set to the size of the data structure pointed to by
+.IR query_data .
+
+Upon return, the
+.I result
+field will contain 0 on success, or a negative error code on failure.
+
+The reserved
+.I __resv
+fields must be cleared to zero.
+
+.SH RETURN VALUE
+Returns 0 on success. On error, a negative errno value is returned.
+
+.SH NOTES
+This function is available since Linux kernel 6.15.
+
+The
+.BR io_uring_register_query_task (3)
+variant is particularly useful for capability detection before ring creation,
+allowing applications to check for feature support without the overhead of
+creating an io_uring instance.
+
+Multiple queries can be efficiently performed in a single system call by
+chaining them together using the
+.I next_entry
+field.
+
+.SH SEE ALSO
+.BR io_uring_register (2),
+.BR io_uring_setup (2)
