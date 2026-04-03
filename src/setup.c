@@ -7,6 +7,8 @@
 #include "int_flags.h"
 #include "setup.h"
 #include "liburing/io_uring.h"
+#include <limits.h>
+#include <stdint.h>
 #include <stdio.h>
 
 #define KERN_MAX_ENTRIES	32768
@@ -97,24 +99,96 @@ void io_uring_setup_ring_pointers(struct io_uring_params *p,
 
 static size_t params_sqes_size(const struct io_uring_params *p, unsigned sqes)
 {
-	sqes <<= io_uring_sqe_shift_from_flags(p->flags);
-	return sqes * sizeof(struct io_uring_sqe);
+	size_t entries = sqes;
+
+	entries <<= io_uring_sqe_shift_from_flags(p->flags);
+	return entries * sizeof(struct io_uring_sqe);
 }
 
 static size_t params_cq_size(const struct io_uring_params *p, unsigned cqes)
 {
-	cqes <<= io_uring_cqe_shift_from_flags(p->flags);
-	return cqes * sizeof(struct io_uring_cqe);
+	size_t entries = cqes;
+
+	entries <<= io_uring_cqe_shift_from_flags(p->flags);
+	return entries * sizeof(struct io_uring_cqe);
+}
+
+static int params_sqes_size_checked(const struct io_uring_params *p,
+				    unsigned sqes, size_t *sqes_sz)
+{
+	size_t entries = sqes;
+	unsigned shift = io_uring_sqe_shift_from_flags(p->flags);
+
+	/*
+	 * Reject wrapped size arithmetic up front. If this overflows and we keep
+	 * going, mmap() can receive an undersized length while later ring math is
+	 * based on the untrusted logical entry count, creating a size mismatch.
+	 */
+
+	if (shift >= sizeof(entries) * 8)
+		return -EINVAL;
+	if (entries > (SIZE_MAX >> shift))
+		return -EINVAL;
+
+	entries <<= shift;
+	if (entries > SIZE_MAX / sizeof(struct io_uring_sqe))
+		return -EINVAL;
+
+	*sqes_sz = entries * sizeof(struct io_uring_sqe);
+	return 0;
+}
+
+static int params_cq_size_checked(const struct io_uring_params *p,
+				  unsigned cqes, size_t *cqes_sz)
+{
+	size_t entries = cqes;
+	unsigned shift = io_uring_cqe_shift_from_flags(p->flags);
+
+	/* Same overflow hardening rationale as params_sqes_size_checked(). */
+
+	if (shift >= sizeof(entries) * 8)
+		return -EINVAL;
+	if (entries > (SIZE_MAX >> shift))
+		return -EINVAL;
+
+	entries <<= shift;
+	if (entries > SIZE_MAX / sizeof(struct io_uring_cqe))
+		return -EINVAL;
+
+	*cqes_sz = entries * sizeof(struct io_uring_cqe);
+	return 0;
 }
 
 int io_uring_mmap(int fd, struct io_uring_params *p, struct io_uring_sq *sq,
 		  struct io_uring_cq *cq)
 {
-	size_t sqes_sz;
+	size_t sq_array_sz, cqes_sz, sqes_sz;
 	int ret;
 
-	sq->ring_sz = p->sq_off.array + p->sq_entries * sizeof(unsigned);
-	cq->ring_sz = p->cq_off.cqes + params_cq_size(p, p->cq_entries);
+	ret = params_cq_size_checked(p, p->cq_entries, &cqes_sz);
+	if (ret)
+		return ret;
+
+	ret = params_sqes_size_checked(p, p->sq_entries, &sqes_sz);
+	if (ret)
+		return ret;
+
+	/* Prevent truncation into sq->sqes_sz (unsigned), which would desync sizes. */
+	if (sqes_sz > UINT_MAX)
+		return -EINVAL;
+
+	/* Keep -EINVAL for invalid or overflowed userspace-supplied sizing. */
+	if (__builtin_mul_overflow((size_t) p->sq_entries, sizeof(unsigned),
+				   &sq_array_sz))
+		return -EINVAL;
+	if (__builtin_add_overflow((size_t) p->sq_off.array, sq_array_sz,
+				   &sq->ring_sz))
+		return -EINVAL;
+	if (__builtin_add_overflow((size_t) p->cq_off.cqes, cqes_sz,
+				   &cq->ring_sz))
+		return -EINVAL;
+
+	sq->sqes_sz = (unsigned int) sqes_sz;
 
 	if (p->features & IORING_FEAT_SINGLE_MMAP) {
 		if (cq->ring_sz > sq->ring_sz)
@@ -138,13 +212,6 @@ int io_uring_mmap(int fd, struct io_uring_params *p, struct io_uring_sq *sq,
 			cq->ring_ptr = NULL;
 			goto err;
 		}
-	}
-
-	sqes_sz = params_sqes_size(p, p->sq_entries);
-	sq->sqes_sz = (unsigned int) sqes_sz;
-	if (sq->sqes_sz != sqes_sz) {
-		ret = -EINVAL;
-		goto err;
 	}
 
 	sq->sqes = __sys_mmap(0, sq->sqes_sz,

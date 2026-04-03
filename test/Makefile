@@ -167,6 +167,7 @@ test_srcs := \
 	min-timeout.c \
 	min-timeout-wait.c \
 	mkdir.c \
+	mmap-size-overflow.c \
 	mock_file.c \
 	msg-ring.c \
 	msg-ring-fd.c \
