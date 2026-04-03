@@ -69,11 +69,14 @@ static int setup_ring_ops(struct io_uring *ring)
 	return T_EXIT_PASS;
 }
 
-int main()
+int main(int argc, char *argv[])
 {
 	struct io_uring ring;
 	unsigned left;
 	int ret;
+
+	if (argc > 1)
+		return T_EXIT_SKIP;
 
 	ret = setup_ring_ops(&ring);
 	if (ret != T_EXIT_PASS)
