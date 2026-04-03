@@ -88,7 +88,7 @@ int main(int argc, char *argv[])
 	int ret;
 
 	if (argc != 3)
-		return 0;
+		return T_EXIT_SKIP;
 
 	in_fname = argv[1];
 	out_fname = argv[2];
