@@ -356,8 +356,6 @@ static void process_accept(struct io_uring *ring, struct io_uring_cqe *cqe)
 	conn = aligned_alloc(64, sizeof(*conn));
 	if (!conn)
 		t_error(1, 0, "can't allocate conn structure");
-	if (conn->sockfd)
-		t_error(1, 0, "Unexpected second connection");
 
 	memset(conn, 0, sizeof(*conn));
 	conn->sockfd = cqe->res;
