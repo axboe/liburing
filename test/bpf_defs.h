@@ -14,11 +14,6 @@ struct iou_loop_params {
 	__u32 cq_wait_idx;
 };
 
-struct io_uring {
-	__u32 head;
-	__u32 tail;
-};
-
 enum {
 	IOU_REGION_MEM = 0,
 	IOU_REGION_CQ = 1,

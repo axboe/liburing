@@ -9,8 +9,8 @@ enum {
 	REQ_TOKEN_WRITE
 };
 
-const volatile unsigned cq_hdr_offset;
-const volatile unsigned sq_hdr_offset;
+const volatile unsigned cq_tail_offset;
+const volatile unsigned cq_head_offset;
 const volatile unsigned cqes_offset;
 const volatile unsigned sq_entries;
 const volatile unsigned cq_entries;
@@ -68,7 +68,7 @@ int BPF_PROG(cp_loop_step, struct io_ring_ctx *ring, struct iou_loop_params *ls)
 {
 	struct io_uring_sqe *sqes;
 	struct io_uring_cqe *cqes;
-	struct io_uring *cq_hdr;
+	__u32 *cq_tail, *cq_head;
 	void *rings;
 	int ret;
 
@@ -78,7 +78,8 @@ int BPF_PROG(cp_loop_step, struct io_ring_ctx *ring, struct iou_loop_params *ls)
 				cqes_offset + cq_entries * sizeof(struct io_uring_cqe));
 	if (!rings || !sqes)
 		return IOU_LOOP_STOP;
-	cq_hdr = rings + cq_hdr_offset;
+	cq_tail = rings + cq_tail_offset;
+	cq_head = rings + cq_head_offset;
 	cqes = rings + cqes_offset;
 
 	if (!nr_infligt) {
@@ -89,15 +90,15 @@ int BPF_PROG(cp_loop_step, struct io_ring_ctx *ring, struct iou_loop_params *ls)
 			return IOU_LOOP_STOP;
 	}
 
-	if (cq_hdr->tail != cq_hdr->head) {
+	if (*cq_tail != *cq_head) {
 		struct io_uring_cqe *cqe;
 
-		if (cq_hdr->tail - cq_hdr->head != 1) {
+		if (*cq_tail - *cq_head != 1) {
 			cp_result = -ERANGE;
 			return IOU_LOOP_STOP;
 		}
 
-		cqe = &cqes[cq_hdr->head & (cq_entries - 1)];
+		cqe = &cqes[*cq_head & (cq_entries - 1)];
 		if (cqe->res < 0) {
 			cp_result = cqe->res;
 			return IOU_LOOP_STOP;
@@ -127,10 +128,10 @@ int BPF_PROG(cp_loop_step, struct io_ring_ctx *ring, struct iou_loop_params *ls)
 			return IOU_LOOP_STOP;
 		};
 
-		cq_hdr->head++;
+		*cq_head += 1;
 	}
 
-	ls->cq_wait_idx = cq_hdr->head + 1;
+	ls->cq_wait_idx = *cq_head + 1;
 	return IOU_LOOP_CONTINUE;
 }
 

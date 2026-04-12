@@ -7,8 +7,8 @@ char LICENSE[] SEC("license") = "Dual BSD/GPL";
 #define REQ_TOKEN 0xabba1741
 
 const unsigned max_inflight = 8;
-const volatile unsigned cq_hdr_offset;
-const volatile unsigned sq_hdr_offset;
+const volatile unsigned cq_tail_offset;
+const volatile unsigned cq_head_offset;
 const volatile unsigned cqes_offset;
 const volatile unsigned cq_entries;
 const volatile unsigned sq_entries;
@@ -35,7 +35,7 @@ int BPF_PROG(nops_loop_step, struct io_ring_ctx *ring, struct iou_loop_params *l
 {
 	struct io_uring_sqe *sqes;
 	struct io_uring_cqe *cqes;
-	struct io_uring *cq_hdr;
+	__u32 *cq_tail, *cq_head;
 	unsigned to_submit;
 	unsigned to_wait;
 	unsigned nr_cqes;
@@ -48,7 +48,8 @@ int BPF_PROG(nops_loop_step, struct io_ring_ctx *ring, struct iou_loop_params *l
 				cqes_offset + cq_entries * sizeof(struct io_uring_cqe));
 	if (!rings || !sqes)
 		return IOU_LOOP_STOP;
-	cq_hdr = rings + cq_hdr_offset;
+	cq_tail = rings + cq_tail_offset;
+	cq_head = rings + cq_head_offset;
 	cqes = rings + cqes_offset;
 
 	to_submit = nr_to_submit();
@@ -67,14 +68,14 @@ int BPF_PROG(nops_loop_step, struct io_ring_ctx *ring, struct iou_loop_params *l
 		reqs_inflight += to_submit;
 	}
 
-	nr_cqes = cq_hdr->tail - cq_hdr->head;
+	nr_cqes = *cq_tail - *cq_head;
 	nr_cqes = t_min(nr_cqes, max_inflight);
 	for (i = 0; i < nr_cqes; i++) {
-		struct io_uring_cqe *cqe = &cqes[cq_hdr->head & (cq_entries - 1)];
+		struct io_uring_cqe *cqe = &cqes[*cq_head & (cq_entries - 1)];
 
 		if (cqe->user_data != REQ_TOKEN)
 			return IOU_LOOP_STOP;
-		cq_hdr->head++;
+		*cq_head += 1;
 	}
 
 	reqs_inflight -= nr_cqes;
@@ -85,9 +86,9 @@ int BPF_PROG(nops_loop_step, struct io_ring_ctx *ring, struct iou_loop_params *l
 
 	to_wait = reqs_inflight;
 	/* Don't sleep if there are still CQEs left */
-	if (cq_hdr->tail != cq_hdr->head)
+	if (*cq_tail != *cq_head)
 		to_wait = 0;
-	ls->cq_wait_idx = cq_hdr->head + to_wait;
+	ls->cq_wait_idx = *cq_head + to_wait;
 	return IOU_LOOP_CONTINUE;
 }
 
