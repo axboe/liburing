@@ -431,7 +431,7 @@ static int __prep_server(struct t_executor *ctx, unsigned config_flags)
 	}
 
 	default_reg(&ctx->reg, config_flags);
-	rqp = (char *)ctx->reg.rq_region.user_addr;
+	rqp = (char *)(uintptr_t)ctx->reg.rq_region.user_addr;
 	memset(rqp, 0, get_rq_size(0));
 
 	ret = io_uring_register_ifq(&ctx->ring, zcrx_reg);
@@ -560,7 +560,7 @@ static int transfer_bytes(struct t_executor *ctx, size_t length,
 		} else {
 			const struct io_uring_zcrx_cqe *rcqe = (void *)(cqe + 1);
 			__u64 mask = (1ULL << IORING_ZCRX_AREA_SHIFT) - 1;
-			char *data = (char *)ctx->reg.area.addr + (rcqe->off & mask);
+			char *data = (char *)(uintptr_t)ctx->reg.area.addr + (rcqe->off & mask);
 
 			if (check_pattern(data, cqe->res, bytes_rx)) {
 				ret = -3;
