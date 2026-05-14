@@ -751,11 +751,11 @@ static int test_zcrx_invalid_clone(void)
 		return ret;
 	}
 	ctrl = (struct zcrx_ctrl) {
-		.zcrx_id = 0,
+		.zcrx_id = reg.zcrx.zcrx_id,
 		.op = ZCRX_CTRL_EXPORT,
 	};
-	box_fd = ctrl.zc_export.zcrx_fd;
 	ret = t_zcrx_ctrl(&r1, &ctrl);
+	box_fd = ctrl.zc_export.zcrx_fd;
 	if (ret < 0 || (int)box_fd < 0) {
 		fprintf(stderr, "Can'r export zcrx %i\n", ret);
 		return -1;
