@@ -895,6 +895,88 @@ static int test_recv(void)
 	return 0;
 }
 
+static int test_abnormal_exit(bool iowq, bool pin_zcrx)
+{
+	struct io_uring_sqe *sqe;
+	struct io_uring ring;
+	struct zcrx_reg reg;
+	char buf[16] = {};
+	char *refill_queue_ptr;
+	int ret, fds[2];
+	int box_fd = -1;
+
+	ret = t_create_ring(16, &ring, RING_FLAGS);
+	if (ret != T_SETUP_OK) {
+		fprintf(stderr, "ring create failed: %d\n", ret);
+		return -1;
+	}
+
+	default_reg(&reg, 0);
+	refill_queue_ptr = (char *)(uintptr_t)reg.rq_region.user_addr;
+	memset(refill_queue_ptr, 0, get_rq_size(0));
+
+	ret = io_uring_register_ifq(&ring, &reg.zcrx);
+	if (ret) {
+		fprintf(stderr, "Can't register zcrx %i\n", ret);
+		return ret;
+	}
+
+	ret = t_create_socket_pair(fds, true);
+	if (ret) {
+		fprintf(stderr, "t_create_socket_pair failed: %d\n", ret);
+		return ret;
+	}
+
+	if (pin_zcrx) {
+		struct zcrx_ctrl export_ctrl = {
+			.zcrx_id = reg.zcrx.zcrx_id,
+			.op = ZCRX_CTRL_EXPORT,
+		};
+
+		ret = t_zcrx_ctrl(&ring, &export_ctrl);
+		box_fd = export_ctrl.zc_export.zcrx_fd;
+		if (ret < 0) {
+			fprintf(stderr, "Export failed %i %i\n", ret, box_fd);
+			return ret;
+		}
+	}
+
+	if (!iowq) {
+		sqe = io_uring_get_sqe(&ring);
+		test_io_uring_prep_zcrx(sqe, fds[0], reg.zcrx.zcrx_id);
+		ret = io_uring_submit(&ring);
+		if (ret != 1)
+			t_error(1, ret, "zcrx submit fail\n");
+
+		/* try to queue a task_work for the rx request */
+		ret = send(fds[1], buf, sizeof(buf), 0);
+		if (ret <= 0)
+			t_error(1, ret, "Send failed\n");
+		/* unregister zcrx with inflight request */
+	} else {
+		ret = send(fds[1], buf, sizeof(buf), 0);
+		if (ret <= 0)
+			t_error(1, ret, "Send failed\n");
+
+		sqe = io_uring_get_sqe(&ring);
+		test_io_uring_prep_zcrx(sqe, fds[0], reg.zcrx.zcrx_id);
+		sqe->flags |= IOSQE_ASYNC;
+		ret = io_uring_submit(&ring);
+		if (ret != 1)
+			t_error(1, ret, "zcrx submit fail\n");
+		/* unregister zcrx while io-wq processes a request */
+	}
+
+	io_uring_queue_exit(&ring);
+	/* give it time to exit before shutting the socket */
+	usleep(300);
+	close(fds[0]);
+	close(fds[1]);
+	if (box_fd != -1)
+		close(box_fd);
+	return 0;
+}
+
 static int flush_invalid(struct t_executor *ctx, struct io_uring_zcrx_rqe *rqes,
 			 unsigned nr)
 {
@@ -1023,6 +1105,7 @@ static int test_area_ro(void)
 static int run_tests(void)
 {
 	int ret;
+	int i;
 
 	ret = test_register_basic();
 	if (ret == -EPERM) {
@@ -1116,6 +1199,19 @@ static int run_tests(void)
 	if (ret) {
 		fprintf(stderr, "test_recv() failed %i\n", ret);
 		return T_EXIT_FAIL;
+	}
+
+	for (i = 0; i < 4; i++) {
+		bool iowq = i & 1;
+		bool pin_zcrx = i & 2;
+
+		if (pin_zcrx && !(query.register_flags & ZCRX_REG_IMPORT))
+			continue;
+		ret = test_abnormal_exit(iowq, pin_zcrx);
+		if (ret) {
+			fprintf(stderr, "test_abnormal_exit(%i, %i) %i\n", iowq, pin_zcrx, ret);
+			return T_EXIT_FAIL;
+		}
 	}
 
 	return T_EXIT_PASS;
