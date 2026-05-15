@@ -266,7 +266,7 @@ int main(int argc, char *argv[])
 	while ((flag = getopt_long(argc, argv, ":lhs:bua:n:p:t:6d:", longopts, NULL)) != -1) {
 		switch (flag) {
 		case 'a':
-			strcpy(opt.addr, optarg);
+			snprintf(opt.addr, sizeof(opt.addr), "%s", optarg);
 			break;
 		case 'b':
 			opt.busy_loop = true;
@@ -282,7 +282,7 @@ int main(int argc, char *argv[])
 			opt.num_pings = atoi(optarg) + 1;
 			break;
 		case 'p':
-			strcpy(opt.port, optarg);
+			snprintf(opt.port, sizeof(opt.port), "%s", optarg);
 			break;
 		case 's':
 			opt.sq_poll = !!atoi(optarg);
