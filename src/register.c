@@ -471,9 +471,21 @@ int io_uring_resize_rings(struct io_uring *ring, struct io_uring_params *p)
 	memset(&ring->sq, 0, sizeof(ring->sq));
 	memset(&ring->cq, 0, sizeof(ring->cq));
 	ret = io_uring_mmap(ring->ring_fd, p, &ring->sq, &ring->cq);
-	if (ret)
+	if (ret) {
+		/*
+		 * The kernel has already committed to the new ring layout,
+		 * but we failed to mmap it. io_uring_mmap() cleaned up its
+		 * own partial mappings but may leave stale or error-encoded
+		 * pointers in sq/cq (e.g. ring_ptr = (void *)-ENOMEM).
+		 * Re-zero to scrub those so io_uring_queue_exit() won't
+		 * pass dangling pointers to munmap.  The ring is
+		 * unrecoverable — destroy it.
+		 */
+		memset(&ring->sq, 0, sizeof(ring->sq));
+		memset(&ring->cq, 0, sizeof(ring->cq));
+		io_uring_queue_exit(ring);
 		goto out;
-
+	}
 	ring->sq.sqe_head = sq_head;
 	ring->sq.sqe_tail = sq_tail;
 
