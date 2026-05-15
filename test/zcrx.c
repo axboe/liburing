@@ -27,6 +27,7 @@
 #define RQ_ENTRIES_SMALL	16
 #define AREA_SZ			(4096 * 132)
 #define HUGEPAGE_AREA_SZ	(16 << 20)
+
 #define T_ALIGN_UP(v, align) (((v) + (align) - 1) & ~((align) - 1))
 
 struct zcrx_reg {
@@ -49,11 +50,32 @@ static long page_size;
 static void *def_rq_mem;
 static void *def_area_mem;
 static void *def_hugepage_area_mem;
+static void *ro_param_mem;
+static size_t ro_param_mem_size;
 
 enum {
 	CONFIG_HUGEPAGE		= 1 << 0,
 	CONFIG_SMALL_RQ		= 1 << 1,
 };
+
+static void *write_ro_params(void *src, size_t bytes)
+{
+	int ret;
+
+	if (bytes > ro_param_mem_size)
+		t_error(0, 1, "write_to_ro: too large");
+	ret = mprotect(ro_param_mem, ro_param_mem_size, PROT_READ | PROT_WRITE);
+	if (ret)
+		t_error(0, errno, "mprotect failed");
+
+	memcpy(ro_param_mem, src, bytes);
+
+	ret = mprotect(ro_param_mem, ro_param_mem_size, PROT_READ);
+	if (ret)
+		t_error(0, errno, "mprotect read failed");
+
+	return ro_param_mem;
+}
 
 static struct io_uring_cqe *submit_and_wait_one(struct io_uring *ring)
 {
@@ -370,27 +392,17 @@ static int test_area(void)
 
 static int test_ro_params(void)
 {
-	size_t size = T_ALIGN_UP(sizeof (struct zcrx_reg), page_size);
-	struct zcrx_reg *reg;
-	void *mem;
+	struct zcrx_reg __reg, *reg;
 	int ret;
 
-	mem = mmap(NULL, size, PROT_READ | PROT_WRITE,
-			MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-	if (mem == MAP_FAILED)
-		t_error(0, 1, "Can't allocate buffer");
-
-	reg = mem;
-	default_reg(reg, 0);
-	mprotect(mem, size, PROT_READ);
+	default_reg(&__reg, 0);
+	reg = write_ro_params(&__reg, sizeof(__reg));
 
 	ret = try_register_zcrx(&reg->zcrx);
 	if (ret != -EFAULT) {
 		fprintf(stderr, "registered unaligned area ptr\n");
 		return ret;
 	}
-
-	munmap(mem, size);
 	return 0;
 }
 
@@ -698,7 +710,7 @@ static int test_zcrx_invalid_clone(void)
 {
 	struct io_uring_zcrx_ifq_reg import;
 	struct io_uring r1, r2;
-	struct zcrx_ctrl ctrl;
+	struct zcrx_ctrl ctrl, *pctrl;
 	struct zcrx_reg reg;
 	unsigned box_fd;
 	int ret;
@@ -750,6 +762,18 @@ static int test_zcrx_invalid_clone(void)
 		fprintf(stderr, "Can't register zcrx\n");
 		return ret;
 	}
+
+	ctrl = (struct zcrx_ctrl) {
+		.zcrx_id = reg.zcrx.zcrx_id,
+		.op = ZCRX_CTRL_EXPORT,
+	};
+	pctrl = write_ro_params(&ctrl, sizeof(ctrl));
+	ret = t_zcrx_ctrl(&r1, pctrl);
+	if (ret == 0) {
+		fprintf(stderr, "exported with ro params\n");
+		return ret;
+	}
+
 	ctrl = (struct zcrx_ctrl) {
 		.zcrx_id = reg.zcrx.zcrx_id,
 		.op = ZCRX_CTRL_EXPORT,
@@ -1249,6 +1273,14 @@ static void setup(void)
 	if (def_area_mem == MAP_FAILED)
 		t_error(1, 0, "mmap(): refill ring");
 	madvise(def_area_mem, AREA_SZ, MADV_NOHUGEPAGE);
+
+	ro_param_mem_size = T_ALIGN_UP(4096 * 2, page_size);
+	ro_param_mem = mmap(NULL, ro_param_mem_size, PROT_READ | PROT_WRITE,
+		    MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
+	if (ro_param_mem == MAP_FAILED) {
+		fprintf(stderr, "null ro\n");
+		t_error(0, 1, "read-only mmap setup failed");
+	}
 }
 
 int main(int argc, char *argv[])
