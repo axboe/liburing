@@ -143,4 +143,7 @@ LIBURING_2.15 {
 	global:
 		io_uring_register_bpf_filter;
 		io_uring_register_bpf_filter_task;
+		io_uring_register_zcrx_ctrl;
+		io_uring_register_query;
+		io_uring_register_query_task;
 } LIBURING_2.14;

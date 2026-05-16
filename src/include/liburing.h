@@ -354,6 +354,8 @@ int io_uring_unregister_napi(struct io_uring *ring, struct io_uring_napi *napi)
 	LIBURING_NOEXCEPT;
 int io_uring_register_ifq(struct io_uring *ring,
 			  struct io_uring_zcrx_ifq_reg *reg) LIBURING_NOEXCEPT;
+int io_uring_register_zcrx_ctrl(struct io_uring *ring, struct zcrx_ctrl *ctrl)
+	LIBURING_NOEXCEPT;
 
 int io_uring_register_clock(struct io_uring *ring,
 			    struct io_uring_clock_register *arg)
@@ -362,6 +364,10 @@ int io_uring_register_bpf_filter(struct io_uring *ring,
 				 struct io_uring_bpf *bpf) LIBURING_NOEXCEPT;
 int io_uring_register_bpf_filter_task(struct io_uring_bpf *bpf)
 				 LIBURING_NOEXCEPT;
+
+int io_uring_register_query(struct io_uring *ring, struct io_uring_query_hdr *query)
+	LIBURING_NOEXCEPT;
+int io_uring_register_query_task(struct io_uring_query_hdr *query) LIBURING_NOEXCEPT;
 
 int io_uring_get_events(struct io_uring *ring) LIBURING_NOEXCEPT;
 int io_uring_submit_and_get_events(struct io_uring *ring) LIBURING_NOEXCEPT;
