@@ -254,6 +254,7 @@ test_srcs := \
 	shutdown.c \
 	sigfd-deadlock.c \
 	single-issuer.c \
+	size-overflow.c \
 	skip-cqe.c \
 	socket.c \
 	socket-io-cmd.c \
