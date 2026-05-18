@@ -451,6 +451,8 @@ int io_uring_register_ifq(struct io_uring *ring,
 
 int io_uring_resize_rings(struct io_uring *ring, struct io_uring_params *p)
 {
+	struct io_uring_sq sq;
+	struct io_uring_cq cq;
 	unsigned sq_head, sq_tail;
 	int ret;
 
@@ -464,16 +466,19 @@ int io_uring_resize_rings(struct io_uring *ring, struct io_uring_params *p)
 	if (ret < 0)
 		goto out;
 
+	memset(&sq, 0, sizeof(sq));
+	memset(&cq, 0, sizeof(cq));
+	ret = io_uring_mmap(ring->ring_fd, p, &sq, &cq);
+	if (ret)
+		goto out;
+
 	sq_head = ring->sq.sqe_head;
 	sq_tail = ring->sq.sqe_tail;
 	__sys_munmap(ring->sq.sqes, ring->sq.sqes_sz);
 	io_uring_unmap_rings(&ring->sq, &ring->cq);
-	memset(&ring->sq, 0, sizeof(ring->sq));
-	memset(&ring->cq, 0, sizeof(ring->cq));
-	ret = io_uring_mmap(ring->ring_fd, p, &ring->sq, &ring->cq);
-	if (ret)
-		goto out;
 
+	ring->sq = sq;
+	ring->cq = cq;
 	ring->sq.sqe_head = sq_head;
 	ring->sq.sqe_tail = sq_tail;
 
