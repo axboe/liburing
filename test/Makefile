@@ -232,6 +232,7 @@ test_srcs := \
 	regbuf-merge.c \
 	register-restrictions.c \
 	rename.c \
+	resize-mmap-fail.c \
 	resize-rings.c \
 	ringbuf-loop.c \
 	ringbuf-read.c \
