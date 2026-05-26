@@ -101,10 +101,23 @@ static int _io_uring_get_cqe(struct io_uring *ring,
 		if (!need_enter)
 			break;
 		if (looped && data->has_ts) {
-			struct io_uring_getevents_arg *arg = data->arg;
+			/*
+			 * When IORING_ENTER_EXT_ARG_REG is set, data->arg
+			 * carries a register-wait offset (an integer), not a
+			 * pointer to io_uring_getevents_arg.  Dereferencing it
+			 * as a struct pointer causes a memory access violation.
+			 * For the registered-wait path the kernel enforces the
+			 * timeout, so treat any timeout the same as -ETIME here.
+			 */
+			if (data->get_flags & IORING_ENTER_EXT_ARG_REG) {
+				if (!cqe && !err)
+					err = -ETIME;
+			} else {
+				struct io_uring_getevents_arg *arg = data->arg;
 
-			if (!cqe && arg->ts && !err)
-				err = -ETIME;
+				if (!cqe && arg->ts && !err)
+					err = -ETIME;
+			}
 			break;
 		}
 
