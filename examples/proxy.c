@@ -1791,6 +1791,8 @@ static int handle_close(struct io_uring *ring, struct io_uring_cqe *cqe)
 		free_msgs(&c->cd[1]);
 		free(c->cd[0].rcv_bucket);
 		free(c->cd[0].snd_bucket);
+		free(c->cd[1].rcv_bucket);
+		free(c->cd[1].snd_bucket);
 	}
 
 	return 0;
