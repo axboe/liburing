@@ -36,12 +36,12 @@ struct ctx {
 
 static size_t buffer_size(struct ctx *ctx)
 {
-	return 1U << ctx->buf_shift;
+	return (size_t)1 << ctx->buf_shift;
 }
 
 static unsigned char *get_buffer(struct ctx *ctx, int idx)
 {
-	return ctx->buffer_base + (idx << ctx->buf_shift);
+	return ctx->buffer_base + ((size_t)idx << ctx->buf_shift);
 }
 
 static int setup_buffer_pool(struct ctx *ctx)
