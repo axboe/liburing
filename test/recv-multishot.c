@@ -533,6 +533,43 @@ static int test_recvmsg_validate(void)
 	return 0;
 }
 
+static int test_recvmsg_cmsg_nexthdr(void)
+{
+	struct io_uring_recvmsg_out *o;
+	unsigned char buf[256];
+	struct cmsghdr *cmsg;
+	struct msghdr msgh;
+
+	memset(buf, 0, sizeof(buf));
+	memset(&msgh, 0, sizeof(msgh));
+	o = (struct io_uring_recvmsg_out *)buf;
+	o->controllen = 128;
+	msgh.msg_namelen = 0;
+	msgh.msg_controllen = 128;
+
+	cmsg = io_uring_recvmsg_cmsg_firsthdr(o, &msgh);
+	if (!cmsg)
+		return -1;
+
+	/* cmsg_len whose CMSG_ALIGN() wraps must not loop in place or
+	 * return a wild pointer */
+	cmsg->cmsg_len = (size_t)-1;
+	if (io_uring_recvmsg_cmsg_nexthdr(o, &msgh, cmsg))
+		return -1;
+
+	/* a length past the remaining control space is rejected */
+	cmsg->cmsg_len = o->controllen + sizeof(struct cmsghdr);
+	if (io_uring_recvmsg_cmsg_nexthdr(o, &msgh, cmsg))
+		return -1;
+
+	/* a well-formed cmsg still yields an in-bounds next header */
+	cmsg->cmsg_len = sizeof(struct cmsghdr);
+	if (!io_uring_recvmsg_cmsg_nexthdr(o, &msgh, cmsg))
+		return -1;
+
+	return 0;
+}
+
 static int test_enobuf(void)
 {
 	struct io_uring ring;
@@ -626,6 +663,12 @@ int main(int argc, char *argv[])
 	ret = test_recvmsg_validate();
 	if (ret) {
 		fprintf(stderr, "test_recvmsg_validate() failed: %d\n", ret);
+		return T_EXIT_FAIL;
+	}
+
+	ret = test_recvmsg_cmsg_nexthdr();
+	if (ret) {
+		fprintf(stderr, "test_recvmsg_cmsg_nexthdr() failed: %d\n", ret);
 		return T_EXIT_FAIL;
 	}
 

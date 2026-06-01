@@ -1234,13 +1234,23 @@ io_uring_recvmsg_cmsg_nexthdr(struct io_uring_recvmsg_out *o, struct msghdr *msg
 	LIBURING_NOEXCEPT
 {
 	unsigned char *end;
+	unsigned long clen;
 
 	if (cmsg->cmsg_len < sizeof(struct cmsghdr))
 		return NULL;
 	end = (unsigned char *) io_uring_recvmsg_cmsg_firsthdr(o, msgh) +
 		o->controllen;
-	cmsg = (struct cmsghdr *)((unsigned char *) cmsg +
-			CMSG_ALIGN(cmsg->cmsg_len));
+	/*
+	 * Advance by the aligned length, but guard against cmsg_len being
+	 * large enough that CMSG_ALIGN() or the pointer addition wraps past
+	 * the end of the control buffer. Without this the bounds checks below
+	 * can be skipped and a wild cmsg pointer dereferenced.
+	 */
+	clen = CMSG_ALIGN(cmsg->cmsg_len);
+	if (clen < cmsg->cmsg_len ||
+	    clen > (unsigned long) (end - (unsigned char *) cmsg))
+		return NULL;
+	cmsg = (struct cmsghdr *)((unsigned char *) cmsg + clen);
 
 	if ((unsigned char *) (cmsg + 1) > end)
 		return NULL;
