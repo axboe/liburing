@@ -164,10 +164,13 @@ static void copy_file_wrapper(arguments_bundle *pbundle)
 	free(iov.iov_base);
 	close(pbundle->infd);
 	close(pbundle->outfd);
-	free(pbundle->pctx->stack_buf);
-	free(pbundle->pctx);
 	free(pbundle);
 
+	/*
+	 * stack_buf is the stack we're currently running on and pctx holds
+	 * the contexts swapcontext() is about to use, so they can't be freed
+	 * here. main() reclaims them once this coroutine is done.
+	 */
 	swapcontext(&pctx->ctx_fnew, &pctx->ctx_main);
 }
 
@@ -243,10 +246,17 @@ int main(int argc, char *argv[])
 		}
 
 		async_context *pctx = io_uring_cqe_get_data(cqe);
+		int prev_done = success + failure;
 
 		if (swapcontext(&pctx->ctx_main, &pctx->ctx_fnew)) {
 			perror("swapcontext");
 			return 1;
+		}
+
+		/* coroutine finished, its stack and context are now safe to free */
+		if (success + failure != prev_done) {
+			free(pctx->stack_buf);
+			free(pctx);
 		}
 	}
 
