@@ -43,8 +43,13 @@ request. See that man page for details on the arguments specified to this
 prep helper.
 
 The multishot version allows the application to issue a single receive request,
-which repeatedly posts a CQE when data is available. It requires length to
-be 0, the
+which repeatedly posts a CQE when data is available. Length can either be set
+to 0, in which case there are no limits on how much data a single invocation
+of the receive will transfer, or it can be set to a positive value. If the
+latter is the case, then each trigger invocation of the receive multishot will
+transfer at most length bytes. This can be useful if the ring is handling many
+receive multishot operations on different sockets, to ensure fairness between
+them, particularly when used with bundles. The
 .B IOSQE_BUFFER_SELECT
 flag to be set and no
 .B MSG_WAITALL
