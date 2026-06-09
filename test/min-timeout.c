@@ -140,13 +140,12 @@ static int test(int flags, int expected_ctx, int min_wait, int write_delay,
 
 	pthread_join(thread, &tret);
 
-	io_uring_queue_exit(&ring);
-
 	for (i = 0; i < NPIPES; i++) {
 		close(fds[i][0]);
 		close(fds[i][1]);
 	}
 
+	io_uring_queue_exit(&ring);
 	return T_EXIT_PASS;
 }
 
