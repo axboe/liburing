@@ -220,6 +220,13 @@ __cold int io_uring_ring_dontfork(struct io_uring *ring)
 	return 0;
 }
 
+#ifndef MAP_HUGE_SHIFT
+#define MAP_HUGE_SHIFT	26
+#endif
+#ifndef MAP_HUGE_2MB
+#define MAP_HUGE_2MB	(21U << MAP_HUGE_SHIFT)
+#endif
+
 /* FIXME */
 static size_t huge_page_size = 2 * 1024 * 1024;
 
@@ -273,7 +280,7 @@ static int io_uring_alloc_huge(unsigned entries, struct io_uring_params *p,
 			buf_size = page_size;
 		else {
 			buf_size = huge_page_size;
-			map_hugetlb = MAP_HUGETLB;
+			map_hugetlb = MAP_HUGETLB | MAP_HUGE_2MB;
 		}
 		sqes_size = buf_size;
 		ptr = __sys_mmap(NULL, sqes_size, PROT_READ|PROT_WRITE,
@@ -296,7 +303,7 @@ static int io_uring_alloc_huge(unsigned entries, struct io_uring_params *p,
 			buf_size = page_size;
 		else {
 			buf_size = huge_page_size;
-			map_hugetlb = MAP_HUGETLB;
+			map_hugetlb = MAP_HUGETLB | MAP_HUGE_2MB;
 		}
 		ptr = __sys_mmap(NULL, buf_size, PROT_READ|PROT_WRITE,
 					MAP_SHARED|MAP_ANONYMOUS|map_hugetlb,
