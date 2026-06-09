@@ -526,10 +526,14 @@ static size_t rings_size(struct io_uring_params *p, unsigned entries,
 	 * CQ ring size is number of pages that we need for the
 	 * struct io_uring_cqe entries, which may be 16b (default) or
 	 * 32b if the ring is setup with IORING_SETUP_CQE32. We also need
-	 * room for the head/tail parts.
+	 * room for the head/tail parts, and the SQ array which the kernel
+	 * places at the tail of the rings region, unless the ring is setup
+	 * with IORING_SETUP_NO_SQARRAY.
 	 */
 	cq_size = params_cq_size(p, cq_entries);
 	cq_size += KRING_SIZE;
+	if (!(p->flags & IORING_SETUP_NO_SQARRAY))
+		cq_size += entries * sizeof(unsigned);
 	cq_size = (cq_size + page_size - 1) & ~(page_size - 1);
 	pages = (size_t) cq_size / page_size;
 
