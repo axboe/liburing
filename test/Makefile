@@ -93,6 +93,7 @@ test_srcs := \
 	cq-full.c \
 	cq-overflow.c \
 	cq-peek-batch.c \
+	cq-peek-batch-mixed.c \
 	cq-ready.c \
 	cq-size.c \
 	d4ae271dfaae.c \
