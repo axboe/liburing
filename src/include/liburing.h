@@ -1881,11 +1881,13 @@ IOURINGINLINE int __io_uring_peek_cqe(struct io_uring *ring,
 	do {
 		unsigned tail = io_uring_smp_load_acquire(ring->cq.ktail);
 
-		/**
-		 * A load_acquire on the head prevents reordering with the
-		 * cqe load below, ensuring that we see the correct cq entry.
+		/*
+		 * The acquire ordering on the tail load pairs with the kernel
+		 * side publishing CQEs, and guarantees the contents of any
+		 * entry in [head, tail). The CQ head is only ever written by
+		 * the application, so a plain load is sufficient.
 		 */
-		unsigned head = io_uring_smp_load_acquire(ring->cq.khead);
+		unsigned head = *ring->cq.khead;
 
 		cqe = NULL;
 		available = tail - head;
