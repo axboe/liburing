@@ -44,6 +44,12 @@ static inline void sanitize_sqe_addr_and_add3(struct io_uring_sqe *sqe)
 	sanitize_sqe_addr(sqe);
 	sanitize_sqe_addr3(sqe);
 }
+static inline void sanitize_sqe_all_addrs(struct io_uring_sqe *sqe)
+{
+	sanitize_sqe_addr(sqe);
+	sanitize_sqe_addr2(sqe);
+	sanitize_sqe_addr3(sqe);
+}
 static inline void sanitize_sqe_nop(struct io_uring_sqe *sqe)
 {
 }
@@ -63,7 +69,7 @@ static const sanitize_sqe_handler sanitize_handlers[IORING_OP_LAST] = {
 	[IORING_OP_RECVMSG] = sanitize_sqe_addr,
 	[IORING_OP_TIMEOUT] = sanitize_sqe_addr,
 	[IORING_OP_TIMEOUT_REMOVE] = sanitize_sqe_nop,
-	[IORING_OP_ACCEPT] = sanitize_sqe_addr,
+	[IORING_OP_ACCEPT] = sanitize_sqe_addr_and_add2,
 	[IORING_OP_ASYNC_CANCEL] = sanitize_sqe_nop,
 	[IORING_OP_LINK_TIMEOUT] = sanitize_sqe_addr,
 	[IORING_OP_CONNECT] = sanitize_sqe_addr,
@@ -78,26 +84,26 @@ static const sanitize_sqe_handler sanitize_handlers[IORING_OP_LAST] = {
 	[IORING_OP_MADVISE] = sanitize_sqe_addr,
 	[IORING_OP_SEND] = sanitize_sqe_addr_and_add2,
 	[IORING_OP_RECV] = sanitize_sqe_addr,
-	[IORING_OP_OPENAT2] = sanitize_sqe_addr,
+	[IORING_OP_OPENAT2] = sanitize_sqe_addr_and_add2,
 	[IORING_OP_EPOLL_CTL] = sanitize_sqe_addr,
 	[IORING_OP_SPLICE] = sanitize_sqe_nop,
 	[IORING_OP_PROVIDE_BUFFERS] = sanitize_sqe_addr,
 	[IORING_OP_REMOVE_BUFFERS] = sanitize_sqe_addr,
 	[IORING_OP_TEE] = sanitize_sqe_nop,
 	[IORING_OP_SHUTDOWN] = sanitize_sqe_addr,
-	[IORING_OP_RENAMEAT] = sanitize_sqe_addr,
+	[IORING_OP_RENAMEAT] = sanitize_sqe_addr_and_add2,
 	[IORING_OP_UNLINKAT] = sanitize_sqe_addr,
 	[IORING_OP_MKDIRAT] = sanitize_sqe_addr,
-	[IORING_OP_SYMLINKAT] = sanitize_sqe_addr,
-	[IORING_OP_LINKAT] = sanitize_sqe_addr,
+	[IORING_OP_SYMLINKAT] = sanitize_sqe_addr_and_add2,
+	[IORING_OP_LINKAT] = sanitize_sqe_addr_and_add2,
 	[IORING_OP_MSG_RING] = sanitize_sqe_addr_and_add3,
-	[IORING_OP_FSETXATTR] = sanitize_sqe_addr,
-	[IORING_OP_SETXATTR] = sanitize_sqe_addr_and_add3,
-	[IORING_OP_FGETXATTR] = sanitize_sqe_addr,
-	[IORING_OP_GETXATTR] = sanitize_sqe_addr_and_add3,
+	[IORING_OP_FSETXATTR] = sanitize_sqe_addr_and_add2,
+	[IORING_OP_SETXATTR] = sanitize_sqe_all_addrs,
+	[IORING_OP_FGETXATTR] = sanitize_sqe_addr_and_add2,
+	[IORING_OP_GETXATTR] = sanitize_sqe_all_addrs,
 	[IORING_OP_SOCKET] = sanitize_sqe_addr,
 	[IORING_OP_URING_CMD] = sanitize_sqe_optval,
-	[IORING_OP_SEND_ZC] = sanitize_sqe_addr,
+	[IORING_OP_SEND_ZC] = sanitize_sqe_addr_and_add2,
 	[IORING_OP_SENDMSG_ZC] = sanitize_sqe_addr,
 	[IORING_OP_READ_MULTISHOT] = sanitize_sqe_addr,
 	[IORING_OP_WAITID] = sanitize_sqe_addr_and_add2,
@@ -154,7 +160,7 @@ void liburing_sanitize_iovecs(const struct iovec *iovecs, unsigned nr)
 {
 	unsigned i;
 
-	if (__asan_address_is_poisoned((void *)iovecs) != 0) {
+	if (__asan_region_is_poisoned((void *)iovecs, nr * sizeof(*iovecs)) != 0) {
 		__asan_describe_address((void *)iovecs);
 		exit(1);
 	}
