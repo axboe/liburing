@@ -1893,8 +1893,16 @@ IOURINGINLINE int __io_uring_peek_cqe(struct io_uring *ring,
 			break;
 
 		cqe = &ring->cq.cqes[(head & mask) << shift];
-		if (!io_uring_skip_cqe(ring, cqe, &err))
+		if (!io_uring_skip_cqe(ring, cqe, &err)) {
+			/*
+			 * If an error was set, the CQE was an internal
+			 * timeout and has already been consumed - don't
+			 * return a pointer to it.
+			 */
+			if (err)
+				cqe = NULL;
 			break;
+		}
 		cqe = NULL;
 	} while (1);
 
