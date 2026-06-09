@@ -169,24 +169,55 @@ static inline bool io_uring_peek_batch_cqe_(struct io_uring *ring,
 					    unsigned *count)
 {
 	unsigned ready = io_uring_cq_ready(ring);
-	unsigned shift;
 	unsigned head;
 	unsigned mask;
 	unsigned last;
+	unsigned nr;
 
 	if (!ready)
 		return false;
 
-	shift = io_uring_cqe_shift(ring);
 	head = *ring->cq.khead;
 	mask = ring->cq.ring_mask;
-	if (ready < *count)
-		*count = ready;
-	last = head + *count;
-	for (;head != last; head++)
-		*(cqes++) = &ring->cq.cqes[(head & mask) << shift];
+	if (!(ring->flags & IORING_SETUP_CQE_MIXED)) {
+		unsigned shift = io_uring_cqe_shift(ring);
 
-	return true;
+		if (ready < *count)
+			*count = ready;
+		last = head + *count;
+		for (;head != last; head++)
+			*(cqes++) = &ring->cq.cqes[(head & mask) << shift];
+
+		return true;
+	}
+
+	/*
+	 * For mixed CQE rings, CQEs take up one or two slots, and the kernel
+	 * may post skip entries to pad out the ring at wrap time. Only return
+	 * pointers to real CQEs, with *count denoting the number of CQEs.
+	 */
+	last = head + ready;
+	nr = 0;
+	while (head != last && nr < *count) {
+		struct io_uring_cqe *cqe = &ring->cq.cqes[head & mask];
+
+		if (cqe->flags & IORING_CQE_F_SKIP) {
+			/*
+			 * A skip entry can only be consumed if it's at the
+			 * current CQ head, stop the batch otherwise. It'll
+			 * be at the head for the next peek.
+			 */
+			if (nr)
+				break;
+			io_uring_cq_advance(ring, 1);
+			head++;
+			continue;
+		}
+		head += io_uring_cqe_nr(cqe);
+		cqes[nr++] = cqe;
+	}
+	*count = nr;
+	return nr != 0;
 }
 
 /*
