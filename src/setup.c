@@ -170,8 +170,16 @@ err:
 __cold int io_uring_queue_mmap(int fd, struct io_uring_params *p,
 			       struct io_uring *ring)
 {
+	int ret;
+
 	memset(ring, 0, sizeof(*ring));
-	return io_uring_mmap(fd, p, &ring->sq, &ring->cq);
+	ret = io_uring_mmap(fd, p, &ring->sq, &ring->cq);
+	if (!ret) {
+		ring->flags = p->flags;
+		ring->features = p->features;
+		ring->ring_fd = ring->enter_ring_fd = fd;
+	}
+	return ret;
 }
 
 static size_t io_uring_sqes_size(const struct io_uring *ring)
