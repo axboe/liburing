@@ -1922,8 +1922,20 @@ IOURINGINLINE int io_uring_peek_cqe(struct io_uring *ring,
 				    struct io_uring_cqe **cqe_ptr)
 	LIBURING_NOEXCEPT
 {
-	if (!__io_uring_peek_cqe(ring, cqe_ptr, NULL) && *cqe_ptr)
-		return 0;
+	if (!__io_uring_peek_cqe(ring, cqe_ptr, NULL)) {
+		if (*cqe_ptr)
+			return 0;
+		/*
+		 * If the CQ is empty and there's nothing the kernel could
+		 * flush to it (no IOPOLL completions to reap, no overflown
+		 * CQEs, no pending task work), avoid the round trip into
+		 * the full get_cqe machinery.
+		 */
+		if (!(ring->flags & IORING_SETUP_IOPOLL) &&
+		    !(IO_URING_READ_ONCE(*ring->sq.kflags) &
+		      (IORING_SQ_CQ_OVERFLOW | IORING_SQ_TASKRUN)))
+			return -EAGAIN;
+	}
 
 	return io_uring_wait_cqe_nr(ring, cqe_ptr, 0);
 }
