@@ -216,6 +216,7 @@ test_srcs := \
 	read-mshot-empty.c \
 	read-mshot-stdin.c \
 	read-write.c \
+	recv-bundle-buf-len.c \
 	recv-bundle-short-ooo.c \
 	recv-inc-ooo.c \
 	recv-msgall.c \
