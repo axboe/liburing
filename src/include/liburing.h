@@ -214,7 +214,7 @@ void io_uring_free_probe(struct io_uring_probe *probe) LIBURING_NOEXCEPT;
 IOURINGINLINE int io_uring_opcode_supported(const struct io_uring_probe *p,
 					    int op) LIBURING_NOEXCEPT
 {
-	if (op > p->last_op)
+	if (op < 0 || op > p->last_op)
 		return 0;
 	return (p->ops[op].flags & IO_URING_OP_SUPPORTED) != 0;
 }
