@@ -375,6 +375,8 @@ int io_uring_wait_cqes_min_timeout(struct io_uring *ring,
 				   struct __kernel_timespec *ts,
 				   unsigned int min_wait_usec, sigset_t *sigmask)
 {
+	if (!(ring->features & IORING_FEAT_MIN_TIMEOUT))
+		return -EINVAL;
 	return io_uring_wait_cqes_new(ring, cqe_ptr, wait_nr, ts, min_wait_usec,
 					sigmask);
 }
