@@ -43,7 +43,8 @@ example_srcs := \
 	rsrc-update-bench.c \
 	proxy.c \
 	zcrx.c \
-	kdigest.c
+	kdigest.c \
+	echo-server.c
 
 all_targets :=
 
