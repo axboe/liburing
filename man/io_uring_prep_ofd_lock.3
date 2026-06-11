@@ -1,0 +1,178 @@
+.\" Copyright (C) 2026 Jens Axboe <axboe@kernel.dk>
+.\"
+.\" SPDX-License-Identifier: LGPL-2.0-or-later
+.\"
+.TH io_uring_prep_ofd_lock 3 "June 11, 2026" "liburing-2.15" "liburing Manual"
+.SH NAME
+io_uring_prep_ofd_lock \- prepare an open file description lock request
+.SH SYNOPSIS
+.nf
+.B #include <fcntl.h>
+.B #include <liburing.h>
+.PP
+.BI "void io_uring_prep_ofd_lock(struct io_uring_sqe *" sqe ","
+.BI "                            int " fd ","
+.BI "                            int " type ","
+.BI "                            __u64 " start ","
+.BI "                            __u64 " len ","
+.BI "                            unsigned int " lock_flags ");"
+.fi
+.SH DESCRIPTION
+.PP
+The
+.BR io_uring_prep_ofd_lock (3)
+function prepares a byte range lock request with open file description
+semantics, the equivalent of the
+.BR fcntl (2)
+.B F_OFD_SETLKW
+command. The submission queue entry
+.I sqe
+is setup to apply or remove an advisory record lock on the file referenced
+by the file descriptor
+.IR fd ,
+covering the byte range starting at offset
+.I start
+and spanning
+.I len
+bytes, where a
+.I len
+of
+.B 0
+means "until the end of the file, however large it may grow". The
+.I type
+argument is one of:
+.TP
+.B F_RDLCK
+Place a read (shared) lock.
+.TP
+.B F_WRLCK
+Place a write (exclusive) lock.
+.TP
+.B F_UNLCK
+Remove an existing lock from the given range.
+.PP
+The
+.I lock_flags
+argument may have the following flag set:
+.TP
+.B IORING_OFD_LOCK_NOWAIT
+Fail with
+.B -EAGAIN
+rather than wait, if a conflicting lock is held. This is the equivalent of
+.B F_OFD_SETLK
+behavior.
+.PP
+Unlike
+.BR fcntl (2)
+with
+.BR F_OFD_SETLKW ,
+a request for a contended lock does not block the submitter. The request
+simply remains pending, without tying up a thread, until the lock has been
+acquired. A pending request can be aborted with
+.BR io_uring_prep_cancel (3),
+in which case it completes with
+.B -ECANCELED
+without acquiring the lock. Pending requests are also cancelled if the ring
+is torn down.
+.PP
+The locks taken follow regular open file description lock semantics, see the
+description of
+.B F_OFD_SETLK
+in
+.BR fcntl (2):
+the lock is owned by the open file description referenced by
+.IR fd ,
+not by the process. Locks taken through duplicated file descriptors have
+the same owner, hence they never conflict, with overlapping ranges of the
+same owner being merged or converted. They do conflict with locks owned by
+other open file descriptions, including process-associated
+.RB ( F_SETLK )
+style locks. Locks are released by
+.B F_UNLCK
+or once every file descriptor referring to the open file description has
+been closed.
+.PP
+Unlike
+.BR fcntl (2),
+ranges are always absolute (the equivalent of
+.BR SEEK_SET ),
+and negative lengths are not supported.
+.PP
+As with
+.BR F_OFD_SETLKW ,
+lock acquisitions are not subject to deadlock detection, a request will
+never fail with
+.BR -EDEADLK .
+A request that can never be satisfied remains pending until cancelled.
+.PP
+Only locks managed by the generic VFS locking code are supported. If the
+file resides on a file system that implements its own locking, such as NFS,
+the request fails with
+.BR -EOPNOTSUPP .
+.PP
+Available since kernel 7.2.
+
+.SH RETURN VALUE
+None
+.SH ERRORS
+The CQE
+.I res
+field will contain the result of the operation. Note that where synchronous
+system calls will return
+.B -1
+on failure and set
+.I errno
+to the actual error value, io_uring never uses
+.IR errno .
+Instead it returns the negated
+.I errno
+directly in the CQE
+.I res
+field. Notable errors include:
+.TP
+.B -EAGAIN
+.B IORING_OFD_LOCK_NOWAIT
+was set and a conflicting lock is held.
+.TP
+.B -EBADF
+.I fd
+is not a valid file descriptor, or
+.B F_RDLCK
+was requested on a file descriptor not open for reading, or
+.B F_WRLCK
+on one not open for writing.
+.TP
+.B -ECANCELED
+The request was cancelled before the lock was acquired.
+.TP
+.B -EINVAL
+.I type
+or
+.I lock_flags
+are not valid, or
+.I start
+exceeds the maximum file offset.
+.TP
+.B -ENOLCK
+The kernel ran out of memory for allocating lock records.
+.TP
+.B -EOPNOTSUPP
+The file has a file system specific lock implementation, which is not
+supported.
+.TP
+.B -EOVERFLOW
+.I start
+plus
+.I len
+exceeds the maximum file offset.
+.SH NOTES
+io_uring does not support passing in a timeout for the request. Instead,
+applications are encouraged to use a linked timeout to abort the lock
+request at a given time, if desired.
+.SH SEE ALSO
+.BR io_uring_get_sqe (3),
+.BR io_uring_submit (3),
+.BR io_uring_prep_flock (3),
+.BR io_uring_prep_cancel (3),
+.BR io_uring_prep_link_timeout (3),
+.BR fcntl (2)

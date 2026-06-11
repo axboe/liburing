@@ -74,6 +74,8 @@ struct io_uring_sqe {
 		__u32		install_fd_flags;
 		__u32		nop_flags;
 		__u32		pipe_flags;
+		__u32		flock_flags;
+		__u32		lock_flags;
 	};
 	__u64	user_data;	/* data to be passed back at completion time */
 	/* pack this to avoid bogus arm OABI complaints */
@@ -312,10 +314,21 @@ enum io_uring_op {
 	IORING_OP_PIPE,
 	IORING_OP_NOP128,
 	IORING_OP_URING_CMD128,
+	IORING_OP_FLOCK,
+	IORING_OP_OFD_LOCK,
 
 	/* this goes last, obviously */
 	IORING_OP_LAST,
 };
+
+/*
+ * sqe->lock_flags, for IORING_OP_OFD_LOCK
+ *
+ * IORING_OFD_LOCK_NOWAIT	Fail with -EAGAIN if a conflicting lock is
+ *				held, rather than waiting for it to be
+ *				released.
+ */
+#define IORING_OFD_LOCK_NOWAIT	(1U << 0)
 
 /*
  * sqe->uring_cmd_flags		top 8bits aren't available for userspace

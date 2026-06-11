@@ -1704,6 +1704,36 @@ IOURINGINLINE void io_uring_prep_pipe_direct(struct io_uring_sqe *sqe, int *fds,
 	__io_uring_set_target_fixed_file(sqe, file_index);
 }
 
+/*
+ * flock(2) equivalent, flock_op is LOCK_SH/LOCK_EX/LOCK_UN, optionally OR'ed
+ * with LOCK_NB. Without LOCK_NB, a request for a contended lock remains
+ * pending until the lock is acquired (or the request is cancelled), it does
+ * not block the submitter.
+ */
+IOURINGINLINE void io_uring_prep_flock(struct io_uring_sqe *sqe, int fd,
+				       int flock_op)
+	LIBURING_NOEXCEPT
+{
+	io_uring_prep_rw(IORING_OP_FLOCK, sqe, fd, NULL, 0, 0);
+	sqe->flock_flags = (__u32) flock_op;
+}
+
+/*
+ * Byte range lock with open file description semantics, like fcntl(2)
+ * F_OFD_SETLKW. type is F_RDLCK/F_WRLCK/F_UNLCK, len == 0 means "to EOF".
+ * Setting IORING_OFD_LOCK_NOWAIT in lock_flags gives F_OFD_SETLK behavior,
+ * failing a contended request with -EAGAIN instead of leaving it pending.
+ */
+IOURINGINLINE void io_uring_prep_ofd_lock(struct io_uring_sqe *sqe, int fd,
+					  int type, __u64 start, __u64 len,
+					  unsigned int lock_flags)
+	LIBURING_NOEXCEPT
+{
+	io_uring_prep_rw(IORING_OP_OFD_LOCK, sqe, fd, NULL, type, start);
+	sqe->addr = len;
+	sqe->lock_flags = lock_flags;
+}
+
 /* Read the kernel's SQ head index with appropriate memory ordering */
 IOURINGINLINE unsigned io_uring_load_sq_head(const struct io_uring *ring)
 	LIBURING_NOEXCEPT

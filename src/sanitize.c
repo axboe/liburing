@@ -121,8 +121,10 @@ static const sanitize_sqe_handler sanitize_handlers[IORING_OP_LAST] = {
 	[IORING_OP_PIPE] = sanitize_sqe_addr,
 	[IORING_OP_NOP128] = sanitize_sqe_nop,
 	[IORING_OP_URING_CMD128] = sanitize_sqe_optval,
+	[IORING_OP_FLOCK] = sanitize_sqe_nop,
+	[IORING_OP_OFD_LOCK] = sanitize_sqe_nop,
 };
-_Static_assert(IORING_OP_URING_CMD128 + 1 == IORING_OP_LAST,
+_Static_assert(IORING_OP_OFD_LOCK + 1 == IORING_OP_LAST,
 	       "Need an implementation for all IORING_OP_* codes");
 
 void liburing_sanitize_ring(struct io_uring *ring)

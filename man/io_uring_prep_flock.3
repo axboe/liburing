@@ -1,0 +1,131 @@
+.\" Copyright (C) 2026 Jens Axboe <axboe@kernel.dk>
+.\"
+.\" SPDX-License-Identifier: LGPL-2.0-or-later
+.\"
+.TH io_uring_prep_flock 3 "June 11, 2026" "liburing-2.15" "liburing Manual"
+.SH NAME
+io_uring_prep_flock \- prepare a flock request
+.SH SYNOPSIS
+.nf
+.B #include <sys/file.h>
+.B #include <liburing.h>
+.PP
+.BI "void io_uring_prep_flock(struct io_uring_sqe *" sqe ","
+.BI "                         int " fd ","
+.BI "                         int " flock_op ");"
+.fi
+.SH DESCRIPTION
+.PP
+The
+.BR io_uring_prep_flock (3)
+function prepares a
+.BR flock (2)
+equivalent request. The submission queue entry
+.I sqe
+is setup to apply or remove an advisory lock on the file referenced by
+the file descriptor
+.IR fd ,
+with
+.I flock_op
+being one of:
+.TP
+.B LOCK_SH
+Place a shared lock.
+.TP
+.B LOCK_EX
+Place an exclusive lock.
+.TP
+.B LOCK_UN
+Remove an existing lock.
+.PP
+.B LOCK_SH
+and
+.B LOCK_EX
+may be OR'ed with
+.B LOCK_NB
+to fail with
+.B -EAGAIN
+rather than wait, if a conflicting lock is held.
+.PP
+Unlike
+.BR flock (2),
+a request for a contended lock does not block the submitter. The request
+simply remains pending, without tying up a thread, until the lock has been
+acquired. A pending request can be aborted with
+.BR io_uring_prep_cancel (3),
+in which case it completes with
+.B -ECANCELED
+without acquiring the lock. Pending requests are also cancelled if the ring
+is torn down.
+.PP
+The locks taken are regular
+.BR flock (2)
+locks and follow the exact same semantics: they conflict (or not) with locks
+placed through the syscall by the same rules, the lock is owned by the open
+file description referenced by
+.I fd
+(hence duplicated file descriptors refer to the same lock, and a separate
+.BR open (2)
+of the same file does not), and the lock is released on
+.B LOCK_UN
+or once every file descriptor referring to the open file description has
+been closed.
+.PP
+Only locks managed by the generic VFS locking code are supported. If the
+file resides on a file system that implements its own flock handling, such
+as NFS, the request fails with
+.BR -EOPNOTSUPP .
+.PP
+Available since kernel 7.2.
+
+.SH RETURN VALUE
+None
+.SH ERRORS
+The CQE
+.I res
+field will contain the result of the operation. Note that where synchronous
+system calls will return
+.B -1
+on failure and set
+.I errno
+to the actual error value, io_uring never uses
+.IR errno .
+Instead it returns the negated
+.I errno
+directly in the CQE
+.I res
+field. Notable errors include:
+.TP
+.B -EAGAIN
+.B LOCK_NB
+was set and a conflicting lock is held.
+.TP
+.B -EBADF
+.I fd
+is not a valid file descriptor, or a lock was requested on a file descriptor
+not opened for reading or writing.
+.TP
+.B -ECANCELED
+The request was cancelled before the lock was acquired.
+.TP
+.B -EINVAL
+.I flock_op
+is not valid, or stray submission queue entry fields were set.
+.TP
+.B -ENOLCK
+The kernel ran out of memory for allocating lock records.
+.TP
+.B -EOPNOTSUPP
+The file has a file system specific flock implementation, which is not
+supported.
+.SH NOTES
+io_uring does not support passing in a timeout for the request. Instead,
+applications are encouraged to use a linked timeout to abort the lock
+request at a given time, if desired.
+.SH SEE ALSO
+.BR io_uring_get_sqe (3),
+.BR io_uring_submit (3),
+.BR io_uring_prep_ofd_lock (3),
+.BR io_uring_prep_cancel (3),
+.BR io_uring_prep_link_timeout (3),
+.BR flock (2)
