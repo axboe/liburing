@@ -5,6 +5,9 @@ on:
   push:
   pull_request:
 
+permissions:
+  contents: read
+
 
 jobs:
   get_commit_list:
@@ -16,16 +19,19 @@ jobs:
 
       - name: Get commit list
         id: get_commit_list
+        env:
+          FIRST_EVENT_COMMIT: ${{ github.event.commits[0].id }}
+          CURRENT_SHA: ${{ github.sha }}
         run: |
           git config core.abbrev 12;
           ( \
             ( \
-              git log --pretty="%h" --reverse ${{github.event.commits[0].id}}^...${{github.sha}} || \
-              (printf "%s" ${{github.sha}} | head -c 12) \
+              git log --pretty="%h" --reverse "${FIRST_EVENT_COMMIT}^...${CURRENT_SHA}" || \
+              (printf "%s" "$CURRENT_SHA" | head -c 12) \
             ) | awk '{ print "id" NR "=" $1 }' \
-          ) > $GITHUB_OUTPUT;
-          echo "List of tested commits:" > $GITHUB_STEP_SUMMARY;
-          cat $GITHUB_OUTPUT >> $GITHUB_STEP_SUMMARY;
+          ) > "$GITHUB_OUTPUT";
+          echo "List of tested commits:" > "$GITHUB_STEP_SUMMARY";
+          cat "$GITHUB_OUTPUT" >> "$GITHUB_STEP_SUMMARY";
 
     outputs:
       commit_list: ${{ toJson(steps.*.outputs.*) }}
@@ -191,8 +197,10 @@ jobs:
           fetch-depth: 0
 
       - name: Checkout commit
+        env:
+          COMMIT: ${{ matrix.commit }}
         run: |
-          git checkout ${{ matrix.commit }};
+          git checkout --detach "$COMMIT";
 
       - name: Install Compilers
         run: |
@@ -261,8 +269,10 @@ jobs:
           fetch-depth: 0
 
       - name: Checkout commit
+        env:
+          COMMIT: ${{ matrix.commit }}
         run: |
-          git checkout ${{ matrix.commit }};
+          git checkout --detach "$COMMIT";
 
       - name: Out-of-source build
         run: |
@@ -304,8 +314,10 @@ jobs:
           fetch-depth: 0
 
       - name: Checkout commit
+        env:
+          COMMIT: ${{ matrix.commit }}
         run: |
-          git checkout ${{ matrix.commit }};
+          git checkout --detach "$COMMIT";
 
       - name: Setup Alpine Environment
         uses: jirutka/setup-alpine@v1
