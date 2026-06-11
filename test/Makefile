@@ -125,6 +125,7 @@ test_srcs := \
 	fifo-nonblock-read.c \
 	fifo-futex-poll.c \
 	file-exit-unreg.c \
+	file-lock.c \
 	file-alloc-range-hint.c \
 	file-register.c \
 	files-exit-hang-poll.c \
