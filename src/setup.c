@@ -220,15 +220,67 @@ __cold int io_uring_ring_dontfork(struct io_uring *ring)
 	return 0;
 }
 
-#ifndef MAP_HUGE_SHIFT
-#define MAP_HUGE_SHIFT	26
-#endif
-#ifndef MAP_HUGE_2MB
-#define MAP_HUGE_2MB	(21U << MAP_HUGE_SHIFT)
-#endif
 
-/* FIXME */
-static size_t huge_page_size = 2 * 1024 * 1024;
+static size_t get_huge_page_size(void)
+{
+	static size_t hps;
+	size_t ret = 2 * 1024 * 1024; /* fallback: 2MB */
+	char buf[4096];
+	char *p, *end;
+	unsigned long val;
+	ssize_t n;
+	int fd;
+
+	if (hps)
+		return hps;
+
+	fd = __sys_open("/proc/meminfo", O_RDONLY, 0);
+	if (fd < 0)
+		goto out;
+
+	n = __sys_read(fd, buf, sizeof(buf) - 1);
+	__sys_close(fd);
+	if (n <= 0)
+		goto out;
+	buf[n] = '\0';
+
+	/*
+	 * Scan line-by-line for "Hugepagesize:". We avoid strstr() and
+	 * memcmp() because they are not available in CONFIG_NOLIBC builds.
+	 */
+	p = buf;
+	end = buf + n;
+	while (p < end) {
+		/* Check if this line starts with "Hugepagesize:" (13 chars) */
+		if (p + 13 <= end &&
+		    p[0]  == 'H' && p[1]  == 'u' && p[2]  == 'g' &&
+		    p[3]  == 'e' && p[4]  == 'p' && p[5]  == 'a' &&
+		    p[6]  == 'g' && p[7]  == 'e' && p[8]  == 's' &&
+		    p[9]  == 'i' && p[10] == 'z' && p[11] == 'e' &&
+		    p[12] == ':') {
+			p += 13;
+			while (p < end && (*p == ' ' || *p == '\t'))
+				p++;
+			val = 0;
+			while (p < end && *p >= '0' && *p <= '9') {
+				val = val * 10 + (*p - '0');
+				p++;
+			}
+			if (val)
+				ret = val * 1024; /* kB -> bytes */
+			break;
+		}
+		/* Advance to next line */
+		while (p < end && *p != '\n')
+			p++;
+		if (p < end)
+			p++;
+	}
+out:
+	hps = ret;
+	return hps;
+}
+
 
 #define KRING_SIZE	64
 
@@ -261,13 +313,13 @@ static int io_uring_alloc_huge(unsigned entries, struct io_uring_params *p,
 	mem_used = (mem_used + page_size - 1) & ~(page_size - 1);
 
 	/*
-	 * A maxed-out number of CQ entries with IORING_SETUP_CQE32 fills a 2MB
-	 * huge page by itself, so the SQ entries won't fit in the same huge
-	 * page. For SQEs, that shouldn't be possible given KERN_MAX_ENTRIES,
+	 * A maxed-out number of CQ entries with IORING_SETUP_CQE32 can fill a
+	 * single huge page by itself, so the SQ entries won't fit in the same
+	 * huge page. For SQEs, that shouldn't be possible given KERN_MAX_ENTRIES,
 	 * but check that too to future-proof (e.g. against different huge page
 	 * sizes). Bail out early so we don't overrun.
 	 */
-	if (!buf && (sqes_mem > huge_page_size || ring_mem > huge_page_size))
+	if (!buf && (sqes_mem > get_huge_page_size() || ring_mem > get_huge_page_size()))
 		return -ENOMEM;
 
 	if (buf) {
@@ -279,8 +331,8 @@ static int io_uring_alloc_huge(unsigned entries, struct io_uring_params *p,
 		if (sqes_mem <= page_size)
 			buf_size = page_size;
 		else {
-			buf_size = huge_page_size;
-			map_hugetlb = MAP_HUGETLB | MAP_HUGE_2MB;
+			buf_size = get_huge_page_size();
+			map_hugetlb = MAP_HUGETLB;
 		}
 		sqes_size = buf_size;
 		ptr = __sys_mmap(NULL, sqes_size, PROT_READ|PROT_WRITE,
@@ -302,8 +354,8 @@ static int io_uring_alloc_huge(unsigned entries, struct io_uring_params *p,
 		if (ring_mem <= page_size)
 			buf_size = page_size;
 		else {
-			buf_size = huge_page_size;
-			map_hugetlb = MAP_HUGETLB | MAP_HUGE_2MB;
+			buf_size = get_huge_page_size();
+			map_hugetlb = MAP_HUGETLB;
 		}
 		ptr = __sys_mmap(NULL, buf_size, PROT_READ|PROT_WRITE,
 					MAP_SHARED|MAP_ANONYMOUS|map_hugetlb,
