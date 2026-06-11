@@ -71,10 +71,14 @@ of the same file does not), and the lock is released on
 or once every file descriptor referring to the open file description has
 been closed.
 .PP
-Only locks managed by the generic VFS locking code are supported. If the
-file resides on a file system that implements its own flock handling, such
-as NFS, the request fails with
-.BR -EOPNOTSUPP .
+If the file resides on a file system that implements its own flock
+handling, such as NFS or FUSE, the request is handled by the io_uring
+async worker pool instead, as even a non-blocking attempt may have to
+communicate with a lock server. Such requests behave identically, with
+the caveat that each pending request occupies a worker thread for as long
+as it waits for a contended lock. If the wait is interrupted by a signal,
+the request completes with
+.BR -EINTR .
 .PP
 Available since kernel 7.3.
 
@@ -108,16 +112,15 @@ not opened for reading or writing.
 .B -ECANCELED
 The request was cancelled before the lock was acquired.
 .TP
+.B -EINTR
+The wait for a file system managed lock was interrupted by a signal.
+.TP
 .B -EINVAL
 .I flock_op
 is not valid, or stray submission queue entry fields were set.
 .TP
 .B -ENOLCK
 The kernel ran out of memory for allocating lock records.
-.TP
-.B -EOPNOTSUPP
-The file has a file system specific flock implementation, which is not
-supported.
 .SH NOTES
 io_uring does not support passing in a timeout for the request. Instead,
 applications are encouraged to use a linked timeout to abort the lock

@@ -100,15 +100,21 @@ and negative lengths are not supported.
 .PP
 As with
 .BR F_OFD_SETLKW ,
-lock acquisitions are not subject to deadlock detection, a request will
-never fail with
+lock acquisitions on locks managed by the generic VFS locking code are not
+subject to deadlock detection, a request will never fail with
 .BR -EDEADLK .
 A request that can never be satisfied remains pending until cancelled.
 .PP
-Only locks managed by the generic VFS locking code are supported. If the
-file resides on a file system that implements its own locking, such as NFS,
-the request fails with
-.BR -EOPNOTSUPP .
+If the file resides on a file system that implements its own locking, such
+as NFS or FUSE, the request is handled by the io_uring async worker pool
+instead, as even a non-blocking attempt may have to communicate with a
+lock server. Such requests behave like the file system's
+.BR fcntl (2)
+locking does - including any deadlock detection it may implement - with
+the caveat that each pending request occupies a worker thread for as long
+as it waits for a contended lock. If the wait is interrupted by a signal,
+the request completes with
+.BR -EINTR .
 .PP
 Available since kernel 7.3.
 
@@ -145,6 +151,9 @@ on one not open for writing.
 .B -ECANCELED
 The request was cancelled before the lock was acquired.
 .TP
+.B -EINTR
+The wait for a file system managed lock was interrupted by a signal.
+.TP
 .B -EINVAL
 .I type
 or
@@ -155,10 +164,6 @@ exceeds the maximum file offset.
 .TP
 .B -ENOLCK
 The kernel ran out of memory for allocating lock records.
-.TP
-.B -EOPNOTSUPP
-The file has a file system specific lock implementation, which is not
-supported.
 .TP
 .B -EOVERFLOW
 .I start
