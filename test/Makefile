@@ -180,6 +180,7 @@ test_srcs := \
 	no-mmap-inval.c \
 	nop-all-sizes.c \
 	nop.c \
+	nop-fixed-file-leak.c \
 	nop-flags.c \
 	nop32.c \
 	nop32-overflow.c \
