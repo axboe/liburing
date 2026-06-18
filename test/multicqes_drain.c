@@ -189,6 +189,7 @@ static int test_generic_drain(struct io_uring *ring)
 	int i, j, ret, arg = 0;
 	int pipes[max_entry][2];
 	int pre_flags = 0;
+	multi_cap = max_entry / 5;
 
 	for (i = 0; i < max_entry; i++) {
 		if (pipe(pipes[i]) != 0) {
