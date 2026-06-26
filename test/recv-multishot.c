@@ -533,6 +533,47 @@ static int test_recvmsg_validate(void)
 	return 0;
 }
 
+static int test_recvmsg_cmsg_nexthdr(void)
+{
+	struct io_uring_recvmsg_out *o;
+	struct cmsghdr *cmsg, *next;
+	unsigned char buf[256];
+	struct msghdr msgh;
+	unsigned char *ctrl;
+
+	memset(buf, 0, sizeof(buf));
+	memset(&msgh, 0, sizeof(msgh));
+	o = (struct io_uring_recvmsg_out *)buf;
+
+	msgh.msg_namelen = 8;
+	msgh.msg_controllen = 200;
+	o->namelen = 8;
+	o->controllen = 200;
+
+	ctrl = (unsigned char *)io_uring_recvmsg_cmsg_firsthdr(o, &msgh);
+	if (!ctrl)
+		return -1;
+	cmsg = (struct cmsghdr *)ctrl;
+
+	/* crafted cmsg_len must not wrap CMSG_ALIGN past the bounds check */
+	cmsg->cmsg_len = (size_t)-8;
+	if (io_uring_recvmsg_cmsg_nexthdr(o, &msgh, cmsg) != NULL)
+		return -1;
+
+	/* a step landing exactly on the end leaves no room for a header */
+	cmsg->cmsg_len = o->controllen;
+	if (io_uring_recvmsg_cmsg_nexthdr(o, &msgh, cmsg) != NULL)
+		return -1;
+
+	/* a valid step still lands on the next in-bounds header */
+	cmsg->cmsg_len = CMSG_LEN(0);
+	next = io_uring_recvmsg_cmsg_nexthdr(o, &msgh, cmsg);
+	if ((unsigned char *)next != ctrl + CMSG_ALIGN(CMSG_LEN(0)))
+		return -1;
+
+	return 0;
+}
+
 static int test_enobuf(void)
 {
 	struct io_uring ring;
@@ -626,6 +667,12 @@ int main(int argc, char *argv[])
 	ret = test_recvmsg_validate();
 	if (ret) {
 		fprintf(stderr, "test_recvmsg_validate() failed: %d\n", ret);
+		return T_EXIT_FAIL;
+	}
+
+	ret = test_recvmsg_cmsg_nexthdr();
+	if (ret) {
+		fprintf(stderr, "test_recvmsg_cmsg_nexthdr() failed: %d\n", ret);
 		return T_EXIT_FAIL;
 	}
 

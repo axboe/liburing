@@ -1237,18 +1237,33 @@ io_uring_recvmsg_cmsg_nexthdr(struct io_uring_recvmsg_out *o, struct msghdr *msg
 			      struct cmsghdr *cmsg)
 	LIBURING_NOEXCEPT
 {
-	unsigned char *end;
+	unsigned char *end, *cur;
+	unsigned long avail, step;
 
 	if (cmsg->cmsg_len < sizeof(struct cmsghdr))
 		return NULL;
 	end = (unsigned char *) io_uring_recvmsg_cmsg_firsthdr(o, msgh) +
 		o->controllen;
-	cmsg = (struct cmsghdr *)((unsigned char *) cmsg +
-			CMSG_ALIGN(cmsg->cmsg_len));
-
-	if ((unsigned char *) (cmsg + 1) > end)
+	cur = (unsigned char *) cmsg;
+	if (cur > end)
 		return NULL;
-	if (((unsigned char *) cmsg) + CMSG_ALIGN(cmsg->cmsg_len) > end)
+
+	/*
+	 * Advance using the remaining space rather than additive pointer
+	 * math, so a crafted cmsg_len can't overflow CMSG_ALIGN() and wrap
+	 * the pointer back below 'end' to slip past the bounds checks.
+	 */
+	avail = (unsigned long) (end - cur);
+	step = CMSG_ALIGN(cmsg->cmsg_len);
+	if (step > avail)
+		return NULL;
+	cur += step;
+	avail -= step;
+
+	if (avail < sizeof(struct cmsghdr))
+		return NULL;
+	cmsg = (struct cmsghdr *) cur;
+	if (CMSG_ALIGN(cmsg->cmsg_len) > avail)
 		return NULL;
 
 	return cmsg;
