@@ -30,7 +30,7 @@ is generated with the registered eventfd descriptor. If
 .BR io_uring_register_eventfd_async (3)
 is used, only events that completed out-of-line will trigger a notification.
 
-It notifications are no longer desired,
+If notifications are no longer desired,
 .BR io_uring_unregister_eventfd (3)
 may be called to remove the eventfd registration. No eventfd argument is
 needed, as a ring can only have a single eventfd registered.
