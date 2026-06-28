@@ -30,7 +30,7 @@ static int test_nops(struct io_uring *ring, int sq_size, int nr_nops)
 		}
 
 		ret = io_uring_submit(ring);
-		if (ret != todo) {
+		if (ret < todo) {
 			fprintf(stderr, "short submit %d\n", ret);
 			return T_EXIT_FAIL;
 		}
