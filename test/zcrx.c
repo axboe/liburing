@@ -1110,7 +1110,7 @@ static int test_area_ro(void)
 	default_reg(&reg, 0);
 
 	area = mmap(NULL, reg.area.len, PROT_READ,
-		    MAP_ANONYMOUS | MAP_PRIVATE | MAP_FIXED, -1, 0);
+		    MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
 	if (area == MAP_FAILED) {
 		perror("mmap");
 		return T_EXIT_FAIL;
