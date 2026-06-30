@@ -1155,7 +1155,7 @@ static int run_tests(void)
 
 	ret = test_area_ro();
 	if (ret) {
-		fprintf(stderr, "test_area() failed %i\n", ret);
+		fprintf(stderr, "test_area_ro() failed %i\n", ret);
 		return T_EXIT_FAIL;
 	}
 
