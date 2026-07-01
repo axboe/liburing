@@ -335,7 +335,7 @@ static int test_area(void)
 	ret = try_register_zcrx(&reg.zcrx);
 	if (ret != -EINVAL && ret != -EFAULT) {
 		fprintf(stderr, "registered area size=0, %i\n", ret);
-		return ret;
+		return T_EXIT_FAIL;
 	}
 
 	default_reg(&reg, 0);
@@ -343,7 +343,7 @@ static int test_area(void)
 	ret = try_register_zcrx(&reg.zcrx);
 	if (ret != -EINVAL && ret != -EFAULT) {
 		fprintf(stderr, "registered with NULL area mem\n");
-		return ret;
+		return T_EXIT_FAIL;
 	}
 
 	default_reg(&reg, 0);
@@ -351,7 +351,7 @@ static int test_area(void)
 	ret = try_register_zcrx(&reg.zcrx);
 	if (ret != -EINVAL && ret != -EFAULT) {
 		fprintf(stderr, "registered with no area\n");
-		return ret;
+		return T_EXIT_FAIL;
 	}
 
 	default_reg(&reg, 0);
@@ -359,7 +359,7 @@ static int test_area(void)
 	ret = try_register_zcrx(&reg.zcrx);
 	if (ret != -EFAULT) {
 		fprintf(stderr, "registered lower than area\n");
-		return ret;
+		return T_EXIT_FAIL;
 	}
 
 	default_reg(&reg, 0);
@@ -367,7 +367,7 @@ static int test_area(void)
 	ret = try_register_zcrx(&reg.zcrx);
 	if (ret != -EFAULT) {
 		fprintf(stderr, "registered higher than area\n");
-		return ret;
+		return T_EXIT_FAIL;
 	}
 
 	default_reg(&reg, 0);
@@ -375,7 +375,7 @@ static int test_area(void)
 	ret = try_register_zcrx(&reg.zcrx);
 	if (ret != -EFAULT && ret != -EINVAL) {
 		fprintf(stderr, "registered unaligned area size\n");
-		return ret;
+		return T_EXIT_FAIL;
 	}
 
 	default_reg(&reg, 0);
@@ -384,7 +384,7 @@ static int test_area(void)
 	ret = try_register_zcrx(&reg.zcrx);
 	if (ret != -EFAULT && ret != -EINVAL) {
 		fprintf(stderr, "registered unaligned area ptr\n");
-		return ret;
+		return T_EXIT_FAIL;
 	}
 
 	return 0;
@@ -1110,7 +1110,7 @@ static int test_area_ro(void)
 	default_reg(&reg, 0);
 
 	area = mmap(NULL, reg.area.len, PROT_READ,
-		    MAP_ANONYMOUS | MAP_PRIVATE | MAP_FIXED, -1, 0);
+		    MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
 	if (area == MAP_FAILED) {
 		perror("mmap");
 		return T_EXIT_FAIL;
@@ -1155,7 +1155,7 @@ static int run_tests(void)
 
 	ret = test_area_ro();
 	if (ret) {
-		fprintf(stderr, "test_area() failed %i\n", ret);
+		fprintf(stderr, "test_area_ro() failed %i\n", ret);
 		return T_EXIT_FAIL;
 	}
 
