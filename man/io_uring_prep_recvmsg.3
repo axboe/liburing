@@ -107,7 +107,30 @@ Instead it returns the negated
 .I errno
 directly in the CQE
 .I res
-field.
+field. Some common error cases are:
+.TP
+.B -EAGAIN
+The operation would have blocked. io_uring normally arms internal poll and
+reissues the request once the socket is ready, so this does not occur for a
+socket in blocking mode. It is returned when the operation is non-blocking and
+cannot complete immediately, that is when
+.B MSG_DONTWAIT
+was set in the
+.I msg_flags
+of the
+.I msghdr
+argument or the socket is marked
+.BR O_NONBLOCK ;
+.BR recv (2)
+treats the two equivalently. To have io_uring poll and retry instead, do not
+mark the socket
+.B O_NONBLOCK
+and do not set
+.BR MSG_DONTWAIT .
+Otherwise treat
+.B -EAGAIN
+as transient and reissue the request.
+.P
 .SH NOTES
 As with any request that passes in data in a struct, that data must remain
 valid until the request has been successfully submitted. It need not remain
