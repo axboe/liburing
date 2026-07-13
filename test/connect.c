@@ -89,10 +89,11 @@ static int listen_on_socket(int fd)
 {
 	struct sockaddr_in addr;
 	int ret;
+	socklen_t len = sizeof(addr);
 
 	memset(&addr, 0, sizeof(addr));
 	addr.sin_family = AF_INET;
-	addr.sin_port = use_port;
+	addr.sin_port = 0; // Let the OS pick a free port
 	addr.sin_addr.s_addr = use_addr;
 
 	ret = bind(fd, (struct sockaddr*)&addr, sizeof(addr));
@@ -100,6 +101,12 @@ static int listen_on_socket(int fd)
 		perror("bind()");
 		return -1;
 	}
+
+	if (getsockname(fd, (struct sockaddr*)&addr, &len) == -1) {
+		perror("getsockname()");
+		return -1;
+	}
+	use_port = addr.sin_port;
 
 	ret = listen(fd, 128);
 	if (ret == -1) {
@@ -179,14 +186,53 @@ static int connect_socket(struct io_uring *ring, int fd, int *code, int async)
 	return 0;
 }
 
+static int block_port(int *port)
+{
+	int fd;
+	struct sockaddr_in addr;
+	socklen_t len = sizeof(addr);
+
+	fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+	if (fd == -1) {
+		perror("socket()");
+		return -1;
+	}
+
+	memset(&addr, 0, sizeof(addr));
+	addr.sin_family = AF_INET;
+	addr.sin_addr.s_addr = inet_addr("127.0.0.1");
+	addr.sin_port = 0;
+
+	if (bind(fd, (struct sockaddr*)&addr, sizeof(addr)) == -1) {
+		perror("bind()");
+		close(fd);
+		return -1;
+	}
+
+	if (getsockname(fd, (struct sockaddr*)&addr, &len) == -1) {
+		perror("getsockname()");
+		close(fd);
+		return -1;
+	}
+
+	*port = addr.sin_port;
+	return fd;
+}
+
 static int test_connect_with_no_peer(struct io_uring *ring)
 {
-	int connect_fd;
+	int connect_fd, block_fd;
 	int ret, code;
+	int port;
+
+	block_fd = block_port(&port);
+	if (block_fd < 0)
+		return block_fd;
+	use_port = port;
 
 	connect_fd = create_socket();
 	if (connect_fd == -1)
-		return -1;
+		goto err_block;
 
 	ret = connect_socket(ring, connect_fd, &code, 0);
 	if (ret == -1)
@@ -204,10 +250,13 @@ static int test_connect_with_no_peer(struct io_uring *ring)
 
 out:
 	close(connect_fd);
+	close(block_fd);
 	return 0;
 
 err:
 	close(connect_fd);
+err_block:
+	close(block_fd);
 	return -1;
 }
 
@@ -257,6 +306,7 @@ static int test_connect_timeout(struct io_uring *ring)
 	int accept_fd = -1;
 	int ret, code;
 	struct sockaddr_in addr;
+	socklen_t len = sizeof(addr);
 	struct io_uring_sqe *sqe;
 	struct __kernel_timespec ts = {.tv_sec = 0, .tv_nsec = 100000};
 	struct stat sb;
@@ -279,17 +329,28 @@ static int test_connect_timeout(struct io_uring *ring)
 	if (accept_fd == -1)
 		goto err;
 
-	if (configure_connect(connect_fd[0], &addr) == -1)
-		goto err;
-
-	if (configure_connect(connect_fd[1], &addr) == -1)
-		goto err;
+	memset(&addr, 0, sizeof(addr));
+	addr.sin_family = AF_INET;
+	addr.sin_port = 0; // Let the OS pick a free port
+	addr.sin_addr.s_addr = use_addr;
 
 	ret = bind(accept_fd, (struct sockaddr*)&addr, sizeof(addr));
 	if (ret == -1) {
 		perror("bind()");
 		goto err;
 	}
+
+	if (getsockname(accept_fd, (struct sockaddr*)&addr, &len) == -1) {
+		perror("getsockname()");
+		goto err;
+	}
+	use_port = addr.sin_port;
+
+	if (configure_connect(connect_fd[0], &addr) == -1)
+		goto err;
+
+	if (configure_connect(connect_fd[1], &addr) == -1)
+		goto err;
 
 	ret = listen(accept_fd, 0);  // no backlog in order to block connect_fd[1]
 	if (ret == -1) {
@@ -378,9 +439,6 @@ static int test(int flags)
 		return T_EXIT_FAIL;
 	}
 
-	srand(getpid());
-	use_port = (rand() % 61440) + 4096;
-	use_port = htons(use_port);
 	use_addr = inet_addr("127.0.0.1");
 
 	ret = test_connect_with_no_peer(&ring);
