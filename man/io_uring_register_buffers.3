@@ -60,6 +60,9 @@ These buffers must be updated before use, using eg
 After the caller has registered the buffers, they can be used with one of the
 fixed buffers functions.
 
+The iovecs are only used by the kernel for registration purposes,
+and may be freed (or passed on the stack) once registration has completed.
+
 Registered buffers is an optimization that is useful in conjunction with
 .B O_DIRECT
 reads and writes, where it maps the specified range into the kernel once when
