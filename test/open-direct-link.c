@@ -16,7 +16,7 @@
 #define MAX_FILES	8
 #define FNAME		".link.direct"
 
-static int test(struct io_uring *ring, int skip_success, int drain, int async)
+static int test(struct io_uring *ring, int skip_success, int drain, int async, int file_idx)
 {
 	struct io_uring_cqe *cqe;
 	struct io_uring_sqe *sqe;
@@ -28,7 +28,7 @@ static int test(struct io_uring *ring, int skip_success, int drain, int async)
 		return 1;
 
 	sqe = io_uring_get_sqe(ring);
-	io_uring_prep_openat_direct(sqe, AT_FDCWD, FNAME, O_RDONLY, 0, 0);
+	io_uring_prep_openat_direct(sqe, AT_FDCWD, FNAME, O_RDONLY, 0, file_idx);
 	if (!drain)
 		sqe->flags |= IOSQE_IO_LINK;
 	if (skip_success)
@@ -38,7 +38,7 @@ static int test(struct io_uring *ring, int skip_success, int drain, int async)
 	sqe->user_data = 1;
 
 	sqe = io_uring_get_sqe(ring);
-	io_uring_prep_read(sqe, 0, buf, sizeof(buf), 0);
+	io_uring_prep_read(sqe, file_idx, buf, sizeof(buf), 0);
 	sqe->flags |= IOSQE_FIXED_FILE;
 	if (drain)
 		sqe->flags |= IOSQE_IO_DRAIN;
@@ -49,7 +49,7 @@ static int test(struct io_uring *ring, int skip_success, int drain, int async)
 	sqe->user_data = 2;
 
 	sqe = io_uring_get_sqe(ring);
-	io_uring_prep_close_direct(sqe, 0);
+	io_uring_prep_close_direct(sqe, file_idx);
 	sqe->user_data = 3;
 	if (skip_success)
 		sqe->flags |= IOSQE_CQE_SKIP_SUCCESS;
@@ -123,6 +123,7 @@ int main(int argc, char *argv[])
 	struct io_uring ring;
 	struct io_uring_params p = { };
 	int ret, files[MAX_FILES];
+	int file_idx = 0;
 
 	if (argc > 1)
 		return 0;
@@ -144,37 +145,37 @@ int main(int argc, char *argv[])
 
 	t_create_file(FNAME, 4096);
 
-	ret = test(&ring, 0, 0, 0);
+	ret = test(&ring, 0, 0, 0, file_idx++);
 	if (ret) {
 		fprintf(stderr, "test 0 0 0 failed\n");
 		goto err;
 	}
 
-	ret = test(&ring, 0, 1, 0);
+	ret = test(&ring, 0, 1, 0, file_idx++);
 	if (ret) {
 		fprintf(stderr, "test 0 1 0 failed\n");
 		goto err;
 	}
 
-	ret = test(&ring, 0, 0, 1);
+	ret = test(&ring, 0, 0, 1, file_idx++);
 	if (ret) {
 		fprintf(stderr, "test 0 0 1 failed\n");
 		goto err;
 	}
 
-	ret = test(&ring, 0, 1, 1);
+	ret = test(&ring, 0, 1, 1, file_idx++);
 	if (ret) {
 		fprintf(stderr, "test 0 1 1 failed\n");
 		goto err;
 	}
 
-	ret = test(&ring, 1, 0, 0);
+	ret = test(&ring, 1, 0, 0, file_idx++);
 	if (ret) {
 		fprintf(stderr, "test 1 0 0 failed\n");
 		goto err;
 	}
 
-	ret = test(&ring, 1, 0, 1);
+	ret = test(&ring, 1, 0, 1, file_idx++);
 	if (ret) {
 		fprintf(stderr, "test 1 0 1 failed\n");
 		goto err;
