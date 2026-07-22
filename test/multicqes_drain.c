@@ -1,12 +1,10 @@
 /* SPDX-License-Identifier: MIT */
 /*
- * Description: generic tests for  io_uring drain io
+ * Description: generic tests for io_uring drain IO
  *
- * The main idea is to randomly generate different type of sqe to
- * challenge the drain logic. There are some restrictions for the
- * generated sqes, details in io_uring maillist:
+ * Randomly generates SQEs of different types to exercise the drain logic.
+ * The generated SQEs follow restrictions documented at:
  * https://lore.kernel.org/io-uring/39a49b4c-27c2-1035-b250-51daeccaab9b@linux.alibaba.com/
- *
  */
 #include <errno.h>
 #include <stdio.h>
@@ -191,6 +189,7 @@ static int test_generic_drain(struct io_uring *ring)
 	int i, j, ret, arg = 0;
 	int pipes[max_entry][2];
 	int pre_flags = 0;
+	multi_cap = max_entry / 5;
 
 	for (i = 0; i < max_entry; i++) {
 		if (pipe(pipes[i]) != 0) {
