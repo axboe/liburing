@@ -23,8 +23,6 @@ static const struct io_uring_reg_wait brief_wait = {
 	.ts.tv_nsec = 1000,
 };
 
-static bool has_kernel_regions;
-
 static int test_wait_reg_offset(struct io_uring *ring,
 				 unsigned wait_nr, unsigned long offset)
 {
@@ -382,16 +380,14 @@ static int test_regions(void)
 	rd.flags = 0;
 	rd.user_addr = 0;
 	ret = test_try_register_region(&mr, true);
-	if (ret == -EINVAL) {
-		has_kernel_regions = false;
+	if (ret == -EINVAL)
 		goto out;
-	}
+
 	if (ret) {
 		fprintf(stderr, "test_try_register_region() failed kernel alloc %i\n", ret);
 		return T_EXIT_FAIL;
 	}
 
-	has_kernel_regions = true;
 	rd.flags = 0;
 	rd.user_addr = uring_ptr_to_u64(buffer);
 	ret = test_try_register_region(&mr, true);

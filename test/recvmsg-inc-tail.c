@@ -63,7 +63,7 @@
 
 static const int expected_bids[NR_SENDS] = { 0, 0, 1, 1, 1, 2, 2, 2, 3 };
 
-static int no_buf_ring, no_recv_mshot;
+static int no_buf_ring;
 
 static int setup_buf_ring(struct io_uring *ring, void **buf_mem,
 			  struct io_uring_buf_ring **out_br)
@@ -195,7 +195,6 @@ static int test(void)
 		}
 
 		if (cqe->res == -EINVAL || cqe->res == -ENOTSUP) {
-			no_recv_mshot = 1;
 			io_uring_cqe_seen(&ring, cqe);
 			ret_val = T_EXIT_SKIP;
 			goto out_close;

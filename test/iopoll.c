@@ -23,7 +23,6 @@
 static struct iovec *vecs;
 static int no_buf_select;
 static int no_iopoll;
-static int no_hybrid;
 
 static int provide_buffers(struct io_uring *ring)
 {
@@ -372,10 +371,8 @@ static int test_io(const char *file, int write, int sqthread, int fixed,
 		return 0;
 	}
 	if (ret != T_SETUP_OK) {
-		if (ring_flags & IORING_SETUP_HYBRID_IOPOLL) {
-			no_hybrid = 1;
+		if (ring_flags & IORING_SETUP_HYBRID_IOPOLL)
 			return 0;
-		}
 		fprintf(stderr, "ring create failed: %d\n", ret);
 		return 1;
 	}
