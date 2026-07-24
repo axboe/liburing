@@ -5,7 +5,7 @@ Summary: Linux-native io_uring I/O access library
 License: (GPLv2 with exceptions and LGPLv2+) or MIT
 Source0: https://brick.kernel.dk/snaps/%{name}-%{version}.tar.gz
 Source1: https://brick.kernel.dk/snaps/%{name}-%{version}.tar.gz.asc
-URL: https://git.kernel.dk/cgit/liburing/
+URL: https://git.kernel.org/pub/scm/linux/kernel/git/axboe/liburing.git/
 BuildRequires: gcc
 BuildRequires: make
 

@@ -5,9 +5,9 @@ Maintainer: Liu Changcheng <changcheng.liu@intel.com>
 Build-Depends:
   debhelper-compat (= 13)
 Standards-Version: 4.1.4
-Homepage: https://git.kernel.dk/cgit/liburing/tree/README
-Vcs-Git: https://git.kernel.dk/liburing
-Vcs-Browser: https://git.kernel.dk/cgit/liburing/
+Homepage: https://git.kernel.org/pub/scm/linux/kernel/git/axboe/liburing.git/tree/README
+Vcs-Git: https://git.kernel.org/pub/scm/linux/kernel/git/axboe/liburing.git
+Vcs-Browser: https://git.kernel.org/pub/scm/linux/kernel/git/axboe/liburing.git
 
 Package: liburing2
 Architecture: linux-any

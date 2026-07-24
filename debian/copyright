@@ -1,6 +1,6 @@
 Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
 Upstream-Name: liburing
-Source: https://git.kernel.dk/cgit/liburing/
+Source: https://git.kernel.org/pub/scm/linux/kernel/git/axboe/liburing.git/
 
 Files: *
 Copyright: 2019 Jens Axboe <axboe@kernel.dk>
