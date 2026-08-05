@@ -274,4 +274,5 @@ LIBURING_2.15 {
 		__io_uring_peek_cqe;
 		io_uring_register_zcrx_ctrl;
 		io_uring_register_query;
+		io_uring_sq_requeue;
 } LIBURING_2.14;
