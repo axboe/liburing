@@ -467,7 +467,7 @@ EOF
 if compile_prog "" "" "discard command"; then
   discard_cmd="yes"
 fi
-print_config "io_uring discard command support" "$discard_cmd"
+print_config "discard command support" "$discard_cmd"
 
 ##########################################
 # Check idtype_t support
