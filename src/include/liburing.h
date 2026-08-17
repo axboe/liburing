@@ -1764,6 +1764,37 @@ IOURINGINLINE unsigned io_uring_sqe_shift(const struct io_uring *ring)
 }
 
 /*
+ * Requeue entries left by a short or failed IORING_SETUP_SQ_REWIND submit.
+ * Call immediately after submitting and before acquiring any more SQEs.
+ */
+IOURINGINLINE void io_uring_sq_requeue(struct io_uring *ring,
+				       unsigned submitted, int submit_ret)
+	LIBURING_NOEXCEPT
+{
+	struct io_uring_sq *sq = &ring->sq;
+	unsigned consumed, remaining;
+
+	if (!(ring->flags & IORING_SETUP_SQ_REWIND) || !submitted)
+		return;
+
+	consumed = submit_ret > 0 ? submit_ret : 0;
+	if (consumed >= submitted)
+		return;
+	remaining = submitted - consumed;
+
+	if (consumed) {
+		unsigned shift = io_uring_sqe_shift(ring);
+		unsigned src = consumed << shift;
+		unsigned slots = remaining << shift;
+		unsigned dst;
+
+		for (dst = 0; dst < slots; dst++)
+			sq->sqes[dst] = sq->sqes[src + dst];
+	}
+	sq->sqe_tail = remaining;
+}
+
+/*
  * Only applicable when using SQPOLL - allows the caller to wait for space
  * to free up in the SQ ring, which happens when the kernel side thread has
  * consumed one or more entries. If the SQ ring is currently non-full, no
