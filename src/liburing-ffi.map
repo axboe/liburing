@@ -275,3 +275,8 @@ LIBURING_2.15 {
 		io_uring_register_zcrx_ctrl;
 		io_uring_register_query;
 } LIBURING_2.14;
+
+LIBURING_2.16 {
+	global:
+		io_uring_prep_cmd_zone_reset_all;
+} LIBURING_2.15;

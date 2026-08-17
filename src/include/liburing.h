@@ -1685,6 +1685,13 @@ IOURINGINLINE void io_uring_prep_cmd_discard(struct io_uring_sqe *sqe,
 	sqe->addr3 = nbytes;
 }
 
+IOURINGINLINE void io_uring_prep_cmd_zone_reset_all(struct io_uring_sqe *sqe,
+						    int fd)
+	LIBURING_NOEXCEPT
+{
+	io_uring_prep_uring_cmd(sqe, BLOCK_URING_CMD_ZONE_RESET_ALL, fd);
+}
+
 IOURINGINLINE void io_uring_prep_pipe(struct io_uring_sqe *sqe, int *fds,
 				      int pipe_flags)
 {

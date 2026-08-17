@@ -470,6 +470,21 @@ fi
 print_config "discard command support" "$discard_cmd"
 
 ##########################################
+# Check block zone_reset_all cmd support
+zone_reset_all_cmd="no"
+cat > $TMPC << EOF
+#include <linux/blkdev.h>
+int main(void)
+{
+  return BLOCK_URING_CMD_ZONE_RESET_ALL;
+}
+EOF
+if compile_prog "" "" "zone_reset_all command"; then
+  zone_reset_all_cmd="yes"
+fi
+print_config "zone_reset_all command support" "$zone_reset_all_cmd"
+
+##########################################
 # Check idtype_t support
 has_idtype_t="no"
 cat > $TMPC << EOF
@@ -788,6 +803,22 @@ cat >> $compat_h << EOF
 
 #ifndef BLOCK_URING_CMD_DISCARD
 #define BLOCK_URING_CMD_DISCARD                        _IO(0x12, 0)
+#endif
+
+EOF
+else cat >> $compat_h << EOF
+#include <linux/blkdev.h>
+
+EOF
+fi
+
+if test "$zone_reset_all_cmd" != "yes"; then
+cat >> $compat_h << EOF
+
+#include <linux/ioctl.h>
+
+#ifndef BLOCK_URING_CMD_ZONE_RESET_ALL
+#define BLOCK_URING_CMD_ZONE_RESET_ALL			_IO(0x12, 1)
 #endif
 
 EOF
