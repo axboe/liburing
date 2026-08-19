@@ -68,6 +68,48 @@ err:
 static int page_size;
 static struct io_uring_reg_wait *reg;
 
+static int test_unsupported_does_not_flush(void)
+{
+	struct io_uring_cqe *cqe;
+	struct io_uring_sqe *sqe;
+	struct io_uring ring;
+	unsigned head, ktail;
+	int ret;
+
+	ret = io_uring_queue_init(8, &ring, 0);
+	if (ret) {
+		fprintf(stderr, "ring setup failed: %d\n", ret);
+		return ret;
+	}
+
+	sqe = io_uring_get_sqe(&ring);
+	if (!sqe) {
+		fprintf(stderr, "get sqe failed\n");
+		ret = T_EXIT_FAIL;
+		goto out;
+	}
+	io_uring_prep_nop(sqe);
+	head = ring.sq.sqe_head;
+	ktail = *ring.sq.ktail;
+	ring.features &= ~IORING_FEAT_EXT_ARG;
+
+	ret = io_uring_submit_and_wait_reg(&ring, &cqe, 1, 0);
+	if (ret != -EINVAL) {
+		fprintf(stderr, "unsupported wait returned %d\n", ret);
+		ret = T_EXIT_FAIL;
+		goto out;
+	}
+	if (ring.sq.sqe_head != head || *ring.sq.ktail != ktail) {
+		fprintf(stderr, "unsupported wait flushed pending SQEs\n");
+		ret = T_EXIT_FAIL;
+		goto out;
+	}
+	ret = T_EXIT_PASS;
+out:
+	io_uring_queue_exit(&ring);
+	return ret;
+}
+
 static int test_invalid_sig(struct io_uring *ring)
 {
 	struct io_uring_cqe *cqe;
@@ -548,6 +590,12 @@ int main(int argc, char *argv[])
 	page_size = sysconf(_SC_PAGESIZE);
 	if (page_size < 0) {
 		perror("sysconf(_SC_PAGESIZE)");
+		return 1;
+	}
+
+	ret = test_unsupported_does_not_flush();
+	if (ret) {
+		fprintf(stderr, "test_unsupported_does_not_flush failed\n");
 		return 1;
 	}
 
