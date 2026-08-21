@@ -1,0 +1,135 @@
+.\" Copyright (C) 2026 Harshal Chavan <harshal24.chavan@gmail.com>
+.\"
+.\" SPDX-License-Identifier: LGPL-2.0-or-later
+.\"
+.TH io_uring_clone_files 3 "June 24, 2026" "liburing-2.12" "liburing Manual"
+.SH NAME
+io_uring_clone_files \- Clones registered files between rings
+.SH SYNOPSIS
+.nf
+.B #include <liburing.h>
+.PP
+.BI "int io_uring_clone_files(struct io_uring *" dst ","
+.BI "                         struct io_uring * " src ");"
+.PP
+.BI "int __io_uring_clone_files(struct io_uring *" dst ","
+.BI "                           struct io_uring * " src ","
+.BI "                           unsigned int " flags ");"
+.PP
+.BI "int io_uring_clone_files_offset(struct io_uring *" dst ","
+.BI "                                struct io_uring * " src ","
+.BI "                                unsigned int " dst_off ","
+.BI "                                unsigned int " src_off ","
+.BI "                                unsigned int " nr ","
+.BI "                                unsigned int " flags ");"
+.PP
+.BI "int __io_uring_clone_files_offset(struct io_uring *" dst ","
+.BI "                                  struct io_uring * " src ","
+.BI "                                  unsigned int " dst_off ","
+.BI "                                  unsigned int " src_off ","
+.BI "                                  unsigned int " nr ","
+.BI "                                  unsigned int " flags ");"
+.PP
+.fi
+.SH DESCRIPTION
+.PP
+The
+.BR io_uring_clone_files (3)
+function clones registered file descriptors from the ring indicated by
+.IR src
+to the ring indicated by
+.IR dst .
+Upon successful completion of this operation,
+.IR src
+and
+.IR dst
+will have the same set of registered files.
+
+The
+.IR dst
+ring must not have any files currently registered. If files are currently
+registered on the destination ring, they must be unregistered with
+.BR io_uring_unregister_files (3)
+first or pass the IORING_REGISTER_DST_REPLACE flag to replace the old files in 
+.IR dst
+ring.
+
+
+Not yet available in the kernel.
+
+The
+.BR io_uring_clone_files_offset (3)
+function also clones files from the
+.IR src
+ring to the
+.IR dst
+ring, however it supports cloning only a subset of the files, where
+.BR io_uring_clone_files (3)
+always clones all of them.
+.IR dst_off
+indicates at what offset cloning should start in the destination,
+.IR src_off
+indicates at what offset cloning should start in the source, and
+.IR nr
+indicates how many files to clone at the given offset. If both
+.IR dst_off ,
+.IR src_off ,
+and
+.IR nr
+are given as
+.B 0 ,
+then
+.BR io_uring_clone_files_offset (3)
+performs the same action as
+.BR io_uring_clone_files (3) .
+
+.IR flags
+may be set to the following values:
+.TP
+.B IORING_REGISTER_SRC_REGISTERED
+If the source ring is registered AND the calling thread is the one that
+originally registered its ring fd, then this flag may be set to lookup the
+registered index rather than use the normal file descriptor. If the normal
+file descriptor wasn't closed after registering it, there's no need to set
+this flag.
+.TP
+.B IORING_REGISTER_DST_REPLACE
+If set, cloning may happen for a destination ring that already has a file
+table assigned. In that case, existing nodes that overlap with the specified
+range will be released and replaced.
+.PP
+
+.SH NOTES
+A ring cannot safely clone its file table into itself. Attempting to use the
+same ring for both
+.IR src
+and
+.IR dst
+will fail.
+.SH RETURN VALUE
+On success
+.BR io_uring_clone_files (3)
+and
+.BR io_uring_clone_files_offset (3)
+return 0.
+On failure, they return
+.BR -errno ,
+specifically
+.TP
+.B -EBUSY
+The destination ring already has files registered, and
+.B IORING_REGISTER_DST_REPLACE
+wasn't set.
+.TP
+.B -EINVAL
+An attempt was made to clone a ring into itself, or an invalid flag/offset was specified.
+.TP
+.B -ENOMEM
+The kernel ran out of memory.
+.TP
+.B -ENXIO
+The source ring doesn't have any files registered.
+.SH SEE ALSO
+.BR io_uring_register (2),
+.BR io_uring_unregister_files (3),
+.BR io_uring_register_files (3)

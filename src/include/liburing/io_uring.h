@@ -709,6 +709,9 @@ enum io_uring_register_op {
 	/* register bpf filtering programs */
 	IORING_REGISTER_BPF_FILTER		= 37,
 
+	/* clone file descriptors from another ring */
+	IORING_REGISTER_CLONE_FILES		= 38,
+
 	/* this goes last */
 	IORING_REGISTER_LAST,
 
@@ -838,6 +841,16 @@ struct io_uring_clone_buffers {
 	__u32	dst_off;
 	__u32	nr;
 	__u32	pad[3];
+};
+
+
+struct io_uring_clone_files {
+	__u32 src_fd;
+	__u32 flags;
+	__u32 src_off;
+	__u32 dst_off;
+	__u32 nr;
+	__u32 pad[3];
 };
 
 struct io_uring_buf {
