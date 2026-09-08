@@ -128,6 +128,7 @@ test_srcs := \
 	file-exit-unreg.c \
 	file-alloc-range-hint.c \
 	file-register.c \
+	file-register-nofile.c \
 	files-exit-hang-poll.c \
 	files-exit-hang-timeout.c \
 	file-update.c \

@@ -130,7 +130,7 @@ static int increase_rlimit_nofile(unsigned nr)
 		return ret;
 
 	if (rlim.rlim_cur < nr) {
-		rlim.rlim_cur += nr;
+		rlim.rlim_cur = nr;
 		__sys_setrlimit(RLIMIT_NOFILE, &rlim);
 	}
 
