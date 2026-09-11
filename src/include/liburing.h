@@ -2012,7 +2012,7 @@ IOURINGINLINE void io_uring_buf_ring_add(struct io_uring_buf_ring *br,
 					 int buf_offset)
 	LIBURING_NOEXCEPT
 {
-	struct io_uring_buf *buf = &br->bufs[(br->tail + buf_offset) & mask];
+	struct io_uring_buf *buf = &br->bufs[(br->tail + (unsigned) buf_offset) & mask];
 
 	buf->addr = (unsigned long) (uintptr_t) addr;
 	buf->len = len;
