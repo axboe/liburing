@@ -525,8 +525,10 @@ if command -v clang >/dev/null 2>&1; then
 fi
 
 has_bpf_clang="no"
-if clang -target bpf -mcpu=v4 -c "$tmp_bpf_c" -o "$tmp_bpf_o"; then
-  has_bpf_clang="yes"
+if test "$has_clang" = "yes"; then
+  if clang -target bpf -mcpu=v4 -c "$tmp_bpf_c" -o "$tmp_bpf_o" >> config.log 2>&1; then
+    has_bpf_clang="yes"
+  fi
 fi
 rm -f "$tmp_bpf_c" "$tmp_bpf_o"
 
