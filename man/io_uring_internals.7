@@ -1,0 +1,282 @@
+.TH io_uring_internals 7 2024-10-5 "Linux" "Linux Programmer's Manual"
+.SH NAME
+io_uring_internals
+.SH SYNOPSIS
+.nf
+.B "#include <linux/io_uring.h>"
+.fi
+.PP
+.SH DESCRIPTION
+.PP
+.B io_uring
+is a linux specific, asynchronous API that allows the submission of requests to
+the kernel. Applications pass requests to the kernel via a shared ring buffer
+the
+.I Submission Queue
+(SQ) and receive notifications of the completion of these requests via the
+.I Completion Queue
+(CQ). An important detail here is that after a request has been submitted to
+the kernel some CPU time has to be spent in kernel space to perform the
+required submission and completion related work.
+The mechanism used to provide this CPU time, as well as what process does so
+and when is different in
+.I io_uring
+than for the traditional API provided by regular syscalls.
+
+.PP
+.SH Traditional Syscall Driven I/O
+.PP
+For regular syscalls the CPU time for this work is directly provided by the
+process issuing the syscall, with the submission side work in kernel space
+being directly executed after the context switch. The time for completion
+related work is either also subsequently directly provided in the case of
+polled I/O. In the case of interrupt driven I/O the CPU time is provided,
+depending on the driver in question, by either the traditional top and bottom
+half IRQ approach or via threaded IRQ handling. The CPU time for completion
+work is thus in this case provided by the CPU on which the hardware
+interrupt arrives, as well as the CPU to which the dedicated kernel worker
+thread for the threaded IRQ handling gets scheduled, if that is used.
+
+.PP
+.SH The Submission Side Work
+.PP
+
+The work required in kernel space on the submission side mostly consists of
+checking the SQ for newly arrived SQEs, parsing and checking them for
+validity and permissions and then passing them on to the responsible system,
+such as a block device driver, networking stack, etc. An important note here is
+that
+.I io_uring
+guarantees that the process of submitting the request to responsible subsystem
+and thus in this case the
+.IR io_uring_enter (2)
+syscall made to submit the new requests,
+.B will never
+.BR block .
+However, the mechanism how io_uring achieves this generally depends on the
+capabilities of the file a request operates on. While the mechanism
+.I io_uring
+ends up utilizing for this is not directly observable to the application it
+does have significant performance implications.
+There are generally four scenarios:
+.PP
+1. The operation is finished in its entirety immediately. Examples of this
+are reads or writes to a pipe or socket or reads and writes to regular
+files not using direct I/O that have be served via the page cache. In this
+scenario the according CQE is posted inline as well and will thus be visible
+to the application even before the
+.IR io_uring_enter (2)
+call returns.
+
+2. The operation is not finished inline, but can be submitted fully
+asynchronously. How
+.I io_uring
+handles the asynchronous completion depends on whether or not interrupt or
+polled I/O is used (See section on Completion Side Work). An example of a
+backend capable of this fully asynchronous operation is the NVMe driver.
+
+3. The operation is not finished inline, but the file can signal readiness for
+when the operation can be retried. Examples of such files are any pollable file
+including sockets, pipes etc. It should be noted that these retry operations
+are performed during subsequent
+.IR io_uring_enter (2)
+calls, if SQ polling is not used. The operation is thus performed in the
+context of the submitting thread and there are no additional other threads
+involved. If SQ polling is used the retries are performed by the SQ poll
+thread.
+
+4. The operation is not finished inline and the file is incapable of signaling
+when it is ready to do I/O. This is the only case in which
+.I io_uring
+will
+.I async punt
+the request, i.e. offload the potentially blocking execution of the request to
+an asynchronous worker thread. (See IO WQ section below)
+.PP
+
+.PP
+.SH The Completion Side Work
+.PP
+
+The work required in kernel space on the completion side mostly come in the
+form of various request type dependent obligations, such as copying buffers,
+parsing packet headers etc., as well as posting a CQE to the CQ to inform the
+application of the completion of the request.
+
+.PP
+.SH Who does the work
+.PP
+
+One of
+the primary motivations behind
+.I io_uring
+was to reduce or entirely avoid the overheads of syscalls to provide the
+required CPU time in kernel space. The mechanism that
+.I io_uring
+utilizes to achieve this differs depending on the configuration with different
+trade-offs between configurations in respect to e.g. CPU efficiency and latency.
+
+With the default configuration the primary mechanism to provide the kernel space
+CPU time in
+.I io_uring
+is also a syscall: 
+.IR io_uring_enter (2)
+This still differs from requests made via their respective syscall directly,
+such as
+.IR read (2),
+in the sense that it allows for batching in a more flexible way than e.g.
+possible via
+.IR readv (2),
+as different syscalls types can be freely mixed and matched and chains of
+dependent requests, such as a
+.IR send (2)
+followed by a
+.IR recv (2)
+can be submitted with one syscall. Furthermore it is possible to both process
+requests for submissions and process arrived completions within the same
+.IR io_uring_enter (2)
+call. Applications can set the flag
+.I IORING_ENTER_GETEVENTS
+to in addition to processing any pending submissions, process any arrived
+completions and
+optionally wait until a specified amount of completions have arrived before
+returning.
+
+If polled I/O is used all completion related work is performed during the
+.IR io_uring_enter (2)
+call. For interrupt driven I/O, the CPU receiving the hardware interrupt
+schedules the remaining work to be performed including posting the CQE to be
+performed via task work. Any outstanding task work is performed during any
+user-kernel space transition. Per default, the CPU that received the hw
+interrupt will after scheduling the task work interrupt a user space process
+via an inter processor interrupt (IPI), which will cause it to enter the kernel,
+and thus perform the scheduled work. While this ensures a timely delivery of
+the CQE, it is a relatively disruptive and high overhead operation. To avoid
+this applications can configure
+.I io_uring
+via
+.I IORING_SETUP_COOP_TASKRUN
+to elide the IPI. Applications must now ensure that they perform any syscall
+ever so often to be able to observe new completions, but benefit from eliding
+the overheads of the IPIs. Additionally
+.I io_uring
+can be configured to inform an application about the fact that it should now
+perform any syscall to reap new completions by setting
+.IR IORING_SETUP_TASKRUN_FLAG .
+This will result in
+.I io_uring
+setting
+.I IORING_SQ_TASKRUN
+in the SQ flags once the application should do so. This mechanism can be
+restricted further via
+.IR IORING_SETUP_DEFER_TASKRUN ,
+which results in the task work only being executed when
+.IR io_uring_enter (2)
+is called with
+.I IORING_ENTER_GETEVENTS
+set, rather than at any context switch, which gives the application more agency
+about when the work is executed, thus enabling e.g. more opportunities for
+batching.
+
+.PP
+.SH IO Threads
+.PP
+
+For SQ polling and the IO WQ (See below)
+.I io_uring
+utilizes special threads called
+.I IO
+.IR Threads .
+These are threads that only run in kernel space and never exit to user space,
+but are notably different to
+.I kernel
+.IR threads ,
+that are e.g. used for threaded interrupt handling. While kernel threads are
+not associated with any user space thread, IO Threads, like pthreads,
+inherit the file table, memory mappings, credentials etc. from their parent.
+In the case of
+.I io_uring
+any IO thread of an instance is a child of the processes that created that
+.I io_uring
+instance. This has many of the usual implications of this relation e.g. one can
+profile them and measure their resource consumption via the children specific
+options of
+.IR getrusage (2)
+and
+.IR perf_event_open (2).
+
+.PP
+.SH Submission Queue Polling
+.PP
+
+Sq polling introduces a dedicated IO thread that performs essentially all
+submission and completion related work from fetching SQEs from the SQ,
+submitting requests, polling requests, if configured for I/O poll and posting
+CQEs. Notably, async punt requests are still processed by the IO WQ, to not
+hinder the progress of other requests (See Submission Side Work sections for
+when the async punt will occur). If the SQ thread does not have any work
+to do for a user supplied timeout it goes to sleep. Sq polling removes the need
+for any syscall during operation, besides waking up the sq thread after long
+periods of inactivity and thus reduces per request overheads at the cost of a
+high constant upkeep cost.
+
+.PP
+.SH IO Work Queue
+.PP
+
+The IO WQ is a pool of IO threads used to execute any requests that can not be
+submitted in a non-blocking way (See Submission Side Work sections for when
+this is the case). After either the sq poll thread or a user space
+thread calling
+.IR io_uring_enter (2)
+fails the initial attempt to submit the request without blocking it passes the
+request on to a IO WQ thread that then performs the blocking submission. This
+mechanism ensures that
+.IR io_uring ,
+unlike e.g. AIO, never blocks on any of the submission paths. However, the
+blocking nature of the submission, the passing of the request to another
+thread, as well as the scheduling of the IO WQ threads are all ideally avoided
+overheads. Significant IO WQ activity can thus be seen as an indicator that
+something is very likely going wrong. Similarly the flag
+.I IOSQE_ASYNC
+should only be used if the user knows that a request will always or is very
+likely to async punt and not to ensure that the submission will not block, as
+.I io_uring
+guarantees to never block in any case.
+
+.PP
+.SH Kernel Thread Management
+.PP
+
+Each user space process utilizing
+.I io_uring
+posses an
+.I io_uring
+context, which manages all
+.I io_uring
+instances created within said process via
+.IR io_uring_setup (2).
+Per default, both the sq poll thread, as well as the IO WQ thread pool are
+dedicated for each
+.I io_uring
+instance and are thus not shared within a process and are never shared between
+different processes. However sharing these between two or more instances can
+be achieved during setup via
+.IR IORING_SETUP_ATTACH_WQ .
+The threads of the IO WQ are created lazily in response to request being async
+punted and fall into two accounts, the 
+bounded account responsible for requests with a generally bounded execution
+time, such as block I/O and the unbounded account for requests with unbounded
+execution time such as e.g. recv operations.
+The maximum thread count of the accounts is per default 2 * NPROC and can be
+adjusted via
+.IR IORING_REGISTER_IOWQ_MAX_WORKERS .
+Their CPU affinity can be adjusted via
+.IR IORING_REGISTER_IOWQ_AFF .
+
+.EE
+.SH SEE ALSO
+.BR io_uring (7)
+.BR io_uring_enter (2)
+.BR io_uring_register (2)
+.BR io_uring_setup (2)
