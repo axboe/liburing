@@ -279,4 +279,5 @@ LIBURING_2.15 {
 LIBURING_2.16 {
 	global:
 		io_uring_prep_cmd_zone_reset_all;
+		io_uring_prep_copy_file_range;
 } LIBURING_2.15;

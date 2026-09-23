@@ -654,6 +654,20 @@ IOURINGINLINE void io_uring_prep_tee(struct io_uring_sqe *sqe,
 	sqe->splice_flags = splice_flags;
 }
 
+IOURINGINLINE void io_uring_prep_copy_file_range(struct io_uring_sqe *sqe,
+						 int fd_in, int64_t off_in,
+						 int fd_out, int64_t off_out,
+						 unsigned int nbytes,
+						 unsigned int flags)
+	LIBURING_NOEXCEPT
+{
+	io_uring_prep_rw(IORING_OP_COPY_FILE_RANGE, sqe, fd_out, NULL, nbytes,
+				(__u64) off_out);
+	sqe->splice_off_in = (__u64) off_in;
+	sqe->splice_fd_in = fd_in;
+	sqe->splice_flags = flags;
+}
+
 IOURINGINLINE void io_uring_prep_readv(struct io_uring_sqe *sqe, int fd,
 				       const struct iovec *iovecs,
 				       unsigned nr_vecs, __u64 offset)
