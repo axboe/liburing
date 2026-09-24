@@ -407,13 +407,16 @@ int __io_uring_clone_buffers_offset(struct io_uring *dst, struct io_uring *src,
 				    unsigned int dst_off, unsigned int src_off,
 				    unsigned int nr, unsigned int flags)
 {
-	struct io_uring_clone_buffers buf = {
-		.src_fd		= src->ring_fd,
-		.flags		= flags,
-		.src_off	= src_off,
-		.dst_off	= dst_off,
-		.nr		= nr,
-	};
+	struct io_uring_clone_buffers buf;
+
+	if (!dst || !src)
+		return -EINVAL;
+
+	buf.src_fd = src->ring_fd;
+	buf.flags = flags;
+	buf.src_off = src_off;
+	buf.dst_off = dst_off;
+	buf.nr = nr;
 
 	if (flags & IORING_REGISTER_SRC_REGISTERED &&
 	    src->int_flags & INT_FLAG_REG_REG_RING) {
