@@ -1064,6 +1064,88 @@ not_supported:
 	return 0;
 }
 
+/*
+ * The kernel rejects file registration with -EMFILE if the number of files
+ * exceeds the soft RLIMIT_NOFILE. When the library raises the soft limit
+ * on behalf of the caller, it must not overshoot the hard limit: adding
+ * the file count to the current soft limit makes setrlimit(2) fail with
+ * EPERM once the sum exceeds the hard limit, and the registration then
+ * fails with -EMFILE even though the request itself fits below the hard
+ * limit.
+ *
+ * Arrange a window where cur < nr <= max and cur + nr > max, and check
+ * that registering still succeeds. Must run last, as it lowers the hard
+ * RLIMIT_NOFILE for the remainder of the process.
+ */
+#define RLIMIT_TEST_NR_FILES	300
+#define RLIMIT_TEST_SOFT	(RLIMIT_TEST_NR_FILES - 100)
+#define RLIMIT_TEST_HARD	(RLIMIT_TEST_NR_FILES + 50)
+
+static int test_rlimit_window(struct io_uring *ring)
+{
+	struct rlimit old_rlim, rlim;
+	int files[RLIMIT_TEST_NR_FILES];
+	int i, ret;
+
+	if (getrlimit(RLIMIT_NOFILE, &old_rlim) < 0) {
+		perror("getrlimit");
+		return 1;
+	}
+
+	/* need headroom to open the descriptors first */
+	if (old_rlim.rlim_cur < RLIMIT_TEST_NR_FILES + 64 ||
+	    old_rlim.rlim_max < RLIMIT_TEST_HARD) {
+		fprintf(stdout, "RLIMIT_NOFILE too low, skipping\n");
+		return 0;
+	}
+
+	for (i = 0; i < RLIMIT_TEST_NR_FILES; i++)
+		files[i] = -1;
+
+	for (i = 0; i < RLIMIT_TEST_NR_FILES; i++) {
+		files[i] = open("/dev/null", O_RDONLY);
+		if (files[i] < 0) {
+			fprintf(stderr, "%s: open failed at %d\n", __FUNCTION__, i);
+			goto err;
+		}
+	}
+
+	rlim.rlim_cur = RLIMIT_TEST_SOFT;
+	rlim.rlim_max = RLIMIT_TEST_HARD;
+	if (setrlimit(RLIMIT_NOFILE, &rlim) < 0) {
+		perror("setrlimit");
+		goto err;
+	}
+
+	ret = io_uring_register_files(ring, files, RLIMIT_TEST_NR_FILES);
+
+	/* raise the soft limit back as far as the hard limit allows */
+	getrlimit(RLIMIT_NOFILE, &rlim);
+	rlim.rlim_cur = rlim.rlim_max;
+	setrlimit(RLIMIT_NOFILE, &rlim);
+
+	if (ret) {
+		fprintf(stderr, "%s: register ret=%d\n", __FUNCTION__, ret);
+		goto err;
+	}
+
+	ret = io_uring_unregister_files(ring);
+	if (ret) {
+		fprintf(stderr, "%s: unregister ret=%d\n", __FUNCTION__, ret);
+		goto err;
+	}
+
+	for (i = 0; i < RLIMIT_TEST_NR_FILES; i++)
+		close(files[i]);
+	return 0;
+err:
+	for (i = 0; i < RLIMIT_TEST_NR_FILES; i++) {
+		if (files[i] >= 0)
+			close(files[i]);
+	}
+	return 1;
+}
+
 int main(int argc, char *argv[])
 {
 	struct io_uring ring;
@@ -1195,6 +1277,12 @@ int main(int argc, char *argv[])
 			fprintf(stderr, "test_defer_taskrun failed\n");
 			return T_EXIT_FAIL;
 		}
+	}
+
+	ret = test_rlimit_window(&ring);
+	if (ret) {
+		fprintf(stderr, "test_rlimit_window failed\n");
+		return T_EXIT_FAIL;
 	}
 
 	return T_EXIT_PASS;
