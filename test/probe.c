@@ -59,6 +59,72 @@ static int test_probe_helper(struct io_uring *ring)
 	return ret;
 }
 
+/*
+ * A probe registered with fewer entries than IORING_OP_LAST only has
+ * ops_len entries populated (and allocated by the caller). The kernel
+ * still reports last_op as the last opcode it knows about, so queries
+ * must be bounded by ops_len as well: reading ops[op] for
+ * ops_len <= op <= last_op walks past the end of the table.
+ */
+static int test_probe_partial(struct io_uring *ring)
+{
+	const int nr_ops = 8;
+	struct io_uring_probe *p;
+	size_t len;
+	int ret;
+
+	len = sizeof(*p) + nr_ops * sizeof(struct io_uring_probe_op);
+	p = t_calloc(1, len);
+	ret = io_uring_register_probe(ring, p, nr_ops);
+	if (ret == -EINVAL) {
+		fprintf(stdout, "Probe not supported, skipping\n");
+		free(p);
+		return 0;
+	} else if (ret) {
+		fprintf(stdout, "Probe returned %d\n", ret);
+		goto err;
+	}
+
+	if (p->ops_len > nr_ops) {
+		fprintf(stderr, "Got ops_len=%u for %d entries\n", p->ops_len,
+			nr_ops);
+		goto err;
+	}
+	if (p->last_op < p->ops_len) {
+		fprintf(stderr, "Got last_op=%u ops_len=%u\n", p->last_op,
+			p->ops_len);
+		goto err;
+	}
+
+	/* an in-range op is answered from the populated entries */
+	if (!io_uring_opcode_supported(p, 0)) {
+		fprintf(stderr, "NOP not supported!?\n");
+		goto err;
+	}
+
+	/* anything past ops_len must read as unsupported */
+	if (io_uring_opcode_supported(p, p->ops_len)) {
+		fprintf(stderr, "op %d read past ops_len=%u\n", p->ops_len,
+			p->ops_len);
+		goto err;
+	}
+	if (io_uring_opcode_supported(p, p->last_op)) {
+		fprintf(stderr, "op %d read past ops_len=%u\n", p->last_op,
+			p->ops_len);
+		goto err;
+	}
+	if (io_uring_opcode_supported(p, -1)) {
+		fprintf(stderr, "negative op supported!?\n");
+		goto err;
+	}
+
+	free(p);
+	return 0;
+err:
+	free(p);
+	return 1;
+}
+
 static int test_probe(struct io_uring *ring)
 {
 	struct io_uring_probe *p;
@@ -123,6 +189,12 @@ int main(int argc, char *argv[])
 	}
 	if (no_probe)
 		return 0;
+
+	ret = test_probe_partial(&ring);
+	if (ret) {
+		fprintf(stderr, "test_probe_partial failed\n");
+		return ret;
+	}
 
 	ret = test_probe_helper(&ring);
 	if (ret) {
