@@ -289,6 +289,7 @@ test_srcs := \
 	symlink.c \
 	sync-cancel.c \
 	task-restrict.c \
+	task-restrict-exec.c \
 	teardowns.c \
 	thread-exit.c \
 	timens-abs-timer.c \
