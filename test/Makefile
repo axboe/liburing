@@ -89,6 +89,7 @@ test_srcs := \
 	connect.c \
 	connect-rep.c \
 	coredump.c \
+	copy-file-range.c \
 	cmd-discard.c \
 	cmd-zone-reset-all.c \
 	cq-full.c \
