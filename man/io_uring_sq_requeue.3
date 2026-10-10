@@ -1,0 +1,41 @@
+." SPDX-License-Identifier: MIT
+.TH io_uring_sq_requeue 3 "August 5, 2026" "liburing-2.15" "liburing Manual"
+.SH NAME
+io_uring_sq_requeue \- requeue unconsumed SQEs after an SQ_REWIND submit
+.SH SYNOPSIS
+.nf
+.B #include <liburing.h>
+.PP
+.BI "void io_uring_sq_requeue(struct io_uring *" ring ","
+.BI "                         unsigned " submitted ", int " submit_ret ");"
+.fi
+.SH DESCRIPTION
+The
+.BR io_uring_sq_requeue (3)
+function relocates entries left by a short or failed submission on a ring
+created with
+.BR IORING_SETUP_SQ_REWIND .
+It moves the unconsumed entries to the beginning of the submission queue and
+restores the local queue tail so that a later submit can retry them.
+.PP
+Before submitting, the application records
+.I submitted
+with
+.BR io_uring_sq_ready (3).
+After the submission returns, the application passes its return value as
+.IR submit_ret .
+A negative return value means that no entries were consumed. If all submitted
+entries were consumed, or if the ring does not use
+.BR IORING_SETUP_SQ_REWIND ,
+the function does nothing.
+.PP
+This function must be called immediately after the submission and before the
+application acquires any new SQEs. Requeueing is an explicit caller policy;
+short submissions are not requeued by default.
+.SH RETURN VALUE
+None.
+.SH SEE ALSO
+.BR io_uring_get_sqe (3),
+.BR io_uring_sq_ready (3),
+.BR io_uring_submit (3),
+.BR io_uring_setup (2)

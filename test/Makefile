@@ -276,6 +276,7 @@ test_srcs := \
 	sq-poll-kthread.c \
 	sq-poll-share.c \
 	sqpoll-sleep.c \
+	sq-rewind-partial.c \
 	sq-space_left.c \
 	sqe-mixed-boundary.c \
 	sqe-mixed-nop.c \
