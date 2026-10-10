@@ -241,6 +241,7 @@ test_srcs := \
 	ringbuf-loop.c \
 	ringbuf-read.c \
 	ringbuf-status.c \
+	ring-dontfork-mem.c \
 	ring-leak2.c \
 	ring-leak.c \
 	ring-query.c \
