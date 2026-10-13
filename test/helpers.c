@@ -365,6 +365,33 @@ unsigned long long utime_since_now(struct timeval *tv)
 	return utime_since(tv, &end);
 }
 
+/*
+ * Scale a duration based on the environment variable LIBURING_DURATION_SCALE
+ * (default 1.0) that can be increased on slow platforms.
+ */
+unsigned long long t_scale_duration(unsigned long long duration)
+{
+	static float duration_factor = 0;
+	if (duration_factor > 0)
+		return (unsigned long long) (duration * duration_factor);
+
+	duration_factor = 1;
+	char *env_val = getenv("LIBURING_DURATION_SCALE");
+	if (env_val) {
+		char* endptr;
+		errno = 0;
+		float mul = strtof(env_val, &endptr);
+		if (mul <= 0 || errno)
+			fprintf(stderr, "Warn: LIBURING_DURATION_SCALE must be a positive, non-zero float, keep duration\n");
+		else if (*endptr != '\0')
+			fprintf(stderr, "Warn: LIBURING_DURATION_SCALE contains illegal characters: '%s', keep duration\n", endptr);
+		else
+			duration_factor = mul;
+	}
+
+	return (unsigned long long) (duration * duration_factor);
+}
+
 void *t_aligned_alloc(size_t alignment, size_t size)
 {
 	void *ret;

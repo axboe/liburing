@@ -27,6 +27,8 @@ static int time_pass(struct timeval *start, unsigned long min_t,
 {
 	unsigned long elapsed;
 
+	max_t = t_scale_duration(max_t);
+
 	elapsed = mtime_since_now(start);
 	if (elapsed < min_t || elapsed > max_t) {
 		fprintf(stderr, "%s fails time check\n", name);
