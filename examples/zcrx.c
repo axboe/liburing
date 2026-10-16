@@ -39,6 +39,7 @@
 
 #include <linux/memfd.h>
 #include <linux/udmabuf.h>
+#include <linux/dma-buf.h>
 
 #include "liburing.h"
 #include "helpers.h"
@@ -103,11 +104,45 @@ static unsigned long area_token;
 static bool stop;
 static __u32 zcrx_id;
 
-static int dmabuf_fd;
+static int dmabuf_fd = -1;
 static int memfd;
 
 static int listen_fd;
 static int target_cpu = -1;
+
+static void dma_buf_begin_cpu_access(void)
+{
+	struct dma_buf_sync sync = {
+		.flags = DMA_BUF_SYNC_START | DMA_BUF_SYNC_RW,
+	};
+	int ret;
+
+	if (dmabuf_fd < 0)
+		return;
+
+	ret = ioctl(dmabuf_fd, DMA_BUF_IOCTL_SYNC, &sync);
+	if (ret) {
+		fprintf(stderr, "sync failed %i\n", errno);
+		exit(1);
+	}
+}
+
+static void dma_buf_end_cpu_access(void)
+{
+	struct dma_buf_sync sync = {
+		.flags = DMA_BUF_SYNC_END | DMA_BUF_SYNC_RW,
+	};
+	int ret;
+
+	if (dmabuf_fd < 0)
+		return;
+
+	ret = ioctl(dmabuf_fd, DMA_BUF_IOCTL_SYNC, &sync);
+	if (ret) {
+		fprintf(stderr, "sync failed %i\n", errno);
+		exit(1);
+	}
+}
 
 static int get_sock_cpu(int sockfd)
 {
@@ -373,6 +408,8 @@ static void verify_data(__u8 *data, size_t size, unsigned long seq)
 	if (!cfg_verify_data)
 		return;
 
+	dma_buf_begin_cpu_access();
+
 	for (i = 0; i < size; i++) {
 		__u8 expected = (__u8)'a' + (seq + i) % 26;
 		__u8 v = data[i];
@@ -382,6 +419,7 @@ static void verify_data(__u8 *data, size_t size, unsigned long seq)
 				(unsigned)i, expected, v, (int)expected - v,
 				seq, seq + i);
 	}
+	dma_buf_end_cpu_access();
 }
 
 static unsigned rq_nr_queued(struct io_uring_zcrx_rq *rq)
