@@ -90,6 +90,11 @@ have
 set in the
 .I flags
 member. Available since 6.12.
+Note that incremental buffer consumption assumes operations commit transferred
+bytes sequentially upon completion. For non-pollable files or requests where
+buffers are committed upfront during selection, space is committed based on
+requested length rather than actual transferred length, which may result in
+unfilled buffer gaps upon short reads.
 .PP
 
 A shared buffer ring looks as follows:

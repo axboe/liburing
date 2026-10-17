@@ -256,6 +256,7 @@ test_srcs := \
 	sendzc-bug.c \
 	shared-wq.c \
 	short-read.c \
+	short_read_inc.c \
 	shutdown.c \
 	sigfd-deadlock.c \
 	single-issuer.c \
