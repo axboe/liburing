@@ -6,9 +6,22 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include <fcntl.h>
+#include <signal.h>
+#include <sys/syscall.h>
 
 #include "liburing.h"
 #include "helpers.h"
+
+#ifndef __NR_pidfd_open
+#define __NR_pidfd_open		434
+#endif
+#ifndef P_PIDFD
+#define P_PIDFD			3
+#endif
+#ifndef PIDFD_NONBLOCK
+#define PIDFD_NONBLOCK		O_NONBLOCK
+#endif
 
 static bool no_waitid;
 
@@ -316,6 +329,99 @@ static int test_cancel_race(struct io_uring *ring, int async)
 	return T_EXIT_PASS;
 }
 
+static int waitid_one(struct io_uring *ring, int pidfd, int options,
+		      siginfo_t *si)
+{
+	struct io_uring_sqe *sqe;
+	struct io_uring_cqe *cqe;
+	int ret;
+
+	memset(si, 0xff, sizeof(*si));
+	sqe = io_uring_get_sqe(ring);
+	io_uring_prep_waitid(sqe, P_PIDFD, pidfd, si, options, 0);
+	io_uring_submit(ring);
+
+	ret = io_uring_wait_cqe(ring, &cqe);
+	if (ret) {
+		fprintf(stderr, "cqe wait: %d\n", ret);
+		return ret;
+	}
+	ret = cqe->res;
+	io_uring_cqe_seen(ring, cqe);
+	return ret;
+}
+
+/*
+ * Test a non-blocking pidfd, which should behave like waitid(2): -EAGAIN
+ * if the child hasn't exited and WNOHANG wasn't asked for
+ */
+static int test_pidfd_nonblock(struct io_uring *ring)
+{
+	int ret, pidfd, res = T_EXIT_FAIL;
+	siginfo_t si;
+	pid_t pid;
+
+	pid = fork();
+	if (!pid) {
+		pause();
+		exit(0);
+	}
+
+	pidfd = syscall(__NR_pidfd_open, pid, PIDFD_NONBLOCK);
+	if (pidfd < 0) {
+		res = T_EXIT_SKIP;
+		goto kill;
+	}
+
+	/* what waitid(2) does, kernels that can't do this fail pidfd_open */
+	ret = waitid(P_PIDFD, pidfd, &si, WEXITED);
+	if (ret != -1 || errno != EAGAIN) {
+		res = T_EXIT_SKIP;
+		goto close;
+	}
+
+	ret = waitid_one(ring, pidfd, WEXITED, &si);
+	if (ret != -EAGAIN) {
+		fprintf(stderr, "nonblock pidfd res: %d\n", ret);
+		goto close;
+	}
+	if (si.si_signo || si.si_pid) {
+		fprintf(stderr, "nonblock pidfd signo %d pid %d\n",
+			si.si_signo, si.si_pid);
+		goto close;
+	}
+
+	ret = waitid_one(ring, pidfd, WEXITED | WNOHANG, &si);
+	if (ret) {
+		fprintf(stderr, "nonblock pidfd WNOHANG res: %d\n", ret);
+		goto close;
+	}
+
+	/* once it has exited, the non-blocking pidfd reaps it */
+	kill(pid, SIGKILL);
+	if (waitid(P_PID, pid, &si, WEXITED | WNOWAIT)) {
+		perror("waitid");
+		goto close;
+	}
+	ret = waitid_one(ring, pidfd, WEXITED, &si);
+	if (ret) {
+		fprintf(stderr, "nonblock pidfd exited res: %d\n", ret);
+		goto close;
+	}
+	if (si.si_pid != pid) {
+		fprintf(stderr, "expected pid %d, got %d\n", pid, si.si_pid);
+		goto close;
+	}
+	close(pidfd);
+	return T_EXIT_PASS;
+close:
+	close(pidfd);
+kill:
+	kill(pid, SIGKILL);
+	waitpid(pid, NULL, 0);
+	return res;
+}
+
 /*
  * Test basic reap of child exit
  */
@@ -413,6 +519,12 @@ int main(int argc, char *argv[])
 	ret = test_invalid_infop(&ring);
 	if (ret == T_EXIT_FAIL) {
 		fprintf(stderr, "test_invalid_infop failed\n");
+		return T_EXIT_FAIL;
+	}
+
+	ret = test_pidfd_nonblock(&ring);
+	if (ret == T_EXIT_FAIL) {
+		fprintf(stderr, "test_pidfd_nonblock failed\n");
 		return T_EXIT_FAIL;
 	}
 
