@@ -89,7 +89,9 @@ static int test_noexit(struct io_uring *ring)
 			fprintf(stderr, "cqe wait: %d\n", ret);
 			return T_EXIT_FAIL;
 		}
-		if (cqe->user_data == 2 && cqe->res != 1) {
+		/* older kernels complete a fired linked timeout with 1 */
+		if (cqe->user_data == 2 &&
+		    !(cqe->res == -ETIME || cqe->res == 1)) {
 			fprintf(stderr, "timeout res: %d\n", cqe->res);
 			return T_EXIT_FAIL;
 		}
