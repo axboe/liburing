@@ -251,6 +251,7 @@ test_srcs := \
 	recvsend_bundle-inc.c \
 	send_recv.c \
 	send_recvmsg.c \
+	send-quiet.c \
 	send-zerocopy.c \
 	sendmsg_iov_clean.c \
 	sendzc-bug.c \
