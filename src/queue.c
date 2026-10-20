@@ -52,10 +52,12 @@ static inline bool cq_ring_needs_enter(struct io_uring *ring)
 
 struct get_data {
 	unsigned submit;
+	unsigned submit_tail;
 	unsigned wait_nr;
 	unsigned get_flags;
 	int sz;
 	int has_ts;
+	bool wait_for_submit;
 	void *arg;
 };
 
@@ -98,8 +100,16 @@ static int _io_uring_get_cqe(struct io_uring *ring,
 		}
 		if (sq_ring_needs_enter(ring, data->submit, &flags))
 			need_enter = true;
-		if (!need_enter)
-			break;
+		if (!need_enter) {
+			if (!data->wait_for_submit ||
+			    io_uring_load_sq_head(ring) == data->submit_tail)
+				break;
+			/*
+			 * SQPOLL submission is asynchronous.  Keep the caller's
+			 * submission data alive until the SQ thread consumed it.
+			 */
+			continue;
+		}
 		if (looped && data->has_ts) {
 			/*
 			 * When IORING_ENTER_EXT_ARG_REG is set, data->arg
@@ -125,14 +135,41 @@ static int _io_uring_get_cqe(struct io_uring *ring,
 					    data->wait_nr, flags, data->arg,
 					    data->sz);
 		if (ret < 0) {
+			if (data->wait_for_submit &&
+			    !(ring->flags & IORING_SETUP_SQPOLL) &&
+			    io_uring_load_sq_head(ring) != data->submit_tail) {
+				unsigned tail = data->submit_tail - 1;
+
+				/*
+				 * The timeout is the last SQE and non-SQPOLL
+				 * submission is synchronous.  Retract it so a
+				 * later submit cannot use the caller's pointer.
+				 */
+				ring->sq.sqe_head = tail;
+				ring->sq.sqe_tail = tail;
+				*ring->sq.ktail = tail;
+			}
 			if (!err)
 				err = ret;
 			break;
 		}
 
-		data->submit -= ret;
-		if (cqe)
-			break;
+		if (data->wait_for_submit)
+			data->submit = data->submit_tail -
+					io_uring_load_sq_head(ring);
+		else
+			data->submit -= ret;
+		if (cqe) {
+			if (!data->wait_for_submit || !data->submit)
+				break;
+			/*
+			 * Preserve the return value from the point where the
+			 * CQE first became available.  The extra iterations
+			 * only keep submission data alive.
+			 */
+			looped = true;
+			continue;
+		}
 		if (!looped) {
 			looped = true;
 			err = ret;
@@ -329,7 +366,8 @@ static int io_uring_wait_cqes_new(struct io_uring *ring,
  * handling between two threads.
  */
 static int __io_uring_submit_timeout(struct io_uring *ring, unsigned wait_nr,
-				     struct __kernel_timespec *ts)
+				     struct __kernel_timespec *ts,
+				     unsigned *submit_tail)
 {
 	struct io_uring_sqe *sqe;
 	int ret;
@@ -348,7 +386,27 @@ static int __io_uring_submit_timeout(struct io_uring *ring, unsigned wait_nr,
 	}
 	io_uring_prep_timeout(sqe, ts, wait_nr, 0);
 	sqe->user_data = LIBURING_UDATA_TIMEOUT;
-	return __io_uring_flush_sq(ring);
+	ret = __io_uring_flush_sq(ring);
+	*submit_tail = ring->sq.sqe_tail;
+	return ret;
+}
+
+static int __io_uring_get_cqe_timeout(struct io_uring *ring,
+				      struct io_uring_cqe **cqe_ptr,
+				      unsigned submit, unsigned submit_tail,
+				      unsigned wait_nr, sigset_t *sigmask)
+{
+	struct get_data data = {
+		.submit		= submit,
+		.submit_tail	= submit_tail,
+		.wait_nr	= wait_nr,
+		.get_flags	= 0,
+		.sz		= _NSIG / 8,
+		.wait_for_submit = true,
+		.arg		= sigmask,
+	};
+
+	return _io_uring_get_cqe(ring, cqe_ptr, &data);
 }
 
 int io_uring_wait_cqes(struct io_uring *ring, struct io_uring_cqe **cqe_ptr,
@@ -356,16 +414,23 @@ int io_uring_wait_cqes(struct io_uring *ring, struct io_uring_cqe **cqe_ptr,
 		       sigset_t *sigmask)
 {
 	int to_submit = 0;
+	unsigned submit_tail = 0;
+	bool timeout_fallback = false;
 
 	if (ts) {
 		if (ring->features & IORING_FEAT_EXT_ARG)
 			return io_uring_wait_cqes_new(ring, cqe_ptr, wait_nr,
 							ts, 0, sigmask);
-		to_submit = __io_uring_submit_timeout(ring, wait_nr, ts);
+		to_submit = __io_uring_submit_timeout(ring, wait_nr, ts,
+						      &submit_tail);
 		if (to_submit < 0)
 			return to_submit;
+		timeout_fallback = true;
 	}
 
+	if (timeout_fallback)
+		return __io_uring_get_cqe_timeout(ring, cqe_ptr, to_submit,
+						  submit_tail, wait_nr, sigmask);
 	return __io_uring_get_cqe(ring, cqe_ptr, to_submit, wait_nr, sigmask);
 }
 
@@ -409,6 +474,8 @@ static int __io_uring_submit_and_wait_timeout(struct io_uring *ring,
 			unsigned int min_wait, sigset_t *sigmask)
 {
 	int to_submit;
+	unsigned submit_tail = 0;
+	bool timeout_fallback = false;
 
 	if (ts) {
 		if (ring->features & IORING_FEAT_EXT_ARG) {
@@ -429,12 +496,17 @@ static int __io_uring_submit_and_wait_timeout(struct io_uring *ring,
 
 			return _io_uring_get_cqe(ring, cqe_ptr, &data);
 		}
-		to_submit = __io_uring_submit_timeout(ring, wait_nr, ts);
+		to_submit = __io_uring_submit_timeout(ring, wait_nr, ts,
+						      &submit_tail);
 		if (to_submit < 0)
 			return to_submit;
+		timeout_fallback = true;
 	} else
 		to_submit = __io_uring_flush_sq(ring);
 
+	if (timeout_fallback)
+		return __io_uring_get_cqe_timeout(ring, cqe_ptr, to_submit,
+						  submit_tail, wait_nr, sigmask);
 	return __io_uring_get_cqe(ring, cqe_ptr, to_submit, wait_nr, sigmask);
 }
 
