@@ -89,6 +89,16 @@ and
 must be the number of vectors in that array. This enables use of vectorized IO
 for a normal send operation, rather than needing a sendmsg variant to
 accomplish that.
+.TP
+.B IORING_SEND_QUIET
+If set and the send transfers all of its data, the CQE is posted as usual,
+but doesn't wake a task waiting for events in
+.BR io_uring_enter (2)
+nor count towards the number of events it waits for. A short or failed send
+posts a normal CQE. Also supported for zerocopy sends, where the notification
+CQE is quiet as well. Not supported with
+.BR IORING_RECVSEND_BUNDLE .
+Available since 7.4.
 .P
 
 Note that using
