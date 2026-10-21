@@ -279,6 +279,18 @@ int io_uring_clone_buffers(struct io_uring *dst, struct io_uring *src)
 	LIBURING_NOEXCEPT;
 int __io_uring_clone_buffers(struct io_uring *dst, struct io_uring *src,
 			     unsigned int flags) LIBURING_NOEXCEPT;
+int io_uring_clone_files_offset(struct io_uring *dst, struct io_uring *src,
+				  unsigned int dst_off, unsigned int src_off,
+				  unsigned int nr, unsigned int flags)
+	LIBURING_NOEXCEPT;
+int __io_uring_clone_files_offset(struct io_uring *dst, struct io_uring *src,
+				  unsigned int dst_off, unsigned int src_off,
+				  unsigned int nr, unsigned int flags)
+	LIBURING_NOEXCEPT;
+int io_uring_clone_files(struct io_uring *dst, struct io_uring *src)
+	LIBURING_NOEXCEPT;
+int __io_uring_clone_files(struct io_uring *dst, struct io_uring *src,
+			     unsigned int flags) LIBURING_NOEXCEPT;
 int io_uring_register_buffers(struct io_uring *ring, const struct iovec *iovecs,
 			      unsigned nr_iovecs) LIBURING_NOEXCEPT;
 int io_uring_register_buffers_tags(struct io_uring *ring,

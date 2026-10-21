@@ -84,6 +84,7 @@ test_srcs := \
 	cancel-race.c \
 	cbpf_filter.c \
 	ce593a6c480a.c \
+	clone-files.c \
 	close-opath.c \
 	conn-unreach.c \
 	connect.c \
