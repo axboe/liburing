@@ -398,6 +398,9 @@ struct io_uring_buf_ring *io_uring_setup_buf_ring(struct io_uring *ring,
 						  unsigned int nentries,
 						  int bgid, unsigned int flags,
 						  int *err) LIBURING_NOEXCEPT;
+struct io_uring_buf_ring *io_uring_setup_buf_ring_param(struct io_uring *ring,
+							const struct io_uring_buf_reg *params,
+							int *err) LIBURING_NOEXCEPT;
 int io_uring_free_buf_ring(struct io_uring *ring, struct io_uring_buf_ring *br,
 			   unsigned int nentries, int bgid) LIBURING_NOEXCEPT;
 

@@ -117,7 +117,45 @@ static int setup_buf_ring(struct io_uring *ring, void **buf_mem,
 	return 0;
 }
 
-static int test(void)
+/* same as above, but use io_uring_setup_buf_ring_param */
+static int setup_buf_ring_param(struct io_uring *ring, void **buf_mem,
+				struct io_uring_buf_ring **out_br)
+{
+	struct io_uring_buf_ring *br;
+	static const struct io_uring_buf_reg reg = {
+		.ring_entries = NR_BUFS,
+		.bgid = BGID,
+		.flags = IOU_PBUF_RING_INC,
+		.min_left = 32,
+	};
+	size_t total = NR_BUFS * BUF_SIZE;
+	void *mem;
+	int ret, i;
+
+	mem = mmap(NULL, total, PROT_READ | PROT_WRITE,
+		   MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+	if (mem == MAP_FAILED)
+		return -1;
+	*buf_mem = mem;
+
+	br = io_uring_setup_buf_ring_param(ring, &reg, &ret);
+	if (!br) {
+		fprintf(stderr, "setup_buf_ring_param: %d\n", ret);
+		return -1;
+	}
+	*out_br = br;
+
+	for (i = 0; i < NR_BUFS; i++) {
+		io_uring_buf_ring_add(br, (char *)mem + i * BUF_SIZE, BUF_SIZE,
+				      i, io_uring_buf_ring_mask(NR_BUFS), i);
+	}
+	io_uring_buf_ring_advance(br, NR_BUFS);
+	return 0;
+}
+
+static int test(int (*setup_func)(struct io_uring *ring,
+				  void **buf_mem,
+				  struct io_uring_buf_ring **out_br))
 {
 	struct io_uring ring;
 	struct io_uring_buf_ring *br = NULL;
@@ -145,7 +183,7 @@ static int test(void)
 		return T_EXIT_FAIL;
 	}
 
-	if (setup_buf_ring(&ring, &buf_mem, &br))
+	if (setup_func(&ring, &buf_mem, &br))
 		goto out;
 	if (no_buf_ring) {
 		ret_val = T_EXIT_SKIP;
@@ -310,8 +348,13 @@ out:
 
 int main(int argc, char *argv[])
 {
+	int ret;
+
 	if (argc > 1)
 		return T_EXIT_SKIP;
 
-	return test();
+	ret = test(setup_buf_ring);
+	if (ret)
+		return ret;
+	return test(setup_buf_ring_param);
 }
