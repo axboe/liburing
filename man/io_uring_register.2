@@ -488,6 +488,66 @@ must be specified in the call to
 
 Available since 5.10.
 
+Restrictions can also be registered for the calling task rather than for a
+ring, by passing -1 as
+.I fd
+and pointing
+.I arg
+at a
+.I struct io_uring_task_restriction
+with
+.I nr_args
+set to 1.
+.PP
+.in +12n
+.EX
+struct io_uring_task_restriction {
+    __u16 flags;
+    __u16 nr_res;
+    __u32 resv[3];
+    struct io_uring_restriction restrictions[];
+};
+.EE
+.in
+.PP
+.in +8n
+.I nr_res
+is the number of entries in
+.IR restrictions ,
+.I flags
+and
+.I resv
+must be zero. Task restrictions apply to every ring the task creates
+afterwards, are inherited by children across
+.BR fork (2),
+and can be registered only once per task. As with
+.BR seccomp (2)
+filters, the caller must either have
+.B CAP_SYS_ADMIN
+or have set
+.BR no_new_privs .
+
+Allowed register opcodes in a task restriction also govern the operations
+that take no ring and are issued with
+.I fd
+set to -1, such as
+.BR IORING_REGISTER_SEND_MSG_RING ,
+.B IORING_REGISTER_QUERY
+and
+.BR IORING_REGISTER_BPF_FILTER .
+Note that
+.B IORING_REGISTER_SEND_MSG_RING
+has no source ring, so it is subject only to the register opcode allowlist
+and not to a restriction on
+.B IORING_OP_MSG_RING
+or to any BPF filter. A sandbox that disallows
+.B IORING_OP_MSG_RING
+should leave
+.B IORING_REGISTER_SEND_MSG_RING
+out of the allowed register opcodes as well.
+
+Available since 7.4.
+
 .TP
 .B IORING_REGISTER_IOWQ_AFF
 By default, async workers created by io_uring will inherit the CPU mask of its
@@ -929,7 +989,15 @@ which must be prepared with
 .BR io_uring_prep_msg_ring (3)
 before being submitted. Only supports
 .B IORING_MSG_DATA
-type of requests. Available since kernel 6.13.
+type of requests. This operation does not require a ring and is called with
+.I fd
+set to -1. If the calling task has registered restrictions on register
+opcodes, see
+.BR IORING_REGISTER_RESTRICTIONS ,
+.B IORING_REGISTER_SEND_MSG_RING
+must be among the allowed opcodes or the call fails with
+.BR EACCES .
+Available since kernel 6.13.
 
 .TP
 .B IORING_REGISTER_RESIZE_RINGS
