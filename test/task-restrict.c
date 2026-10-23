@@ -14,6 +14,7 @@
 #include <fcntl.h>
 #include <sys/prctl.h>
 #include <sys/wait.h>
+#include <linux/filter.h>
 
 #include "liburing.h"
 #include "helpers.h"
@@ -376,6 +377,104 @@ static int test_task_restrict_register_op(void)
 	return WEXITSTATUS(status);
 }
 
+/*
+ * Test that per-task register op restrictions also apply to the "blind"
+ * register opcodes, which are issued with fd == -1
+ */
+static int test_task_restrict_blind_register_op(void)
+{
+	struct io_uring_restriction res[1];
+	int ret;
+
+	/* Allow only IORING_REGISTER_QUERY */
+	res[0].opcode = IORING_RESTRICTION_REGISTER_OP;
+	res[0].register_op = IORING_REGISTER_QUERY;
+
+	pid_t pid = fork();
+	if (pid < 0) {
+		perror("fork");
+		return T_EXIT_FAIL;
+	}
+
+	if (pid == 0) {
+		struct sock_filter allow[] = {
+			BPF_STMT(BPF_RET | BPF_K, 1),
+		};
+		struct io_uring_bpf bpf = {
+			.cmd_type = IO_URING_BPF_CMD_FILTER,
+			.filter = {
+				.opcode = IORING_OP_NOP,
+				.flags = IO_URING_BPF_FILTER_DENY_REST,
+				.filter_len = 1,
+				.filter_ptr = (unsigned long) (uintptr_t) allow,
+			},
+		};
+		struct io_uring_query_opcode qop = { };
+		struct io_uring_query_hdr hdr = {
+			.query_op = IO_URING_QUERY_OPCODES,
+			.query_data = (unsigned long) (uintptr_t) &qop,
+			.size = sizeof(qop),
+		};
+		struct io_uring_cqe *cqe;
+		struct io_uring_sqe sqe;
+		struct io_uring ring;
+
+		prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0);
+
+		ret = register_task_restrictions(res, 1);
+		if (ret == -EINVAL) {
+			_exit(T_EXIT_SKIP);
+		}
+		if (ret) {
+			fprintf(stderr, "register task restrictions: %d\n", ret);
+			_exit(T_EXIT_FAIL);
+		}
+
+		/* Query is on the allowlist, should work */
+		ret = io_uring_register_query(&hdr);
+		if (ret || hdr.result || !qop.nr_register_opcodes) {
+			fprintf(stderr, "blind query: %d/%d\n", ret, hdr.result);
+			_exit(T_EXIT_FAIL);
+		}
+
+		ret = io_uring_queue_init(8, &ring, 0);
+		if (ret) {
+			fprintf(stderr, "ring setup: %d\n", ret);
+			_exit(T_EXIT_FAIL);
+		}
+
+		/* Sending a msg_ring without a source ring should be denied */
+		memset(&sqe, 0, sizeof(sqe));
+		io_uring_prep_msg_ring(&sqe, ring.ring_fd, 0, 0x1234, 0);
+		ret = io_uring_register_sync_msg(&sqe);
+		if (ret != -EACCES) {
+			fprintf(stderr, "blind msg_ring: %d (expected -EACCES)\n", ret);
+			_exit(T_EXIT_FAIL);
+		}
+		ret = io_uring_peek_cqe(&ring, &cqe);
+		if (ret != -EAGAIN) {
+			fprintf(stderr, "blind msg_ring posted a CQE\n");
+			_exit(T_EXIT_FAIL);
+		}
+
+		/* As should registering a task BPF filter */
+		ret = io_uring_register_bpf_filter_task(&bpf);
+		if (ret != -EACCES) {
+			fprintf(stderr, "blind bpf filter: %d (expected -EACCES)\n", ret);
+			_exit(T_EXIT_FAIL);
+		}
+
+		io_uring_queue_exit(&ring);
+		_exit(T_EXIT_PASS);
+	}
+
+	int status;
+	waitpid(pid, &status, 0);
+	if (!WIFEXITED(status))
+		return T_EXIT_FAIL;
+	return WEXITSTATUS(status);
+}
+
 int main(int argc, char *argv[])
 {
 	int ret;
@@ -407,6 +506,12 @@ int main(int argc, char *argv[])
 	ret = test_task_restrict_register_op();
 	if (ret == T_EXIT_FAIL) {
 		fprintf(stderr, "test_task_restrict_register_op failed\n");
+		return T_EXIT_FAIL;
+	}
+
+	ret = test_task_restrict_blind_register_op();
+	if (ret == T_EXIT_FAIL) {
+		fprintf(stderr, "test_task_restrict_blind_register_op failed\n");
 		return T_EXIT_FAIL;
 	}
 
