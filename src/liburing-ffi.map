@@ -280,4 +280,5 @@ LIBURING_2.16 {
 	global:
 		io_uring_buf_ring_head;
 		io_uring_prep_cmd_zone_reset_all;
+		io_uring_setup_buf_ring_param;
 } LIBURING_2.15;
