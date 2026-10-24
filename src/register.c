@@ -373,6 +373,8 @@ int io_uring_register_sync_cancel(struct io_uring *ring,
 
 int io_uring_register_sync_msg(struct io_uring_sqe *sqe)
 {
+	liburing_sanitize_address(sqe);
+
 	return __sys_io_uring_register(-1, IORING_REGISTER_SEND_MSG_RING, sqe, 1);
 }
 
@@ -537,10 +539,14 @@ int io_uring_register_bpf_filter(struct io_uring *ring,
 
 int io_uring_register_bpf_filter_task(struct io_uring_bpf *bpf)
 {
+	liburing_sanitize_address(bpf);
+
 	return __sys_io_uring_register(-1, IORING_REGISTER_BPF_FILTER, bpf, 1);
 }
 
 int io_uring_register_query(struct io_uring_query_hdr *query)
 {
+	liburing_sanitize_address(query);
+
 	return __sys_io_uring_register(-1, IORING_REGISTER_QUERY, query, 0);
 }
