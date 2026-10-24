@@ -57,16 +57,44 @@ static void *submit(void *data)
 	return NULL;
 }
 
+/*
+ * Without CAP_IPC_LOCK, ring memory counts against RLIMIT_MEMLOCK. Every
+ * ring here exits with requests still pending, which makes the kernel free
+ * it asynchronously, and the loops below create rings faster than those
+ * frees complete. Give them time to catch up rather than failing on
+ * -ENOMEM.
+ */
+static enum t_setup_ret create_ring(struct io_uring *ring, int flags)
+{
+	struct io_uring_params params;
+	int i, ret;
+
+	for (i = 0; i < 100; i++) {
+		memset(&params, 0, sizeof(params));
+		params.flags = flags;
+		ret = io_uring_queue_init_params(8, ring, &params);
+		if (ret != -ENOMEM || !geteuid())
+			break;
+		usleep(10000);
+	}
+	if (!ret)
+		return T_SETUP_OK;
+
+	/* let the helper handle skips and report the error */
+	memset(&params, 0, sizeof(params));
+	params.flags = flags;
+	return t_create_ring_params(8, ring, &params);
+}
+
 static int test(int flags)
 {
-	struct io_uring_params params = { .flags = flags, };
 	struct io_uring ring;
 	struct data d = { .ring = &ring, };
 	pthread_t thread;
 	void *res;
 	int ret;
 
-	ret = t_create_ring_params(8, &ring, &params);
+	ret = create_ring(&ring, flags);
 	if (ret == T_SETUP_SKIP)
 		return 0;
 	else if (ret != T_SETUP_OK)
@@ -110,7 +138,7 @@ int main(int argc, char *argv[])
 	for (i = 0; i < 1000; i++) {
 		ret = test(IORING_SETUP_IOPOLL);
 		if (ret) {
-			fprintf(stderr, "Test IOPOLL failed loop %d\n", ret);
+			fprintf(stderr, "Test IOPOLL failed loop %d\n", i);
 			return ret;
 		}
 		if (no_iopoll)
