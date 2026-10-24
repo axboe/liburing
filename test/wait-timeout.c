@@ -37,12 +37,12 @@ static struct timespec ns_to_timespec(unsigned long long t)
 	return ts;
 }
 
-static long long ns_since(struct timespec *ts)
+static long long ns_since(clockid_t clk, struct timespec *ts)
 {
 	struct timespec now;
 	int ret;
 
-	ret = clock_gettime(CLOCK_MONOTONIC, &now);
+	ret = clock_gettime(clk, &now);
 	if (ret) {
 		fprintf(stderr, "clock_gettime failed\n");
 		exit(T_EXIT_FAIL);
@@ -114,6 +114,7 @@ static int probe_timers(void)
 static int test_timeout(bool abs, bool set_clock)
 {
 	unsigned enter_flags = abs ? IORING_ENTER_ABS_TIMER : 0;
+	clockid_t clk = set_clock ? CLOCK_BOOTTIME : CLOCK_MONOTONIC;
 	struct io_uring ring;
 	struct timespec start, end, ts;
 	long long dt;
@@ -128,7 +129,7 @@ static int test_timeout(bool abs, bool set_clock)
 	if (set_clock) {
 		struct io_uring_clock_register cr = {};
 
-		cr.clockid = CLOCK_BOOTTIME;
+		cr.clockid = clk;
 		ret = io_uring_register_clock(&ring, &cr);
 		if (ret) {
 			fprintf(stderr, "io_uring_register_clock failed\n");
@@ -137,7 +138,7 @@ static int test_timeout(bool abs, bool set_clock)
 	}
 
 	/* pass current time */
-	ret = clock_gettime(CLOCK_MONOTONIC, &start);
+	ret = clock_gettime(clk, &start);
 	assert(ret == 0);
 
 	ts = abs ? start : ns_to_timespec(0);
@@ -147,14 +148,14 @@ static int test_timeout(bool abs, bool set_clock)
 		return 1;
 	}
 
-	if (ns_since(&start) >= IO_NSEC_PER_SEC) {
+	if (ns_since(clk, &start) >= IO_NSEC_PER_SEC) {
 		fprintf(stderr, "current time test failed\n");
 		return 1;
 	}
 
 	if (abs) {
 		/* expired time */
-		ret = clock_gettime(CLOCK_MONOTONIC, &start);
+		ret = clock_gettime(clk, &start);
 		assert(ret == 0);
 		ts = ns_to_timespec(timespec_to_ns(&start) - IO_NSEC_PER_SEC);
 
@@ -164,17 +165,17 @@ static int test_timeout(bool abs, bool set_clock)
 			return 1;
 		}
 
-		ret = clock_gettime(CLOCK_MONOTONIC, &end);
+		ret = clock_gettime(clk, &end);
 		assert(ret == 0);
 
-		if (ns_since(&start) >= IO_NSEC_PER_SEC) {
+		if (ns_since(clk, &start) >= IO_NSEC_PER_SEC) {
 			fprintf(stderr, "expired timer test failed\n");
 			return 1;
 		}
 	}
 
 	/* 1s wait */
-	ret = clock_gettime(CLOCK_MONOTONIC, &start);
+	ret = clock_gettime(clk, &start);
 	assert(ret == 0);
 
 	dt = 2 * IO_NSEC_PER_SEC + (abs ? timespec_to_ns(&start) : 0);
@@ -185,7 +186,7 @@ static int test_timeout(bool abs, bool set_clock)
 		return 1;
 	}
 
-	dt = ns_since(&start);
+	dt = ns_since(clk, &start);
 	if (dt < IO_NSEC_PER_SEC || dt > 3 * IO_NSEC_PER_SEC) {
 		fprintf(stderr, "early wake up, %lld\n", dt);
 		return 1;
