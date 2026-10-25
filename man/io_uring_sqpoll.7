@@ -89,8 +89,16 @@ The
 .I sq_thread_idle
 field specifies how long (in milliseconds) the kernel thread will
 poll before going to sleep if no submissions are pending. A value of
-0 means the thread never sleeps (uses more CPU but provides lowest
-latency).
+0 is treated as unspecified, in which case the kernel uses a default
+of 1000 milliseconds. No value asks the thread to never sleep; if
+that is the desired behavior, pass a value large enough to cover the
+idle gaps of the workload, such as
+.BR 0xffffffff .
+The idle period is measured from the last work the polling thread
+did, and is rounded up to the granularity of a timer tick, so any
+value smaller than one tick (1 to 10 milliseconds, depending on the
+.B CONFIG_HZ
+setting of the kernel) behaves like one tick.
 .SS The polling thread lifecycle
 When the ring is created with SQPOLL, a kernel thread is spawned to
 service it. The thread's behavior is:
@@ -185,6 +193,17 @@ struct io_uring_params p2 = {
 io_uring_queue_init_params(entries, &ring2, &p2);
 .EE
 .in
+.PP
+A shared polling thread uses the largest
+.I sq_thread_idle
+of the rings attached to it. In the example above,
+.I p1
+leaves
+.I sq_thread_idle
+at 0 and hence at the 1000 millisecond default, so the shared thread
+keeps polling for at least that long even if
+.I p2
+asks for a shorter idle period.
 .SS Completion handling
 SQPOLL only affects submissions. Completions are still handled
 normally \(em the application must either:
@@ -213,8 +232,9 @@ appropriately for your workload.
 .IP \(bu
 .B Idle timeout tradeoff:
 A shorter idle timeout saves CPU but may increase latency when the
-thread needs to wake up. A longer timeout (or 0 for never sleeping)
-uses more CPU but provides consistent low latency.
+thread needs to wake up. A longer timeout uses more CPU but provides
+consistent low latency, and a timeout longer than the idle gaps of
+the workload keeps the thread from sleeping at all.
 .IP \(bu
 .B Batching:
 Even with SQPOLL, batching submissions by adding multiple SQEs before
