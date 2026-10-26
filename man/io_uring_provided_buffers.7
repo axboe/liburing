@@ -206,7 +206,11 @@ Each completion picks up where the previous left off
 The buffer is only returned when consumed completely or on error
 .PP
 This is useful for registering large buffer regions that are consumed
-in smaller chunks.
+in smaller chunks. Note that incremental buffer consumption assumes operations
+commit transferred bytes sequentially upon completion. For non-pollable files
+or requests where buffers are committed upfront during selection, space is
+committed based on requested length rather than actual transferred length,
+which may result in unfilled buffer gaps upon short reads.
 .SS Returning buffers
 When finished with a buffer, return it to the ring using
 .BR io_uring_buf_ring_add (3)
