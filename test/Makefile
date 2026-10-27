@@ -87,6 +87,7 @@ test_srcs := \
 	close-opath.c \
 	conn-unreach.c \
 	connect.c \
+	connect-backlog.c \
 	connect-rep.c \
 	coredump.c \
 	cmd-discard.c \
