@@ -217,6 +217,7 @@ test_srcs := \
 	read-inc-file.c \
 	read-mshot.c \
 	read-mshot-empty.c \
+	read-mshot-fuse.c \
 	read-mshot-stdin.c \
 	read-write.c \
 	recv-bundle-buf-len.c \
