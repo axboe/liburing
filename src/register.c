@@ -33,7 +33,7 @@ int io_uring_register_buffers_update_tag(struct io_uring *ring, unsigned off,
 					 unsigned nr)
 {
 	liburing_sanitize_iovecs(iovecs, nr);
-	liburing_sanitize_address(tags);
+	liburing_sanitize_region(tags, nr * sizeof(*tags));
 
 	struct io_uring_rsrc_update2 up = {
 		.offset	= off,
@@ -51,7 +51,7 @@ int io_uring_register_buffers_tags(struct io_uring *ring,
 				   unsigned nr)
 {
 	liburing_sanitize_iovecs(iovecs, nr);
-	liburing_sanitize_address(tags);
+	liburing_sanitize_region(tags, nr * sizeof(*tags));
 
 	struct io_uring_rsrc_register reg = {
 		.nr = nr,
@@ -89,8 +89,8 @@ int io_uring_register_files_update_tag(struct io_uring *ring, unsigned off,
 					const int *files, const __u64 *tags,
 					unsigned nr_files)
 {
-	liburing_sanitize_address(files);
-	liburing_sanitize_address(tags);
+	liburing_sanitize_region(files, nr_files * sizeof(*files));
+	liburing_sanitize_region(tags, nr_files * sizeof(*tags));
 
 	struct io_uring_rsrc_update2 up = {
 		.offset	= off,
@@ -112,7 +112,7 @@ int io_uring_register_files_update_tag(struct io_uring *ring, unsigned off,
 int io_uring_register_files_update(struct io_uring *ring, unsigned off,
 				   const int *files, unsigned nr_files)
 {
-	liburing_sanitize_address(files);
+	liburing_sanitize_region(files, nr_files * sizeof(*files));
 
 	struct io_uring_rsrc_update up = {
 		.offset	= off,
@@ -165,8 +165,8 @@ int io_uring_register_files_sparse(struct io_uring *ring, unsigned nr)
 int io_uring_register_files_tags(struct io_uring *ring, const int *files,
 				 const __u64 *tags, unsigned nr)
 {
-	liburing_sanitize_address(files);
-	liburing_sanitize_address(tags);
+	liburing_sanitize_region(files, nr * sizeof(*files));
+	liburing_sanitize_region(tags, nr * sizeof(*tags));
 
 	struct io_uring_rsrc_register reg = {
 		.nr = nr,
@@ -195,7 +195,7 @@ int io_uring_register_files(struct io_uring *ring, const int *files,
 {
 	int ret, did_increase = 0;
 
-	liburing_sanitize_address(files);
+	liburing_sanitize_region(files, nr_files * sizeof(*files));
 
 	do {
 		ret = do_register(ring, IORING_REGISTER_FILES, files, nr_files);
@@ -235,6 +235,8 @@ int io_uring_register_eventfd_async(struct io_uring *ring, int event_fd)
 int io_uring_register_probe(struct io_uring *ring, struct io_uring_probe *p,
 			    unsigned int nr_ops)
 {
+	liburing_sanitize_region(p, sizeof(*p) + nr_ops * sizeof(p->ops[0]));
+
 	return do_register(ring, IORING_REGISTER_PROBE, p, nr_ops);
 }
 
@@ -252,6 +254,8 @@ int io_uring_register_restrictions(struct io_uring *ring,
 				   struct io_uring_restriction *res,
 				   unsigned int nr_res)
 {
+	liburing_sanitize_region(res, nr_res * sizeof(*res));
+
 	return do_register(ring, IORING_REGISTER_RESTRICTIONS, res, nr_res);
 }
 
@@ -266,6 +270,8 @@ int io_uring_register_iowq_aff(struct io_uring *ring, size_t cpusz,
 	if (cpusz >= (1U << 31))
 		return -EINVAL;
 
+	liburing_sanitize_region(mask, (unsigned int) cpusz);
+
 	return do_register(ring, IORING_REGISTER_IOWQ_AFF, mask, (int) cpusz);
 }
 
@@ -276,6 +282,8 @@ int io_uring_unregister_iowq_aff(struct io_uring *ring)
 
 int io_uring_register_iowq_max_workers(struct io_uring *ring, unsigned int *val)
 {
+	liburing_sanitize_region(val, 2 * sizeof(*val));
+
 	return do_register(ring, IORING_REGISTER_IOWQ_MAX_WORKERS, val, 2);
 }
 
@@ -338,6 +346,8 @@ int io_uring_register_buf_ring(struct io_uring *ring,
 			       struct io_uring_buf_reg *reg,
 			       unsigned int flags)
 {
+	liburing_sanitize_region(reg, sizeof(*reg));
+
 	reg->flags |= flags;
 	return do_register(ring, IORING_REGISTER_PBUF_RING, reg, 1);
 }
@@ -351,7 +361,7 @@ int io_uring_unregister_buf_ring(struct io_uring *ring, int bgid)
 
 int io_uring_buf_ring_head(struct io_uring *ring, int buf_group, uint16_t *head)
 {
-	liburing_sanitize_address(head);
+	liburing_sanitize_region(head, sizeof(*head));
 
 	struct io_uring_buf_status buf_status = {
 		.buf_group	= buf_group,
@@ -368,6 +378,8 @@ int io_uring_buf_ring_head(struct io_uring *ring, int buf_group, uint16_t *head)
 int io_uring_register_sync_cancel(struct io_uring *ring,
 				  struct io_uring_sync_cancel_reg *reg)
 {
+	liburing_sanitize_region(reg, sizeof(*reg));
+
 	return do_register(ring, IORING_REGISTER_SYNC_CANCEL, reg, 1);
 }
 
@@ -389,17 +401,23 @@ int io_uring_register_file_alloc_range(struct io_uring *ring,
 
 int io_uring_register_napi(struct io_uring *ring, struct io_uring_napi *napi)
 {
+	liburing_sanitize_region(napi, sizeof(*napi));
+
 	return do_register(ring, IORING_REGISTER_NAPI, napi, 1);
 }
 
 int io_uring_unregister_napi(struct io_uring *ring, struct io_uring_napi *napi)
 {
+	liburing_sanitize_region(napi, sizeof(*napi));
+
 	return do_register(ring, IORING_UNREGISTER_NAPI, napi, 1);
 }
 
 int io_uring_register_clock(struct io_uring *ring,
 			    struct io_uring_clock_register *arg)
 {
+	liburing_sanitize_region(arg, sizeof(*arg));
+
 	return do_register(ring, IORING_REGISTER_CLOCK, arg, 0);
 }
 
@@ -448,11 +466,15 @@ int __io_uring_clone_buffers(struct io_uring *dst, struct io_uring *src,
 int io_uring_register_ifq(struct io_uring *ring,
 			  struct io_uring_zcrx_ifq_reg *reg)
 {
+	liburing_sanitize_region(reg, sizeof(*reg));
+
 	return do_register(ring, IORING_REGISTER_ZCRX_IFQ, reg, 1);
 }
 
 int io_uring_register_zcrx_ctrl(struct io_uring *ring, struct zcrx_ctrl *ctrl)
 {
+	liburing_sanitize_region(ctrl, sizeof(*ctrl));
+
 	return do_register(ring, IORING_REGISTER_ZCRX_CTRL, ctrl, 0);
 }
 
@@ -515,6 +537,8 @@ int io_uring_register_wait_reg(struct io_uring __maybe_unused *ring,
 int io_uring_register_region(struct io_uring *ring,
 			     struct io_uring_mem_region_reg *reg)
 {
+	liburing_sanitize_region(reg, sizeof(*reg));
+
 	return do_register(ring, IORING_REGISTER_MEM_REGION, reg, 1);
 }
 
@@ -532,6 +556,8 @@ int io_uring_set_iowait(struct io_uring *ring, bool enable_iowait)
 int io_uring_register_bpf_filter(struct io_uring *ring,
 				 struct io_uring_bpf *bpf)
 {
+	liburing_sanitize_region(bpf, sizeof(*bpf));
+
 	return do_register(ring, IORING_REGISTER_BPF_FILTER, bpf, 1);
 }
 
