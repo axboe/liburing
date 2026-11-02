@@ -128,7 +128,7 @@ call with the following code sequence:
  * and the kernel might not agree on the consistency of the
  * wakeup flag.
  */
-unsigned flags = atomic_load_relaxed(sq_ring->flags);
+unsigned flags = atomic_load_acquire(sq_ring->flags);
 if (flags & IORING_SQ_NEED_WAKEUP)
     io_uring_enter(fd, 0, 0, IORING_ENTER_SQ_WAKEUP);
 .EE
