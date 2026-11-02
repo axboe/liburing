@@ -1,0 +1,96 @@
+.\" Copyright (C) 2026 Henrik Ma Johansson <dahankzter@gmail.com>
+.\"
+.\" SPDX-License-Identifier: LGPL-2.0-or-later
+.\"
+.TH io_uring_prep_copy_file_range 3 "September 23, 2026" "liburing-2.16" "liburing Manual"
+.SH NAME
+io_uring_prep_copy_file_range \- prepare a copy_file_range request
+.SH SYNOPSIS
+.nf
+.B #include <liburing.h>
+.PP
+.BI "void io_uring_prep_copy_file_range(struct io_uring_sqe *" sqe ","
+.BI "                                   int " fd_in ","
+.BI "                                   int64_t " off_in ","
+.BI "                                   int " fd_out ","
+.BI "                                   int64_t " off_out ","
+.BI "                                   unsigned int " nbytes ","
+.BI "                                   unsigned int " flags ");"
+.fi
+.SH DESCRIPTION
+.PP
+The
+.BR io_uring_prep_copy_file_range (3)
+function prepares a copy_file_range request. The submission queue entry
+.I sqe
+is setup to copy up to
+.I nbytes
+bytes from the file descriptor
+.I fd_in
+at offset
+.I off_in
+to the file descriptor
+.I fd_out
+at offset
+.IR off_out .
+Both file descriptors must refer to regular files.
+
+If
+.I off_in
+or
+.I off_out
+is -1, the current file position of the respective file is used and
+advanced by the number of bytes copied, like passing a NULL offset to
+.BR copy_file_range (2).
+
+.I flags
+must be 0, or
+.B SPLICE_F_FD_IN_FIXED
+in which case
+.I fd_in
+is an index into the registered file table. Use
+.B IOSQE_FIXED_FILE
+in the SQE flags to make
+.I fd_out
+a registered file.
+
+A single request copies at most
+.B MAX_RW_COUNT
+bytes (INT_MAX rounded down to the page size); larger values of
+.I nbytes
+are clamped. As with
+.BR copy_file_range (2),
+fewer bytes than requested may be copied, and the caller should loop.
+A result smaller than
+.I nbytes
+(after clamping) breaks an
+.B IOSQE_IO_LINK
+chain; use
+.B IOSQE_IO_HARDLINK
+if the chain should continue.
+
+The filesystem may implement the copy by sharing extents (reflink) or
+by a server-side copy, in which case no data is read into memory.
+Cancelling a request that has already started stops a byte copy early,
+completing it with the number of bytes copied so far, or fails it with
+.B -EINTR
+if the filesystem cannot report partial progress. A copy that shares
+extents may run to completion regardless.
+
+This function prepares an async
+.BR copy_file_range (2)
+request. See that man page for details.
+.SH RETURN VALUE
+None
+.SH ERRORS
+The CQE
+.I res
+field will contain the number of bytes copied, or a negative error
+value. See
+.BR copy_file_range (2)
+for the possible errors.
+.SH SEE ALSO
+.BR io_uring_get_sqe (3),
+.BR io_uring_submit (3),
+.BR io_uring_prep_splice (3),
+.BR copy_file_range (2)

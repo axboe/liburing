@@ -90,6 +90,7 @@ test_srcs := \
 	connect-backlog.c \
 	connect-rep.c \
 	coredump.c \
+	copy-file-range.c \
 	cmd-discard.c \
 	cmd-zone-reset-all.c \
 	cq-full.c \
