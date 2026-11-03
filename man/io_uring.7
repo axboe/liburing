@@ -834,7 +834,7 @@ int read_from_cq() {
 * Submit a read or a write request to the submission queue.
 * */
 
-int submit_to_sq(int fd, int op) {
+int submit_to_sq(int fd, int op, unsigned len) {
     unsigned index, tail;
 
     /* Add our submission queue entry to the tail of the SQE ring buffer */
@@ -847,11 +847,8 @@ int submit_to_sq(int fd, int op) {
     sqe->addr = (unsigned long) buff;
     if (op == IORING_OP_READ) {
         memset(buff, 0, sizeof(buff));
-        sqe->len = BLOCK_SZ;
     }
-    else {
-        sqe->len = strlen(buff);
-    }
+    sqe->len = len;
     sqe->off = offset;
 
     sring_array[index] = index;
@@ -891,19 +888,19 @@ int main(int argc, char *argv[]) {
     */
     while (1) {
         /* Initiate read from stdin and wait for it to complete */
-        submit_to_sq(STDIN_FILENO, IORING_OP_READ);
+        submit_to_sq(STDIN_FILENO, IORING_OP_READ, BLOCK_SZ);
         /* Read completion queue entry */
         res = read_from_cq();
         if (res > 0) {
             /* Read successful. Write to stdout. */
-            submit_to_sq(STDOUT_FILENO, IORING_OP_WRITE);
-            read_from_cq();
+            submit_to_sq(STDOUT_FILENO, IORING_OP_WRITE, res);
+            res = read_from_cq();
         } else if (res == 0) {
             /* reached EOF */
             break;
         }
-        else if (res < 0) {
-            /* Error reading file */
+        if (res < 0) {
+            /* Error */
             fprintf(stderr, "Error: %s\\n", strerror(abs(res)));
             break;
         }
