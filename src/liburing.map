@@ -145,4 +145,8 @@ LIBURING_2.15 {
 		io_uring_register_bpf_filter_task;
 		io_uring_register_zcrx_ctrl;
 		io_uring_register_query;
+    io_uring_clone_files;
+		__io_uring_clone_files;
+		io_uring_clone_files_offset;
+		__io_uring_clone_files_offset;
 } LIBURING_2.14;
