@@ -2,7 +2,7 @@
 .\"
 .\" SPDX-License-Identifier: LGPL-2.0-or-later
 .\"
-.TH io_uring_setup_buf_ring 3 "Mar 07, 2023" "liburing-2.4" "liburing Manual"
+.TH io_uring_setup_buf_ring 3 "Mar 07, 2023" "liburing-2.16" "liburing Manual"
 .SH NAME
 io_uring_setup_buf_ring \- setup and register buffer ring for provided buffers
 .SH SYNOPSIS
@@ -15,6 +15,10 @@ io_uring_setup_buf_ring \- setup and register buffer ring for provided buffers
 .BI "                                                  unsigned int " flags ",
 .BI "                                                  int *" err ");"
 .BI "
+.PP
+.BI "struct io_uring_buf_ring *io_uring_setup_buf_ring_param(struct io_uring *" ring ",
+.BI "                                                        const struct io_uring_buf_reg *" params ",
+.BI "                                                        int *" err ");"
 .fi
 .SH DESCRIPTION
 .PP
@@ -61,9 +65,24 @@ set in the
 member. Available since 6.12.
 .PP
 
-Under the covers, this function uses
+The
+.BR io_uring_setup_buf_ring_param (3)
+function performs the exact same task, but allows more flexibility in
+configuring the buffer ring being created.  A call to
+.B io_uring_setup_buf_ring
+can be replaced by providing
+.IR "params->bgid = bgid" ,
+.IR "params->ring_entries = nentries" " and"
+.IR "params->flags = flags" .
+The benefit of doing so is that fields added later (\fImin_left\fR,
+\fIalign_shift\fR) are also passed through to the kernel; refer to
 .BR io_uring_register_buf_ring (3)
-to register the ring, and handles the allocation of the ring rather than
+for details on these fields.  The value of \fIparams->ring_addr\fR is
+ignored.
+
+Under the covers, these functions use
+.BR io_uring_register_buf_ring (3)
+to register the ring, and handle the allocation of the ring rather than
 letting the application open code it.
 
 To unregister and free a buffer group ID setup with this function, the

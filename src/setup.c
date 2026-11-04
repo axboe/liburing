@@ -675,34 +675,31 @@ __cold ssize_t io_uring_mlock_size(unsigned entries, unsigned flags)
 
 #if defined(__hppa__)
 static struct io_uring_buf_ring *br_setup(struct io_uring *ring,
-					  unsigned int nentries, int bgid,
-					  unsigned int flags, int *err)
+					  struct io_uring_buf_reg *reg,
+					  int *err)
 {
 	struct io_uring_buf_ring *br;
-	struct io_uring_buf_reg reg;
 	size_t ring_size;
 	off_t off;
 	int lret;
 
-	memset(&reg, 0, sizeof(reg));
-	reg.ring_entries = nentries;
-	reg.bgid = bgid;
-	reg.flags = IOU_PBUF_RING_MMAP;
+	reg->ring_addr = 0;
+	reg->flags |= IOU_PBUF_RING_MMAP;
 
 	*err = 0;
-	lret = io_uring_register_buf_ring(ring, &reg, flags);
+	lret = io_uring_register_buf_ring(ring, reg, 0);
 	if (lret) {
 		*err = lret;
 		return NULL;
 	}
 
-	off = IORING_OFF_PBUF_RING | (unsigned long long) bgid << IORING_OFF_PBUF_SHIFT;
-	ring_size = nentries * sizeof(struct io_uring_buf);
+	off = IORING_OFF_PBUF_RING | (unsigned long long) reg->bgid << IORING_OFF_PBUF_SHIFT;
+	ring_size = reg->ring_entries * sizeof(struct io_uring_buf);
 	br = __sys_mmap(NULL, ring_size, PROT_READ | PROT_WRITE,
 			MAP_SHARED | MAP_POPULATE, ring->ring_fd, off);
 	if (IS_ERR(br)) {
 		*err = PTR_ERR(br);
-		io_uring_unregister_buf_ring(ring, bgid);
+		io_uring_unregister_buf_ring(ring, reg->bgid);
 		return NULL;
 	}
 
@@ -710,16 +707,14 @@ static struct io_uring_buf_ring *br_setup(struct io_uring *ring,
 }
 #else
 static struct io_uring_buf_ring *br_setup(struct io_uring *ring,
-					  unsigned int nentries, int bgid,
-					  unsigned int flags, int *err)
+					  struct io_uring_buf_reg *reg,
+					  int *err)
 {
 	struct io_uring_buf_ring *br;
-	struct io_uring_buf_reg reg;
 	size_t ring_size;
 	int lret;
 
-	memset(&reg, 0, sizeof(reg));
-	ring_size = nentries * sizeof(struct io_uring_buf);
+	ring_size = reg->ring_entries * sizeof(struct io_uring_buf);
 	br = __sys_mmap(NULL, ring_size, PROT_READ | PROT_WRITE,
 			MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
 	if (IS_ERR(br)) {
@@ -727,12 +722,10 @@ static struct io_uring_buf_ring *br_setup(struct io_uring *ring,
 		return NULL;
 	}
 
-	reg.ring_addr = (unsigned long) (uintptr_t) br;
-	reg.ring_entries = nentries;
-	reg.bgid = bgid;
+	reg->ring_addr = (unsigned long) (uintptr_t) br;
 
 	*err = 0;
-	lret = io_uring_register_buf_ring(ring, &reg, flags);
+	lret = io_uring_register_buf_ring(ring, reg, 0);
 	if (lret) {
 		__sys_munmap(br, ring_size);
 		*err = lret;
@@ -743,14 +736,34 @@ static struct io_uring_buf_ring *br_setup(struct io_uring *ring,
 }
 #endif
 
+struct io_uring_buf_ring *io_uring_setup_buf_ring_param(struct io_uring *ring,
+							const struct io_uring_buf_reg *params,
+							int *err)
+{
+	struct io_uring_buf_reg reg;
+	struct io_uring_buf_ring *br;
+
+	reg = *params;
+	br = br_setup(ring, &reg, err);
+	if (br)
+		io_uring_buf_ring_init(br);
+
+	return br;
+}
+
 struct io_uring_buf_ring *io_uring_setup_buf_ring(struct io_uring *ring,
 						  unsigned int nentries,
 						  int bgid, unsigned int flags,
 						  int *err)
 {
+	struct io_uring_buf_reg reg = {
+		.ring_entries = nentries,
+		.bgid = bgid,
+		.flags = flags,
+	};
 	struct io_uring_buf_ring *br;
 
-	br = br_setup(ring, nentries, bgid, flags, err);
+	br = br_setup(ring, &reg, err);
 	if (br)
 		io_uring_buf_ring_init(br);
 
