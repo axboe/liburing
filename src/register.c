@@ -465,6 +465,9 @@ int io_uring_resize_rings(struct io_uring *ring, struct io_uring_params *p)
 
 	if (ring->flags & IORING_SETUP_NO_MMAP)
 		return -EINVAL;
+	/* the new rings are mapped through ring_fd, which may be closed */
+	if (ring->ring_fd == -1)
+		return -EBADF;
 
 	memset(&p->sq_off, 0, sizeof(p->sq_off));
 	memset(&p->cq_off, 0, sizeof(p->cq_off));
