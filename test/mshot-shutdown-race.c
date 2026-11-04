@@ -118,7 +118,7 @@ static void sig_alrm(int sig)
 		exit(1);
 	}
 	last_received_bytes = received_bytes;
-	alarm(5);
+	alarm(t_scale_duration(5));
 }
 
 int main(int argc, char *argv[])
@@ -140,7 +140,7 @@ int main(int argc, char *argv[])
 	act.sa_handler = sig_alrm;
 	act.sa_flags = SA_RESTART;
 	sigaction(SIGALRM, &act, NULL);
-	alarm(5);
+	alarm(t_scale_duration(5));
 
 	use_af_inet = !!getenv("TEST_USE_INET");
 
