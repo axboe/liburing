@@ -12,6 +12,8 @@
 #define KERN_MAX_ENTRIES	32768
 #define KERN_MAX_CQ_ENTRIES	(2 * KERN_MAX_ENTRIES)
 
+#define KRING_SIZE		64
+
 static inline int __fls(int x)
 {
 	if (!x)
@@ -189,6 +191,25 @@ static size_t io_uring_sqes_size(const struct io_uring *ring)
 }
 
 /*
+ * Size of the SQ/CQ ring region. sq->ring_sz cannot be used for this: for a
+ * ring set up on application provided memory it doubles as a "we own this
+ * mapping" marker for io_uring_unmap_rings() and is zero there. Derive the
+ * length from the ring state instead, like io_uring_sqes_size() does for the
+ * SQE region.
+ */
+static size_t io_uring_rings_size(const struct io_uring *ring)
+{
+	size_t len = KRING_SIZE;
+
+	len += ((size_t) ring->cq.ring_entries << io_uring_cqe_shift(ring)) *
+		sizeof(struct io_uring_cqe);
+	if (!(ring->flags & IORING_SETUP_NO_SQARRAY))
+		len += (size_t) ring->sq.ring_entries * sizeof(unsigned);
+
+	return len;
+}
+
+/*
  * Ensure that the mmap'ed rings aren't available to a child after a fork(2).
  * This uses madvise(..., MADV_DONTFORK) on the mmap'ed ranges.
  */
@@ -206,12 +227,16 @@ __cold int io_uring_ring_dontfork(struct io_uring *ring)
 		return ret;
 
 	len = ring->sq.ring_sz;
+	if (!len)
+		len = io_uring_rings_size(ring);
 	ret = __sys_madvise(ring->sq.ring_ptr, len, MADV_DONTFORK);
 	if (ret < 0)
 		return ret;
 
 	if (ring->cq.ring_ptr != ring->sq.ring_ptr) {
 		len = ring->cq.ring_sz;
+		if (!len)
+			len = io_uring_rings_size(ring);
 		ret = __sys_madvise(ring->cq.ring_ptr, len, MADV_DONTFORK);
 		if (ret < 0)
 			return ret;
@@ -272,8 +297,6 @@ out:
 	return hps;
 }
 
-
-#define KRING_SIZE	64
 
 /*
  * Returns negative for error, or number of bytes used in the buffer on success
