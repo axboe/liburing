@@ -130,7 +130,11 @@ static int _io_uring_get_cqe(struct io_uring *ring,
 			break;
 		}
 
-		data->submit -= ret;
+		/* SQ_REWIND callers choose whether to requeue a short submit. */
+		if (ring->flags & IORING_SETUP_SQ_REWIND)
+			data->submit = 0;
+		else
+			data->submit -= ret;
 		if (cqe)
 			break;
 		if (!looped) {
