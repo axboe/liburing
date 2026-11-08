@@ -41,6 +41,17 @@ param, if they are readily available. It will not enter the kernel, unless the
 CQ ring is in an overflow condition. Upon successful return,
 .I cqe_ptrs
 are filled with the number of events indicated by the return value.
+.PP
+On a ring setup with
+.B IORING_SETUP_CQE_MIXED ,
+a 16b pad CQE carrying
+.B IORING_CQE_F_SKIP
+may be found while filling in the batch. It is never returned to the
+caller; it is consumed if it is at the CQ ring head, and it otherwise
+terminates the batch early, leaving it for the next call. The return
+value may hence be smaller than both
+.I count
+and the number of completions available.
 
 .SH RETURN VALUE
 On success
