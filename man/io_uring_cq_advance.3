@@ -4,7 +4,7 @@
 .\"
 .TH io_uring_cq_advance 3 "January 25, 2022" "liburing-2.1" "liburing Manual"
 .SH NAME
-io_uring_cq_advance \- mark one or more io_uring completion events as consumed
+io_uring_cq_advance \- mark io_uring completion events as consumed
 .SH SYNOPSIS
 .nf
 .B #include <liburing.h>
@@ -16,11 +16,17 @@ io_uring_cq_advance \- mark one or more io_uring completion events as consumed
 .PP
 The
 .BR io_uring_cq_advance (3)
-function marks
-.I nr
-IO completions belonging to the
+function marks completions belonging to the
 .I ring
-param as consumed.
+param as consumed, advancing the CQ ring head by
+.IR nr .
+.I nr
+must be the sum of
+.BR io_uring_cqe_nr (3)
+over the completions being consumed. For a normal 16-byte CQE that adds
+one per completion. A 32-byte CQE posted on a ring setup with
+.B IORING_SETUP_CQE_MIXED
+adds two, as it occupies two CQ ring entries.
 
 After the caller has submitted a request with
 .BR io_uring_submit (3),
@@ -46,4 +52,5 @@ None
 .BR io_uring_peek_cqe (3),
 .BR io_uring_wait_cqes (3),
 .BR io_uring_wait_cqe_timeout (3),
-.BR io_uring_cqe_seen (3)
+.BR io_uring_cqe_seen (3),
+.BR io_uring_cqe_nr (3)
