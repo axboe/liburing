@@ -38,6 +38,15 @@ events is more efficient than handling each completion separately and
 calling
 .BR io_uring_cqe_seen (3)
 for each of them.
+.PP
+On a ring setup with
+.B IORING_SETUP_CQE_MIXED ,
+the kernel may post a 16b pad CQE with
+.B IORING_CQE_F_SKIP
+set in order to make a following 32b CQE start at a CQ ring offset that
+does not wrap around. Such a CQE does not belong to any request and must
+not be handled as a completion, but it does consume a CQ ring slot and
+hence must still be accounted for when advancing the ring.
 
 .SH EXAMPLE
 .EX
@@ -48,9 +57,11 @@ void handle_cqes(struct io_uring *ring)
 	unsigned nr = 0;
 
 	io_uring_for_each_cqe(ring, head, cqe) {
+		nr += io_uring_cqe_nr(cqe);
+		if (cqe->flags & IORING_CQE_F_SKIP)
+			continue;
 		/* handle completion */
 		printf("cqe: %d\\n", cqe->res);
-		nr += io_uring_cqe_nr(cqe);
 	}
 
 	io_uring_cq_advance(ring, nr);
