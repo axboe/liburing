@@ -281,4 +281,9 @@ LIBURING_2.16 {
 		io_uring_buf_ring_head;
 		io_uring_prep_cmd_zone_reset_all;
 		io_uring_setup_buf_ring_param;
+		io_uring_sqe_shift;
+		io_uring_sqe_shift_from_flags;
+		io_uring_cqe_shift;
+		io_uring_cqe_shift_from_flags;
+		io_uring_load_sq_head;
 } LIBURING_2.15;
