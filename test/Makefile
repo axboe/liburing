@@ -283,6 +283,7 @@ test_srcs := \
 	sqe-mixed-boundary.c \
 	sqe-mixed-nop.c \
 	sqe-mixed-bad-wrap.c \
+	sqe-mixed-sanitize.c \
 	sqe-mixed-uring_cmd.c \
 	sqwait.c \
 	stdout.c \
