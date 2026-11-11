@@ -668,7 +668,13 @@ __cold ssize_t io_uring_mlock_size_params(unsigned entries,
 	 * it's most likely because it's an older kernel and we have no
 	 * available memlock space. Just continue on, lp.features will still
 	 * be zeroed at this point and we'll do the right thing.
+	 *
+	 * Carry over IORING_SETUP_CLAMP, or the probe fails with -EINVAL for
+	 * an 'entries' value above the kernel limit, and a newer kernel is
+	 * then mistaken for an older one. Other flags are left out, as they
+	 * may fail the probe for reasons unrelated to the kernel version.
 	 */
+	lp.flags = p->flags & IORING_SETUP_CLAMP;
 	ret = io_uring_queue_init_params(entries, &ring, &lp);
 	if (!ret)
 		io_uring_queue_exit(&ring);
