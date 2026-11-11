@@ -141,11 +141,12 @@ Some io_uring operations can allocate file descriptors directly into the
 registered file table, avoiding the regular file descriptor table
 entirely. This is done by setting the
 .I file_index
-field in the SQE (using
-.BR io_uring_sqe_set_target_fixed_file (3))
-to the desired slot, or using
+field in the SQE to the desired slot plus one, or to
 .B IORING_FILE_INDEX_ALLOC
-to have io_uring allocate the next available slot.
+to have io_uring allocate the next available slot. The direct variants of
+the prep helpers, such as
+.BR io_uring_prep_openat_direct (3),
+take the slot as an argument and set the field accordingly.
 
 Operations that support direct descriptors include:
 .IP \(bu 2

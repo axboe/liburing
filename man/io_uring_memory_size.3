@@ -1,0 +1,60 @@
+.\" Copyright (C) 2026 Arsenova <7z0423arsenova@proton.me>
+.\"
+.\" SPDX-License-Identifier: LGPL-2.0-or-later
+.\"
+.TH io_uring_memory_size 3 "November 11, 2026" "liburing-2.11" "liburing Manual"
+.SH NAME
+io_uring_memory_size \- return the memory size needed for a ring
+.SH SYNOPSIS
+.nf
+.B #include <liburing.h>
+.PP
+.BI "ssize_t io_uring_memory_size(unsigned " entries ", unsigned " flags ");"
+.fi
+.SH DESCRIPTION
+.PP
+The
+.BR io_uring_memory_size (3)
+function returns the amount of memory, in bytes, needed for the rings of an
+io_uring set up with
+.I entries
+SQ entries and the setup flags given in
+.IR flags .
+This covers the SQ and CQ rings, the SQ index array, and the array of SQEs,
+each rounded up to the page size.
+
+As when setting up a ring,
+.I entries
+is rounded up to the next power of two, and the CQ ring is twice the size of
+the SQ ring. The flags that change the layout of the rings, such as
+.BR IORING_SETUP_SQE128 ,
+.BR IORING_SETUP_CQE32
+and
+.BR IORING_SETUP_NO_SQARRAY ,
+are taken into account. To specify the size of the CQ ring, use
+.BR io_uring_memory_size_params (3)
+instead.
+
+This is useful for applications that provide the memory for the rings
+themselves, see
+.BR io_uring_queue_init_mem (3),
+or that want to know the memory footprint of a ring before setting it up.
+.SH RETURN VALUE
+Returns the needed memory size in bytes on success. On failure, a negative
+errno value is returned:
+.TP
+.B -EINVAL
+.I entries
+is 0, or is larger than the kernel maximum and
+.B IORING_SETUP_CLAMP
+is not set in
+.IR flags ,
+or
+.B IORING_SETUP_CQSIZE
+is set in
+.IR flags .
+.SH SEE ALSO
+.BR io_uring_memory_size_params (3),
+.BR io_uring_mlock_size (3),
+.BR io_uring_queue_init (3),
+.BR io_uring_queue_init_mem (3)
