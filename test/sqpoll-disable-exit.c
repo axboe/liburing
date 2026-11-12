@@ -178,6 +178,7 @@ static void loop(void)
 
 void execute_one(void)
 {
+  void *ring_ptr, *sqes_ptr;
   *(uint32_t*)0x20000044 = 0;
   *(uint32_t*)0x20000048 = 0x42;
   *(uint32_t*)0x2000004c = 0;
@@ -186,7 +187,8 @@ void execute_one(void)
   *(uint32_t*)0x2000005c = 0;
   *(uint32_t*)0x20000060 = 0;
   *(uint32_t*)0x20000064 = 0;
-  syz_io_uring_setup(0x74bc, 0x20000040, 0x20ffb000, 0x20ffc000, 0, 0);
+  syz_io_uring_setup(0x74bc, 0x20000040, 0x20ffb000, 0x20ffc000,
+                     (long)(uintptr_t)&ring_ptr, (long)(uintptr_t)&sqes_ptr);
 }
 int main(void)
 {
