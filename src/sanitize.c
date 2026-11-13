@@ -137,6 +137,14 @@ void liburing_sanitize_ring(struct io_uring *ring)
 		if (sqe->opcode < IORING_OP_LAST)
 			sanitize_handlers[sqe->opcode](sqe);
 		head++;
+		/*
+		 * A 128b SQE in a mixed ring takes two slots, the second
+		 * one is command data and not an SQE of its own.
+		 */
+		if ((ring->flags & IORING_SETUP_SQE_MIXED) &&
+		    (sqe->opcode == IORING_OP_NOP128 ||
+		     sqe->opcode == IORING_OP_URING_CMD128))
+			head++;
 	}
 }
 
