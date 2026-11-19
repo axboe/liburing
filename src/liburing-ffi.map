@@ -274,6 +274,10 @@ LIBURING_2.15 {
 		__io_uring_peek_cqe;
 		io_uring_register_zcrx_ctrl;
 		io_uring_register_query;
+    io_uring_clone_files;
+		__io_uring_clone_files;
+		io_uring_clone_files_offset;
+		__io_uring_clone_files_offset;
 } LIBURING_2.14;
 
 LIBURING_2.16 {
