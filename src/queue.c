@@ -385,10 +385,21 @@ int io_uring_submit_and_wait_reg(struct io_uring *ring,
 				 struct io_uring_cqe **cqe_ptr,
 				 unsigned wait_nr, int reg_index)
 {
-	unsigned long offset = reg_index * sizeof(struct io_uring_reg_wait);
+	unsigned long offset;
 
 	if (!(ring->features & IORING_FEAT_EXT_ARG))
 		return -EINVAL;
+
+	/*
+	 * A negative index sign extends to a huge byte offset into the
+	 * registered wait region. The kernel would reject it, but bail out
+	 * here so clearly invalid input doesn't depend on kernel range
+	 * checking, and no submission state is touched.
+	 */
+	if (reg_index < 0)
+		return -EINVAL;
+
+	offset = (unsigned long) reg_index * sizeof(struct io_uring_reg_wait);
 
 	struct get_data data = {
 		.submit		= __io_uring_flush_sq(ring),
