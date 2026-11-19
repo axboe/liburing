@@ -1,0 +1,63 @@
+.\" Copyright (C) 2026 Arsenova <7z0423arsenova@proton.me>
+.\"
+.\" SPDX-License-Identifier: LGPL-2.0-or-later
+.\"
+.TH io_uring_buf_ring_head 3 "November 11, 2026" "liburing-2.6" "liburing Manual"
+.SH NAME
+io_uring_buf_ring_head \- return the kernel head of a provided buffer ring
+.SH SYNOPSIS
+.nf
+.B #include <liburing.h>
+.PP
+.BI "int io_uring_buf_ring_head(struct io_uring *" ring ",
+.BI "                           int " buf_group ",
+.BI "                           uint16_t *" head ");"
+.fi
+.SH DESCRIPTION
+.PP
+The
+.BR io_uring_buf_ring_head (3)
+function queries the kernel for the current head of the provided buffer ring
+identified by the buffer group ID
+.I buf_group
+in the io_uring
+.IR ring ,
+and stores it in
+.IR head .
+
+The application owns the tail of a provided buffer ring and advances it when
+adding buffers. The kernel owns the head and advances it as buffers are
+consumed, but the head is not part of the memory shared with the application,
+hence the need to ask the kernel for it. The buffers between the head and the
+tail are the ones that the kernel has not consumed yet, see also
+.BR io_uring_buf_ring_available (3).
+
+Available since kernel 6.8.
+.SH NOTES
+The returned head reflects the state of the buffer ring at the time that it
+was queried. If inflight IO exists that may consume provided buffers from this
+buffer group, then the returned value is inherently racy.
+.SH RETURN VALUE
+Returns 0 on success, with
+.I head
+filled in. On failure,
+.I head
+is not modified and a negative errno value is returned:
+.TP
+.B -ENOENT
+The buffer group
+.I buf_group
+does not exist.
+.TP
+.B -EINVAL
+The buffer group was not registered as a provided buffer ring, or the kernel
+does not support this operation.
+.TP
+.B -EFAULT
+The kernel could not copy the status to or from the application.
+.SH SEE ALSO
+.BR io_uring_register_buf_ring (3),
+.BR io_uring_setup_buf_ring (3),
+.BR io_uring_buf_ring_available (3),
+.BR io_uring_buf_ring_advance (3),
+.BR io_uring_register (2)
