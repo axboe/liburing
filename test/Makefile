@@ -107,6 +107,7 @@ test_srcs := \
 	drop-submit.c \
 	eeed8b54e0df.c \
 	empty-eownerdead.c \
+	enter-args.c \
 	eploop.c \
 	epwait.c \
 	eventfd.c \
