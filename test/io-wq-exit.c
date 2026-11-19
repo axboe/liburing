@@ -122,7 +122,7 @@ int main(int argc, char *argv[])
 	end = get_time_ns();
 	end -= start;
 	end /= 1000000;
-	if (end >= 500) {
+	if (end >= t_scale_duration(500)) {
 		fprintf(stderr, "Test took too long: %lu msec\n", end);
 		return T_EXIT_FAIL;
 	}

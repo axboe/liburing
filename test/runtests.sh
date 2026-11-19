@@ -9,6 +9,7 @@ SKIPPED=()
 TIMED_OUT=()
 TEST_FILES=""
 declare -A TEST_MAP
+: "${LIBURING_DURATION_SCALE:=1.0}" #specify >1 on slow platforms to scale upper time bounds
 
 # Only use /dev/kmsg if running as root
 DO_KMSG="1"
