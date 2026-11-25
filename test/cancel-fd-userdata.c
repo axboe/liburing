@@ -53,6 +53,7 @@ static int test_cancel_fd_userdata(struct io_uring *ring, int *fd, int fixed)
 	int ret, i, __fd = fd[0];
 	int target_ud = 2;
 	int canceled = 0;
+	unsigned int cancel_flags;
 
 	if (fixed) {
 		ret = io_uring_register_files(ring, fd, 2);
@@ -89,13 +90,11 @@ static int test_cancel_fd_userdata(struct io_uring *ring, int *fd, int fixed)
 		return T_EXIT_FAIL;
 	}
 
-	io_uring_prep_cancel(sqe, 0, 0);
-	sqe->cancel_flags = IORING_ASYNC_CANCEL_FD |
-			    IORING_ASYNC_CANCEL_USERDATA;
+	cancel_flags = IORING_ASYNC_CANCEL_FD |
+		       IORING_ASYNC_CANCEL_USERDATA;
 	if (fixed)
-		sqe->cancel_flags |= IORING_ASYNC_CANCEL_FD_FIXED;
-	sqe->fd = __fd;
-	sqe->addr = target_ud;
+		cancel_flags |= IORING_ASYNC_CANCEL_FD_FIXED;
+	io_uring_prep_cancel_combined(sqe, target_ud, __fd, 0, cancel_flags);
 	sqe->user_data = 100;
 
 	ret = io_uring_submit(ring);
@@ -234,11 +233,9 @@ static int test_cancel_fd_userdata_two_fds(struct io_uring *ring, int *fd1,
 	 * poll (fd1, ud=1), not the second (fd2, ud=1) or third (fd1, ud=2).
 	 */
 	sqe = io_uring_get_sqe(ring);
-	io_uring_prep_cancel(sqe, 0, 0);
-	sqe->cancel_flags = IORING_ASYNC_CANCEL_FD |
-			    IORING_ASYNC_CANCEL_USERDATA;
-	sqe->fd = fd1[0];
-	sqe->addr = 1;
+	io_uring_prep_cancel_combined(sqe, 1, fd1[0], 0,
+				      IORING_ASYNC_CANCEL_FD |
+				      IORING_ASYNC_CANCEL_USERDATA);
 	sqe->user_data = 100;
 
 	ret = io_uring_submit(ring);
