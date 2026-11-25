@@ -111,6 +111,10 @@ io_uring_prep_cancel_fd(sqe, fd, IORING_ASYNC_CANCEL_FD);
 .RS 4
 Cancel any single request, ignoring
 .I user_data
+,
+.I fd
+, and
+.I opcode
 matching. Useful for draining a ring of all pending requests when
 combined with
 .BR IORING_ASYNC_CANCEL_ALL .
@@ -120,6 +124,17 @@ combined with
 .RS 4
 The file descriptor is a fixed file (registered file index) rather
 than a regular fd.
+.RE
+.PP
+.B IORING_ASYNC_CANCEL_USERDATA
+.RS 4
+Match requests by user data.
+In the absence of other matching criteria flags, this is the fallback.
+.RE
+.PP
+.B IORING_ASYNC_CANCEL_OP
+.RS 4
+Match requests by opcode.
 .RE
 .PP
 Flags can be combined:
