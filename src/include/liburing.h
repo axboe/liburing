@@ -922,6 +922,16 @@ IOURINGINLINE void io_uring_prep_cancel_fd(struct io_uring_sqe *sqe, int fd,
 	sqe->cancel_flags = (__u32) flags | IORING_ASYNC_CANCEL_FD;
 }
 
+IOURINGINLINE void io_uring_prep_cancel_combined(struct io_uring_sqe *sqe,
+						 __u64 user_data, int fd,
+						 int op, unsigned int flags)
+	LIBURING_NOEXCEPT
+{
+	io_uring_prep_rw(IORING_OP_ASYNC_CANCEL, sqe, fd, NULL, op, 0);
+	sqe->addr = user_data;
+	sqe->cancel_flags = (__u32) flags;
+}
+
 IOURINGINLINE void io_uring_prep_link_timeout(struct io_uring_sqe *sqe,
 					      const struct __kernel_timespec *ts,
 					      unsigned flags)
