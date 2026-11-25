@@ -147,6 +147,10 @@ io_uring_prep_cancel_fd(sqe, fd,
 /* Cancel all pending requests in the ring */
 io_uring_prep_cancel(sqe, NULL,
     IORING_ASYNC_CANCEL_ANY | IORING_ASYNC_CANCEL_ALL);
+
+/* Cancel one request with specific user data and opcode */
+io_uring_prep_cancel_combined(sqe, user_data, -1, opcode,
+    IORING_ASYNC_CANCEL_USERDATA | IORING_ASYNC_CANCEL_OP);
 .EE
 .in
 .SS Race conditions
@@ -334,5 +338,6 @@ for cancelation. Completed disk I/O is not.
 .BR io_uring_prep_cancel (3),
 .BR io_uring_prep_cancel64 (3),
 .BR io_uring_prep_cancel_fd (3),
+.BR io_uring_prep_cancel_combined (3),
 .BR io_uring_prep_link_timeout (3),
 .BR io_uring_register_sync_cancel (3)

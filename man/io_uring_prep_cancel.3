@@ -18,8 +18,15 @@ io_uring_prep_cancel \- prepare a cancelation request
 .BI "                          int " flags ");"
 .PP
 .BI "void io_uring_prep_cancel_fd(struct io_uring_sqe *" sqe ","
-.BI "                          int " fd ","
-.BI "                          unsigned int " flags ");"
+.BI "                             int " fd ","
+.BI "                             unsigned int " flags ");"
+.PP
+.BI "void io_uring_prep_cancel_combined(struct io_uring_sqe *" sqe ","
+.BI "                                   __u64 " user_data ","
+.BI "                                   int " fd ","
+.BI "                                   int " op ","
+.BI "                                   unsigned int " flags ");"
+.PP
 .fi
 .SH DESCRIPTION
 .PP
@@ -61,6 +68,19 @@ that used
 .I fd
 as the file descriptor and cancel it.
 
+The
+.BR io_uring_prep_cancel_combined (3)
+function prepares a cancelation request. The submission queue entry
+.I sqe
+is prepared to cancel an existing request whose data fields match those
+specified by the
+.I flags
+argument, see below. If no matching criteria flags are set, matching is done
+solely based on the
+.I user_data
+field.
+
+
 By default, the first request matching all of the criteria given will be canceled.
 This can be modified with any of the following flags passed in:
 .TP
@@ -90,15 +110,12 @@ is the default lookup key, if no other key matching has been specified.
 Available since 6.6.
 .TP
 .B IORING_ASYNC_CANCEL_OP
-Match based on the original request opcode. The opcopde requested
-must be set in the sqe
-.I len
-field after using one of the generic cancel preparation helpers. Available
-since 6.6.
+Match based on the original request opcode. Use in the
+.I flags
+argument of
+.BR io_uring_prep_cancel_combined (3)
+to set up. Available since 6.6.
 .P
-
-No helper functions for setting up cancelation requests with multiple criteria
-currently exist.
 
 .SH RETURN VALUE
 None
