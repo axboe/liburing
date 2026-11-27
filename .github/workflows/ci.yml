@@ -202,17 +202,33 @@ jobs:
         run: |
           git checkout --detach "$COMMIT";
 
-      - name: Install Compilers
+      - name: Install Clang
+        if: matrix.build_args.cc_pkg == 'clang'
         run: |
-          if [[ "${{matrix.build_args.cc_pkg}}" == "clang" ]]; then \
-            wget https://apt.llvm.org/llvm.sh -O /tmp/llvm.sh; \
-            sudo bash /tmp/llvm.sh 23; \
-            sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-23 400; \
-            sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-23 400; \
-          else \
-            sudo apt-get update -y; \
-            sudo apt-get install -y ${{matrix.build_args.cc_pkg}} ${{matrix.build_args.cxx_pkg}}; \
-          fi;
+          set -o pipefail
+          llvm_key=$(mktemp)
+          trap 'rm -f "$llvm_key"' EXIT
+          curl --fail --silent --show-error --location --retry 3 \
+            https://apt.llvm.org/llvm-snapshot.gpg.key --output "$llvm_key"
+          fingerprint=$(gpg --batch --with-colons --show-keys "$llvm_key" |
+            awk -F: '$1 == "pub" { primary = 1 } $1 == "fpr" && primary { print $10; primary = 0 }')
+          if [[ "$fingerprint" != 6084F3CF814B57C1CF12EFD515CF4D18AF4F7421 ]]; then
+            echo "Unexpected LLVM APT signing key fingerprint" >&2
+            exit 1
+          fi
+          sudo install -m 0644 "$llvm_key" /usr/share/keyrings/apt.llvm.org.asc
+          echo 'deb [signed-by=/usr/share/keyrings/apt.llvm.org.asc] https://apt.llvm.org/noble/ llvm-toolchain-noble-23 main' |
+            sudo tee /etc/apt/sources.list.d/llvm.list >/dev/null
+          sudo apt-get update -y
+          sudo apt-get install -y clang-23 libclang-rt-23-dev
+          sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-23 400
+          sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-23 400
+
+      - name: Install GCC cross compilers
+        if: matrix.build_args.cc_pkg != 'clang'
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y ${{matrix.build_args.cc_pkg}} ${{matrix.build_args.cxx_pkg}}
 
       - name: Display compiler versions
         run: |
